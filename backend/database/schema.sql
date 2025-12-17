@@ -114,3 +114,20 @@ CREATE TABLE IF NOT EXISTS consolidated_financial_statements (
 );
 
 CREATE INDEX IF NOT EXISTS idx_consolidated_annee ON consolidated_financial_statements(annee);
+
+-- File imports table - Track imported CSV files to prevent duplicate processing
+CREATE TABLE IF NOT EXISTS file_imports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename VARCHAR(255) NOT NULL UNIQUE,
+    imported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported_count INTEGER DEFAULT 0,
+    duplicates_count INTEGER DEFAULT 0,
+    errors_count INTEGER DEFAULT 0,
+    period_start DATE,
+    period_end DATE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_file_imports_filename ON file_imports(filename);
+CREATE INDEX IF NOT EXISTS idx_file_imports_imported_at ON file_imports(imported_at);

@@ -142,64 +142,74 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ## Phase 2 : Fonctionnalité 1 - Chargement et visualisation des transactions
 
 ### Step 2.1.1 : Nettoyage BDD et création table file_imports
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Nettoyer les transactions de test et créer la table pour tracker les fichiers déjà chargés (archive).
 
 **Tasks**:
-- [ ] Créer modèle FileImport dans models.py
-- [ ] Mettre à jour schema.sql avec table file_imports
-- [ ] Créer script de nettoyage des transactions de test
-- [ ] **Créer test pour vérifier BDD propre**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer modèle FileImport dans models.py
+- [x] Mettre à jour schema.sql avec table file_imports
+- [x] Créer script de nettoyage des transactions de test
+- [x] **Créer test pour vérifier BDD propre**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle FileImport ajouté
 - `backend/database/schema.sql` - Table file_imports ajoutée
 - `backend/scripts/cleanup_test_data.py` - Script de nettoyage
+- `backend/tests/test_cleanup_and_file_imports.py` - Tests de vérification
 
 **Tests**:
-- [ ] Test création table file_imports
-- [ ] Test nettoyage transactions de test
-- [ ] Test vérification BDD vide (0 transactions)
+- [x] Test création table file_imports
+- [x] Test nettoyage transactions de test
+- [x] Test vérification BDD vide (0 transactions)
 
 **Acceptance Criteria**:
-- [ ] Table file_imports créée avec colonnes : id, filename (unique), imported_at, imported_count, duplicates_count, errors_count, period_start, period_end
-- [ ] Transactions de test supprimées de la BDD
-- [ ] BDD contient 0 transactions
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que la BDD est propre**
+- [x] Table file_imports créée avec colonnes : id, filename (unique), imported_at, imported_count, duplicates_count, errors_count, period_start, period_end
+- [x] Transactions de test supprimées de la BDD (6 transactions supprimées)
+- [x] BDD contient 0 transactions
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que la BDD est propre**
 
 ---
 
-### Step 2.1.2 : Frontend - Bouton "Load Trades" et sélection fichier
-**Status**: ⏳ EN ATTENTE  
-**Description**: Créer le bouton "Load Trades" dans l'onglet Transactions pour sélectionner un fichier CSV.
+### Step 2.1.2 : Frontend - Sous-onglets Transactions et "Load Trades"
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer la structure avec sous-onglets dans l'onglet Transactions, avec un onglet dédié "Load Trades" pour l'upload de fichiers CSV.
 
 **Tasks**:
-- [ ] Créer composant FileUpload.tsx
-  - [ ] Input file pour sélectionner CSV
-  - [ ] Bouton "Load Trades"
-  - [ ] Affichage nom fichier sélectionné
-  - [ ] Gestion état fichier sélectionné
-- [ ] Intégrer dans page transactions
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer composant FileUpload.tsx
+  - [x] Input file pour sélectionner CSV
+  - [x] Bouton "Load Trades"
+  - [x] Affichage nom fichier sélectionné
+  - [x] Gestion état fichier sélectionné
+- [x] Ajouter "Load Trades" dans Navigation.tsx (sous-onglets existants)
+- [x] Intégrer FileUpload dans sous-onglet "Load Trades"
+- [x] Page transactions utilise query params pour afficher contenu selon onglet
+- [x] **Test visuel dans navigateur effectué**
+- [x] **Validé par l'utilisateur**
 
 **Deliverables**:
 - `frontend/src/components/FileUpload.tsx` - Composant upload (sélection fichier uniquement)
-- `frontend/app/dashboard/transactions/page.tsx` - Page transactions avec bouton
+- `frontend/app/dashboard/transactions/page.tsx` - Page transactions avec gestion query params
+- `frontend/src/components/Navigation.tsx` - Sous-onglets mis à jour avec "Load Trades"
 - `frontend/src/api/client.ts` - Préparé pour futures fonctions API
 
 **Tests**:
-- [ ] Test affichage bouton "Load Trades" dans onglet Transactions
-- [ ] Test sélection fichier CSV
-- [ ] Test affichage nom fichier sélectionné
+- [x] Test affichage 4 sous-onglets horizontaux (dans Navigation.tsx)
+- [x] Test navigation entre sous-onglets
+- [x] Test affichage bouton "Load Trades" dans sous-onglet "Load Trades"
+- [x] Test sélection fichier CSV
+- [x] Test affichage nom fichier sélectionné
 
 **Acceptance Criteria**:
-- [ ] Bouton "Load Trades" visible dans onglet Transactions
-- [ ] Sélection fichier fonctionne
-- [ ] Nom fichier sélectionné affiché
-- [ ] **Utilisateur confirme que le bouton fonctionne** (test visuel navigateur)
+- [x] 4 sous-onglets visibles : "Toutes les transactions", "Non classées", "À valider", "Load Trades"
+- [x] Navigation entre sous-onglets fonctionne
+- [x] Bouton "Load Trades" visible uniquement dans sous-onglet "Load Trades"
+- [x] Sélection fichier fonctionne
+- [x] Nom fichier sélectionné affiché
+- [x] **Utilisateur confirme que la structure fonctionne** (test visuel navigateur)
+
+**Note**: Les onglets "Toutes les transactions", "Non classées" et "À valider" seront implémentés plus tard (après enrichissement).
 
 ---
 

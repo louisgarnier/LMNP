@@ -7,29 +7,44 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 const tabs = [
   { name: 'Toutes les transactions', href: '/dashboard/transactions' },
-  { name: 'Non classées', href: '/dashboard/transactions?filter=unexplained' },
-  { name: 'À valider', href: '/dashboard/transactions?filter=approval' },
+  { name: 'Non classées', href: '/dashboard/transactions?filter=unclassified' },
+  { name: 'À valider', href: '/dashboard/transactions?filter=to_validate' },
+  { name: 'Load Trades', href: '/dashboard/transactions?tab=load_trades' },
 ];
 
 export default function Navigation() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const isTransactionsPage = pathname?.startsWith('/dashboard/transactions');
 
   if (!isTransactionsPage) {
     return null;
   }
 
+  const filter = searchParams?.get('filter');
+  const tabParam = searchParams?.get('tab');
+
   return (
     <nav style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb' }}>
       <div style={{ padding: '0 24px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
           {tabs.map((tab) => {
-            const isActive = pathname === tab.href || 
-              (tab.href === '/dashboard/transactions' && pathname === '/dashboard/transactions' && !pathname.includes('filter'));
+            // Déterminer si l'onglet est actif
+            let isActive = false;
+            if (tab.href === '/dashboard/transactions' && !filter && !tabParam) {
+              isActive = true; // "Toutes les transactions" par défaut
+            } else if (tab.href.includes('filter=unclassified') && filter === 'unclassified') {
+              isActive = true;
+            } else if (tab.href.includes('filter=to_validate') && filter === 'to_validate') {
+              isActive = true;
+            } else if (tab.href.includes('tab=load_trades') && tabParam === 'load_trades') {
+              isActive = true;
+            }
+            
             return (
               <Link
                 key={tab.href}
@@ -38,9 +53,10 @@ export default function Navigation() {
                   padding: '12px 16px',
                   fontSize: '14px',
                   fontWeight: '500',
-                  color: isActive ? '#111827' : '#6b7280',
-                  borderBottom: isActive ? '2px solid #2563eb' : '2px solid transparent',
+                  color: isActive ? '#1e3a5f' : '#6b7280',
+                  borderBottom: isActive ? '2px solid #1e3a5f' : '2px solid transparent',
                   textDecoration: 'none',
+                  transition: 'all 0.2s',
                 }}
               >
                 {tab.name}
