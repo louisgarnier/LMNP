@@ -139,83 +139,282 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-## Phase 2 : Fonctionnalité 1 - Agrégation des transactions
+## Phase 2 : Fonctionnalité 1 - Chargement et visualisation des transactions
 
-### Step 2.1 : Service d'agrégation backend
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Migrer la logique de `1_aggregate_trades.py` en service backend.
+### Step 2.1.1 : Nettoyage BDD et création table file_imports
+**Status**: ⏳ EN ATTENTE  
+**Description**: Nettoyer les transactions de test et créer la table pour tracker les fichiers déjà chargés (archive).
 
 **Tasks**:
-- [ ] Créer aggregation_service.py
-- [ ] Implémenter détection encodage/séparateur
-- [ ] Implémenter normalisation colonnes/dates
-- [ ] Implémenter détection doublons
-- [ ] Créer endpoint POST /api/transactions/upload
-- [ ] **Créer test complet avec fichiers CSV réels**
+- [ ] Créer modèle FileImport dans models.py
+- [ ] Mettre à jour schema.sql avec table file_imports
+- [ ] Créer script de nettoyage des transactions de test
+- [ ] **Créer test pour vérifier BDD propre**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `backend/api/services/aggregation_service.py` - Service d'agrégation
-- `backend/api/routes/transactions.py` - Endpoint upload
-- `backend/tests/test_aggregation.py` - Tests agrégation
+- `backend/database/models.py` - Modèle FileImport ajouté
+- `backend/database/schema.sql` - Table file_imports ajoutée
+- `backend/scripts/cleanup_test_data.py` - Script de nettoyage
 
 **Tests**:
-- [ ] Test upload CSV simple
-- [ ] Test upload CSV multiple
-- [ ] Test détection encodage (UTF-8, Latin-1, ISO-8859-1, CP1252)
-- [ ] Test détection séparateur (; , \t)
-- [ ] Test normalisation dates
-- [ ] Test normalisation montants
-- [ ] Test détection doublons
-- [ ] Test gestion erreurs format
+- [ ] Test création table file_imports
+- [ ] Test nettoyage transactions de test
+- [ ] Test vérification BDD vide (0 transactions)
 
 **Acceptance Criteria**:
-- [ ] Upload CSV fonctionne via API
-- [ ] Détection encodage/séparateur automatique
-- [ ] Doublons détectés et gérés
-- [ ] Transactions stockées en DB
+- [ ] Table file_imports créée avec colonnes : id, filename (unique), imported_at, imported_count, duplicates_count, errors_count, period_start, period_end
+- [ ] Transactions de test supprimées de la BDD
+- [ ] BDD contient 0 transactions
 - [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que l'agrégation fonctionne**
-
-**Impact Frontend**: 
-- [ ] Créer composant FileUpload
-- [ ] Afficher prévisualisation fichiers
-- [ ] Afficher résultats upload (nombre transactions, erreurs)
-- [ ] Tester upload depuis navigateur
+- [ ] **Utilisateur confirme que la BDD est propre**
 
 ---
 
-### Step 2.2 : Interface upload et visualisation transactions
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Créer l'interface frontend pour upload CSV et visualiser les transactions.
+### Step 2.1.2 : Frontend - Bouton "Load Trades" et sélection fichier
+**Status**: ⏳ EN ATTENTE  
+**Description**: Créer le bouton "Load Trades" dans l'onglet Transactions pour sélectionner un fichier CSV.
 
 **Tasks**:
-- [ ] Créer composant FileUpload
-- [ ] Créer composant TransactionsTable
-- [ ] Créer page onglet transactions
-- [ ] Implémenter filtrage et recherche
+- [ ] Créer composant FileUpload.tsx
+  - [ ] Input file pour sélectionner CSV
+  - [ ] Bouton "Load Trades"
+  - [ ] Affichage nom fichier sélectionné
+  - [ ] Gestion état fichier sélectionné
+- [ ] Intégrer dans page transactions
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `frontend/app/dashboard/transactions/page.tsx` - Page transactions
-- `frontend/src/components/FileUpload.tsx` - Composant upload
-- `frontend/src/components/TransactionsTable.tsx` - Tableau transactions
+- `frontend/src/components/FileUpload.tsx` - Composant upload (sélection fichier uniquement)
+- `frontend/app/dashboard/transactions/page.tsx` - Page transactions avec bouton
+- `frontend/src/api/client.ts` - Préparé pour futures fonctions API
 
 **Tests**:
-- [ ] Test upload fichier depuis interface
-- [ ] Test affichage transactions dans tableau
-- [ ] Test filtrage par date
-- [ ] Test recherche par nom
-- [ ] Test tri par colonnes
-- [ ] Test pagination (si nécessaire)
+- [ ] Test affichage bouton "Load Trades" dans onglet Transactions
+- [ ] Test sélection fichier CSV
+- [ ] Test affichage nom fichier sélectionné
 
 **Acceptance Criteria**:
-- [ ] Upload de fichiers fonctionne via interface
-- [ ] Prévisualisation des fichiers avant traitement
+- [ ] Bouton "Load Trades" visible dans onglet Transactions
+- [ ] Sélection fichier fonctionne
+- [ ] Nom fichier sélectionné affiché
+- [ ] **Utilisateur confirme que le bouton fonctionne** (test visuel navigateur)
+
+---
+
+### Step 2.1.3 : Backend - Détection colonnes et validation CSV
+**Status**: ⏳ EN ATTENTE  
+**Description**: Créer les fonctions backend pour lire CSV, détecter colonnes, valider données.
+
+**Tasks**:
+- [ ] Créer csv_utils.py avec fonctions :
+  - [ ] read_csv_safely() - Détection encodage/séparateur (UTF-8, Latin-1, ISO-8859-1, CP1252)
+  - [ ] detect_column_mapping() - Détection intelligente mapping colonnes fichier → BDD
+  - [ ] validate_transactions() - Validation dates (DD/MM/YYYY), montants numériques, noms
+  - [ ] preview_transactions() - Retourner premières lignes pour aperçu
+- [ ] **Créer test unitaire pour chaque fonction**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/utils/csv_utils.py` - Utilitaires CSV
+- `backend/tests/test_csv_utils.py` - Tests unitaires
+
+**Tests**:
+- [ ] Test détection encodage (UTF-8, Latin-1, ISO-8859-1, CP1252)
+- [ ] Test détection séparateur (; , \t)
+- [ ] Test détection mapping colonnes (Date→date, amount→quantite, name→nom, Solde→solde)
+- [ ] Test validation dates DD/MM/YYYY
+- [ ] Test validation montants numériques
+- [ ] Test preview premières lignes
+
+**Acceptance Criteria**:
+- [ ] Détection encodage/séparateur automatique fonctionne
+- [ ] Détection mapping colonnes intelligente fonctionne
+- [ ] Validation des données fonctionne
+- [ ] Preview retourne premières lignes correctement
+- [ ] Test script exécutable et tous les tests passent
+- [ ] **Utilisateur confirme que les utilitaires fonctionnent**
+
+---
+
+### Step 2.1.4 : Backend - Endpoints API preview et import
+**Status**: ⏳ EN ATTENTE  
+**Description**: Créer endpoints API pour preview (analyse fichier) et import (chargement BDD).
+
+**Tasks**:
+- [ ] Créer endpoint POST /api/transactions/preview
+  - [ ] Recevoir fichier uploadé
+  - [ ] Lire CSV avec csv_utils
+  - [ ] Détecter mapping colonnes (intelligent)
+  - [ ] Valider données
+  - [ ] Retourner preview (premières lignes) + mapping proposé + stats
+- [ ] Créer endpoint POST /api/transactions/import
+  - [ ] Recevoir fichier + mapping confirmé par utilisateur
+  - [ ] Vérifier si fichier déjà chargé (table file_imports)
+  - [ ] Sauvegarder fichier dans backend/data/input/trades/ (archive)
+  - [ ] Détecter doublons (Date + Quantité + nom) dans BDD existante
+  - [ ] Insérer transactions (sans doublons)
+  - [ ] Enregistrer dans file_imports avec statistiques
+  - [ ] Retourner réponse avec stats (imported, duplicates, errors, period) + liste doublons
+- [ ] Créer endpoint GET /api/transactions/imports
+  - [ ] Lister historique des imports (file_imports)
+- [ ] **Créer test API complet**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/routes/transactions.py` - Endpoints preview et import ajoutés
+- `backend/api/models.py` - Modèles Pydantic (FilePreviewResponse, FileImportResponse, ColumnMapping)
+- `backend/tests/test_api_upload.py` - Tests API upload
+
+**Tests**:
+- [ ] Test POST /api/transactions/preview avec fichier CSV
+- [ ] Test détection mapping colonnes automatique
+- [ ] Test validation données
+- [ ] Test POST /api/transactions/import avec mapping confirmé
+- [ ] Test vérification fichier déjà chargé (ne pas re-processer)
+- [ ] Test sauvegarde fichier dans data/input/trades/
+- [ ] Test détection doublons (Date + Quantité + nom)
+- [ ] Test insertion en BDD sans doublons
+- [ ] Test enregistrement dans file_imports
+- [ ] Test réponse API avec statistiques + liste doublons
+- [ ] Test GET /api/transactions/imports (historique)
+
+**Acceptance Criteria**:
+- [ ] Preview fonctionne et retourne mapping proposé + premières lignes
+- [ ] Import fonctionne avec mapping confirmé
+- [ ] Fichier sauvegardé dans data/input/trades/ (archive)
+- [ ] Fichier déjà chargé détecté et non re-processé
+- [ ] Doublons détectés même si transaction existe dans autre fichier
+- [ ] Liste des doublons retournée dans la réponse
+- [ ] Statistiques retournées correctement (imported, duplicates, errors, period)
+- [ ] Test script exécutable et tous les tests passent
+- [ ] **Utilisateur confirme que les endpoints fonctionnent** (test via Swagger/Postman)
+
+---
+
+### Step 2.1.5 : Frontend - Popup mapping et aperçu
+**Status**: ⏳ EN ATTENTE  
+**Description**: Créer le popup de mapping des colonnes avec aperçu des données avant import.
+
+**Tasks**:
+- [ ] Mettre à jour FileUpload.tsx
+  - [ ] Après sélection fichier, appeler POST /api/transactions/preview
+  - [ ] Ouvrir popup ColumnMappingModal avec résultats preview
+- [ ] Créer composant ColumnMappingModal.tsx
+  - [ ] Afficher mapping proposé (colonnes fichier → colonnes BDD)
+  - [ ] Permettre modification du mapping (dropdowns)
+  - [ ] Afficher aperçu premières lignes (tableau)
+  - [ ] Bouton "Confirmer" pour lancer l'import
+- [ ] Intégrer dans page transactions
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/FileUpload.tsx` - Mise à jour avec appel preview
+- `frontend/src/components/ColumnMappingModal.tsx` - Popup mapping
+- `frontend/src/api/client.ts` - Fonctions previewFile, importFile ajoutées
+
+**Tests**:
+- [ ] Test sélection fichier CSV déclenche preview
+- [ ] Test appel preview API
+- [ ] Test affichage popup mapping après preview
+- [ ] Test modification mapping (dropdowns)
+- [ ] Test affichage aperçu premières lignes
+- [ ] Test confirmation import
+
+**Acceptance Criteria**:
+- [ ] Après sélection fichier, preview automatique
+- [ ] Popup mapping s'affiche avec résultats preview
+- [ ] Mapping proposé automatiquement (modifiable)
+- [ ] Aperçu premières lignes affiché correctement
+- [ ] Modification mapping fonctionne
+- [ ] **Utilisateur confirme que le popup mapping fonctionne** (test avec fichier réel)
+
+---
+
+### Step 2.1.6 : Frontend - Import et affichage résultats
+**Status**: ⏳ EN ATTENTE  
+**Description**: Gérer l'import final, afficher résultats et liste des doublons.
+
+**Tasks**:
+- [ ] Dans ColumnMappingModal, après confirmation :
+  - [ ] Appeler POST /api/transactions/import avec mapping
+  - [ ] Afficher loading pendant import
+  - [ ] Afficher résultats (statistiques : imported, duplicates, errors)
+  - [ ] Afficher liste des doublons détectés (si présents)
+  - [ ] Afficher message d'erreur si fichier déjà chargé
+- [ ] Recharger automatiquement liste transactions après import réussi
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/ColumnMappingModal.tsx` - Gestion import et résultats
+- `frontend/src/components/DuplicatesList.tsx` - Affichage liste doublons (optionnel)
+
+**Tests**:
+- [ ] Test appel import API avec mapping
+- [ ] Test affichage loading pendant import
+- [ ] Test affichage résultats (imported, duplicates, errors)
+- [ ] Test affichage liste doublons
+- [ ] Test message erreur si fichier déjà chargé
+- [ ] Test rechargement automatique liste transactions après import
+
+**Acceptance Criteria**:
+- [ ] Import fonctionne depuis interface
+- [ ] Résultats affichés correctement (statistiques)
+- [ ] Liste des doublons affichée si présents
+- [ ] Message d'erreur si fichier déjà chargé
+- [ ] Liste transactions rechargée automatiquement après import réussi
+- [ ] **Utilisateur confirme que l'import fonctionne** (test avec fichier réel)
+
+---
+
+### Step 2.1.6 : Frontend - Visualisation transactions et suppression
+**Status**: ⏳ EN ATTENTE  
+**Description**: Afficher les transactions dans un tableau avec possibilité de supprimer (pour gérer doublons).
+
+**Tasks**:
+- [ ] Créer composant TransactionsTable.tsx
+  - [ ] Tableau avec colonnes : Date, Quantité, Nom, Solde
+  - [ ] Format date DD/MM/YYYY pour affichage
+  - [ ] Format montants avec 2 décimales
+  - [ ] Tri par colonnes
+  - [ ] Pagination
+  - [ ] Bouton "Supprimer" pour chaque transaction
+- [ ] Intégrer dans page transactions
+- [ ] Appeler API GET /api/transactions
+- [ ] Appeler API DELETE /api/transactions/{id} pour suppression
+- [ ] Implémenter filtrage par date (optionnel)
+- [ ] Implémenter recherche par nom (optionnel)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/TransactionsTable.tsx` - Tableau transactions avec suppression
+- `frontend/app/dashboard/transactions/page.tsx` - Page complète avec tableau
+- `frontend/src/api/client.ts` - Fonction removeTransaction ajoutée (si pas déjà)
+
+**Tests**:
+- [ ] Test affichage transactions dans tableau
+- [ ] Test format date DD/MM/YYYY
+- [ ] Test format montants
+- [ ] Test tri par colonnes
+- [ ] Test pagination
+- [ ] Test suppression transaction
+- [ ] Test rechargement après suppression
+- [ ] Test filtrage par date (si implémenté)
+- [ ] Test recherche par nom (si implémenté)
+
+**Acceptance Criteria**:
 - [ ] Tableau des transactions s'affiche avec toutes les colonnes
-- [ ] Filtrage et recherche fonctionnels
-- [ ] **Utilisateur confirme que l'interface fonctionne**
+- [ ] Dates affichées en format DD/MM/YYYY
+- [ ] Montants formatés correctement
+- [ ] Tri par colonnes fonctionnel
+- [ ] Pagination fonctionnelle
+- [ ] Bouton suppression fonctionne pour chaque transaction
+- [ ] Transactions chargées depuis BDD s'affichent correctement
+- [ ] **Utilisateur confirme que la visualisation et suppression fonctionnent** (test avec données réelles)
 
 **Impact Frontend**: 
 - ✅ Onglet Transactions fonctionnel
