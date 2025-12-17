@@ -1,68 +1,58 @@
 """
-Database connection and initialization.
+Database connection and initialization using SQLAlchemy.
 
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 Always check with the user before modifying this file.
 """
 
-import sqlite3
 from pathlib import Path
-from typing import Optional
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker, Session
+from typing import Generator
+
+from .models import Base
 
 # Database path
 DB_DIR = Path(__file__).parent
-DB_FILE = DB_DIR / "app.db"
+DB_FILE = DB_DIR / "lmnp.db"
+
+# Database URL
+DATABASE_URL = f"sqlite:///{DB_FILE}"
+
+# Create engine
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False},  # Needed for SQLite
+    echo=False  # Set to True for SQL query logging
+)
+
+# Session factory
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def get_db_connection():
+def get_db() -> Generator[Session, None, None]:
     """
-    Get a database connection.
+    Dependency for getting database session.
     
-    Returns:
-        sqlite3.Connection: Database connection
+    Yields:
+        Session: Database session
     """
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
-    return conn
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 def init_database():
     """
     Initialize the database.
-    Creates the database file and tables if they don't exist.
+    Creates the database file and all tables if they don't exist.
     """
     # Ensure database directory exists
     DB_DIR.mkdir(parents=True, exist_ok=True)
     
-    # Read and execute schema
-    schema_file = DB_DIR / "schema.sql"
-    if schema_file.exists():
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        with open(schema_file, 'r') as f:
-            schema = f.read()
-            cursor.executescript(schema)
-        
-        conn.commit()
-        conn.close()
-    else:
-        # Create a basic example table if schema.sql doesn't exist
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Example table - customize for your needs
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS examples (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        conn.commit()
-        conn.close()
+    # Create all tables
+    Base.metadata.create_all(bind=engine)
 
 

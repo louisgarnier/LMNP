@@ -44,6 +44,41 @@ async function fetchAPI<T>(
   }
 }
 
+// Types
+export interface Transaction {
+  id: number;
+  date: string;
+  quantite: number;
+  nom: string;
+  solde: number;
+  source_file?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TransactionCreate {
+  date: string;
+  quantite: number;
+  nom: string;
+  solde: number;
+  source_file?: string;
+}
+
+export interface TransactionUpdate {
+  date?: string;
+  quantite?: number;
+  nom?: string;
+  solde?: number;
+  source_file?: string;
+}
+
+export interface TransactionListResponse {
+  transactions: Transaction[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
 /**
  * Health check API
  */
@@ -53,12 +88,49 @@ export const healthAPI = {
   },
 };
 
-// Add more API functions as you develop endpoints
-// Example:
-// export const exampleAPI = {
-//   getAll: async (): Promise<Example[]> => {
-//     return fetchAPI<Example[]>('/api/examples');
-//   },
-// };
+/**
+ * Transactions API
+ */
+export const transactionsAPI = {
+  getAll: async (
+    skip: number = 0,
+    limit: number = 100,
+    startDate?: string,
+    endDate?: string
+  ): Promise<TransactionListResponse> => {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    return fetchAPI<TransactionListResponse>(`/api/transactions?${params}`);
+  },
+
+  getById: async (id: number): Promise<Transaction> => {
+    return fetchAPI<Transaction>(`/api/transactions/${id}`);
+  },
+
+  create: async (data: TransactionCreate): Promise<Transaction> => {
+    return fetchAPI<Transaction>('/api/transactions', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (id: number, data: TransactionUpdate): Promise<Transaction> => {
+    return fetchAPI<Transaction>(`/api/transactions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/transactions/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
 
 

@@ -9,8 +9,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Template Project',
-  description: 'Template Next.js application',
+  title: 'LMNP - Gestion Comptable',
+  description: 'Application de gestion comptable pour Location Meublée Non Professionnelle',
 };
 
 export default function RootLayout({
@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="fr" suppressHydrationWarning>
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

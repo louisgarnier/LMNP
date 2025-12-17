@@ -16,27 +16,27 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.database.connection import init_database
 
-# Import routes (create these as needed)
-# from backend.api.routes import example
+# Import routes
+from backend.api.routes import transactions
 
 # Create FastAPI app
 app = FastAPI(
-    title="API Template",
-    description="Template FastAPI application",
+    title="LMNP API",
+    description="API pour la gestion comptable LMNP (Location Meublée Non Professionnelle)",
     version="1.0.0"
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify actual frontend URL
+    allow_origins=["*"],  # In production, specify actual frontend URL (e.g., "http://localhost:3000")
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include routers (uncomment when routes are created)
-# app.include_router(example.router, prefix="/api", tags=["example"])
+# Include routers
+app.include_router(transactions.router, prefix="/api", tags=["transactions"])
 
 
 @app.on_event("startup")
