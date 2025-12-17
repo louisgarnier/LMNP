@@ -85,3 +85,4 @@ echo "5. Start frontend: cd frontend && npm run dev"
 echo ""
 echo "⚠️  Remember: Always check docs/workflow/BEST_PRACTICES.md before making changes!"
 
+

@@ -16,3 +16,4 @@ CREATE INDEX IF NOT EXISTS idx_examples_created_at ON examples(created_at);
 
 -- Add more tables as needed for your project
 
+
