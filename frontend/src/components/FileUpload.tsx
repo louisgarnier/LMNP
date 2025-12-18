@@ -7,16 +7,22 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import { fileUploadAPI, FilePreviewResponse } from '@/api/client';
+import ColumnMappingModal from './ColumnMappingModal';
 
 interface FileUploadProps {
   onFileSelect?: (file: File) => void;
+  onImportComplete?: () => void;
 }
 
-export default function FileUpload({ onFileSelect }: FileUploadProps) {
+export default function FileUpload({ onFileSelect, onImportComplete }: FileUploadProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewData, setPreviewData] = useState<FilePreviewResponse | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // Vérifier que c'est un fichier CSV
@@ -25,9 +31,49 @@ export default function FileUpload({ onFileSelect }: FileUploadProps) {
         return;
       }
       setSelectedFile(file);
+      
       if (onFileSelect) {
         onFileSelect(file);
       }
+      
+      // Appeler preview automatiquement
+      setIsLoadingPreview(true);
+      try {
+        const preview = await fileUploadAPI.preview(file);
+        setPreviewData(preview);
+        setShowModal(true);
+      } catch (error) {
+        console.error('Erreur lors du preview:', error);
+        alert(`Erreur lors de l'analyse du fichier: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+      } finally {
+        setIsLoadingPreview(false);
+      }
+    }
+  };
+  
+  const [isImporting, setIsImporting] = useState(false);
+
+  const handleConfirmImport = async (mapping: any[]) => {
+    if (!selectedFile) return;
+    
+    setIsImporting(true);
+    try {
+      const result = await fileUploadAPI.import(selectedFile, mapping);
+      setShowModal(false);
+      setSelectedFile(null);
+      setPreviewData(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      if (onImportComplete) {
+        onImportComplete();
+      }
+      alert(`Import terminé: ${result.imported_count} transactions importées, ${result.duplicates_count} doublons détectés`);
+    } catch (error) {
+      console.error('Erreur lors de l\'import:', error);
+      alert(`Erreur lors de l'import: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -111,6 +157,52 @@ export default function FileUpload({ onFileSelect }: FileUploadProps) {
         }}>
           <div><strong>Taille:</strong> {(selectedFile.size / 1024).toFixed(2)} KB</div>
           <div><strong>Type:</strong> {selectedFile.type || 'text/csv'}</div>
+          {isLoadingPreview && (
+            <div style={{ marginTop: '8px', color: '#1e3a5f' }}>⏳ Analyse du fichier en cours...</div>
+          )}
+        </div>
+      )}
+
+      {showModal && selectedFile && previewData && !isImporting && (
+        <ColumnMappingModal
+          file={selectedFile}
+          previewData={previewData}
+          onConfirm={handleConfirmImport}
+          onClose={() => {
+            if (!isImporting) {
+              setShowModal(false);
+              setSelectedFile(null);
+              setPreviewData(null);
+              if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+              }
+            }
+          }}
+        />
+      )}
+
+      {isImporting && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1001,
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            padding: '24px',
+            borderRadius: '8px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '16px', marginBottom: '12px' }}>⏳ Import en cours...</div>
+            <div style={{ fontSize: '14px', color: '#666' }}>Veuillez patienter</div>
+          </div>
         </div>
       )}
     </div>

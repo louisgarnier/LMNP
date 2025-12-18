@@ -60,3 +60,64 @@ class HealthResponse(BaseModel):
     status: str
     message: Optional[str] = None
     database: Optional[str] = None
+
+
+# File upload models
+
+class ColumnMapping(BaseModel):
+    """Model for column mapping (file column → database column)."""
+    file_column: str = Field(..., description="Nom de la colonne dans le fichier")
+    db_column: str = Field(..., description="Nom de la colonne en BDD (date, quantite, nom)")
+
+
+class FilePreviewResponse(BaseModel):
+    """Model for file preview response."""
+    filename: str
+    encoding: str
+    separator: str
+    total_rows: int
+    column_mapping: List[ColumnMapping] = Field(..., description="Mapping proposé des colonnes")
+    preview: List[dict] = Field(..., description="Premières lignes pour aperçu")
+    validation_errors: List[str] = Field(default_factory=list, description="Erreurs de validation")
+    stats: dict = Field(..., description="Statistiques (dates min/max, etc.)")
+
+
+class FileImportRequest(BaseModel):
+    """Model for file import request."""
+    filename: str
+    column_mapping: List[ColumnMapping] = Field(..., description="Mapping confirmé par l'utilisateur")
+
+
+class DuplicateTransaction(BaseModel):
+    """Model for duplicate transaction."""
+    date: str
+    quantite: float
+    nom: str
+    existing_id: int = Field(..., description="ID de la transaction existante en BDD")
+
+
+class FileImportResponse(BaseModel):
+    """Model for file import response."""
+    filename: str
+    imported_count: int
+    duplicates_count: int
+    errors_count: int
+    duplicates: List[DuplicateTransaction] = Field(default_factory=list)
+    period_start: Optional[str] = None
+    period_end: Optional[str] = None
+    message: str
+
+
+class FileImportHistory(BaseModel):
+    """Model for file import history."""
+    id: int
+    filename: str
+    imported_at: datetime
+    imported_count: int
+    duplicates_count: int
+    errors_count: int
+    period_start: Optional[date] = None
+    period_end: Optional[date] = None
+
+    class Config:
+        from_attributes = True

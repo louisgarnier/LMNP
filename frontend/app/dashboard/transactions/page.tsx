@@ -16,7 +16,14 @@ export default function TransactionsPage() {
 
   const handleFileSelect = (file: File) => {
     console.log('Fichier sélectionné:', file.name);
-    // TODO: Appeler API preview dans Step 2.1.5
+    // Le preview est maintenant géré automatiquement dans FileUpload
+  };
+
+  const handleImportComplete = () => {
+    // Recharger la page ou rafraîchir les données
+    // Pour l'instant, on peut juste afficher un message
+    console.log('Import terminé');
+    // TODO: Recharger les transactions dans Step 2.1.7
   };
 
   return (
@@ -64,7 +71,7 @@ export default function TransactionsPage() {
 
         {tab === 'load_trades' && (
           <div>
-            <FileUpload onFileSelect={handleFileSelect} />
+            <FileUpload onFileSelect={handleFileSelect} onImportComplete={handleImportComplete} />
             
             <div style={{ 
               marginTop: '24px', 

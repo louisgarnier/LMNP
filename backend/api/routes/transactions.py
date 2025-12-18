@@ -4,18 +4,33 @@ API routes for transactions.
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
+import os
+from pathlib import Path
+import pandas as pd
 
 from backend.database import get_db
-from backend.database.models import Transaction
+from backend.database.models import Transaction, FileImport
 from backend.api.models import (
     TransactionCreate,
     TransactionUpdate,
     TransactionResponse,
-    TransactionListResponse
+    TransactionListResponse,
+    FilePreviewResponse,
+    FileImportRequest,
+    FileImportResponse,
+    FileImportHistory,
+    ColumnMapping,
+    DuplicateTransaction
+)
+from backend.api.utils.csv_utils import (
+    read_csv_safely,
+    detect_column_mapping,
+    validate_transactions,
+    preview_transactions
 )
 
 router = APIRouter()
@@ -57,6 +72,18 @@ async def get_transactions(
         page=(skip // limit) + 1,
         page_size=limit
     )
+
+
+@router.get("/transactions/imports", response_model=List[FileImportHistory])
+async def get_imports_history(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère l'historique des imports de fichiers.
+    """
+    imports = db.query(FileImport).order_by(FileImport.imported_at.desc()).all()
+    
+    return [FileImportHistory.model_validate(imp) for imp in imports]
 
 
 @router.get("/transactions/{transaction_id}", response_model=TransactionResponse)
@@ -146,4 +173,245 @@ async def delete_transaction(
     db.commit()
     
     return None
+
+
+# File upload endpoints
+
+@router.post("/transactions/preview", response_model=FilePreviewResponse)
+async def preview_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Prévisualise un fichier CSV et détecte le mapping des colonnes.
+    
+    - **file**: Fichier CSV à analyser
+    - Retourne: Preview, mapping proposé, statistiques
+    """
+    # Lire le fichier
+    file_content = await file.read()
+    
+    try:
+        # Lire CSV avec détection automatique
+        df, encoding, separator = read_csv_safely(file_content, file.filename)
+        
+        # Détecter mapping colonnes
+        detected_mapping = detect_column_mapping(df)
+        
+        # Valider les données
+        df_validated, validation_errors = validate_transactions(df, detected_mapping)
+        
+        # Créer mapping formaté pour la réponse
+        column_mapping = [
+            ColumnMapping(file_column=file_col, db_column=db_col)
+            for file_col, db_col in detected_mapping.items()
+        ]
+        
+        # Preview des premières lignes
+        preview = preview_transactions(df_validated, detected_mapping, num_rows=10)
+        
+        # Statistiques
+        date_col = None
+        for col, db_col in detected_mapping.items():
+            if db_col == 'date':
+                date_col = col
+                break
+        
+        stats = {
+            "total_rows": len(df),
+            "valid_rows": len(df_validated),
+        }
+        
+        if date_col and len(df_validated) > 0:
+            dates = df_validated[date_col]
+            stats["date_min"] = dates.min().strftime('%d/%m/%Y') if pd.notna(dates.min()) else None
+            stats["date_max"] = dates.max().strftime('%d/%m/%Y') if pd.notna(dates.max()) else None
+        
+        return FilePreviewResponse(
+            filename=file.filename or "unknown.csv",
+            encoding=encoding,
+            separator=separator,
+            total_rows=len(df),
+            column_mapping=column_mapping,
+            preview=preview,
+            validation_errors=validation_errors,
+            stats=stats
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erreur lors de l'analyse du fichier: {str(e)}")
+
+
+@router.post("/transactions/import", response_model=FileImportResponse)
+async def import_file(
+    file: UploadFile = File(...),
+    mapping: str = Form(..., description="Mapping JSON string"),
+    db: Session = Depends(get_db)
+):
+    """
+    Importe un fichier CSV dans la base de données.
+    
+    - **file**: Fichier CSV à importer
+    - **mapping**: Mapping des colonnes (JSON string)
+    - Retourne: Statistiques d'import (imported, duplicates, errors)
+    """
+    import json
+    
+    try:
+        # Parser le mapping
+        mapping_data = json.loads(mapping)
+        column_mapping = {item['file_column']: item['db_column'] for item in mapping_data}
+        
+        # Vérifier si fichier déjà chargé
+        filename = file.filename or "unknown.csv"
+        existing_import = db.query(FileImport).filter(FileImport.filename == filename).first()
+        
+        if existing_import:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')}"
+            )
+        
+        # Lire le fichier
+        file_content = await file.read()
+        
+        # Sauvegarder le fichier dans data/input/trades/
+        trades_dir = Path(__file__).parent.parent.parent / "data" / "input" / "trades"
+        trades_dir.mkdir(parents=True, exist_ok=True)
+        file_path = trades_dir / filename
+        with open(file_path, 'wb') as f:
+            f.write(file_content)
+        
+        # Lire CSV
+        df, encoding, separator = read_csv_safely(file_content, filename)
+        
+        # Valider les données
+        df_validated, validation_errors = validate_transactions(df, column_mapping)
+        
+        # Détecter les doublons et insérer
+        imported_count = 0
+        duplicates_count = 0
+        duplicates_list = []
+        errors_count = len(validation_errors)
+        
+        # Récupérer les colonnes mappées
+        date_col = None
+        quantite_col = None
+        nom_col = None
+        
+        for file_col, db_col in column_mapping.items():
+            if db_col == 'date':
+                date_col = file_col
+            elif db_col == 'quantite':
+                quantite_col = file_col
+            elif db_col == 'nom':
+                nom_col = file_col
+        
+        if not all([date_col, quantite_col, nom_col]):
+            raise HTTPException(status_code=400, detail="Mapping incomplet: date, quantite et nom requis")
+        
+        # Convertir dates pour comparaison et tri
+        df_validated['_date_parsed'] = pd.to_datetime(df_validated[date_col])
+        
+        # Trier par date avant insertion (pour calcul correct du solde)
+        df_validated = df_validated.sort_values('_date_parsed')
+        
+        period_start = None
+        period_end = None
+        
+        # Récupérer le solde actuel le plus récent en BDD (ou 0 si aucune transaction)
+        last_transaction = db.query(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc()).first()
+        current_solde = last_transaction.solde if last_transaction else 0.0
+        
+        # Liste des transactions à insérer (pour calculer le solde en une fois)
+        transactions_to_insert = []
+        
+        for _, row in df_validated.iterrows():
+            try:
+                # Convertir date pour BDD (YYYY-MM-DD)
+                date_value = row['_date_parsed'].date()
+                
+                # Vérifier que le nom n'est pas vide (filtrer les lignes avec noms vides lors de l'import)
+                nom_value = str(row[nom_col]).strip() if pd.notna(row[nom_col]) else ''
+                if not nom_value:
+                    errors_count += 1
+                    continue  # Ignorer les lignes avec noms vides
+                
+                # Vérifier doublon (Date + Quantité + nom)
+                existing = db.query(Transaction).filter(
+                    Transaction.date == date_value,
+                    Transaction.quantite == float(row[quantite_col]),
+                    Transaction.nom == nom_value
+                ).first()
+                
+                if existing:
+                    duplicates_count += 1
+                    duplicates_list.append(DuplicateTransaction(
+                        date=date_value.strftime('%d/%m/%Y'),
+                        quantite=float(row[quantite_col]),
+                        nom=str(row[nom_col]).strip(),
+                        existing_id=existing.id
+                    ))
+                    continue
+                
+                # Calculer le solde : solde = solde précédent + quantité
+                quantite_value = float(row[quantite_col])
+                current_solde = current_solde + quantite_value
+                
+                # Créer la transaction avec solde calculé
+                transaction = Transaction(
+                    date=date_value,
+                    quantite=quantite_value,
+                    nom=nom_value,  # Utiliser la valeur déjà vérifiée (non vide)
+                    solde=current_solde,  # Solde calculé automatiquement
+                    source_file=filename
+                )
+                transactions_to_insert.append(transaction)
+                imported_count += 1
+                
+                # Mettre à jour période
+                if period_start is None or date_value < period_start:
+                    period_start = date_value
+                if period_end is None or date_value > period_end:
+                    period_end = date_value
+                    
+            except Exception as e:
+                errors_count += 1
+                continue
+        
+        # Insérer toutes les transactions en une fois
+        for transaction in transactions_to_insert:
+            db.add(transaction)
+        db.commit()
+        
+        # Enregistrer dans file_imports
+        file_import = FileImport(
+            filename=filename,
+            imported_count=imported_count,
+            duplicates_count=duplicates_count,
+            errors_count=errors_count,
+            period_start=period_start,
+            period_end=period_end
+        )
+        db.add(file_import)
+        db.commit()
+        
+        return FileImportResponse(
+            filename=filename,
+            imported_count=imported_count,
+            duplicates_count=duplicates_count,
+            errors_count=errors_count,
+            duplicates=duplicates_list[:50],  # Limiter à 50 doublons pour la réponse
+            period_start=period_start.strftime('%d/%m/%Y') if period_start else None,
+            period_end=period_end.strftime('%d/%m/%Y') if period_end else None,
+            message=f"Import terminé: {imported_count} transactions importées, {duplicates_count} doublons détectés"
+        )
+        
+    except HTTPException:
+        raise
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Format de mapping invalide (JSON requis)")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'import: {str(e)}")
 

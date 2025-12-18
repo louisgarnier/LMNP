@@ -133,4 +133,84 @@ export const transactionsAPI = {
   },
 };
 
+// File upload types
+export interface ColumnMapping {
+  file_column: string;
+  db_column: string;
+}
+
+export interface FilePreviewResponse {
+  filename: string;
+  encoding: string;
+  separator: string;
+  total_rows: number;
+  column_mapping: ColumnMapping[];
+  preview: Array<Record<string, any>>;
+  validation_errors: string[];
+  stats: {
+    total_rows: number;
+    valid_rows: number;
+    date_min?: string;
+    date_max?: string;
+  };
+}
+
+export interface FileImportResponse {
+  filename: string;
+  imported_count: number;
+  duplicates_count: number;
+  errors_count: number;
+  duplicates: Array<{
+    date: string;
+    quantite: number;
+    nom: string;
+    existing_id: number;
+  }>;
+  period_start?: string;
+  period_end?: string;
+  message: string;
+}
+
+/**
+ * File upload API
+ */
+export const fileUploadAPI = {
+  preview: async (file: File): Promise<FilePreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const url = `${API_BASE_URL}/api/transactions/preview`;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  },
+
+  import: async (file: File, mapping: ColumnMapping[]): Promise<FileImportResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mapping', JSON.stringify(mapping));
+    
+    const url = `${API_BASE_URL}/api/transactions/import`;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  },
+};
+
 
