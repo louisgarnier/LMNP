@@ -12,6 +12,7 @@ import FileUpload from '@/components/FileUpload';
 import ImportLog from '@/components/ImportLog';
 import TransactionsTable from '@/components/TransactionsTable';
 import { transactionsAPI } from '@/api/client';
+import { useImportLog } from '@/contexts/ImportLogContext';
 
 export default function TransactionsPage() {
   const searchParams = useSearchParams();
@@ -19,6 +20,8 @@ export default function TransactionsPage() {
   const tab = searchParams?.get('tab');
   const [transactionCount, setTransactionCount] = useState<number | null>(null);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
+  const { clearLogs } = useImportLog();
+  const [historyCleared, setHistoryCleared] = useState(false);
 
   const loadTransactionCount = async () => {
     setIsLoadingCount(true);
@@ -100,44 +103,72 @@ export default function TransactionsPage() {
                 <FileUpload onFileSelect={handleFileSelect} onImportComplete={handleImportComplete} />
               </div>
               <div style={{ 
-                padding: '12px 20px', 
-                backgroundColor: '#f5f5f5', 
-                borderRadius: '8px',
-                border: '1px solid #e5e5e5',
-                minWidth: '200px',
-                textAlign: 'center',
-                flexShrink: 0
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'flex-start'
               }}>
-                <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                  Transactions en BDD
+                <div style={{ 
+                  padding: '12px 20px', 
+                  backgroundColor: '#f5f5f5', 
+                  borderRadius: '8px',
+                  border: '1px solid #e5e5e5',
+                  minWidth: '200px',
+                  textAlign: 'center',
+                  flexShrink: 0
+                }}>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                    Transactions en BDD
+                  </div>
+                  {isLoadingCount ? (
+                    <div style={{ fontSize: '20px', fontWeight: '600', color: '#1e3a5f' }}>
+                      ⏳ Chargement...
+                    </div>
+                  ) : transactionCount !== null ? (
+                    <div style={{ fontSize: '24px', fontWeight: '600', color: '#1e3a5f' }}>
+                      {transactionCount} transaction{transactionCount !== 1 ? 's' : ''}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '14px', color: '#dc3545' }}>
+                      ❌ Erreur de chargement
+                    </div>
+                  )}
+                  <button
+                    onClick={loadTransactionCount}
+                    style={{
+                      marginTop: '8px',
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      backgroundColor: '#1e3a5f',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🔄 Actualiser
+                  </button>
                 </div>
-                {isLoadingCount ? (
-                  <div style={{ fontSize: '20px', fontWeight: '600', color: '#1e3a5f' }}>
-                    ⏳ Chargement...
-                  </div>
-                ) : transactionCount !== null ? (
-                  <div style={{ fontSize: '24px', fontWeight: '600', color: '#1e3a5f' }}>
-                    {transactionCount} transaction{transactionCount !== 1 ? 's' : ''}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: '14px', color: '#dc3545' }}>
-                    ❌ Erreur de chargement
-                  </div>
-                )}
                 <button
-                  onClick={loadTransactionCount}
+                  onClick={() => {
+                    if (confirm('Êtes-vous sûr de vouloir supprimer l\'historique des logs ?')) {
+                      clearLogs();
+                      setHistoryCleared(true);
+                    }
+                  }}
                   style={{
-                    marginTop: '8px',
-                    padding: '4px 12px',
-                    fontSize: '12px',
-                    backgroundColor: '#1e3a5f',
+                    padding: '12px 20px',
+                    backgroundColor: '#dc3545',
                     color: 'white',
                     border: 'none',
-                    borderRadius: '4px',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '500',
                     cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    height: 'fit-content',
                   }}
                 >
-                  🔄 Actualiser
+                  🗑️ Clear logs
                 </button>
               </div>
             </div>
@@ -161,6 +192,7 @@ export default function TransactionsPage() {
             <ImportLog 
               hideHeader={true} 
               onTransactionCountChange={handleTransactionCountChange}
+              hideDbHistory={historyCleared}
             />
           </div>
         )}

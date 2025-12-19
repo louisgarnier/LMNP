@@ -678,6 +678,55 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+### Step 2.1.10 : Amélioration interface - Clear logs et recalcul soldes
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Ajout d'un bouton pour supprimer l'historique des logs et correction du recalcul des soldes lors de l'import de fichiers dans un ordre non chronologique.
+
+**Tasks**:
+- [x] Ajouter bouton "Clear logs" dans l'onglet Load Trades
+  - [x] Placement à droite de la carte "Transactions en BDD"
+  - [x] Style rouge pour indiquer action de suppression
+  - [x] Confirmation avant suppression
+- [x] Implémenter suppression des logs
+  - [x] Supprimer logs en mémoire (via ImportLogContext)
+  - [x] Masquer logs de la base de données dans l'affichage
+  - [x] État persistant pour empêcher le rechargement automatique
+- [x] Correction recalcul des soldes après import
+  - [x] Recalculer tous les soldes depuis le début après chaque import
+  - [x] Garantir la cohérence même si transactions insérées à dates antérieures
+  - [x] Utiliser `recalculate_all_balances()` après insertion
+- [x] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/app/dashboard/transactions/page.tsx` - Bouton Clear logs
+- `frontend/src/components/ImportLog.tsx` - Gestion masquage historique BDD
+- `backend/api/routes/transactions.py` - Recalcul complet des soldes après import
+
+**Tests**:
+- [x] Test bouton Clear logs (suppression logs mémoire)
+- [x] Test masquage logs base de données après Clear logs
+- [x] Test pas de rechargement automatique après Clear logs
+- [x] Test import fichiers dans ordre non chronologique (2021, 2023, 2022)
+- [x] Test recalcul correct des soldes après import dans ordre non chronologique
+
+**Acceptance Criteria**:
+- [x] Bouton "Clear logs" visible à droite de la carte "Transactions en BDD"
+- [x] Clic sur "Clear logs" supprime tous les logs affichés (mémoire + BDD)
+- [x] Les logs de la base de données ne se rechargent plus après Clear logs
+- [x] Import de fichiers dans n'importe quel ordre chronologique fonctionne correctement
+- [x] Les soldes sont toujours corrects après import, même si transactions insérées à dates antérieures
+- [x] **Utilisateur confirme que toutes les fonctionnalités fonctionnent** (test avec fichiers réels)
+
+**Impact Backend**: 
+- ✅ Recalcul complet des soldes garantit la cohérence des données
+- ✅ Support de l'import de fichiers dans n'importe quel ordre
+
+**Impact Frontend**: 
+- ✅ Bouton Clear logs pour nettoyer l'interface
+- ✅ Meilleure gestion de l'historique des logs
+
+---
+
 ## Phase 3 : Fonctionnalité 2 - Enrichissement et catégorisation
 
 ### Step 3.1 : Service d'enrichissement backend

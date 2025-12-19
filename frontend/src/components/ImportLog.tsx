@@ -26,9 +26,10 @@ interface FileImportHistory {
 interface ImportLogProps {
   hideHeader?: boolean;
   onTransactionCountChange?: (count: number) => void;
+  hideDbHistory?: boolean; // Prop pour masquer définitivement l'historique de la base de données
 }
 
-export default function ImportLog({ hideHeader = false, onTransactionCountChange }: ImportLogProps) {
+export default function ImportLog({ hideHeader = false, onTransactionCountChange, hideDbHistory = false }: ImportLogProps) {
   const { logs: memoryLogs, updateLog } = useImportLog();
   const [dbHistory, setDbHistory] = useState<FileImportHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -36,6 +37,17 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
   const [selectedHistory, setSelectedHistory] = useState<FileImportHistory | null>(null);
   const [transactionCount, setTransactionCount] = useState<number | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Si hideDbHistory est true, ne jamais charger ni afficher l'historique de la base de données
+  const showDbHistory = !hideDbHistory;
+  
+  // Réagir à hideDbHistory pour vider l'historique si on le masque
+  useEffect(() => {
+    if (hideDbHistory) {
+      setDbHistory([]);
+      setSelectedHistory(null);
+    }
+  }, [hideDbHistory]);
 
   // Load database history
   const loadHistory = async () => {
@@ -63,9 +75,11 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
     }
   };
 
-  // Initial load
+  // Initial load (only if showDbHistory is true)
   useEffect(() => {
-    loadHistory();
+    if (showDbHistory) {
+      loadHistory();
+    }
     loadTransactionCount();
   }, []);
 
@@ -82,8 +96,10 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
         setSelectedLog(updatedLog);
       }
       
-      // Also refresh history and count
-      loadHistory();
+      // Also refresh history (only if showDbHistory is true) and count
+      if (showDbHistory) {
+        loadHistory();
+      }
       loadTransactionCount();
     }, 2500); // Every 2.5 seconds
 
@@ -108,24 +124,28 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await Promise.all([loadHistory(), loadTransactionCount()]);
+    const promises = [loadTransactionCount()];
+    if (showDbHistory) {
+      promises.push(loadHistory());
+    }
+    await Promise.all(promises);
     setIsRefreshing(false);
   };
 
-  // Combine memory logs and DB history
+  // Combine memory logs and DB history (only if showDbHistory is true)
   const allLogs = [
     ...memoryLogs.map(log => ({
       type: 'memory' as const,
       data: log,
       key: log.id,
     })),
-    ...dbHistory
+    ...(showDbHistory ? dbHistory
       .filter(h => !memoryLogs.some(m => m.filename === h.filename))
       .map(history => ({
         type: 'db' as const,
         data: history,
         key: `db_${history.id}`,
-      })),
+      })) : []),
   ].sort((a, b) => {
     const dateA = a.type === 'memory' 
       ? a.data.startTime.getTime() 

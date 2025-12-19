@@ -590,6 +590,17 @@ async def import_file(
             db.add(transaction)
         db.commit()
         
+        # Recalculer tous les soldes après insertion
+        # Si on a inséré des transactions, on doit recalculer depuis la date minimale
+        # pour gérer le cas où des transactions sont insérées à des dates antérieures
+        if transactions_to_insert:
+            from backend.api.utils.balance_utils import recalculate_all_balances
+            # Trouver la date minimale des transactions insérées
+            min_inserted_date = min(t.date for t in transactions_to_insert)
+            # Recalculer tous les soldes depuis le début pour garantir la cohérence
+            # (plus simple et plus sûr que de recalculer depuis une date spécifique)
+            recalculate_all_balances(db)
+        
         # Créer ou mettre à jour l'enregistrement FileImport
         if existing_import:
             # Mettre à jour l'enregistrement existant
