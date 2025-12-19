@@ -8,6 +8,7 @@
 
 import { useSearchParams } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
+import ImportLog from '@/components/ImportLog';
 
 export default function TransactionsPage() {
   const searchParams = useSearchParams();
@@ -15,28 +16,16 @@ export default function TransactionsPage() {
   const tab = searchParams?.get('tab');
 
   const handleFileSelect = (file: File) => {
-    console.log('Fichier sélectionné:', file.name);
+    console.log('📁 [TransactionsPage] Fichier sélectionné:', file.name);
     // Le preview est maintenant géré automatiquement dans FileUpload
   };
 
   const handleImportComplete = () => {
-    // Recharger la page ou rafraîchir les données
-    // Pour l'instant, on peut juste afficher un message
-    console.log('Import terminé');
-    // TODO: Recharger les transactions dans Step 2.1.7
+    console.log('✅ [TransactionsPage] Import terminé');
   };
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ marginBottom: '32px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: '600', color: '#1a1a1a', marginBottom: '8px' }}>
-          Transactions
-        </h1>
-        <p style={{ fontSize: '14px', color: '#666' }}>
-          Gestion et visualisation de toutes vos transactions
-        </p>
-      </div>
-
       {/* Contenu selon l'onglet actif */}
       <div style={{ 
         backgroundColor: 'white', 
@@ -87,6 +76,10 @@ export default function TransactionsPage() {
               </p>
             </div>
           </div>
+        )}
+
+        {tab === 'log' && (
+          <ImportLog />
         )}
       </div>
     </div>

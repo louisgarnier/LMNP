@@ -387,39 +387,55 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 2.1.6 : Frontend - Import et affichage résultats
-**Status**: ⏳ EN ATTENTE  
-**Description**: Gérer l'import final, afficher résultats et liste des doublons.
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Gérer l'import final, afficher résultats et liste des doublons. Ajout d'un onglet "Log" avec historique des imports et logs étape par étape.
 
 **Tasks**:
-- [ ] Dans ColumnMappingModal, après confirmation :
-  - [ ] Appeler POST /api/transactions/import avec mapping
-  - [ ] Afficher loading pendant import
-  - [ ] Afficher résultats (statistiques : imported, duplicates, errors)
-  - [ ] Afficher liste des doublons détectés (si présents)
-  - [ ] Afficher message d'erreur si fichier déjà chargé
-- [ ] Recharger automatiquement liste transactions après import réussi
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Dans ColumnMappingModal, après confirmation :
+  - [x] Appeler POST /api/transactions/import avec mapping
+  - [x] Afficher loading pendant import
+  - [x] Afficher résultats (statistiques : imported, duplicates, errors)
+  - [x] Afficher liste des doublons détectés (si présents)
+  - [x] Afficher message d'erreur si fichier déjà chargé
+- [x] Recharger automatiquement liste transactions après import réussi
+- [x] Créer système de logging étape par étape (ImportLogContext)
+- [x] Créer composant ImportLog avec historique des imports
+- [x] Ajouter onglet "Log" dans Navigation
+- [x] Afficher logs détaillés étape par étape (fichier sélectionné, parsing, import, doublons)
+- [x] Auto-refresh des logs toutes les 2-3 secondes si import en cours
+- [x] Afficher chaque doublon individuellement dans les logs
+- [x] **Test visuel dans navigateur effectué**
+- [x] **Validé par l'utilisateur**
 
 **Deliverables**:
-- `frontend/src/components/ColumnMappingModal.tsx` - Gestion import et résultats
-- `frontend/src/components/DuplicatesList.tsx` - Affichage liste doublons (optionnel)
+- `frontend/src/components/ColumnMappingModal.tsx` - Gestion import et résultats avec logs
+- `frontend/src/components/ImportLog.tsx` - Composant historique et logs détaillés
+- `frontend/src/contexts/ImportLogContext.tsx` - Contexte React pour logs étape par étape
+- `frontend/app/dashboard/layout.tsx` - Ajout ImportLogProvider
+- `frontend/src/components/Navigation.tsx` - Ajout onglet "Log"
+- `frontend/src/api/client.ts` - Ajout getImportsHistory()
 
 **Tests**:
-- [ ] Test appel import API avec mapping
-- [ ] Test affichage loading pendant import
-- [ ] Test affichage résultats (imported, duplicates, errors)
-- [ ] Test affichage liste doublons
-- [ ] Test message erreur si fichier déjà chargé
-- [ ] Test rechargement automatique liste transactions après import
+- [x] Test appel import API avec mapping
+- [x] Test affichage loading pendant import
+- [x] Test affichage résultats (imported, duplicates, errors)
+- [x] Test affichage liste doublons (chaque doublon individuellement)
+- [x] Test message erreur si fichier déjà chargé
+- [x] Test rechargement automatique liste transactions après import
+- [x] Test affichage historique des imports depuis BDD
+- [x] Test logs étape par étape (Étape 1: Fichier sélectionné, Étape 2: Analyse, Étape 3: Import)
+- [x] Test auto-refresh des logs pendant import en cours
 
 **Acceptance Criteria**:
-- [ ] Import fonctionne depuis interface
-- [ ] Résultats affichés correctement (statistiques)
-- [ ] Liste des doublons affichée si présents
-- [ ] Message d'erreur si fichier déjà chargé
-- [ ] Liste transactions rechargée automatiquement après import réussi
-- [ ] **Utilisateur confirme que l'import fonctionne** (test avec fichier réel)
+- [x] Import fonctionne depuis interface
+- [x] Résultats affichés correctement (statistiques)
+- [x] Liste des doublons affichée si présents (chaque doublon avec détails)
+- [x] Message d'erreur si fichier déjà chargé
+- [x] Liste transactions rechargée automatiquement après import réussi
+- [x] Onglet "Log" affiche historique des imports (mémoire + BDD)
+- [x] Logs étape par étape compréhensibles (pas trop techniques)
+- [x] Auto-refresh des logs toutes les 2-3 secondes si import en cours et ligne sélectionnée
+- [x] **Utilisateur confirme que l'import et les logs fonctionnent** (test avec fichier réel)
 
 ---
 

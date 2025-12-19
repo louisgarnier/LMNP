@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { fileUploadAPI, ColumnMapping, FilePreviewResponse, FileImportResponse } from '@/api/client';
+import { useImportLog } from '@/contexts/ImportLogContext';
 
 interface ColumnMappingModalProps {
   file: File;
@@ -29,10 +30,12 @@ export default function ColumnMappingModal({
   onImportComplete,
   onClose,
 }: ColumnMappingModalProps) {
+  const { addLog, updateLog, addLogEntry } = useImportLog();
   const [mapping, setMapping] = useState<ColumnMapping[]>(previewData.column_mapping);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<FileImportResponse | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [logId, setLogId] = useState<string | null>(null);
 
   const handleMappingChange = (fileColumn: string, dbColumn: string) => {
     setMapping(prev => 
@@ -43,34 +46,125 @@ export default function ColumnMappingModal({
   };
 
   const handleConfirm = async () => {
+    console.log('🔄 [ColumnMappingModal] Début de l\'import...');
+    console.log('📋 [ColumnMappingModal] Mapping:', mapping);
+    console.log('📁 [ColumnMappingModal] Fichier:', file.name);
+    
     // Vérifier que tous les mappings requis sont présents (date, quantite, nom uniquement)
     const requiredColumns = ['date', 'quantite', 'nom'];
     const mappedColumns = mapping.map(m => m.db_column);
     const missingColumns = requiredColumns.filter(col => !mappedColumns.includes(col));
     
     if (missingColumns.length > 0) {
+      console.error('❌ [ColumnMappingModal] Colonnes manquantes:', missingColumns);
       alert(`Colonnes requises manquantes: ${missingColumns.join(', ')}`);
       return;
     }
     
+    // Créer une entrée de log
+    const newLogId = addLog(file.name);
+    setLogId(newLogId);
+    updateLog(newLogId, { status: 'in_progress' });
+    addLogEntry(newLogId, 'Étape 1: Fichier sélectionné', `Fichier "${file.name}" sélectionné (${(file.size / 1024).toFixed(2)} KB)`, 'info');
+    
     // Lancer l'import
+    console.log('⏳ [ColumnMappingModal] Lancement de l\'import...');
     setIsImporting(true);
     setImportError(null);
     setImportResult(null);
     
     try {
+      addLogEntry(newLogId, 'Étape 2: Analyse du fichier', `Parsing du fichier CSV (${previewData.total_rows} lignes détectées)`, 'info');
+      addLogEntry(newLogId, 'Étape 2: Analyse du fichier', `Encodage: ${previewData.encoding}, Séparateur: "${previewData.separator}"`, 'info');
+      addLogEntry(newLogId, 'Étape 2: Analyse du fichier', `${previewData.stats.valid_rows} lignes valides sur ${previewData.total_rows}`, 'success');
+      
+      console.log('📤 [ColumnMappingModal] Appel API import...');
+      addLogEntry(newLogId, 'Étape 3: Import en cours', 'Envoi du fichier au serveur...', 'info');
+      
       const result = await fileUploadAPI.import(file, mapping);
+      
+      // Log détaillé des transactions importées
+      if (result.imported_count > 0) {
+        addLogEntry(newLogId, 'Étape 3: Import en cours', `Chargement de ${result.imported_count} transaction(s)...`, 'info');
+        addLogEntry(newLogId, 'Étape 3: Import en cours', `✅ ${result.imported_count} transaction(s) chargée(s) avec succès dans la base de données`, 'success');
+      } else {
+        addLogEntry(newLogId, 'Étape 3: Import en cours', 'Aucune nouvelle transaction importée', 'warning');
+      }
+      
+      // Log détaillé des doublons
+      if (result.duplicates_count > 0) {
+        addLogEntry(newLogId, 'Étape 3: Import en cours', `⚠️ ${result.duplicates_count} doublon(s) détecté(s) et ignoré(s)`, 'warning');
+        
+        // Afficher chaque doublon individuellement
+        if (result.duplicates && result.duplicates.length > 0) {
+          const totalDuplicates = result.duplicates.length;
+          const maxToShow = 100; // Limiter l'affichage à 100 doublons pour ne pas surcharger
+          
+          result.duplicates.slice(0, maxToShow).forEach((dup, index) => {
+            addLogEntry(
+              newLogId,
+              'Étape 3: Doublon détecté',
+              `Doublon ${index + 1}/${totalDuplicates}: ${dup.date} | ${dup.quantite}€ | "${dup.nom}" (ID existant: ${dup.existing_id})`,
+              'warning'
+            );
+          });
+          
+          if (totalDuplicates > maxToShow) {
+            addLogEntry(
+              newLogId,
+              'Étape 3: Doublon détecté',
+              `... et ${totalDuplicates - maxToShow} autre(s) doublon(s) (affichage limité à ${maxToShow})`,
+              'warning'
+            );
+          }
+        }
+      }
+      
+      // Log des erreurs
+      if (result.errors_count > 0) {
+        addLogEntry(newLogId, 'Étape 3: Import en cours', `❌ ${result.errors_count} erreur(s) rencontrée(s) lors du traitement`, 'error');
+      }
+      
+      console.log('✅ [ColumnMappingModal] Import réussi!', result);
       setImportResult(result);
+      
+      // Mettre à jour le log avec le résultat
+      updateLog(newLogId, {
+        status: 'completed',
+        endTime: new Date(),
+        result: {
+          imported_count: result.imported_count,
+          duplicates_count: result.duplicates_count,
+          errors_count: result.errors_count,
+          period_start: result.period_start,
+          period_end: result.period_end,
+          duplicates: result.duplicates,
+        },
+      });
+      
+      addLogEntry(newLogId, 'Étape 4: Import terminé', `✅ ${result.imported_count} transaction(s) importée(s) avec succès`, 'success');
       
       // Appeler onImportComplete pour recharger les transactions
       if (onImportComplete) {
+        console.log('🔄 [ColumnMappingModal] Appel onImportComplete...');
         onImportComplete();
       }
     } catch (error) {
-      console.error('Erreur lors de l\'import:', error);
+      console.error('❌ [ColumnMappingModal] Erreur lors de l\'import:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue lors de l\'import';
+      console.error('❌ [ColumnMappingModal] Message d\'erreur:', errorMessage);
       setImportError(errorMessage);
+      
+      // Mettre à jour le log avec l'erreur
+      updateLog(newLogId, {
+        status: 'error',
+        endTime: new Date(),
+        error: errorMessage,
+      });
+      
+      addLogEntry(newLogId, 'Étape 3: Erreur', `❌ ${errorMessage}`, 'error');
     } finally {
+      console.log('🏁 [ColumnMappingModal] Import terminé');
       setIsImporting(false);
     }
   };
@@ -340,13 +434,35 @@ export default function ColumnMappingModal({
         {isImporting && (
           <div style={{ 
             marginBottom: '24px', 
-            padding: '16px', 
+            padding: '20px', 
             backgroundColor: '#d1ecf1', 
             borderRadius: '4px',
-            textAlign: 'center'
+            textAlign: 'center',
+            border: '2px solid #1e3a5f'
           }}>
-            <div style={{ fontSize: '16px', marginBottom: '8px' }}>⏳ Import en cours...</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Veuillez patienter</div>
+            <div style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#1e3a5f' }}>
+              ⏳ Import en cours...
+            </div>
+            <div style={{ fontSize: '14px', color: '#666', marginBottom: '12px' }}>
+              Traitement du fichier {file.name}
+            </div>
+            <div style={{ 
+              width: '100%', 
+              height: '4px', 
+              backgroundColor: '#e5e5e5', 
+              borderRadius: '2px',
+              overflow: 'hidden'
+            }}>
+              <div style={{ 
+                width: '100%', 
+                height: '100%', 
+                backgroundColor: '#1e3a5f',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }} />
+            </div>
+            <div style={{ fontSize: '12px', color: '#666', marginTop: '8px' }}>
+              ⚠️ Ne fermez pas cette fenêtre
+            </div>
           </div>
         )}
 

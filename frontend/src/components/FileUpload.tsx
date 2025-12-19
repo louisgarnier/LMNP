@@ -25,8 +25,11 @@ export default function FileUpload({ onFileSelect, onImportComplete }: FileUploa
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
+      console.log('📁 [FileUpload] Fichier sélectionné:', file.name, `(${(file.size / 1024).toFixed(2)} KB)`);
+      
       // Vérifier que c'est un fichier CSV
       if (!file.name.endsWith('.csv')) {
+        console.error('❌ [FileUpload] Fichier non CSV:', file.name);
         alert('Veuillez sélectionner un fichier CSV');
         return;
       }
@@ -37,16 +40,27 @@ export default function FileUpload({ onFileSelect, onImportComplete }: FileUploa
       }
       
       // Appeler preview automatiquement
+      console.log('⏳ [FileUpload] Début du preview...');
       setIsLoadingPreview(true);
       try {
         const preview = await fileUploadAPI.preview(file);
+        console.log('✅ [FileUpload] Preview réussi!', preview);
+        console.log('📊 [FileUpload] Stats:', {
+          total_rows: preview.total_rows,
+          valid_rows: preview.stats.valid_rows,
+          encoding: preview.encoding,
+          separator: preview.separator,
+        });
         setPreviewData(preview);
         setShowModal(true);
+        console.log('✅ [FileUpload] Modal ouvert');
       } catch (error) {
-        console.error('Erreur lors du preview:', error);
-        alert(`Erreur lors de l'analyse du fichier: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+        console.error('❌ [FileUpload] Erreur lors du preview:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+        alert(`Erreur lors de l'analyse du fichier: ${errorMessage}`);
       } finally {
         setIsLoadingPreview(false);
+        console.log('🏁 [FileUpload] Preview terminé');
       }
     }
   };

@@ -193,23 +193,56 @@ export const fileUploadAPI = {
     return await response.json();
   },
 
+  getImportsHistory: async (): Promise<Array<{
+    id: number;
+    filename: string;
+    imported_at: string;
+    imported_count: number;
+    duplicates_count: number;
+    errors_count: number;
+    period_start?: string;
+    period_end?: string;
+  }>> => {
+    return fetchAPI<Array<{
+      id: number;
+      filename: string;
+      imported_at: string;
+      imported_count: number;
+      duplicates_count: number;
+      errors_count: number;
+      period_start?: string;
+      period_end?: string;
+    }>>('/api/transactions/imports');
+  },
+
   import: async (file: File, mapping: ColumnMapping[]): Promise<FileImportResponse> => {
+    console.log('📤 [API] Appel POST /api/transactions/import');
+    console.log('📤 [API] Fichier:', file.name);
+    console.log('📤 [API] Mapping:', mapping);
+    
     const formData = new FormData();
     formData.append('file', file);
     formData.append('mapping', JSON.stringify(mapping));
     
     const url = `${API_BASE_URL}/api/transactions/import`;
+    console.log('📤 [API] URL:', url);
+    
     const response = await fetch(url, {
       method: 'POST',
       body: formData,
     });
 
+    console.log('📥 [API] Réponse status:', response.status, response.statusText);
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error('❌ [API] Erreur API:', error);
       throw new Error(error.detail || `HTTP error! status: ${response.status}`);
     }
 
-    return await response.json();
+    const result = await response.json();
+    console.log('✅ [API] Import réussi:', result);
+    return result;
   },
 };
 
