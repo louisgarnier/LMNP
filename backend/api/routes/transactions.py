@@ -24,7 +24,8 @@ from backend.api.models import (
     FileImportResponse,
     FileImportHistory,
     ColumnMapping,
-    DuplicateTransaction
+    DuplicateTransaction,
+    TransactionError
 )
 from backend.api.utils.csv_utils import (
     read_csv_safely,
@@ -324,6 +325,70 @@ async def import_file(
         # Lire CSV
         df, encoding, separator = read_csv_safely(file_content, filename)
         
+        # Si le mapping contient une colonne combinée (ex: "Col5_combined"), la recréer
+        # car elle a été créée lors de la détection mais n'existe pas dans le nouveau DataFrame
+        nom_col = None
+        for file_col, db_col in column_mapping.items():
+            if db_col == 'nom':
+                nom_col = file_col
+                break
+        
+        # Si la colonne nom est une colonne combinée (contient "_combined"), la recréer
+        if nom_col and '_combined' in nom_col and nom_col not in df.columns:
+            # Extraire la colonne de base (ex: "Col5_combined" → "Col5")
+            base_col = nom_col.replace('_combined', '')
+            
+            # Chercher les colonnes non mappées qui pourraient être combinées
+            # On cherche les colonnes qui ne sont pas déjà mappées et qui contiennent du texte
+            other_text_cols = []
+            for col in df.columns:
+                if col not in column_mapping.keys() and col != base_col:
+                    col_data = df[col].astype(str)
+                    non_empty = col_data[col_data.str.strip() != '']
+                    if len(non_empty) > len(df) * 0.1:  # Au moins 10% de valeurs non vides
+                        # Vérifier que ce n'est pas une date ou un nombre
+                        is_text = True
+                        sample_size = min(10, len(non_empty))
+                        for val in non_empty.head(sample_size):
+                            val_str = str(val).strip()
+                            if len(val_str) > 2:
+                                try:
+                                    # Utiliser l'import global datetime
+                                    datetime.strptime(val_str, '%d/%m/%Y')
+                                    is_text = False
+                                    break
+                                except:
+                                    pass
+                                try:
+                                    float(val_str.replace(',', '.').replace(' ', ''))
+                                    is_text = False
+                                    break
+                                except:
+                                    pass
+                        if is_text:
+                            other_text_cols.append(col)
+            
+            # Si on trouve une autre colonne et que la colonne de base existe, les combiner
+            if other_text_cols and base_col in df.columns:
+                best_other_col = other_text_cols[0]
+                def combine_cols(row):
+                    val1 = str(row[base_col]) if pd.notna(row[base_col]) else ''
+                    val2 = str(row[best_other_col]) if pd.notna(row[best_other_col]) else ''
+                    val1 = val1.strip()
+                    val2 = val2.strip()
+                    if val1.lower() == 'none':
+                        val1 = ''
+                    if val2.lower() == 'none':
+                        val2 = ''
+                    if val1 and val2:
+                        return (val1 + ' ' + val2).strip()
+                    return val1 or val2
+                
+                df[nom_col] = df.apply(combine_cols, axis=1)
+            elif base_col in df.columns:
+                # Si on ne trouve pas d'autre colonne, utiliser juste la colonne de base
+                df[nom_col] = df[base_col].astype(str).str.strip()
+        
         # Valider les données
         df_validated, validation_errors = validate_transactions(df, column_mapping)
         
@@ -332,6 +397,17 @@ async def import_file(
         duplicates_count = 0
         duplicates_list = []
         errors_count = len(validation_errors)
+        errors_list = []
+        
+        # Ajouter les erreurs de validation à la liste des erreurs détaillées
+        for validation_error in validation_errors:
+            errors_list.append(TransactionError(
+                line_number=0,  # Les erreurs de validation ne sont pas liées à une ligne spécifique
+                date=None,
+                quantite=None,
+                nom=None,
+                error_message=f"Erreur de validation: {validation_error}"
+            ))
         
         # Récupérer les colonnes mappées
         date_col = None
@@ -352,6 +428,10 @@ async def import_file(
         # Convertir dates pour comparaison et tri
         df_validated['_date_parsed'] = pd.to_datetime(df_validated[date_col])
         
+        # Sauvegarder l'index original pour les numéros de ligne (avant tri)
+        # L'index correspond à la position dans le DataFrame original (après validation)
+        df_validated['_original_index'] = df_validated.index
+        
         # Trier par date avant insertion (pour calcul correct du solde)
         df_validated = df_validated.sort_values('_date_parsed')
         
@@ -365,36 +445,95 @@ async def import_file(
         # Liste des transactions à insérer (pour calculer le solde en une fois)
         transactions_to_insert = []
         
-        for _, row in df_validated.iterrows():
+        for idx, row in df_validated.iterrows():
             try:
+                # Numéro de ligne dans le fichier original
+                # Utiliser l'index original + 1 (car 0-based → 1-based)
+                # On ajoute 1 pour compenser l'en-tête potentiel (mais la détection d'en-tête peut varier)
+                original_idx = int(row.get('_original_index', idx))
+                line_number = original_idx + 1  # +1 car 0-based → 1-based
+                
                 # Convertir date pour BDD (YYYY-MM-DD)
-                date_value = row['_date_parsed'].date()
-                
-                # Vérifier que le nom n'est pas vide (filtrer les lignes avec noms vides lors de l'import)
-                nom_value = str(row[nom_col]).strip() if pd.notna(row[nom_col]) else ''
-                if not nom_value:
+                if pd.isna(row['_date_parsed']):
                     errors_count += 1
-                    continue  # Ignorer les lignes avec noms vides
-                
-                # Vérifier doublon (Date + Quantité + nom)
-                existing = db.query(Transaction).filter(
-                    Transaction.date == date_value,
-                    Transaction.quantite == float(row[quantite_col]),
-                    Transaction.nom == nom_value
-                ).first()
-                
-                if existing:
-                    duplicates_count += 1
-                    duplicates_list.append(DuplicateTransaction(
-                        date=date_value.strftime('%d/%m/%Y'),
-                        quantite=float(row[quantite_col]),
-                        nom=str(row[nom_col]).strip(),
-                        existing_id=existing.id
+                    errors_list.append(TransactionError(
+                        line_number=line_number,
+                        date=None,
+                        quantite=float(row[quantite_col]) if pd.notna(row[quantite_col]) else None,
+                        nom=str(row[nom_col]).strip() if pd.notna(row[nom_col]) else None,
+                        error_message="Date invalide ou manquante"
                     ))
                     continue
                 
+                date_value = row['_date_parsed'].date()
+                
+                # Vérifier que la quantité est valide
+                try:
+                    quantite_value = float(row[quantite_col]) if pd.notna(row[quantite_col]) else None
+                    if quantite_value is None:
+                        raise ValueError("Quantité manquante ou invalide")
+                except (ValueError, TypeError) as e:
+                    errors_count += 1
+                    errors_list.append(TransactionError(
+                        line_number=line_number,
+                        date=date_value.strftime('%d/%m/%Y'),
+                        quantite=None,
+                        nom=None,
+                        error_message=f"Quantité invalide: {str(e)}"
+                    ))
+                    continue
+                
+                # Vérifier que le nom n'est pas vide
+                nom_original = str(row[nom_col]).strip() if pd.notna(row[nom_col]) else ''
+                nom_value = nom_original
+                is_nom_generated = False
+                
+                # Si le nom est vide, vérifier d'abord les doublons sur (Date + Quantité) uniquement
+                # car le nom généré changera à chaque import
+                if not nom_value:
+                    # Vérifier doublon sur (Date + Quantité) uniquement pour les transactions sans nom
+                    existing_no_nom = db.query(Transaction).filter(
+                        Transaction.date == date_value,
+                        Transaction.quantite == quantite_value
+                    ).first()
+                    
+                    if existing_no_nom:
+                        # C'est un doublon, utiliser le nom existant pour l'affichage
+                        duplicates_count += 1
+                        duplicates_list.append(DuplicateTransaction(
+                            date=date_value.strftime('%d/%m/%Y'),
+                            quantite=quantite_value,
+                            nom=existing_no_nom.nom,  # Utiliser le nom existant (peut être modifié)
+                            existing_id=existing_no_nom.id
+                        ))
+                        continue
+                    
+                    # Pas de doublon, générer automatiquement un nom "nom_a_justifier_N"
+                    existing_justify_count = db.query(Transaction).filter(
+                        Transaction.nom.like('nom_a_justifier_%')
+                    ).count()
+                    nom_value = f"nom_a_justifier_{existing_justify_count + 1}"
+                    is_nom_generated = True
+                
+                # Vérifier doublon (Date + Quantité + nom) pour les transactions avec nom
+                if not is_nom_generated:
+                    existing = db.query(Transaction).filter(
+                        Transaction.date == date_value,
+                        Transaction.quantite == quantite_value,
+                        Transaction.nom == nom_value
+                    ).first()
+                    
+                    if existing:
+                        duplicates_count += 1
+                        duplicates_list.append(DuplicateTransaction(
+                            date=date_value.strftime('%d/%m/%Y'),
+                            quantite=quantite_value,
+                            nom=nom_value,
+                            existing_id=existing.id
+                        ))
+                        continue
+                
                 # Calculer le solde : solde = solde précédent + quantité
-                quantite_value = float(row[quantite_col])
                 current_solde = current_solde + quantite_value
                 
                 # Créer la transaction avec solde calculé
@@ -416,6 +555,34 @@ async def import_file(
                     
             except Exception as e:
                 errors_count += 1
+                # Essayer d'extraire les informations de la ligne pour l'erreur
+                try:
+                    date_str = None
+                    if pd.notna(row.get('_date_parsed')):
+                        date_str = row['_date_parsed'].date().strftime('%d/%m/%Y')
+                    elif date_col and pd.notna(row.get(date_col)):
+                        date_str = str(row[date_col])
+                    
+                    quantite_val = None
+                    if quantite_col and pd.notna(row.get(quantite_col)):
+                        try:
+                            quantite_val = float(row[quantite_col])
+                        except:
+                            pass
+                    
+                    nom_val = None
+                    if nom_col and pd.notna(row.get(nom_col)):
+                        nom_val = str(row[nom_col]).strip()
+                except:
+                    pass
+                
+                errors_list.append(TransactionError(
+                    line_number=int(idx) + 1,
+                    date=date_str,
+                    quantite=quantite_val,
+                    nom=nom_val,
+                    error_message=f"Erreur lors du traitement: {str(e)}"
+                ))
                 continue
         
         # Insérer toutes les transactions en une fois
@@ -456,6 +623,7 @@ async def import_file(
             duplicates_count=duplicates_count,
             errors_count=errors_count,
             duplicates=duplicates_list[:50],  # Limiter à 50 doublons pour la réponse
+            errors=errors_list[:100],  # Limiter à 100 erreurs pour la réponse
             period_start=period_start.strftime('%d/%m/%Y') if period_start else None,
             period_end=period_end.strftime('%d/%m/%Y') if period_end else None,
             message=message

@@ -612,6 +612,72 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+### Step 2.1.9 : Amélioration import CSV - Gestion erreurs et transactions sans nom
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Amélioration de la gestion des erreurs d'import avec détails ligne par ligne, génération automatique de noms pour transactions sans nom, et correction de la détection de doublons.
+
+**Tasks**:
+- [x] Créer modèle `TransactionError` pour erreurs détaillées
+  - [x] Numéro de ligne, date, quantité, nom, message d'erreur
+- [x] Modifier `FileImportResponse` pour inclure liste d'erreurs détaillées
+- [x] Modifier backend pour collecter toutes les erreurs avec détails
+  - [x] Erreurs de validation (dates invalides, quantités invalides)
+  - [x] Erreurs de traitement (exceptions lors du traitement)
+  - [x] Chaque erreur avec numéro de ligne et contexte
+- [x] Modifier frontend pour afficher erreurs détaillées ligne par ligne
+  - [x] Affichage formaté avec tous les détails
+  - [x] Limite à 100 erreurs pour ne pas surcharger
+- [x] Gérer colonnes combinées lors de l'import
+  - [x] Recréer colonnes combinées si nécessaire (ex: "Col5_combined")
+  - [x] Détection automatique des colonnes à combiner
+- [x] Génération automatique de noms pour transactions sans nom
+  - [x] Générer "nom_a_justifier_N" si nom vide
+  - [x] Compter les transactions existantes avec ce préfixe
+- [x] Affichage visuel des transactions à justifier
+  - [x] Nom en rouge avec emoji ⚠️ dans le tableau
+  - [x] Police en gras pour ces transactions
+- [x] Correction détection doublons pour transactions sans nom
+  - [x] Vérifier doublons sur (Date + Quantité) uniquement si nom vide
+  - [x] Éviter création de doublons lors du rechargement de fichiers
+- [x] Correction bug import datetime
+  - [x] Supprimer import local qui masquait l'import global
+- [x] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/models.py` - Ajout modèle `TransactionError`
+- `backend/api/routes/transactions.py` - Amélioration gestion erreurs et doublons
+- `frontend/src/components/ColumnMappingModal.tsx` - Affichage erreurs détaillées
+- `frontend/src/components/TransactionsTable.tsx` - Affichage transactions à justifier
+
+**Tests**:
+- [x] Test affichage erreurs détaillées ligne par ligne
+- [x] Test génération noms automatiques pour transactions sans nom
+- [x] Test affichage visuel transactions à justifier (rouge + ⚠️)
+- [x] Test détection doublons pour transactions sans nom
+- [x] Test rechargement fichier avec transactions sans nom (pas de doublons)
+- [x] Test colonnes combinées lors de l'import
+
+**Acceptance Criteria**:
+- [x] Toutes les erreurs sont affichées avec détails (ligne, date, quantité, nom, message)
+- [x] Transactions sans nom génèrent automatiquement "nom_a_justifier_N"
+- [x] Transactions à justifier affichées en rouge avec ⚠️ dans le tableau
+- [x] Rechargement fichier ne crée pas de doublons pour transactions sans nom
+- [x] Détection doublons fonctionne correctement (Date + Quantité pour noms vides)
+- [x] Colonnes combinées recréées correctement lors de l'import
+- [x] **Utilisateur confirme que toutes les fonctionnalités fonctionnent** (test avec fichiers réels)
+
+**Impact Backend**: 
+- ✅ Gestion erreurs améliorée avec détails complets
+- ✅ Détection doublons plus robuste
+- ✅ Génération automatique de noms pour transactions sans nom
+
+**Impact Frontend**: 
+- ✅ Affichage erreurs détaillées ligne par ligne
+- ✅ Indicateur visuel pour transactions à justifier
+- ✅ Meilleure expérience utilisateur pour le débogage
+
+---
+
 ## Phase 3 : Fonctionnalité 2 - Enrichissement et catégorisation
 
 ### Step 3.1 : Service d'enrichissement backend

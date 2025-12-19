@@ -125,9 +125,49 @@ export default function ColumnMappingModal({
         }
       }
       
-      // Log des erreurs
+      // Log des erreurs détaillées
       if (result.errors_count > 0) {
         addLogEntry(newLogId, 'Étape 3: Import en cours', `❌ ${result.errors_count} erreur(s) rencontrée(s) lors du traitement`, 'error');
+        
+        // Afficher chaque erreur individuellement
+        if (result.errors && result.errors.length > 0) {
+          const totalErrors = result.errors.length;
+          const maxToShow = 100; // Limiter l'affichage à 100 erreurs pour ne pas surcharger
+          
+          result.errors.slice(0, maxToShow).forEach((error, index) => {
+            const errorDetails = [
+              error.line_number > 0 ? `Ligne ${error.line_number}` : '',
+              error.date ? `Date: ${error.date}` : '',
+              error.quantite !== null && error.quantite !== undefined ? `Quantité: ${error.quantite}€` : '',
+              error.nom ? `Nom: "${error.nom}"` : '',
+              `Erreur: ${error.error_message}`
+            ].filter(Boolean).join(' | ');
+            
+            addLogEntry(
+              newLogId,
+              'Étape 3: Erreur détectée',
+              `Erreur ${index + 1}/${totalErrors}: ${errorDetails}`,
+              'error'
+            );
+          });
+          
+          if (totalErrors > maxToShow) {
+            addLogEntry(
+              newLogId,
+              'Étape 3: Erreur détectée',
+              `... et ${totalErrors - maxToShow} autre(s) erreur(s) (affichage limité à ${maxToShow})`,
+              'error'
+            );
+          }
+        } else {
+          // Si errors_count > 0 mais pas de détails, afficher un message générique
+          addLogEntry(
+            newLogId,
+            'Étape 3: Erreur détectée',
+            `⚠️ ${result.errors_count} erreur(s) détectée(s) mais les détails ne sont pas disponibles`,
+            'error'
+          );
+        }
       }
       
       console.log('✅ [ColumnMappingModal] Import réussi!', result);

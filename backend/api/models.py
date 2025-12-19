@@ -99,6 +99,15 @@ class DuplicateTransaction(BaseModel):
     existing_id: int = Field(..., description="ID de la transaction existante en BDD")
 
 
+class TransactionError(BaseModel):
+    """Model for transaction error details."""
+    line_number: int = Field(..., description="Numéro de ligne dans le fichier (1-based)")
+    date: Optional[str] = None
+    quantite: Optional[float] = None
+    nom: Optional[str] = None
+    error_message: str = Field(..., description="Message d'erreur détaillé")
+
+
 class FileImportResponse(BaseModel):
     """Model for file import response."""
     filename: str
@@ -106,6 +115,7 @@ class FileImportResponse(BaseModel):
     duplicates_count: int
     errors_count: int
     duplicates: List[DuplicateTransaction] = Field(default_factory=list)
+    errors: List[TransactionError] = Field(default_factory=list, description="Liste détaillée des erreurs")
     period_start: Optional[str] = None
     period_end: Optional[str] = None
     message: str

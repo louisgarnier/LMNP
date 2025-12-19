@@ -490,8 +490,19 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                     <td style={{ padding: '12px', textAlign: 'right', color: transaction.quantite >= 0 ? '#10b981' : '#ef4444' }}>
                       {formatAmount(transaction.quantite)}
                     </td>
-                    <td style={{ padding: '12px', color: '#666', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {transaction.nom}
+                    <td style={{ padding: '12px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ 
+                        color: transaction.nom.startsWith('nom_a_justifier_') ? '#dc3545' : '#666',
+                        fontWeight: transaction.nom.startsWith('nom_a_justifier_') ? '500' : 'normal',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}>
+                        {transaction.nom.startsWith('nom_a_justifier_') && (
+                          <span style={{ fontSize: '14px' }}>⚠️</span>
+                        )}
+                        {transaction.nom}
+                      </span>
                     </td>
                     <td style={{ padding: '12px', textAlign: 'right', color: '#1a1a1a', fontWeight: '500' }}>
                       {formatAmount(transaction.solde)}
