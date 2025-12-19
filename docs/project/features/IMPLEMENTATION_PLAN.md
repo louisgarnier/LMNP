@@ -729,80 +729,266 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ## Phase 3 : Fonctionnalité 2 - Enrichissement et catégorisation
 
-### Step 3.1 : Service d'enrichissement backend
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Migrer la logique de `2_add_extra_columns.py` avec système de mapping intelligent.
+### Vue d'ensemble
+**Objectif** : Enrichir automatiquement les transactions avec des classifications hiérarchiques (level 1, 2, 3) basées sur un système de mapping intelligent, permettant la catégorisation comptable des transactions.
 
-**Tasks**:
-- [ ] Créer enrichment_service.py
-- [ ] Implémenter ajout métadonnées temporelles
-- [ ] Implémenter mapping intelligent par préfixe
-- [ ] Créer endpoints CRUD pour mappings
-- [ ] **Créer test complet avec mappings réels**
-- [ ] **Valider avec l'utilisateur**
+**Migration depuis l'ancien système** :
+- **Fichiers de référence** : `scripts/mapping.xlsx` et `scripts/2_add_extra_columns.py` servent de référence pour la migration
+- **Après migration** : Ces fichiers peuvent être supprimés car toute la logique sera dans la nouvelle architecture (table `mappings` + `enrichment_service.py`)
 
-**Deliverables**:
-- `backend/api/services/enrichment_service.py` - Service enrichissement
-- `backend/api/routes/enrichment.py` - Endpoints enrichissement
-- `backend/api/routes/mappings.py` - CRUD mappings
-- `backend/tests/test_enrichment.py` - Tests enrichissement
+**Architecture** :
+- **Table `enriched_transactions`** : Stocke les classifications et métadonnées (annee, level_1, level_2, level_3) liées aux transactions via `transaction_id`
+- **Table `mappings`** : Stocke les règles de mapping (nom → level_1, level_2, level_3) pour l'enrichissement automatique
+- **Enrichissement automatique** : Après chaque import CSV, les transactions sont automatiquement enrichies via le mapping
+- **Enrichissement manuel** : Possibilité de modifier les classifications directement sur les transactions, ce qui crée automatiquement de nouveaux mappings
 
-**Tests**:
-- [ ] Test ajout métadonnées (mois, année)
-- [ ] Test mapping par préfixe
-- [ ] Test cas spéciaux (PRLV SEPA, VIR STRIPE)
-- [ ] Test catégorisation hiérarchique
-- [ ] Test transactions non mappées
-- [ ] Test CRUD mappings
-
-**Acceptance Criteria**:
-- [ ] Enrichissement automatique fonctionne
-- [ ] Mapping par préfixe opérationnel
-- [ ] Transactions enrichies stockées en DB
-- [ ] Rapport des non-mappées généré
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que l'enrichissement fonctionne**
-
-**Impact Frontend**: 
-- [ ] Afficher classifications dans tableau transactions
-- [ ] Tester enrichissement depuis interface
+**Fonctionnalités clés** :
+1. Enrichissement automatique après import CSV
+2. Mapping intelligent par préfixe (basé sur le script `2_add_extra_columns.py`)
+3. Modification manuelle des classifications dans le tableau des transactions
+4. Création automatique de mappings lors de modifications manuelles
+5. Re-enrichissement en cascade lors de modification d'un mapping
+6. Onglet "Non classées" pour les transactions sans classifications
+7. Onglet "Mapping" pour gérer les règles de mapping
 
 ---
 
-### Step 3.2 : Interface gestion mapping et classifications
+### Step 3.1 : Migration mappings depuis Excel vers DB
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Interface pour visualiser/modifier les classifications et gérer les mappings.
+**Description**: Migrer les 113 mappings depuis `mapping.xlsx` vers la table `mappings` dans la base de données.
+
+**Objectif** : Préparer les données de référence pour l'enrichissement. Backend uniquement, testable via script.
 
 **Tasks**:
-- [ ] Créer composant ClassificationEditor
-- [ ] Créer composant MappingEditor
-- [ ] Ajouter édition inline dans tableau transactions
-- [ ] Créer interface gestion mappings
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [ ] Créer script de migration `backend/scripts/migrate_mappings.py`
+- [ ] Lire `scripts/mapping.xlsx` avec pandas
+- [ ] Insérer les mappings dans la table `mappings` (nom, level_1, level_2, level_3)
+- [ ] Gérer les doublons (skip si mapping existe déjà)
+- [ ] Afficher statistiques de migration (nombre de mappings importés)
+- [ ] **Tester le script et valider avec l'utilisateur**
 
 **Deliverables**:
-- `frontend/src/components/ClassificationEditor.tsx` - Éditeur classifications
-- `frontend/src/components/MappingEditor.tsx` - Éditeur mappings
-- Mise à jour `frontend/app/dashboard/transactions/page.tsx`
+- `backend/scripts/migrate_mappings.py` - Script de migration
+
+**Tests**:
+- [ ] Script exécutable sans erreur
+- [ ] 113 mappings importés dans la table `mappings`
+- [ ] Vérification manuelle de quelques mappings dans la DB
+- [ ] Script idempotent (peut être exécuté plusieurs fois sans doublons)
+
+**Acceptance Criteria**:
+- [ ] Script de migration fonctionne
+- [ ] Tous les mappings sont dans la table `mappings`
+- [ ] **Utilisateur confirme que les mappings sont corrects dans la DB**
+
+---
+
+### Step 3.2 : CRUD mappings backend + Interface frontend
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer les endpoints API pour gérer les mappings ET l'interface frontend pour les visualiser.
+
+**Objectif** : Permettre la gestion des mappings via API ET interface web. Backend + Frontend, testable visuellement.
+
+**Tasks Backend**:
+- [ ] Créer `backend/api/routes/mappings.py`
+- [ ] Endpoint `GET /api/mappings` - Liste tous les mappings
+- [ ] Endpoint `GET /api/mappings/{mapping_id}` - Détails d'un mapping
+- [ ] Endpoint `POST /api/mappings` - Créer un nouveau mapping
+- [ ] Endpoint `PUT /api/mappings/{mapping_id}` - Modifier un mapping
+- [ ] Endpoint `DELETE /api/mappings/{mapping_id}` - Supprimer un mapping
+- [ ] Créer modèles Pydantic pour les requêtes/réponses
+
+**Tasks Frontend**:
+- [ ] Créer `frontend/src/components/MappingTable.tsx` - Tableau pour afficher les mappings
+- [ ] Ajouter sous-onglet "Mapping" dans `frontend/app/dashboard/transactions/page.tsx`
+- [ ] Afficher tous les mappings (nom, level_1, level_2, level_3) dans un tableau
+- [ ] Permettre création, modification, suppression de mappings via interface
+- [ ] Mise à jour `frontend/src/api/client.ts` - Ajout endpoints mappings
+- [ ] **Tester l'interface et valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/routes/mappings.py` - Endpoints CRUD mappings
+- Mise à jour `backend/api/models.py` - Modèles Pydantic pour mappings
+- `frontend/src/components/MappingTable.tsx` - Composant gestion mappings
+- Mise à jour `frontend/app/dashboard/transactions/page.tsx` - Ajout onglet Mapping
+- Mise à jour `frontend/src/api/client.ts` - Interface API mappings
+
+**Tests**:
+- [ ] Test GET /api/mappings (liste tous les mappings)
+- [ ] Test POST /api/mappings (création)
+- [ ] Test PUT /api/mappings/{id} (modification)
+- [ ] Test DELETE /api/mappings/{id} (suppression)
+- [ ] Test affichage mappings dans interface
+- [ ] Test création/modification/suppression via interface
+
+**Acceptance Criteria**:
+- [ ] Tous les endpoints CRUD fonctionnent
+- [ ] Interface frontend affiche tous les mappings
+- [ ] CRUD complet fonctionne via interface web
+- [ ] **Utilisateur confirme que l'interface fonctionne et est intuitive**
+
+---
+
+### Step 3.3 : Service enrichissement backend + Enrichissement automatique après import + Affichage dans tableau
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer le service d'enrichissement, l'intégrer dans l'import CSV, et afficher les classifications dans le tableau.
+
+**Objectif** : Implémenter l'enrichissement complet et le rendre visible immédiatement. Backend + Frontend, testable visuellement après import CSV.
+
+**Tasks Backend**:
+- [ ] Créer `backend/api/services/enrichment_service.py`
+- [ ] Implémenter fonction `find_best_mapping(transaction_name, mappings)` avec logique :
+  - Recherche par préfixe le plus long
+  - Matching "smart" par pattern/contient
+  - Cas spéciaux PRLV SEPA et VIR STRIPE
+- [ ] Implémenter fonction `enrich_transaction(transaction, db)` :
+  - Calculer `annee` depuis `transaction.date`
+  - Trouver le meilleur mapping
+  - Créer/update ligne `enriched_transaction` avec level_1/2/3 (ou NULL si pas de mapping)
+- [ ] Modifier `backend/api/routes/transactions.py` - Endpoint `POST /api/transactions/import`
+  - Après insertion des transactions, appeler `enrich_transaction` pour chaque transaction
+- [ ] Modifier `backend/api/routes/transactions.py` - Endpoint `GET /api/transactions` pour inclure les données enrichies
+
+**Tasks Frontend**:
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Ajouter colonnes level_1, level_2, level_3 (entre Solde et Actions)
+  - Afficher "à remplir" si level_1/2/3 = NULL
+- [ ] Mise à jour `frontend/src/api/client.ts` - Interface pour inclure level_1/2/3
+- [ ] **Tester avec import CSV réel et valider visuellement avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/services/enrichment_service.py` - Service enrichissement
+- `backend/tests/test_enrichment_service.py` - Tests unitaires
+- Mise à jour `backend/api/routes/transactions.py` - Intégration enrichissement après import + GET avec données enrichies
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Colonnes level_1/2/3
+- Mise à jour `frontend/src/api/client.ts` - Interface Transaction avec level_1/2/3
+
+**Tests**:
+- [ ] Test mapping par préfixe (préfixe le plus long)
+- [ ] Test matching "smart" (pattern/contient)
+- [ ] Test cas spéciaux (PRLV SEPA, VIR STRIPE)
+- [ ] Test enrichissement automatique après import CSV
+- [ ] Test création `enriched_transaction` pour chaque transaction
+- [ ] Test transactions avec mapping (level_1/2/3 appliqués)
+- [ ] Test transactions sans mapping (level_1/2/3 = NULL)
+- [ ] Colonnes level_1/2/3 visibles dans le tableau après import
+- [ ] Affichage correct des classifications (ou "à remplir" si NULL)
+
+**Acceptance Criteria**:
+- [ ] Logique de matching fonctionne correctement
+- [ ] Enrichissement automatique fonctionne après chaque import CSV
+- [ ] Colonnes level_1, level_2, level_3 visibles dans tableau "Toutes les transactions"
+- [ ] Affichage correct des classifications après import
+- [ ] **Utilisateur confirme que l'enrichissement fonctionne et est visible après import CSV réel**
+
+---
+
+### Step 3.4 : Édition inline classifications + création mapping automatique + Dropdowns intelligents
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Permettre l'édition inline des classifications avec dropdowns intelligents et création automatique de mappings.
+
+**Objectif** : Modifier les classifications directement dans le tableau avec une UX optimale. Backend + Frontend, testable.
+
+**Tasks Backend**:
+- [ ] Créer endpoint `PUT /api/enrichment/transactions/{transaction_id}` pour modifier classifications
+- [ ] Implémenter logique de création automatique de mapping :
+  - Si mapping existe avec le nom → update le mapping
+  - Si mapping n'existe pas → créer nouveau mapping
+- [ ] Créer endpoint `GET /api/mappings/combinations` pour obtenir toutes les combinaisons possibles
+
+**Tasks Frontend**:
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Édition inline des level_1/2/3 avec dropdowns intelligents
+  - Filtrer level_2 selon level_1 sélectionné
+  - Filtrer level_3 selon level_1 + level_2 sélectionnés
+  - Appel API pour sauvegarder les modifications
+- [ ] Mise à jour `frontend/src/api/client.ts` - Endpoints pour édition et combinations
+- [ ] **Tester l'édition avec dropdowns et valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/enrichment.py` - Endpoint PUT pour modifier classifications
+- Mise à jour `backend/api/services/enrichment_service.py` - Logique création mapping automatique
+- Mise à jour `backend/api/routes/mappings.py` - Endpoint GET combinations
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Édition inline avec dropdowns intelligents
+- Mise à jour `frontend/src/api/client.ts` - Endpoints édition et combinations
 
 **Tests**:
 - [ ] Test modification classification inline
-- [ ] Test création nouveau mapping
-- [ ] Test modification mapping existant
-- [ ] Test application mapping aux nouvelles transactions
+- [ ] Test création automatique de mapping lors de modification
+- [ ] Test update de mapping existant lors de modification
+- [ ] Test filtrage level_2 selon level_1
+- [ ] Test filtrage level_3 selon level_1 + level_2
+- [ ] Test sauvegarde persistante dans DB
 
 **Acceptance Criteria**:
-- [ ] Visualisation des classifications dans le tableau
-- [ ] Modification des classifications existantes
-- [ ] Création/modification de mappings via interface
-- [ ] Application des mappings aux nouvelles transactions
-- [ ] **Utilisateur confirme que l'interface fonctionne**
+- [ ] Édition inline des classifications fonctionne
+- [ ] Dropdowns intelligents fonctionnent (filtrage dynamique)
+- [ ] Création automatique de mapping fonctionne
+- [ ] Modifications persistées dans DB
+- [ ] **Utilisateur confirme que l'édition avec dropdowns est intuitive**
 
-**Impact Frontend**: 
-- ✅ Classifications visibles et éditables
-- ✅ Interface gestion mappings fonctionnelle
-- ✅ Modifications testées dans navigateur
+---
+
+### Step 3.5 : Onglet Non classées
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer l'onglet "Non classées" pour afficher et éditer les transactions sans classifications.
+
+**Objectif** : Faciliter le travail sur les transactions non mappées. Frontend, testable.
+
+**Tasks**:
+- [ ] Créer `frontend/src/components/UnclassifiedTransactionsTable.tsx`
+- [ ] Ajouter sous-onglet "Non classées" dans `frontend/app/dashboard/transactions/page.tsx`
+- [ ] Filtrer uniquement les transactions avec level_1/2/3 = NULL
+- [ ] Permettre édition des classifications depuis cet onglet (avec dropdowns intelligents)
+- [ ] **Tester l'interface et valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/UnclassifiedTransactionsTable.tsx` - Composant transactions non classées
+- Mise à jour `frontend/app/dashboard/transactions/page.tsx` - Ajout onglet Non classées
+
+**Tests**:
+- [ ] Affichage uniquement transactions avec level_1/2/3 = NULL
+- [ ] Édition depuis cet onglet fonctionne
+- [ ] Transactions disparaissent de l'onglet après classification
+
+**Acceptance Criteria**:
+- [ ] Onglet "Non classées" fonctionne
+- [ ] Affichage correct des transactions non classées
+- [ ] Édition fonctionne depuis cet onglet
+- [ ] **Utilisateur confirme que l'onglet est utile**
+
+---
+
+### Step 3.6 : Re-enrichissement en cascade
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter le re-enrichissement en cascade lors de modification/suppression d'un mapping.
+
+**Objectif** : Maintenir la cohérence entre mappings et transactions. Backend + frontend, testable.
+
+**Tasks Backend**:
+- [ ] Modifier `backend/api/routes/mappings.py` :
+  - Lors de modification mapping → re-enrichir toutes les transactions qui l'utilisent
+  - Lors de suppression mapping → remettre toutes les transactions à NULL
+- [ ] Créer endpoint `POST /api/enrichment/re-enrich` pour re-enrichir toutes les transactions
+
+**Tasks Frontend**:
+- [ ] Ajouter bouton "Re-enrichir toutes les transactions" dans onglet Mapping
+- [ ] **Tester le re-enrichissement et valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/mappings.py` - Re-enrichissement en cascade
+- Mise à jour `backend/api/routes/enrichment.py` - Endpoint re-enrichissement
+- Mise à jour `frontend/src/components/MappingTable.tsx` - Bouton re-enrichissement
+
+**Tests**:
+- [ ] Test modification mapping → update toutes transactions concernées
+- [ ] Test suppression mapping → transactions remises à NULL
+- [ ] Test bouton re-enrichissement manuel
+
+**Acceptance Criteria**:
+- [ ] Re-enrichissement en cascade fonctionne
+- [ ] Cohérence maintenue entre mappings et transactions
+- [ ] **Utilisateur confirme que le re-enrichissement fonctionne**
 
 ---
 
