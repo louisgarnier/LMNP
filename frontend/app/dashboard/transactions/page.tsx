@@ -7,14 +7,37 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import FileUpload from '@/components/FileUpload';
 import ImportLog from '@/components/ImportLog';
 import TransactionsTable from '@/components/TransactionsTable';
+import { transactionsAPI } from '@/api/client';
 
 export default function TransactionsPage() {
   const searchParams = useSearchParams();
   const filter = searchParams?.get('filter');
   const tab = searchParams?.get('tab');
+  const [transactionCount, setTransactionCount] = useState<number | null>(null);
+  const [isLoadingCount, setIsLoadingCount] = useState(false);
+
+  const loadTransactionCount = async () => {
+    setIsLoadingCount(true);
+    try {
+      const response = await transactionsAPI.getAll(0, 1);
+      setTransactionCount(response.total);
+    } catch (error) {
+      console.error('Error loading transaction count:', error);
+      setTransactionCount(null);
+    } finally {
+      setIsLoadingCount(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'load_trades') {
+      loadTransactionCount();
+    }
+  }, [tab]);
 
   const handleFileSelect = (file: File) => {
     console.log('📁 [TransactionsPage] Fichier sélectionné:', file.name);
@@ -23,7 +46,13 @@ export default function TransactionsPage() {
 
   const handleImportComplete = () => {
     console.log('✅ [TransactionsPage] Import terminé');
+    // Recharger le compteur après import
+    loadTransactionCount();
     // Le tableau se rechargera automatiquement via son propre useEffect
+  };
+
+  const handleTransactionCountChange = (count: number) => {
+    setTransactionCount(count);
   };
 
   return (
@@ -58,7 +87,60 @@ export default function TransactionsPage() {
 
         {tab === 'load_trades' && (
           <div>
-            <FileUpload onFileSelect={handleFileSelect} onImportComplete={handleImportComplete} />
+            {/* Header avec bouton Load Trades et compteur */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'flex-start',
+              marginBottom: '24px',
+              gap: '24px'
+            }}>
+              <div style={{ flex: 1 }}>
+                {/* Le FileUpload contient déjà le bouton Load Trades */}
+                <FileUpload onFileSelect={handleFileSelect} onImportComplete={handleImportComplete} />
+              </div>
+              <div style={{ 
+                padding: '12px 20px', 
+                backgroundColor: '#f5f5f5', 
+                borderRadius: '8px',
+                border: '1px solid #e5e5e5',
+                minWidth: '200px',
+                textAlign: 'center',
+                flexShrink: 0
+              }}>
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                  Transactions en BDD
+                </div>
+                {isLoadingCount ? (
+                  <div style={{ fontSize: '20px', fontWeight: '600', color: '#1e3a5f' }}>
+                    ⏳ Chargement...
+                  </div>
+                ) : transactionCount !== null ? (
+                  <div style={{ fontSize: '24px', fontWeight: '600', color: '#1e3a5f' }}>
+                    {transactionCount} transaction{transactionCount !== 1 ? 's' : ''}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '14px', color: '#dc3545' }}>
+                    ❌ Erreur de chargement
+                  </div>
+                )}
+                <button
+                  onClick={loadTransactionCount}
+                  style={{
+                    marginTop: '8px',
+                    padding: '4px 12px',
+                    fontSize: '12px',
+                    backgroundColor: '#1e3a5f',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🔄 Actualiser
+                </button>
+              </div>
+            </div>
             
             <div style={{ 
               marginTop: '24px', 
@@ -66,18 +148,21 @@ export default function TransactionsPage() {
               backgroundColor: '#f9f9f9', 
               borderRadius: '4px',
               fontSize: '14px',
-              color: '#666'
+              color: '#666',
+              marginBottom: '24px'
             }}>
               <p style={{ margin: 0 }}>
                 Sélectionnez un fichier CSV pour charger vos transactions. 
                 Le fichier sera analysé et vous pourrez confirmer le mapping des colonnes.
               </p>
             </div>
-          </div>
-        )}
 
-        {tab === 'log' && (
-          <ImportLog />
+            {/* Historique des imports */}
+            <ImportLog 
+              hideHeader={true} 
+              onTransactionCountChange={handleTransactionCountChange}
+            />
+          </div>
         )}
       </div>
     </div>

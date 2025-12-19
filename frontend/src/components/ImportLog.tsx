@@ -23,7 +23,12 @@ interface FileImportHistory {
   period_end?: string;
 }
 
-export default function ImportLog() {
+interface ImportLogProps {
+  hideHeader?: boolean;
+  onTransactionCountChange?: (count: number) => void;
+}
+
+export default function ImportLog({ hideHeader = false, onTransactionCountChange }: ImportLogProps) {
   const { logs: memoryLogs, updateLog } = useImportLog();
   const [dbHistory, setDbHistory] = useState<FileImportHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -50,6 +55,9 @@ export default function ImportLog() {
     try {
       const response = await transactionsAPI.getAll(0, 1);
       setTransactionCount(response.total);
+      if (onTransactionCountChange) {
+        onTransactionCountChange(response.total);
+      }
     } catch (error) {
       console.error('Error loading transaction count:', error);
     }
@@ -130,65 +138,67 @@ export default function ImportLog() {
 
   return (
     <div>
-      {/* Header with transaction count */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '24px',
-        padding: '16px',
-        backgroundColor: 'white',
-        borderRadius: '8px',
-        border: '1px solid #e5e5e5'
-      }}>
-        <div>
-          <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0, color: '#1a1a1a' }}>
-            Historique des imports
-          </h2>
-          <p style={{ fontSize: '14px', color: '#666', margin: '4px 0 0 0' }}>
-            Suivi des imports de fichiers CSV
-          </p>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ 
-            padding: '12px 20px', 
-            backgroundColor: '#f5f5f5', 
-            borderRadius: '8px',
-            border: '1px solid #e5e5e5',
-            minWidth: '150px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-              Transactions en BDD
-            </div>
-            {transactionCount !== null ? (
-              <div style={{ fontSize: '20px', fontWeight: '600', color: '#1e3a5f' }}>
-                {transactionCount} transaction{transactionCount !== 1 ? 's' : ''}
-              </div>
-            ) : (
-              <div style={{ fontSize: '14px', color: '#dc3545' }}>
-                ❌ Erreur
-              </div>
-            )}
+      {/* Header with transaction count - only if not hidden */}
+      {!hideHeader && (
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          marginBottom: '24px',
+          padding: '16px',
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          border: '1px solid #e5e5e5'
+        }}>
+          <div>
+            <h2 style={{ fontSize: '20px', fontWeight: '600', margin: 0, color: '#1a1a1a' }}>
+              Historique des imports
+            </h2>
+            <p style={{ fontSize: '14px', color: '#666', margin: '4px 0 0 0' }}>
+              Suivi des imports de fichiers CSV
+            </p>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            style={{
-              padding: '8px 16px',
-              fontSize: '14px',
-              backgroundColor: '#1e3a5f',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: isRefreshing ? 'not-allowed' : 'pointer',
-              opacity: isRefreshing ? 0.6 : 1,
-            }}
-          >
-            {isRefreshing ? '⏳ Actualisation...' : '🔄 Actualiser'}
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ 
+              padding: '12px 20px', 
+              backgroundColor: '#f5f5f5', 
+              borderRadius: '8px',
+              border: '1px solid #e5e5e5',
+              minWidth: '150px',
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                Transactions en BDD
+              </div>
+              {transactionCount !== null ? (
+                <div style={{ fontSize: '20px', fontWeight: '600', color: '#1e3a5f' }}>
+                  {transactionCount} transaction{transactionCount !== 1 ? 's' : ''}
+                </div>
+              ) : (
+                <div style={{ fontSize: '14px', color: '#dc3545' }}>
+                  ❌ Erreur
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              style={{
+                padding: '8px 16px',
+                fontSize: '14px',
+                backgroundColor: '#1e3a5f',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                opacity: isRefreshing ? 0.6 : 1,
+              }}
+            >
+              {isRefreshing ? '⏳ Actualisation...' : '🔄 Actualiser'}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Logs list */}
       <div style={{ 

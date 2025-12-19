@@ -19,6 +19,8 @@ async function fetchAPI<T>(
   const url = `${API_BASE_URL}${endpoint}`;
   
   try {
+    console.log(`📤 [API] Appel ${options?.method || 'GET'} ${url}`);
+    
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -27,9 +29,36 @@ async function fetchAPI<T>(
       },
     });
 
+    console.log(`📥 [API] Réponse ${response.status} pour ${endpoint}`);
+
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        error = { detail: `HTTP error! status: ${response.status}` };
+      }
+      
+      // Gérer les erreurs de validation FastAPI (422)
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      if (error.detail) {
+        if (Array.isArray(error.detail)) {
+          // Erreurs de validation FastAPI (liste d'erreurs)
+          errorMessage = error.detail.map((e: any) => {
+            if (typeof e === 'string') return e;
+            return `${e.loc?.join('.') || 'field'}: ${e.msg || e}`;
+          }).join(', ');
+        } else if (typeof error.detail === 'string') {
+          errorMessage = error.detail;
+        } else {
+          errorMessage = JSON.stringify(error.detail);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      console.error(`❌ [API] Erreur ${response.status} (${endpoint}):`, error);
+      throw new Error(errorMessage);
     }
 
     // Handle 204 No Content
@@ -39,7 +68,14 @@ async function fetchAPI<T>(
 
     return await response.json();
   } catch (error) {
-    console.error(`API Error (${endpoint}):`, error);
+    // Gérer les erreurs réseau (Failed to fetch)
+    if (error instanceof TypeError && error.message === 'Failed to fetch') {
+      console.error(`❌ [API] Erreur réseau - Impossible de se connecter au serveur (${url})`);
+      console.error(`❌ [API] Vérifiez que le serveur backend est démarré sur ${API_BASE_URL}`);
+      throw new Error(`Impossible de se connecter au serveur. Vérifiez que le backend est démarré sur ${API_BASE_URL}`);
+    }
+    
+    console.error(`❌ [API] Erreur lors de l'appel (${endpoint}):`, error);
     throw error;
   }
 }
@@ -120,10 +156,18 @@ export const transactionsAPI = {
   },
 
   update: async (id: number, data: TransactionUpdate): Promise<Transaction> => {
-    return fetchAPI<Transaction>(`/api/transactions/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
+    console.log('📤 [API] Appel PUT /api/transactions/' + id, data);
+    try {
+      const result = await fetchAPI<Transaction>(`/api/transactions/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+      console.log('✅ [API] Transaction mise à jour:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ [API] Erreur lors de la mise à jour:', error);
+      throw error;
+    }
   },
 
   delete: async (id: number): Promise<void> => {

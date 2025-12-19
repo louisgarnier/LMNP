@@ -126,21 +126,55 @@ async def update_transaction(
 ):
     """
     Mettre à jour une transaction existante.
+    Note: Recalcule automatiquement les soldes après modification.
     """
+    from backend.api.utils.balance_utils import recalculate_balances_from_date
+    
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction non trouvée")
     
+    # Sauvegarder la date avant modification pour recalculer les soldes
+    old_date = db_transaction.date
+    
     # Mettre à jour uniquement les champs fournis
     update_data = transaction_update.dict(exclude_unset=True)
+    
+    # Convertir la date string en date object si présente
+    new_date = old_date
+    if 'date' in update_data and update_data['date'] is not None:
+        if isinstance(update_data['date'], str):
+            try:
+                from datetime import datetime as dt
+                new_date = dt.strptime(update_data['date'], '%Y-%m-%d').date()
+                update_data['date'] = new_date
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Format de date invalide (attendu: YYYY-MM-DD)")
+        else:
+            new_date = update_data['date']
+    
+    # Déterminer la date minimale pour recalculer les soldes
+    min_date = min(old_date, new_date)
+    
     for field, value in update_data.items():
         setattr(db_transaction, field, value)
     
     db.commit()
+    
+    # Recalculer les soldes à partir de la date la plus ancienne
+    try:
+        recalculate_balances_from_date(db, min_date)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"❌ Erreur lors du recalcul des soldes: {error_details}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors du recalcul des soldes: {str(e)}")
+    
     db.refresh(db_transaction)
     
-    return TransactionResponse.from_orm(db_transaction)
+    return TransactionResponse.model_validate(db_transaction)
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
@@ -150,14 +184,18 @@ async def delete_transaction(
 ):
     """
     Supprimer une transaction.
-    Note: Supprime également les données enrichies associées.
+    Note: Supprime également les données enrichies associées et recalcule les soldes.
     """
     from backend.database.models import EnrichedTransaction, Amortization
+    from backend.api.utils.balance_utils import recalculate_balances_from_date
     
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
     
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction non trouvée")
+    
+    # Sauvegarder la date pour recalculer les soldes après
+    transaction_date = db_transaction.date
     
     # Supprimer les données associées en cascade
     db.query(EnrichedTransaction).filter(
@@ -171,6 +209,9 @@ async def delete_transaction(
     # Supprimer la transaction
     db.delete(db_transaction)
     db.commit()
+    
+    # Recalculer les soldes des transactions suivantes
+    recalculate_balances_from_date(db, transaction_date)
     
     return None
 
@@ -262,15 +303,13 @@ async def import_file(
         mapping_data = json.loads(mapping)
         column_mapping = {item['file_column']: item['db_column'] for item in mapping_data}
         
-        # Vérifier si fichier déjà chargé
+        # Vérifier si fichier déjà chargé (avertissement mais on continue)
         filename = file.filename or "unknown.csv"
         existing_import = db.query(FileImport).filter(FileImport.filename == filename).first()
+        warning_message = None
         
         if existing_import:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')}"
-            )
+            warning_message = f"⚠️ Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')}. Le traitement continue, les doublons seront détectés."
         
         # Lire le fichier
         file_content = await file.read()
@@ -384,17 +423,32 @@ async def import_file(
             db.add(transaction)
         db.commit()
         
-        # Enregistrer dans file_imports
-        file_import = FileImport(
-            filename=filename,
-            imported_count=imported_count,
-            duplicates_count=duplicates_count,
-            errors_count=errors_count,
-            period_start=period_start,
-            period_end=period_end
-        )
-        db.add(file_import)
-        db.commit()
+        # Créer ou mettre à jour l'enregistrement FileImport
+        if existing_import:
+            # Mettre à jour l'enregistrement existant
+            existing_import.imported_at = datetime.utcnow()
+            existing_import.imported_count = imported_count
+            existing_import.duplicates_count = duplicates_count
+            existing_import.errors_count = errors_count
+            existing_import.period_start = period_start
+            existing_import.period_end = period_end
+            db.commit()
+        else:
+            # Créer un nouvel enregistrement
+            file_import = FileImport(
+                filename=filename,
+                imported_count=imported_count,
+                duplicates_count=duplicates_count,
+                errors_count=errors_count,
+                period_start=period_start,
+                period_end=period_end
+            )
+            db.add(file_import)
+            db.commit()
+        
+        message = f"Import terminé: {imported_count} transactions importées, {duplicates_count} doublons détectés"
+        if warning_message:
+            message = f"{warning_message} {message}"
         
         return FileImportResponse(
             filename=filename,
@@ -404,7 +458,7 @@ async def import_file(
             duplicates=duplicates_list[:50],  # Limiter à 50 doublons pour la réponse
             period_start=period_start.strftime('%d/%m/%Y') if period_start else None,
             period_end=period_end.strftime('%d/%m/%Y') if period_end else None,
-            message=f"Import terminé: {imported_count} transactions importées, {duplicates_count} doublons détectés"
+            message=message
         )
         
     except HTTPException:

@@ -28,11 +28,14 @@ class TransactionCreate(TransactionBase):
 
 class TransactionUpdate(BaseModel):
     """Model for updating a transaction."""
-    date: Optional[date] = None
+    date: Optional[str] = None  # Accept string, will be converted to date in route
     quantite: Optional[float] = None
     nom: Optional[str] = Field(None, max_length=500)
     solde: Optional[float] = None
     source_file: Optional[str] = Field(None, max_length=255)
+    
+    class Config:
+        from_attributes = True
 
 
 class TransactionResponse(TransactionBase):

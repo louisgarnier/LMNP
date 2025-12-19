@@ -83,6 +83,11 @@ export default function ColumnMappingModal({
       
       const result = await fileUploadAPI.import(file, mapping);
       
+      // Afficher l'avertissement si fichier déjà chargé (dans le message)
+      if (result.message && result.message.includes('⚠️')) {
+        addLogEntry(newLogId, 'Étape 3: Avertissement', result.message.split('⚠️')[1].trim(), 'warning');
+      }
+      
       // Log détaillé des transactions importées
       if (result.imported_count > 0) {
         addLogEntry(newLogId, 'Étape 3: Import en cours', `Chargement de ${result.imported_count} transaction(s)...`, 'info');

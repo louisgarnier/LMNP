@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { transactionsAPI, Transaction } from '@/api/client';
+import EditTransactionModal from './EditTransactionModal';
 
 interface TransactionsTableProps {
   onDelete?: () => void;
@@ -29,6 +30,9 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
 
   const loadTransactions = async () => {
     setIsLoading(true);
@@ -84,6 +88,18 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
 
       setTransactions(filtered);
       setTotal(response.total);
+      
+      // Réinitialiser la sélection si les transactions chargées ne contiennent plus les IDs sélectionnés
+      setSelectedIds(prev => {
+        const loadedIds = new Set(filtered.map(t => t.id));
+        const newSet = new Set<number>();
+        prev.forEach(id => {
+          if (loadedIds.has(id)) {
+            newSet.add(id);
+          }
+        });
+        return newSet;
+      });
     } catch (err) {
       console.error('Error loading transactions:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
@@ -121,6 +137,11 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
     setDeletingId(id);
     try {
       await transactionsAPI.delete(id);
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
       await loadTransactions();
       if (onDelete) {
         onDelete();
@@ -130,6 +151,57 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
       alert('Erreur lors de la suppression de la transaction');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleToggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedIds.size === transactions.length) {
+      // Tout désélectionner
+      setSelectedIds(new Set());
+    } else {
+      // Tout sélectionner
+      setSelectedIds(new Set(transactions.map(t => t.id)));
+    }
+  };
+
+  const handleDeleteMultiple = async () => {
+    if (selectedIds.size === 0) {
+      return;
+    }
+
+    const count = selectedIds.size;
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer ${count} transaction${count > 1 ? 's' : ''} ?`)) {
+      return;
+    }
+
+    setIsDeletingMultiple(true);
+    try {
+      // Supprimer toutes les transactions sélectionnées
+      const deletePromises = Array.from(selectedIds).map(id => transactionsAPI.delete(id));
+      await Promise.all(deletePromises);
+      
+      setSelectedIds(new Set());
+      await loadTransactions();
+      if (onDelete) {
+        onDelete();
+      }
+    } catch (err) {
+      console.error('Error deleting transactions:', err);
+      alert(`Erreur lors de la suppression de ${count} transaction${count > 1 ? 's' : ''}`);
+    } finally {
+      setIsDeletingMultiple(false);
     }
   };
 
@@ -240,11 +312,43 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
         </div>
       </div>
 
-      {/* Statistiques */}
-      <div style={{ marginBottom: '16px', fontSize: '14px', color: '#666' }}>
-        {total} transaction{total !== 1 ? 's' : ''} au total
-        {searchTerm && ` (filtrées par "${searchTerm}")`}
-        {(startDate || endDate) && ` (période: ${startDate || 'début'} - ${endDate || 'fin'})`}
+      {/* Statistiques et actions de sélection */}
+      <div style={{ 
+        marginBottom: '16px', 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ fontSize: '14px', color: '#666' }}>
+          {total} transaction{total !== 1 ? 's' : ''} au total
+          {searchTerm && ` (filtrées par "${searchTerm}")`}
+          {(startDate || endDate) && ` (période: ${startDate || 'début'} - ${endDate || 'fin'})`}
+        </div>
+        {selectedIds.size > 0 && (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '14px', color: '#1e3a5f', fontWeight: '500' }}>
+              {selectedIds.size} transaction{selectedIds.size > 1 ? 's' : ''} sélectionnée{selectedIds.size > 1 ? 's' : ''}
+            </span>
+            <button
+              onClick={handleDeleteMultiple}
+              disabled={isDeletingMultiple}
+              style={{
+                padding: '8px 16px',
+                backgroundColor: isDeletingMultiple ? '#ccc' : '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: isDeletingMultiple ? 'not-allowed' : 'pointer',
+                opacity: isDeletingMultiple ? 0.6 : 1,
+              }}
+            >
+              {isDeletingMultiple ? '⏳ Suppression...' : `🗑️ Supprimer ${selectedIds.size}`}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tableau */}
@@ -271,6 +375,24 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f5f5f5', borderBottom: '2px solid #e5e5e5' }}>
+                  <th style={{ 
+                    padding: '12px', 
+                    textAlign: 'center', 
+                    fontWeight: '600', 
+                    color: '#1a1a1a',
+                    width: '50px'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={transactions.length > 0 && selectedIds.size === transactions.length}
+                      onChange={handleSelectAll}
+                      style={{
+                        width: '18px',
+                        height: '18px',
+                        cursor: 'pointer',
+                      }}
+                    />
+                  </th>
                   <th
                     onClick={() => handleSort('date')}
                     style={{
@@ -335,14 +457,33 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                     style={{
                       borderBottom: '1px solid #e5e5e5',
                       transition: 'background-color 0.2s',
+                      backgroundColor: selectedIds.has(transaction.id) ? '#e3f2fd' : 'white',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f9f9f9';
+                      if (!selectedIds.has(transaction.id)) {
+                        e.currentTarget.style.backgroundColor = '#f9f9f9';
+                      }
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'white';
+                      if (!selectedIds.has(transaction.id)) {
+                        e.currentTarget.style.backgroundColor = 'white';
+                      } else {
+                        e.currentTarget.style.backgroundColor = '#e3f2fd';
+                      }
                     }}
                   >
+                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(transaction.id)}
+                        onChange={() => handleToggleSelect(transaction.id)}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    </td>
                     <td style={{ padding: '12px', color: '#1a1a1a' }}>
                       {formatDate(transaction.date)}
                     </td>
@@ -356,22 +497,38 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                       {formatAmount(transaction.solde)}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
-                      <button
-                        onClick={() => handleDelete(transaction.id)}
-                        disabled={deletingId === transaction.id}
-                        style={{
-                          padding: '6px 12px',
-                          backgroundColor: deletingId === transaction.id ? '#ccc' : '#dc3545',
-                          color: 'white',
-                          border: 'none',
-                          borderRadius: '4px',
-                          fontSize: '12px',
-                          cursor: deletingId === transaction.id ? 'not-allowed' : 'pointer',
-                          opacity: deletingId === transaction.id ? 0.6 : 1,
-                        }}
-                      >
-                        {deletingId === transaction.id ? '⏳' : '🗑️ Supprimer'}
-                      </button>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => setEditingTransaction(transaction)}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: '#1e3a5f',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ✏️
+                        </button>
+                        <button
+                          onClick={() => handleDelete(transaction.id)}
+                          disabled={deletingId === transaction.id}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: deletingId === transaction.id ? '#ccc' : '#dc3545',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            cursor: deletingId === transaction.id ? 'not-allowed' : 'pointer',
+                            opacity: deletingId === transaction.id ? 0.6 : 1,
+                          }}
+                        >
+                          {deletingId === transaction.id ? '⏳' : '🗑️'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -480,6 +637,21 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
             </div>
           )}
         </>
+      )}
+
+      {/* Modal d'édition */}
+      {editingTransaction && (
+        <EditTransactionModal
+          transaction={editingTransaction}
+          onClose={() => setEditingTransaction(null)}
+          onSave={() => {
+            setEditingTransaction(null);
+            loadTransactions();
+            if (onDelete) {
+              onDelete();
+            }
+          }}
+        />
       )}
     </div>
   );

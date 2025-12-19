@@ -1,7 +1,7 @@
 # Plan d'Implémentation - Application Web LMNP
 
 **Status**: En cours  
-**Dernière mise à jour**: 2025-01-XX
+**Dernière mise à jour**: 2025-12-19
 
 ## Vue d'ensemble
 
@@ -492,6 +492,123 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - ✅ Upload CSV visible et testé
 - ✅ Tableau transactions avec toutes les colonnes
 - ✅ Filtrage et recherche opérationnels
+
+---
+
+### Step 2.1.7 : Backend - Recalcul automatique des soldes et améliorations
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Amélioration de la gestion des transactions avec recalcul automatique des soldes après modifications et gestion améliorée des fichiers déjà chargés.
+
+**Tasks**:
+- [x] Créer utilitaire `balance_utils.py` pour recalcul des soldes
+  - [x] Fonction `recalculate_balances_from_date()` : recalcule depuis une date donnée
+  - [x] Fonction `recalculate_all_balances()` : recalcule depuis le début
+- [x] Modifier endpoint DELETE /api/transactions/{id}
+  - [x] Recalculer les soldes des transactions suivantes après suppression
+  - [x] Utiliser `recalculate_balances_from_date()` avec la date de la transaction supprimée
+- [x] Modifier endpoint POST /api/transactions/import
+  - [x] Changer comportement pour fichiers déjà chargés : warning au lieu d'erreur
+  - [x] Permettre le traitement même si le fichier existe déjà
+  - [x] Mettre à jour l'enregistrement `FileImport` existant au lieu de créer un nouveau
+  - [x] Retourner un message d'avertissement dans la réponse
+- [x] Modifier endpoint PUT /api/transactions/{transaction_id}
+  - [x] Recalculer les soldes après modification d'une transaction
+  - [x] Utiliser la date minimale (ancienne ou nouvelle) pour le recalcul
+  - [x] Gérer correctement la conversion de date string en date object
+- [x] **Créer test de recalcul des soldes**
+- [x] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/utils/balance_utils.py` - Utilitaires de recalcul des soldes
+- `backend/api/routes/transactions.py` - Endpoints modifiés (DELETE, PUT, POST import)
+- `frontend/src/components/ColumnMappingModal.tsx` - Gestion du warning pour fichiers déjà chargés
+
+**Tests**:
+- [x] Test recalcul des soldes après suppression d'une transaction
+- [x] Test recalcul des soldes après modification d'une transaction (date, quantité, nom)
+- [x] Test import d'un fichier déjà chargé (warning au lieu d'erreur)
+- [x] Test mise à jour de FileImport existant lors de ré-import
+- [x] Test recalcul avec changement de date (recalcul depuis date minimale)
+
+**Acceptance Criteria**:
+- [x] Suppression d'une transaction recalcule automatiquement les soldes suivants
+- [x] Modification d'une transaction recalcule automatiquement les soldes (transaction modifiée + suivantes)
+- [x] Import d'un fichier déjà chargé affiche un warning mais continue le traitement
+- [x] Les doublons sont toujours détectés et affichés dans les logs
+- [x] Les soldes restent cohérents après toutes les opérations (suppression, modification)
+- [x] **Utilisateur confirme que le recalcul fonctionne correctement** (test avec données réelles)
+
+---
+
+### Step 2.1.8 : Frontend - Édition des transactions et sélection multiple
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Ajout de la fonctionnalité d'édition des transactions et de sélection multiple pour suppression en masse.
+
+**Tasks**:
+- [x] Créer composant `EditTransactionModal.tsx`
+  - [x] Modal pour éditer Date, Quantité et Nom
+  - [x] Validation des champs (date requise, quantité nombre valide, nom requis)
+  - [x] Conversion format date pour input HTML (YYYY-MM-DD)
+  - [x] Appeler API PUT /api/transactions/{id} pour sauvegarder
+  - [x] Gestion d'erreurs avec messages clairs (éviter [object Object])
+  - [x] Recharger la liste après sauvegarde réussie
+- [x] Modifier composant `TransactionsTable.tsx`
+  - [x] Ajouter bouton "✏️" dans colonne Actions pour chaque transaction
+  - [x] Intégrer `EditTransactionModal` pour l'édition
+  - [x] Ajouter colonne checkbox à gauche de la colonne Date
+  - [x] Ajouter checkbox "sélectionner tout" dans l'en-tête du tableau
+  - [x] Gérer l'état de sélection (Set<number> pour les IDs sélectionnés)
+  - [x] Mise en évidence visuelle des lignes sélectionnées (fond bleu clair)
+  - [x] Afficher compteur de transactions sélectionnées
+  - [x] Ajouter bouton "Supprimer X" pour suppression multiple
+  - [x] Implémenter suppression multiple (appels API en parallèle)
+  - [x] Réinitialiser sélection après suppression ou changement de page
+- [x] Améliorer gestion d'erreurs dans `client.ts`
+  - [x] Détection spécifique de l'erreur "Failed to fetch"
+  - [x] Messages d'erreur plus clairs pour l'utilisateur
+  - [x] Logs détaillés pour le diagnostic
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/EditTransactionModal.tsx` - Modal d'édition des transactions
+- `frontend/src/components/TransactionsTable.tsx` - Tableau avec édition et sélection multiple
+- `frontend/src/api/client.ts` - Amélioration gestion d'erreurs
+
+**Tests**:
+- [x] Test ouverture modal d'édition (clic sur bouton ✏️)
+- [x] Test pré-remplissage des champs avec valeurs actuelles
+- [x] Test validation des champs (date, quantité, nom)
+- [x] Test sauvegarde d'une transaction modifiée
+- [x] Test rechargement de la liste après édition
+- [x] Test recalcul des soldes après édition (vérification visuelle)
+- [x] Test sélection/désélection d'une transaction (checkbox)
+- [x] Test sélection/désélection de toutes les transactions (checkbox en-tête)
+- [x] Test affichage compteur de sélection
+- [x] Test suppression multiple (plusieurs transactions sélectionnées)
+- [x] Test réinitialisation de la sélection après suppression
+- [x] Test gestion d'erreurs (messages clairs au lieu de [object Object])
+
+**Acceptance Criteria**:
+- [x] Bouton "✏️" ouvre modal d'édition avec champs pré-remplis
+- [x] Modal permet de modifier Date, Quantité et Nom
+- [x] Validation empêche la sauvegarde si champs invalides
+- [x] Sauvegarde met à jour la transaction et recharge la liste
+- [x] Les soldes sont recalculés automatiquement après édition
+- [x] Checkbox permet de sélectionner/désélectionner des transactions
+- [x] Checkbox en-tête sélectionne/désélectionne toutes les transactions de la page
+- [x] Lignes sélectionnées sont mises en évidence visuellement
+- [x] Compteur affiche le nombre de transactions sélectionnées
+- [x] Bouton "Supprimer X" supprime toutes les transactions sélectionnées
+- [x] Confirmation demandée avant suppression multiple
+- [x] Messages d'erreur sont clairs et compréhensibles
+- [x] **Utilisateur confirme que l'édition et la sélection multiple fonctionnent** (test avec données réelles)
+
+**Impact Frontend**: 
+- ✅ Édition des transactions fonctionnelle
+- ✅ Sélection multiple et suppression en masse opérationnelles
+- ✅ Gestion d'erreurs améliorée
+- ✅ Interface utilisateur plus intuitive
 
 ---
 
