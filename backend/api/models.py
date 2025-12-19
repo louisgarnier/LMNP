@@ -134,3 +134,46 @@ class FileImportHistory(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Mapping models
+
+class MappingBase(BaseModel):
+    """Base model for mapping."""
+    nom: str = Field(..., max_length=500, description="Nom/pattern de transaction")
+    level_1: str = Field(..., max_length=100, description="Catégorie principale")
+    level_2: str = Field(..., max_length=100, description="Sous-catégorie")
+    level_3: Optional[str] = Field(None, max_length=100, description="Détail spécifique")
+    is_prefix_match: bool = Field(True, description="Si True, match par préfixe")
+    priority: int = Field(0, description="Priorité pour résolution de conflits")
+
+
+class MappingCreate(MappingBase):
+    """Model for creating a mapping."""
+    pass
+
+
+class MappingUpdate(BaseModel):
+    """Model for updating a mapping."""
+    nom: Optional[str] = Field(None, max_length=500)
+    level_1: Optional[str] = Field(None, max_length=100)
+    level_2: Optional[str] = Field(None, max_length=100)
+    level_3: Optional[str] = Field(None, max_length=100)
+    is_prefix_match: Optional[bool] = None
+    priority: Optional[int] = None
+
+
+class MappingResponse(MappingBase):
+    """Model for mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class MappingListResponse(BaseModel):
+    """Model for list of mappings response."""
+    mappings: List[MappingResponse]
+    total: int

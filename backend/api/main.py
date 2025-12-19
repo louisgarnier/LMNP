@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database.connection import init_database
 
 # Import routes
-from backend.api.routes import transactions
+from backend.api.routes import transactions, mappings
 
 # Create FastAPI app
 app = FastAPI(
@@ -37,6 +37,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(transactions.router, prefix="/api", tags=["transactions"])
+app.include_router(mappings.router, prefix="/api", tags=["mappings"])
 
 
 @app.on_event("startup")

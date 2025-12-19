@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import FileUpload from '@/components/FileUpload';
 import ImportLog from '@/components/ImportLog';
 import TransactionsTable from '@/components/TransactionsTable';
+import MappingTable from '@/components/MappingTable';
 import { transactionsAPI } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
 
@@ -194,6 +195,12 @@ export default function TransactionsPage() {
               onTransactionCountChange={handleTransactionCountChange}
               hideDbHistory={historyCleared}
             />
+          </div>
+        )}
+
+        {tab === 'mapping' && (
+          <div>
+            <MappingTable onMappingChange={handleImportComplete} />
           </div>
         )}
       </div>

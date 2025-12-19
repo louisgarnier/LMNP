@@ -754,78 +754,86 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 3.1 : Migration mappings depuis Excel vers DB
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Migrer les 113 mappings depuis `mapping.xlsx` vers la table `mappings` dans la base de données.
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Migrer les mappings depuis `mapping.xlsx` vers la table `mappings` dans la base de données.
 
 **Objectif** : Préparer les données de référence pour l'enrichissement. Backend uniquement, testable via script.
 
 **Tasks**:
-- [ ] Créer script de migration `backend/scripts/migrate_mappings.py`
-- [ ] Lire `scripts/mapping.xlsx` avec pandas
-- [ ] Insérer les mappings dans la table `mappings` (nom, level_1, level_2, level_3)
-- [ ] Gérer les doublons (skip si mapping existe déjà)
-- [ ] Afficher statistiques de migration (nombre de mappings importés)
-- [ ] **Tester le script et valider avec l'utilisateur**
+- [x] Créer script de migration `backend/scripts/migrate_mappings.py`
+- [x] Lire `scripts/mapping.xlsx` avec pandas
+- [x] Insérer les mappings dans la table `mappings` (nom, level_1, level_2, level_3)
+- [x] Gérer les doublons (skip si mapping existe déjà)
+- [x] Afficher statistiques de migration (nombre de mappings importés)
+- [x] **Tester le script et valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/scripts/migrate_mappings.py` - Script de migration
 
 **Tests**:
-- [ ] Script exécutable sans erreur
-- [ ] 113 mappings importés dans la table `mappings`
-- [ ] Vérification manuelle de quelques mappings dans la DB
-- [ ] Script idempotent (peut être exécuté plusieurs fois sans doublons)
+- [x] Script exécutable sans erreur
+- [x] 88 mappings importés dans la table `mappings` (fichier mis à jour)
+- [x] Vérification manuelle de quelques mappings dans la DB
+- [x] Script idempotent (peut être exécuté plusieurs fois sans doublons)
+- [x] Gestion des doublons dans le fichier Excel
 
 **Acceptance Criteria**:
-- [ ] Script de migration fonctionne
-- [ ] Tous les mappings sont dans la table `mappings`
-- [ ] **Utilisateur confirme que les mappings sont corrects dans la DB**
+- [x] Script de migration fonctionne
+- [x] Tous les mappings sont dans la table `mappings`
+- [x] **Utilisateur confirme que les mappings sont corrects dans la DB**
 
 ---
 
 ### Step 3.2 : CRUD mappings backend + Interface frontend
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les endpoints API pour gérer les mappings ET l'interface frontend pour les visualiser.
 
 **Objectif** : Permettre la gestion des mappings via API ET interface web. Backend + Frontend, testable visuellement.
 
 **Tasks Backend**:
-- [ ] Créer `backend/api/routes/mappings.py`
-- [ ] Endpoint `GET /api/mappings` - Liste tous les mappings
-- [ ] Endpoint `GET /api/mappings/{mapping_id}` - Détails d'un mapping
-- [ ] Endpoint `POST /api/mappings` - Créer un nouveau mapping
-- [ ] Endpoint `PUT /api/mappings/{mapping_id}` - Modifier un mapping
-- [ ] Endpoint `DELETE /api/mappings/{mapping_id}` - Supprimer un mapping
-- [ ] Créer modèles Pydantic pour les requêtes/réponses
+- [x] Créer `backend/api/routes/mappings.py`
+- [x] Endpoint `GET /api/mappings` - Liste tous les mappings (avec pagination et recherche)
+- [x] Endpoint `GET /api/mappings/{mapping_id}` - Détails d'un mapping
+- [x] Endpoint `POST /api/mappings` - Créer un nouveau mapping
+- [x] Endpoint `PUT /api/mappings/{mapping_id}` - Modifier un mapping
+- [x] Endpoint `DELETE /api/mappings/{mapping_id}` - Supprimer un mapping
+- [x] Créer modèles Pydantic pour les requêtes/réponses
+- [x] Enregistrer la route dans `backend/api/main.py`
 
 **Tasks Frontend**:
-- [ ] Créer `frontend/src/components/MappingTable.tsx` - Tableau pour afficher les mappings
-- [ ] Ajouter sous-onglet "Mapping" dans `frontend/app/dashboard/transactions/page.tsx`
-- [ ] Afficher tous les mappings (nom, level_1, level_2, level_3) dans un tableau
-- [ ] Permettre création, modification, suppression de mappings via interface
-- [ ] Mise à jour `frontend/src/api/client.ts` - Ajout endpoints mappings
-- [ ] **Tester l'interface et valider avec l'utilisateur**
+- [x] Créer `frontend/src/components/MappingTable.tsx` - Tableau pour afficher les mappings
+- [x] Ajouter sous-onglet "Mapping" dans `frontend/app/dashboard/transactions/page.tsx`
+- [x] Afficher tous les mappings (nom, level_1, level_2, level_3) dans un tableau
+- [x] Permettre création, modification, suppression de mappings via interface
+- [x] Édition inline des mappings
+- [x] Recherche et pagination
+- [x] Mise à jour `frontend/src/api/client.ts` - Ajout endpoints mappings
+- [x] Ajout onglet "Mapping" dans Navigation
+- [x] **Tester l'interface et valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/api/routes/mappings.py` - Endpoints CRUD mappings
 - Mise à jour `backend/api/models.py` - Modèles Pydantic pour mappings
+- Mise à jour `backend/api/main.py` - Enregistrement route mappings
 - `frontend/src/components/MappingTable.tsx` - Composant gestion mappings
 - Mise à jour `frontend/app/dashboard/transactions/page.tsx` - Ajout onglet Mapping
+- Mise à jour `frontend/src/components/Navigation.tsx` - Ajout onglet Mapping
 - Mise à jour `frontend/src/api/client.ts` - Interface API mappings
 
 **Tests**:
-- [ ] Test GET /api/mappings (liste tous les mappings)
-- [ ] Test POST /api/mappings (création)
-- [ ] Test PUT /api/mappings/{id} (modification)
-- [ ] Test DELETE /api/mappings/{id} (suppression)
-- [ ] Test affichage mappings dans interface
-- [ ] Test création/modification/suppression via interface
+- [x] Test GET /api/mappings (liste tous les mappings)
+- [x] Test POST /api/mappings (création)
+- [x] Test PUT /api/mappings/{id} (modification)
+- [x] Test DELETE /api/mappings/{id} (suppression)
+- [x] Test affichage mappings dans interface
+- [x] Test création/modification/suppression via interface
+- [x] Test recherche et pagination
 
 **Acceptance Criteria**:
-- [ ] Tous les endpoints CRUD fonctionnent
-- [ ] Interface frontend affiche tous les mappings
-- [ ] CRUD complet fonctionne via interface web
-- [ ] **Utilisateur confirme que l'interface fonctionne et est intuitive**
+- [x] Tous les endpoints CRUD fonctionnent
+- [x] Interface frontend affiche tous les mappings
+- [x] CRUD complet fonctionne via interface web
+- [x] **Utilisateur confirme que l'interface fonctionne et est intuitive**
 
 ---
 

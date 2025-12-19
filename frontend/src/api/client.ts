@@ -218,6 +218,95 @@ export interface FileImportResponse {
 /**
  * File upload API
  */
+// Mapping types
+export interface Mapping {
+  id: number;
+  nom: string;
+  level_1: string;
+  level_2: string;
+  level_3?: string;
+  is_prefix_match: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MappingCreate {
+  nom: string;
+  level_1: string;
+  level_2: string;
+  level_3?: string;
+  is_prefix_match?: boolean;
+  priority?: number;
+}
+
+export interface MappingUpdate {
+  nom?: string;
+  level_1?: string;
+  level_2?: string;
+  level_3?: string;
+  is_prefix_match?: boolean;
+  priority?: number;
+}
+
+export interface MappingListResponse {
+  mappings: Mapping[];
+  total: number;
+}
+
+// Mapping API
+export const mappingsAPI = {
+  /**
+   * Récupérer la liste des mappings
+   */
+  async list(skip: number = 0, limit: number = 100, search?: string): Promise<MappingListResponse> {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    if (search) {
+      params.append('search', search);
+    }
+    return fetchAPI<MappingListResponse>(`/api/mappings?${params.toString()}`);
+  },
+
+  /**
+   * Récupérer un mapping par ID
+   */
+  async get(id: number): Promise<Mapping> {
+    return fetchAPI<Mapping>(`/api/mappings/${id}`);
+  },
+
+  /**
+   * Créer un nouveau mapping
+   */
+  async create(mapping: MappingCreate): Promise<Mapping> {
+    return fetchAPI<Mapping>('/api/mappings', {
+      method: 'POST',
+      body: JSON.stringify(mapping),
+    });
+  },
+
+  /**
+   * Modifier un mapping
+   */
+  async update(id: number, mapping: MappingUpdate): Promise<Mapping> {
+    return fetchAPI<Mapping>(`/api/mappings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(mapping),
+    });
+  },
+
+  /**
+   * Supprimer un mapping
+   */
+  async delete(id: number): Promise<void> {
+    return fetchAPI<void>(`/api/mappings/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export const fileUploadAPI = {
   preview: async (file: File): Promise<FilePreviewResponse> => {
     const formData = new FormData();
