@@ -439,51 +439,53 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-### Step 2.1.6 : Frontend - Visualisation transactions et suppression
-**Status**: ⏳ EN ATTENTE  
+### Step 2.1.6 (bis) : Frontend - Visualisation transactions et suppression
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Afficher les transactions dans un tableau avec possibilité de supprimer (pour gérer doublons).
 
 **Tasks**:
-- [ ] Créer composant TransactionsTable.tsx
-  - [ ] Tableau avec colonnes : Date, Quantité, Nom, Solde
-  - [ ] Format date DD/MM/YYYY pour affichage
-  - [ ] Format montants avec 2 décimales
-  - [ ] Tri par colonnes
-  - [ ] Pagination
-  - [ ] Bouton "Supprimer" pour chaque transaction
-- [ ] Intégrer dans page transactions
-- [ ] Appeler API GET /api/transactions
-- [ ] Appeler API DELETE /api/transactions/{id} pour suppression
-- [ ] Implémenter filtrage par date (optionnel)
-- [ ] Implémenter recherche par nom (optionnel)
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer composant TransactionsTable.tsx
+  - [x] Tableau avec colonnes : Date, Quantité, Nom, Solde
+  - [x] Format date DD/MM/YYYY pour affichage
+  - [x] Format montants avec 2 décimales (format EUR français)
+  - [x] Tri par colonnes (clic sur en-tête)
+  - [x] Pagination (25, 50, 100, 200 par page)
+  - [x] Bouton "Supprimer" pour chaque transaction avec confirmation
+- [x] Intégrer dans page transactions (onglet "Toutes les transactions")
+- [x] Appeler API GET /api/transactions
+- [x] Appeler API DELETE /api/transactions/{id} pour suppression
+- [x] Implémenter filtrage par date (date début et date fin)
+- [x] Implémenter recherche par nom (avec debounce)
+- [x] **Créer test visuel dans navigateur**
+- [x] **Validé par l'utilisateur**
 
 **Deliverables**:
 - `frontend/src/components/TransactionsTable.tsx` - Tableau transactions avec suppression
-- `frontend/app/dashboard/transactions/page.tsx` - Page complète avec tableau
-- `frontend/src/api/client.ts` - Fonction removeTransaction ajoutée (si pas déjà)
+- `frontend/app/dashboard/transactions/page.tsx` - Page complète avec tableau intégré
+- `frontend/src/api/client.ts` - Fonction delete() déjà disponible
 
 **Tests**:
-- [ ] Test affichage transactions dans tableau
-- [ ] Test format date DD/MM/YYYY
-- [ ] Test format montants
-- [ ] Test tri par colonnes
-- [ ] Test pagination
-- [ ] Test suppression transaction
-- [ ] Test rechargement après suppression
-- [ ] Test filtrage par date (si implémenté)
-- [ ] Test recherche par nom (si implémenté)
+- [x] Test affichage transactions dans tableau
+- [x] Test format date DD/MM/YYYY
+- [x] Test format montants (EUR avec 2 décimales)
+- [x] Test tri par colonnes (asc/desc)
+- [x] Test pagination (navigation et changement taille page)
+- [x] Test suppression transaction (avec confirmation)
+- [x] Test rechargement après suppression
+- [x] Test filtrage par date (date début et fin)
+- [x] Test recherche par nom (debounce 300ms)
 
 **Acceptance Criteria**:
-- [ ] Tableau des transactions s'affiche avec toutes les colonnes
-- [ ] Dates affichées en format DD/MM/YYYY
-- [ ] Montants formatés correctement
-- [ ] Tri par colonnes fonctionnel
-- [ ] Pagination fonctionnelle
-- [ ] Bouton suppression fonctionne pour chaque transaction
-- [ ] Transactions chargées depuis BDD s'affichent correctement
-- [ ] **Utilisateur confirme que la visualisation et suppression fonctionnent** (test avec données réelles)
+- [x] Tableau des transactions s'affiche avec toutes les colonnes
+- [x] Dates affichées en format DD/MM/YYYY
+- [x] Montants formatés correctement (format EUR français)
+- [x] Tri par colonnes fonctionnel (clic sur en-tête)
+- [x] Pagination fonctionnelle (navigation et sélection taille page)
+- [x] Bouton suppression fonctionne pour chaque transaction (avec confirmation)
+- [x] Transactions chargées depuis BDD s'affichent correctement
+- [x] Filtrage par date fonctionnel
+- [x] Recherche par nom fonctionnelle
+- [x] **Utilisateur confirme que la visualisation et suppression fonctionnent** (test avec données réelles)
 
 **Impact Frontend**: 
 - ✅ Onglet Transactions fonctionnel

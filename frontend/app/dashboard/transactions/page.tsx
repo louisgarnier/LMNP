@@ -9,6 +9,7 @@
 import { useSearchParams } from 'next/navigation';
 import FileUpload from '@/components/FileUpload';
 import ImportLog from '@/components/ImportLog';
+import TransactionsTable from '@/components/TransactionsTable';
 
 export default function TransactionsPage() {
   const searchParams = useSearchParams();
@@ -22,6 +23,7 @@ export default function TransactionsPage() {
 
   const handleImportComplete = () => {
     console.log('✅ [TransactionsPage] Import terminé');
+    // Le tableau se rechargera automatiquement via son propre useEffect
   };
 
   return (
@@ -35,11 +37,7 @@ export default function TransactionsPage() {
         minHeight: '400px'
       }}>
         {(!filter && !tab) && (
-          <div>
-            <p style={{ fontSize: '14px', color: '#666' }}>
-              Toutes les transactions seront affichées ici (à implémenter après Step 2.1.7).
-            </p>
-          </div>
+          <TransactionsTable onDelete={handleImportComplete} />
         )}
 
         {filter === 'unclassified' && (
