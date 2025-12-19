@@ -180,6 +180,30 @@ export const transactionsAPI = {
   },
 };
 
+/**
+ * Enrichment API
+ */
+export const enrichmentAPI = {
+  /**
+   * Mettre à jour les classifications d'une transaction
+   */
+  updateClassifications: async (
+    transactionId: number,
+    level_1?: string | null,
+    level_2?: string | null,
+    level_3?: string | null
+  ): Promise<Transaction> => {
+    const params = new URLSearchParams();
+    if (level_1 !== undefined && level_1 !== null) params.append('level_1', level_1);
+    if (level_2 !== undefined && level_2 !== null) params.append('level_2', level_2);
+    if (level_3 !== undefined && level_3 !== null) params.append('level_3', level_3);
+    
+    return fetchAPI<Transaction>(`/api/enrichment/transactions/${transactionId}?${params.toString()}`, {
+      method: 'PUT',
+    });
+  },
+};
+
 // File upload types
 export interface ColumnMapping {
   file_column: string;
@@ -307,6 +331,24 @@ export const mappingsAPI = {
     return fetchAPI<void>(`/api/mappings/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  /**
+   * Récupérer les combinaisons possibles pour les dropdowns intelligents
+   */
+  async getCombinations(level_1?: string, level_2?: string, all_level_2?: boolean, all_level_3?: boolean): Promise<{
+    level_1?: string[];
+    level_2?: string[];
+    level_3?: string[];
+  }> {
+    const params = new URLSearchParams();
+    if (level_1) params.append('level_1', level_1);
+    if (level_2) params.append('level_2', level_2);
+    if (all_level_2) params.append('all_level_2', 'true');
+    if (all_level_3) params.append('all_level_3', 'true');
+    return fetchAPI<{ level_1?: string[]; level_2?: string[]; level_3?: string[] }>(
+      `/api/mappings/combinations?${params.toString()}`
+    );
   },
 };
 

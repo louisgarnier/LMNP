@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { transactionsAPI, Transaction, TransactionUpdate } from '@/api/client';
+import { transactionsAPI, Transaction, TransactionUpdate, enrichmentAPI, mappingsAPI } from '@/api/client';
 
 interface TransactionsTableProps {
   onDelete?: () => void;
@@ -31,6 +31,14 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingValues, setEditingValues] = useState<{ date?: string; nom?: string; quantite?: number }>({});
+  const [editingClassificationId, setEditingClassificationId] = useState<number | null>(null);
+  const [editingClassificationValues, setEditingClassificationValues] = useState<{ level_1?: string; level_2?: string; level_3?: string }>({});
+  const [availableLevel1, setAvailableLevel1] = useState<string[]>([]);
+  const [availableLevel2, setAvailableLevel2] = useState<string[]>([]);
+  const [availableLevel3, setAvailableLevel3] = useState<string[]>([]);
+  const [customLevel1, setCustomLevel1] = useState(false);
+  const [customLevel2, setCustomLevel2] = useState(false);
+  const [customLevel3, setCustomLevel3] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
 
@@ -280,6 +288,231 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
   const handleCancelEdit = () => {
     setEditingId(null);
     setEditingValues({});
+  };
+
+  const handleEditClassification = async (transaction: Transaction) => {
+    setEditingClassificationId(transaction.id);
+    const currentLevel1 = transaction.level_1 || undefined;
+    const currentLevel2 = transaction.level_2 || undefined;
+    const currentLevel3 = transaction.level_3 || undefined;
+    
+    setEditingClassificationValues({
+      level_1: currentLevel1,
+      level_2: currentLevel2,
+      level_3: currentLevel3,
+    });
+    
+    // Vérifier si les valeurs actuelles sont "custom" (pas dans les mappings)
+    setCustomLevel1(false);
+    setCustomLevel2(false);
+    setCustomLevel3(false);
+    
+    // Charger les combinaisons disponibles
+    try {
+      const combinations = await mappingsAPI.getCombinations();
+      console.log('🔍 [Combinations] Réponse API:', combinations);
+      const level1List = combinations.level_1 || [];
+      console.log('🔍 [Combinations] Level 1 list:', level1List);
+      // Si la valeur actuelle n'est pas dans la liste, c'est une valeur custom
+      if (currentLevel1 && !level1List.includes(currentLevel1)) {
+        setCustomLevel1(true);
+        level1List.push(currentLevel1); // Ajouter quand même pour l'affichage
+      }
+      setAvailableLevel1(level1List);
+      console.log('🔍 [Combinations] Level 1 final:', level1List);
+      
+      // Charger TOUS les level_2 et level_3 disponibles dès le début (pour les transactions "à remplir")
+      const allLevel2Combinations = await mappingsAPI.getCombinations(undefined, undefined, true, false);
+      const allLevel2List = allLevel2Combinations.level_2 || [];
+      console.log('🔍 [Combinations] All level_2 loaded (initial):', allLevel2List);
+      setAvailableLevel2(allLevel2List);
+      
+      const allLevel3Combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+      const allLevel3List = allLevel3Combinations.level_3 || [];
+      console.log('🔍 [Combinations] All level_3 loaded (initial):', allLevel3List);
+      setAvailableLevel3(allLevel3List);
+      
+      // Si level_1 existe, charger les level_2 possibles (mais garder tous les level_3)
+      if (currentLevel1) {
+        const level2Combinations = await mappingsAPI.getCombinations(currentLevel1);
+        const level2List = level2Combinations.level_2 || [];
+        // Si la valeur actuelle n'est pas dans la liste, c'est une valeur custom
+        if (currentLevel2 && !level2List.includes(currentLevel2)) {
+          setCustomLevel2(true);
+          level2List.push(currentLevel2); // Ajouter quand même pour l'affichage
+        }
+        setAvailableLevel2(level2List);
+        
+        // Si level_2 existe aussi, charger les level_3 possibles
+        if (currentLevel2) {
+          const level3Combinations = await mappingsAPI.getCombinations(currentLevel1, currentLevel2);
+          const level3List = level3Combinations.level_3 || [];
+          // Si la valeur actuelle n'est pas dans la liste, c'est une valeur custom
+          if (currentLevel3 && !level3List.includes(currentLevel3)) {
+            setCustomLevel3(true);
+            level3List.push(currentLevel3); // Ajouter quand même pour l'affichage
+          }
+          setAvailableLevel3(level3List);
+        } else {
+          // Si level_2 n'existe pas mais level_1 existe, charger TOUS les level_3 disponibles
+          const allLevel3Combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+          const allLevel3List = allLevel3Combinations.level_3 || [];
+          setAvailableLevel3(allLevel3List);
+        }
+      } else {
+        // Si level_1 n'existe pas, charger TOUS les level_2 et level_3 disponibles
+        const allLevel2Combinations = await mappingsAPI.getCombinations(undefined, undefined, true, false);
+        const allLevel2List = allLevel2Combinations.level_2 || [];
+        console.log('🔍 [Combinations] All level_2 loaded:', allLevel2List);
+        setAvailableLevel2(allLevel2List);
+        
+        const allLevel3Combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+        const allLevel3List = allLevel3Combinations.level_3 || [];
+        console.log('🔍 [Combinations] All level_3 loaded:', allLevel3List);
+        setAvailableLevel3(allLevel3List);
+      }
+    } catch (err) {
+      console.error('Error loading combinations:', err);
+    }
+  };
+
+  const handleLevel1Change = async (value: string) => {
+    if (value === '__CUSTOM__') {
+      setCustomLevel1(true);
+      setEditingClassificationValues({ ...editingClassificationValues, level_1: '', level_2: undefined, level_3: undefined });
+      // Charger TOUS les level_2 et level_3 disponibles dès qu'on passe en mode custom
+      try {
+        const allLevel2Combinations = await mappingsAPI.getCombinations(undefined, undefined, true, false);
+        const allLevel2List = allLevel2Combinations.level_2 || [];
+        console.log('🔍 [Combinations] All level_2 loaded (custom level_1):', allLevel2List);
+        setAvailableLevel2(allLevel2List);
+        
+        const allLevel3Combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+        const allLevel3List = allLevel3Combinations.level_3 || [];
+        console.log('🔍 [Combinations] All level_3 loaded (custom level_1):', allLevel3List);
+        setAvailableLevel3(allLevel3List);
+      } catch (err) {
+        console.error('Error loading combinations:', err);
+      }
+      return;
+    }
+    
+    setCustomLevel1(false);
+    const currentLevel2 = editingClassificationValues.level_2;
+    const currentLevel3 = editingClassificationValues.level_3;
+    // Ne pas supprimer level_3, seulement level_2 si on change level_1
+    setEditingClassificationValues({ ...editingClassificationValues, level_1: value, level_2: undefined });
+    setAvailableLevel2([]);
+    
+    // Charger les level_2 possibles pour ce level_1
+    if (value) {
+      try {
+        const combinations = await mappingsAPI.getCombinations(value);
+        const level2List = combinations.level_2 || [];
+        // Ajouter la valeur actuelle si elle n'est pas déjà dans la liste
+        if (currentLevel2 && !level2List.includes(currentLevel2)) {
+          level2List.push(currentLevel2);
+        }
+        setAvailableLevel2(level2List);
+        
+        // Si level_2 n'est pas encore sélectionné, garder TOUS les level_3 disponibles
+        // Sinon, filtrer level_3 selon level_1 + level_2
+        if (!currentLevel2) {
+          const allLevel3Combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+          const allLevel3List = allLevel3Combinations.level_3 || [];
+          setAvailableLevel3(allLevel3List);
+        } else {
+          // Filtrer level_3 selon level_1 + level_2
+          const level3Combinations = await mappingsAPI.getCombinations(value, currentLevel2);
+          const level3List = level3Combinations.level_3 || [];
+          // Ajouter la valeur actuelle si elle n'est pas déjà dans la liste
+          if (currentLevel3 && !level3List.includes(currentLevel3)) {
+            level3List.push(currentLevel3);
+          }
+          setAvailableLevel3(level3List);
+        }
+      } catch (err) {
+        console.error('Error loading level_2 combinations:', err);
+      }
+    }
+  };
+
+  const handleLevel2Change = async (value: string) => {
+    if (value === '__CUSTOM__') {
+      setCustomLevel2(true);
+      setEditingClassificationValues({ ...editingClassificationValues, level_2: '', level_3: undefined });
+      // Charger TOUS les level_3 disponibles dès qu'on passe en mode custom
+      try {
+        const combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+        const level3List = combinations.level_3 || [];
+        console.log('🔍 [Combinations] All level_3 loaded (custom level_2):', level3List);
+        setAvailableLevel3(level3List);
+      } catch (err) {
+        console.error('Error loading level_3 combinations:', err);
+      }
+      return;
+    }
+    
+    setCustomLevel2(false);
+    const level_1 = editingClassificationValues.level_1;
+    const currentLevel3 = editingClassificationValues.level_3;
+    if (!level_1) return;
+    
+    // Ne pas supprimer level_3, seulement mettre à jour level_2
+    setEditingClassificationValues({ ...editingClassificationValues, level_2: value });
+    
+    // Charger les level_3 possibles pour cette combinaison level_1 + level_2
+    if (value) {
+      try {
+        const combinations = await mappingsAPI.getCombinations(level_1, value);
+        const level3List = combinations.level_3 || [];
+        // Ajouter la valeur actuelle si elle n'est pas déjà dans la liste
+        if (currentLevel3 && !level3List.includes(currentLevel3)) {
+          level3List.push(currentLevel3);
+        }
+        // Si la liste est vide, charger TOUS les level_3 disponibles
+        if (level3List.length === 0) {
+          const allLevel3Combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+          const allLevel3List = allLevel3Combinations.level_3 || [];
+          setAvailableLevel3(allLevel3List);
+        } else {
+          setAvailableLevel3(level3List);
+        }
+      } catch (err) {
+        console.error('Error loading level_3 combinations:', err);
+      }
+    }
+  };
+
+  const handleSaveClassification = async (transaction: Transaction) => {
+    try {
+      await enrichmentAPI.updateClassifications(
+        transaction.id,
+        editingClassificationValues.level_1 || null,
+        editingClassificationValues.level_2 || null,
+        editingClassificationValues.level_3 || null
+      );
+      setEditingClassificationId(null);
+      setEditingClassificationValues({});
+      setAvailableLevel1([]);
+      setAvailableLevel2([]);
+      setAvailableLevel3([]);
+      await loadTransactions();
+    } catch (err: any) {
+      console.error('Error updating classification:', err);
+      alert(`Erreur lors de la modification: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  const handleCancelClassification = () => {
+    setEditingClassificationId(null);
+    setEditingClassificationValues({});
+    setAvailableLevel1([]);
+    setAvailableLevel2([]);
+    setAvailableLevel3([]);
+    setCustomLevel1(false);
+    setCustomLevel2(false);
+    setCustomLevel3(false);
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -605,79 +838,275 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                       {formatAmount(transaction.solde)}
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_1 ? '#666' : '#999', fontStyle: transaction.level_1 ? 'normal' : 'italic' }}>
-                      {transaction.level_1 || 'à remplir'}
+                      {editingClassificationId === transaction.id ? (
+                        customLevel1 ? (
+                          <input
+                            type="text"
+                            value={editingClassificationValues.level_1 || ''}
+                            onChange={async (e) => {
+                              const newValue = e.target.value;
+                              setEditingClassificationValues({ ...editingClassificationValues, level_1: newValue, level_2: undefined, level_3: undefined });
+                              setAvailableLevel2([]);
+                              setAvailableLevel3([]);
+                              
+                              // Si une valeur est saisie, charger TOUS les level_2 disponibles (car c'est une nouvelle valeur)
+                              if (newValue) {
+                                try {
+                                  const combinations = await mappingsAPI.getCombinations(undefined, undefined, true, false);
+                                  const level2List = combinations.level_2 || [];
+                                  setAvailableLevel2(level2List);
+                                } catch (err) {
+                                  console.error('Error loading level_2 combinations:', err);
+                                }
+                              }
+                            }}
+                            placeholder="Saisir une valeur..."
+                            style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
+                          />
+                        ) : (
+                          <select
+                            value={editingClassificationValues.level_1 || ''}
+                            onChange={(e) => handleLevel1Change(e.target.value)}
+                            style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
+                          >
+                            <option value="">-- Sélectionner --</option>
+                            {availableLevel1.length > 0 ? (
+                              availableLevel1.map((val) => (
+                                <option key={val} value={val}>{val}</option>
+                              ))
+                            ) : (
+                              <option disabled>Aucune valeur disponible</option>
+                            )}
+                            <option value="__CUSTOM__">➕ Nouveau...</option>
+                          </select>
+                        )
+                      ) : (
+                        <span 
+                          onClick={() => handleEditClassification(transaction)}
+                          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          {transaction.level_1 || 'à remplir'}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_2 ? '#666' : '#999', fontStyle: transaction.level_2 ? 'normal' : 'italic' }}>
-                      {transaction.level_2 || 'à remplir'}
+                      {editingClassificationId === transaction.id ? (
+                        customLevel2 ? (
+                          <input
+                            type="text"
+                            value={editingClassificationValues.level_2 || ''}
+                            onChange={async (e) => {
+                              const newValue = e.target.value;
+                              setEditingClassificationValues({ ...editingClassificationValues, level_2: newValue, level_3: undefined });
+                              setAvailableLevel3([]);
+                              
+                              // Si une valeur est saisie, charger TOUS les level_3 disponibles (car c'est une nouvelle valeur)
+                              if (newValue) {
+                                try {
+                                  const combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
+                                  const level3List = combinations.level_3 || [];
+                                  setAvailableLevel3(level3List);
+                                } catch (err) {
+                                  console.error('Error loading level_3 combinations:', err);
+                                }
+                              }
+                            }}
+                            placeholder="Saisir une valeur..."
+                            style={{ 
+                              width: '100%', 
+                              padding: '4px', 
+                              border: '1px solid #ddd', 
+                              borderRadius: '2px',
+                              backgroundColor: 'white'
+                            }}
+                          />
+                        ) : (
+                          <select
+                            value={editingClassificationValues.level_2 || ''}
+                            onChange={(e) => handleLevel2Change(e.target.value)}
+                            disabled={!editingClassificationValues.level_1}
+                            style={{ 
+                              width: '100%', 
+                              padding: '4px', 
+                              border: '1px solid #ddd', 
+                              borderRadius: '2px',
+                              backgroundColor: editingClassificationValues.level_1 ? 'white' : '#f5f5f5'
+                            }}
+                          >
+                            <option value="">-- Sélectionner --</option>
+                            {availableLevel2.length > 0 ? (
+                              availableLevel2.map((val) => (
+                                <option key={val} value={val}>{val}</option>
+                              ))
+                            ) : (
+                              <option disabled>Aucune valeur disponible</option>
+                            )}
+                            <option value="__CUSTOM__">➕ Nouveau...</option>
+                          </select>
+                        )
+                      ) : (
+                        <span 
+                          onClick={() => handleEditClassification(transaction)}
+                          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          {transaction.level_2 || 'à remplir'}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_3 ? '#666' : '#999', fontStyle: transaction.level_3 ? 'normal' : 'italic' }}>
-                      {transaction.level_3 || 'à remplir'}
+                      {editingClassificationId === transaction.id ? (
+                        customLevel3 ? (
+                          <input
+                            type="text"
+                            value={editingClassificationValues.level_3 || ''}
+                            onChange={(e) => setEditingClassificationValues({ ...editingClassificationValues, level_3: e.target.value })}
+                            placeholder="Saisir une valeur (optionnel)..."
+                            style={{ 
+                              width: '100%', 
+                              padding: '4px', 
+                              border: '1px solid #ddd', 
+                              borderRadius: '2px',
+                              backgroundColor: 'white'
+                            }}
+                          />
+                        ) : (
+                          <select
+                            value={editingClassificationValues.level_3 || ''}
+                            onChange={(e) => {
+                              if (e.target.value === '__CUSTOM__') {
+                                setCustomLevel3(true);
+                                setEditingClassificationValues({ ...editingClassificationValues, level_3: '' });
+                              } else {
+                                setCustomLevel3(false);
+                                setEditingClassificationValues({ ...editingClassificationValues, level_3: e.target.value });
+                              }
+                            }}
+                            disabled={false}
+                            style={{ 
+                              width: '100%', 
+                              padding: '4px', 
+                              border: '1px solid #ddd', 
+                              borderRadius: '2px',
+                              backgroundColor: 'white'
+                            }}
+                          >
+                            <option value="">-- Sélectionner (optionnel) --</option>
+                            {availableLevel3.length > 0 ? (
+                              availableLevel3.map((val) => (
+                                <option key={val} value={val}>{val}</option>
+                              ))
+                            ) : (
+                              <option disabled>Aucune valeur disponible</option>
+                            )}
+                            <option value="__CUSTOM__">➕ Nouveau...</option>
+                          </select>
+                        )
+                      ) : (
+                        <span 
+                          onClick={() => handleEditClassification(transaction)}
+                          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                        >
+                          {transaction.level_3 || 'à remplir'}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                         {editingId === transaction.id ? (
-                          <button
-                            onClick={() => handleSaveEdit(transaction)}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: '#28a745',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            ✓
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleSaveEdit(transaction)}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#6c757d',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✗
+                            </button>
+                          </>
+                        ) : editingClassificationId === transaction.id ? (
+                          <>
+                            <button
+                              onClick={() => handleSaveClassification(transaction)}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✓
+                            </button>
+                            <button
+                              onClick={handleCancelClassification}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#6c757d',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✗
+                            </button>
+                          </>
                         ) : (
-                          <button
-                            onClick={() => handleEdit(transaction)}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: '#1e3a5f',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            ✏️
-                          </button>
-                        )}
-                        {editingId === transaction.id ? (
-                          <button
-                            onClick={handleCancelEdit}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: '#6c757d',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            ✗
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleDelete(transaction.id)}
-                            disabled={deletingId === transaction.id}
-                            style={{
-                              padding: '6px 12px',
-                              backgroundColor: deletingId === transaction.id ? '#ccc' : '#dc3545',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              fontSize: '12px',
-                              cursor: deletingId === transaction.id ? 'not-allowed' : 'pointer',
-                              opacity: deletingId === transaction.id ? 0.6 : 1,
-                            }}
-                          >
-                            {deletingId === transaction.id ? '⏳' : '🗑️'}
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleEdit(transaction)}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#1e3a5f',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={() => handleDelete(transaction.id)}
+                              disabled={deletingId === transaction.id}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: deletingId === transaction.id ? '#ccc' : '#dc3545',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: deletingId === transaction.id ? 'not-allowed' : 'pointer',
+                                opacity: deletingId === transaction.id ? 0.6 : 1,
+                              }}
+                            >
+                              {deletingId === transaction.id ? '⏳' : '🗑️'}
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>

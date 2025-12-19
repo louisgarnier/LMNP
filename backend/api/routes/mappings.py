@@ -6,16 +6,18 @@ API routes for mappings.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from sqlalchemy import distinct
+from typing import List, Optional, Dict
 
 from backend.database import get_db
-from backend.database.models import Mapping
+from backend.database.models import Mapping, Transaction, EnrichedTransaction
 from backend.api.models import (
     MappingCreate,
     MappingUpdate,
     MappingResponse,
     MappingListResponse
 )
+from backend.api.services.enrichment_service import enrich_transaction
 
 router = APIRouter()
 
@@ -55,31 +57,6 @@ async def get_mappings(
         mappings=[MappingResponse.model_validate(m) for m in mappings],
         total=total
     )
-
-
-@router.get("/mappings/{mapping_id}", response_model=MappingResponse)
-async def get_mapping(
-    mapping_id: int,
-    db: Session = Depends(get_db)
-):
-    """
-    Récupérer un mapping par son ID.
-    
-    Args:
-        mapping_id: ID du mapping
-        db: Session de base de données
-    
-    Returns:
-        Détails du mapping
-    
-    Raises:
-        HTTPException: Si le mapping n'existe pas
-    """
-    mapping = db.query(Mapping).filter(Mapping.id == mapping_id).first()
-    if not mapping:
-        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
-    
-    return MappingResponse.model_validate(mapping)
 
 
 @router.post("/mappings", response_model=MappingResponse, status_code=201)
@@ -175,7 +152,12 @@ async def delete_mapping(
     db: Session = Depends(get_db)
 ):
     """
-    Supprimer un mapping.
+    Supprimer un mapping et re-enrichir les transactions qui l'utilisaient.
+    
+    Lors de la suppression d'un mapping :
+    1. Trouve toutes les transactions dont le nom correspond au mapping
+    2. Re-enrichit ces transactions (elles seront remises à NULL si aucun autre mapping ne correspond)
+    3. Supprime le mapping
     
     Args:
         mapping_id: ID du mapping à supprimer
@@ -188,8 +170,144 @@ async def delete_mapping(
     if not mapping:
         raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
     
+    # Sauvegarder les informations du mapping avant suppression
+    mapping_nom = mapping.nom
+    mapping_level_1 = mapping.level_1
+    mapping_level_2 = mapping.level_2
+    mapping_level_3 = mapping.level_3
+    
+    # Trouver toutes les transactions enrichies qui utilisent ce mapping
+    # On cherche les transactions qui ont les mêmes level_1, level_2, level_3
+    # ET dont le nom correspond au mapping
+    enriched_transactions = db.query(EnrichedTransaction).join(Transaction).filter(
+        EnrichedTransaction.level_1 == mapping_level_1,
+        EnrichedTransaction.level_2 == mapping_level_2,
+        EnrichedTransaction.level_3 == mapping_level_3
+    ).all()
+    
+    # Filtrer pour ne garder que celles dont le nom correspond au mapping
+    transactions_to_re_enrich = []
+    for enriched in enriched_transactions:
+        transaction = db.query(Transaction).filter(Transaction.id == enriched.transaction_id).first()
+        if transaction:
+            # Vérifier si le nom de la transaction correspond au mapping
+            transaction_name = transaction.nom.strip()
+            mapping_name = mapping_nom.strip()
+            
+            # Utiliser la même logique que find_best_mapping
+            matches = False
+            if 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
+                matches = transaction_name.startswith(mapping_name)
+            elif 'VIR STRIPE' in transaction_name and mapping_name == 'VIR STRIPE':
+                matches = True
+            elif mapping_name in transaction_name or transaction_name.startswith(mapping_name):
+                matches = True
+            
+            if matches:
+                transactions_to_re_enrich.append(transaction)
+    
+    # Supprimer le mapping
     db.delete(mapping)
     db.commit()
     
+    # Re-enrichir les transactions (elles seront remises à NULL si aucun autre mapping ne correspond)
+    for transaction in transactions_to_re_enrich:
+        enrich_transaction(transaction, db)
+    
+    db.commit()
+    
     return None
+
+
+@router.get("/mappings/combinations")
+async def get_mapping_combinations(
+    level_1: Optional[str] = Query(None, description="Filtrer par level_1"),
+    level_2: Optional[str] = Query(None, description="Filtrer par level_2 (nécessite level_1)"),
+    all_level_2: Optional[bool] = Query(False, description="Retourner tous les level_2 (ignorer le filtre level_1)"),
+    all_level_3: Optional[bool] = Query(False, description="Retourner tous les level_3 (ignorer les filtres)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer toutes les combinaisons possibles de level_1, level_2, level_3.
+    
+    Utilisé pour les dropdowns intelligents dans l'interface :
+    - Si level_1 est fourni, retourne uniquement les level_2 possibles pour ce level_1
+    - Si level_1 et level_2 sont fournis, retourne uniquement les level_3 possibles
+    - Si all_level_2=True, retourne tous les level_2 disponibles (ignorer level_1)
+    - Si all_level_3=True, retourne tous les level_3 disponibles (ignorer level_1 et level_2)
+    - Sinon, retourne tous les level_1 disponibles
+    
+    Args:
+        level_1: Filtrer par level_1 (optionnel)
+        level_2: Filtrer par level_2 (optionnel, nécessite level_1)
+        all_level_2: Si True, retourner tous les level_2 (ignorer level_1)
+        all_level_3: Si True, retourner tous les level_3 (ignorer level_1 et level_2)
+        db: Session de base de données
+    
+    Returns:
+        Dictionnaire avec les combinaisons possibles :
+        {
+            "level_1": ["valeur1", "valeur2", ...],
+            "level_2": ["valeur1", "valeur2", ...],
+            "level_3": ["valeur1", "valeur2", ...]
+        }
+    """
+    result: Dict[str, List[str]] = {}
+    
+    if all_level_3:
+        # Retourner tous les level_3 disponibles (sans filtre)
+        level_3_values = db.query(distinct(Mapping.level_3)).filter(
+            Mapping.level_3.isnot(None)
+        ).all()
+        result["level_3"] = [v[0] for v in level_3_values if v[0] is not None]
+    elif all_level_2:
+        # Retourner tous les level_2 disponibles (sans filtre level_1)
+        level_2_values = db.query(distinct(Mapping.level_2)).all()
+        result["level_2"] = [v[0] for v in level_2_values if v[0] is not None]
+    elif level_1 and level_2:
+        # Récupérer tous les level_3 possibles pour cette combinaison level_1 + level_2
+        level_3_values = db.query(distinct(Mapping.level_3)).filter(
+            Mapping.level_1 == level_1,
+            Mapping.level_2 == level_2,
+            Mapping.level_3.isnot(None)
+        ).all()
+        result["level_3"] = [v[0] for v in level_3_values if v[0] is not None]
+    elif level_1:
+        # Récupérer tous les level_2 possibles pour ce level_1
+        level_2_values = db.query(distinct(Mapping.level_2)).filter(
+            Mapping.level_1 == level_1
+        ).all()
+        result["level_2"] = [v[0] for v in level_2_values if v[0] is not None]
+    else:
+        # Récupérer tous les level_1 disponibles
+        level_1_values = db.query(distinct(Mapping.level_1)).all()
+        # Extraire les valeurs (distinct retourne des tuples)
+        result["level_1"] = [v[0] for v in level_1_values if v[0] is not None]
+    
+    return result
+
+
+@router.get("/mappings/{mapping_id}", response_model=MappingResponse)
+async def get_mapping(
+    mapping_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer un mapping par son ID.
+    
+    Args:
+        mapping_id: ID du mapping
+        db: Session de base de données
+    
+    Returns:
+        Détails du mapping
+    
+    Raises:
+        HTTPException: Si le mapping n'existe pas
+    """
+    mapping = db.query(Mapping).filter(Mapping.id == mapping_id).first()
+    if not mapping:
+        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
+    
+    return MappingResponse.model_validate(mapping)
 

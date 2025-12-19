@@ -166,3 +166,111 @@ def enrich_all_transactions(db: Session) -> Tuple[int, int]:
     
     return enriched_count, already_enriched_count
 
+
+def update_transaction_classification(
+    db: Session,
+    transaction: Transaction,
+    level_1: str | None = None,
+    level_2: str | None = None,
+    level_3: str | None = None
+) -> EnrichedTransaction:
+    """
+    Met à jour les classifications d'une transaction.
+    
+    Args:
+        db: Session de base de données
+        transaction: Transaction à mettre à jour
+        level_1: Nouvelle valeur pour level_1 (optionnel)
+        level_2: Nouvelle valeur pour level_2 (optionnel)
+        level_3: Nouvelle valeur pour level_3 (optionnel)
+    
+    Returns:
+        L'objet EnrichedTransaction mis à jour
+    """
+    # Calculer l'année et le mois depuis la date
+    annee = transaction.date.year
+    mois = transaction.date.month
+    
+    # Vérifier si une ligne enriched_transaction existe déjà
+    enriched = db.query(EnrichedTransaction).filter(
+        EnrichedTransaction.transaction_id == transaction.id
+    ).first()
+    
+    if enriched:
+        # Mettre à jour l'enregistrement existant
+        if level_1 is not None:
+            enriched.level_1 = level_1
+        if level_2 is not None:
+            enriched.level_2 = level_2
+        if level_3 is not None:
+            enriched.level_3 = level_3
+        # Toujours mettre à jour annee et mois
+        enriched.annee = annee
+        enriched.mois = mois
+    else:
+        # Créer un nouvel enregistrement
+        enriched = EnrichedTransaction(
+            transaction_id=transaction.id,
+            annee=annee,
+            mois=mois,
+            level_1=level_1,
+            level_2=level_2,
+            level_3=level_3
+        )
+        db.add(enriched)
+    
+    db.commit()
+    db.refresh(enriched)
+    
+    return enriched
+
+
+def create_or_update_mapping_from_classification(
+    db: Session,
+    transaction_name: str,
+    level_1: str,
+    level_2: str,
+    level_3: str | None = None
+) -> Mapping:
+    """
+    Crée ou met à jour un mapping basé sur une classification manuelle.
+    
+    Le mapping est la source de vérité. Si un mapping existe déjà avec le même nom,
+    on le met à jour. Sinon, on en crée un nouveau.
+    
+    Args:
+        db: Session de base de données
+        transaction_name: Nom de la transaction
+        level_1: Catégorie principale
+        level_2: Sous-catégorie
+        level_3: Détail spécifique (optionnel)
+    
+    Returns:
+        Le mapping créé ou mis à jour
+    """
+    # Chercher un mapping existant avec le même nom
+    existing_mapping = db.query(Mapping).filter(Mapping.nom == transaction_name).first()
+    
+    if existing_mapping:
+        # Mettre à jour le mapping existant
+        existing_mapping.level_1 = level_1
+        existing_mapping.level_2 = level_2
+        existing_mapping.level_3 = level_3
+        db.commit()
+        db.refresh(existing_mapping)
+        return existing_mapping
+    else:
+        # Créer un nouveau mapping
+        new_mapping = Mapping(
+            nom=transaction_name,
+            level_1=level_1,
+            level_2=level_2,
+            level_3=level_3,
+            is_prefix_match=True,  # Par défaut, on utilise le préfixe
+            priority=0
+        )
+        db.add(new_mapping)
+        db.commit()
+        db.refresh(new_mapping)
+        return new_mapping
+

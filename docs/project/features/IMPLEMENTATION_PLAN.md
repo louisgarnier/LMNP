@@ -896,48 +896,73 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 3.4 : Édition inline classifications + création mapping automatique + Dropdowns intelligents
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Permettre l'édition inline des classifications avec dropdowns intelligents et création automatique de mappings.
 
 **Objectif** : Modifier les classifications directement dans le tableau avec une UX optimale. Backend + Frontend, testable.
 
 **Tasks Backend**:
-- [ ] Créer endpoint `PUT /api/enrichment/transactions/{transaction_id}` pour modifier classifications
-- [ ] Implémenter logique de création automatique de mapping :
+- [x] Créer endpoint `PUT /api/enrichment/transactions/{transaction_id}` pour modifier classifications
+- [x] Implémenter logique de création automatique de mapping :
   - Si mapping existe avec le nom → update le mapping
   - Si mapping n'existe pas → créer nouveau mapping
-- [ ] Créer endpoint `GET /api/mappings/combinations` pour obtenir toutes les combinaisons possibles
+  - Récupération des valeurs existantes si seulement level_1, level_2 ou level_3 est modifié
+- [x] Créer endpoint `GET /api/mappings/combinations` pour obtenir toutes les combinaisons possibles
+  - Support paramètres `all_level_2` et `all_level_3` pour retourner toutes les valeurs sans filtre
+- [x] Implémenter re-enrichissement lors de suppression de mapping (Step 3.6 partiel)
+  - Trouver toutes les transactions qui utilisent le mapping supprimé
+  - Re-enrichir ces transactions (elles seront remises à NULL si aucun autre mapping ne correspond)
 
 **Tasks Frontend**:
-- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx` :
   - Édition inline des level_1/2/3 avec dropdowns intelligents
-  - Filtrer level_2 selon level_1 sélectionné
-  - Filtrer level_3 selon level_1 + level_2 sélectionnés
+  - Filtrer level_2 selon level_1 sélectionné (si level_1 depuis dropdown)
+  - Filtrer level_3 selon level_1 + level_2 sélectionnés (si level_1 et level_2 depuis dropdown)
+  - Mode "Nouveau..." pour saisie libre avec chargement de toutes les valeurs disponibles
+  - Chargement automatique de toutes les valeurs pour les niveaux suivants en mode custom
+  - Conservation de level_3 lors du changement de level_1 ou level_2
   - Appel API pour sauvegarder les modifications
-- [ ] Mise à jour `frontend/src/api/client.ts` - Endpoints pour édition et combinations
-- [ ] **Tester l'édition avec dropdowns et valider avec l'utilisateur**
+- [x] Mise à jour `frontend/src/api/client.ts` - Endpoints pour édition et combinations
+- [x] Ajout sélection multiple dans `frontend/src/components/MappingTable.tsx` :
+  - Checkbox dans l'en-tête pour sélectionner/désélectionner tout
+  - Checkbox dans chaque ligne
+  - Bouton de suppression multiple avec compteur
+  - Mise en surbrillance des lignes sélectionnées
+- [x] Ajout sélecteur "Par page" dans `frontend/src/components/MappingTable.tsx` :
+  - Options : 25, 50, 100, 200
+  - Réinitialisation à la page 1 lors du changement
+- [x] **Tester l'édition avec dropdowns et valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `backend/api/routes/enrichment.py` - Endpoint PUT pour modifier classifications
-- Mise à jour `backend/api/services/enrichment_service.py` - Logique création mapping automatique
-- Mise à jour `backend/api/routes/mappings.py` - Endpoint GET combinations
+- Mise à jour `backend/api/services/enrichment_service.py` - Logique création mapping automatique + fonctions `update_transaction_classification` et `create_or_update_mapping_from_classification`
+- Mise à jour `backend/api/routes/mappings.py` - Endpoint GET combinations + re-enrichissement lors de suppression
+- Mise à jour `backend/api/main.py` - Inclusion du router enrichment
 - Mise à jour `frontend/src/components/TransactionsTable.tsx` - Édition inline avec dropdowns intelligents
+- Mise à jour `frontend/src/components/MappingTable.tsx` - Sélection multiple + sélecteur "Par page"
 - Mise à jour `frontend/src/api/client.ts` - Endpoints édition et combinations
 
 **Tests**:
-- [ ] Test modification classification inline
-- [ ] Test création automatique de mapping lors de modification
-- [ ] Test update de mapping existant lors de modification
-- [ ] Test filtrage level_2 selon level_1
-- [ ] Test filtrage level_3 selon level_1 + level_2
-- [ ] Test sauvegarde persistante dans DB
+- [x] Test modification classification inline
+- [x] Test création automatique de mapping lors de modification
+- [x] Test update de mapping existant lors de modification
+- [x] Test filtrage level_2 selon level_1 (mode dropdown)
+- [x] Test filtrage level_3 selon level_1 + level_2 (mode dropdown)
+- [x] Test mode "Nouveau..." avec chargement de toutes les valeurs disponibles
+- [x] Test conservation de level_3 lors du changement de level_1 ou level_2
+- [x] Test sauvegarde persistante dans DB
+- [x] Test re-enrichissement lors de suppression de mapping
 
 **Acceptance Criteria**:
-- [ ] Édition inline des classifications fonctionne
-- [ ] Dropdowns intelligents fonctionnent (filtrage dynamique)
-- [ ] Création automatique de mapping fonctionne
-- [ ] Modifications persistées dans DB
-- [ ] **Utilisateur confirme que l'édition avec dropdowns est intuitive**
+- [x] Édition inline des classifications fonctionne
+- [x] Dropdowns intelligents fonctionnent (filtrage dynamique selon hiérarchie)
+- [x] Mode "Nouveau..." permet la saisie libre avec toutes les valeurs disponibles
+- [x] Création automatique de mapping fonctionne (même si seulement level_1, level_2 ou level_3 est modifié)
+- [x] Modifications persistées dans DB
+- [x] Re-enrichissement automatique lors de suppression de mapping
+- [x] Sélection multiple fonctionne dans l'onglet Mapping
+- [x] Sélecteur "Par page" fonctionne dans l'onglet Mapping
+- [x] **Utilisateur confirme que l'édition avec dropdowns est intuitive**
 
 ---
 
