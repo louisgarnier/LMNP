@@ -542,19 +542,19 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ### Step 2.1.8 : Frontend - Édition des transactions et sélection multiple
 **Status**: ✅ COMPLÉTÉ  
-**Description**: Ajout de la fonctionnalité d'édition des transactions et de sélection multiple pour suppression en masse.
+**Description**: Ajout de la fonctionnalité d'édition inline des transactions et de sélection multiple pour suppression en masse.
 
 **Tasks**:
-- [x] Créer composant `EditTransactionModal.tsx`
-  - [x] Modal pour éditer Date, Quantité et Nom
-  - [x] Validation des champs (date requise, quantité nombre valide, nom requis)
-  - [x] Conversion format date pour input HTML (YYYY-MM-DD)
-  - [x] Appeler API PUT /api/transactions/{id} pour sauvegarder
-  - [x] Gestion d'erreurs avec messages clairs (éviter [object Object])
-  - [x] Recharger la liste après sauvegarde réussie
-- [x] Modifier composant `TransactionsTable.tsx`
+- [x] Modifier composant `TransactionsTable.tsx` pour édition inline
   - [x] Ajouter bouton "✏️" dans colonne Actions pour chaque transaction
-  - [x] Intégrer `EditTransactionModal` pour l'édition
+  - [x] Implémenter édition inline (comme dans MappingTable) :
+    - [x] Clic sur ✏️ → les champs Date, Nom, Quantité deviennent des inputs inline
+    - [x] Le bouton ✏️ devient ✓ pour sauvegarder
+    - [x] Ajouter bouton ✗ pour annuler l'édition
+    - [x] Conversion format date pour input HTML (YYYY-MM-DD)
+    - [x] Appeler API PUT /api/transactions/{id} pour sauvegarder
+    - [x] Gestion d'erreurs avec messages clairs
+    - [x] Recharger la liste après sauvegarde réussie
   - [x] Ajouter colonne checkbox à gauche de la colonne Date
   - [x] Ajouter checkbox "sélectionner tout" dans l'en-tête du tableau
   - [x] Gérer l'état de sélection (Set<number> pour les IDs sélectionnés)
@@ -571,15 +571,15 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `frontend/src/components/EditTransactionModal.tsx` - Modal d'édition des transactions
-- `frontend/src/components/TransactionsTable.tsx` - Tableau avec édition et sélection multiple
+- `frontend/src/components/TransactionsTable.tsx` - Tableau avec édition inline et sélection multiple
 - `frontend/src/api/client.ts` - Amélioration gestion d'erreurs
 
 **Tests**:
-- [x] Test ouverture modal d'édition (clic sur bouton ✏️)
-- [x] Test pré-remplissage des champs avec valeurs actuelles
-- [x] Test validation des champs (date, quantité, nom)
-- [x] Test sauvegarde d'une transaction modifiée
+- [x] Test ouverture édition inline (clic sur bouton ✏️)
+- [x] Test affichage des inputs inline pour Date, Nom, Quantité
+- [x] Test conversion format date (YYYY-MM-DD pour input)
+- [x] Test sauvegarde d'une transaction modifiée (clic sur ✓)
+- [x] Test annulation de l'édition (clic sur ✗)
 - [x] Test rechargement de la liste après édition
 - [x] Test recalcul des soldes après édition (vérification visuelle)
 - [x] Test sélection/désélection d'une transaction (checkbox)
@@ -590,9 +590,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Test gestion d'erreurs (messages clairs au lieu de [object Object])
 
 **Acceptance Criteria**:
-- [x] Bouton "✏️" ouvre modal d'édition avec champs pré-remplis
-- [x] Modal permet de modifier Date, Quantité et Nom
-- [x] Validation empêche la sauvegarde si champs invalides
+- [x] Bouton "✏️" active l'édition inline (champs deviennent inputs)
+- [x] Édition inline permet de modifier Date, Quantité et Nom directement dans le tableau
+- [x] Bouton ✏️ devient ✓ pour sauvegarder, ✗ pour annuler
 - [x] Sauvegarde met à jour la transaction et recharge la liste
 - [x] Les soldes sont recalculés automatiquement après édition
 - [x] Checkbox permet de sélectionner/désélectionner des transactions

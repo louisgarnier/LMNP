@@ -7,8 +7,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { transactionsAPI, Transaction } from '@/api/client';
-import EditTransactionModal from './EditTransactionModal';
+import { transactionsAPI, Transaction, TransactionUpdate } from '@/api/client';
 
 interface TransactionsTableProps {
   onDelete?: () => void;
@@ -30,7 +29,8 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingValues, setEditingValues] = useState<{ date?: string; nom?: string; quantite?: number }>({});
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
 
@@ -220,6 +220,66 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(amount);
+  };
+
+  const handleEdit = (transaction: Transaction) => {
+    setEditingId(transaction.id);
+    // Convertir la date au format YYYY-MM-DD pour l'input
+    const dateObj = new Date(transaction.date);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    setEditingValues({
+      date: `${year}-${month}-${day}`,
+      nom: transaction.nom,
+      quantite: transaction.quantite,
+    });
+  };
+
+  const handleSaveEdit = async (transaction: Transaction) => {
+    try {
+      const updates: TransactionUpdate = {};
+      
+      // Vérifier si les valeurs ont changé
+      const dateObj = new Date(transaction.date);
+      const year = dateObj.getFullYear();
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const currentDateStr = `${year}-${month}-${day}`;
+      
+      if (editingValues.date && editingValues.date !== currentDateStr) {
+        updates.date = editingValues.date;
+      }
+      if (editingValues.nom !== undefined && editingValues.nom !== transaction.nom) {
+        updates.nom = editingValues.nom;
+      }
+      if (editingValues.quantite !== undefined && editingValues.quantite !== transaction.quantite) {
+        updates.quantite = editingValues.quantite;
+      }
+
+      // Si des modifications ont été faites, sauvegarder
+      if (Object.keys(updates).length > 0) {
+        await transactionsAPI.update(transaction.id, updates);
+        setEditingId(null);
+        setEditingValues({});
+        await loadTransactions();
+        if (onDelete) {
+          onDelete();
+        }
+      } else {
+        // Aucune modification, juste annuler l'édition
+        setEditingId(null);
+        setEditingValues({});
+      }
+    } catch (err: any) {
+      console.error('Error updating transaction:', err);
+      alert(`Erreur lors de la modification: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditingValues({});
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -485,60 +545,122 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                       />
                     </td>
                     <td style={{ padding: '12px', color: '#1a1a1a' }}>
-                      {formatDate(transaction.date)}
+                      {editingId === transaction.id ? (
+                        <input
+                          type="date"
+                          value={editingValues.date || ''}
+                          onChange={(e) => setEditingValues({ ...editingValues, date: e.target.value })}
+                          style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
+                        />
+                      ) : (
+                        formatDate(transaction.date)
+                      )}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'right', color: transaction.quantite >= 0 ? '#10b981' : '#ef4444' }}>
-                      {formatAmount(transaction.quantite)}
+                      {editingId === transaction.id ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editingValues.quantite !== undefined ? editingValues.quantite : ''}
+                          onChange={(e) => setEditingValues({ ...editingValues, quantite: parseFloat(e.target.value) || 0 })}
+                          style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px', textAlign: 'right' }}
+                        />
+                      ) : (
+                        formatAmount(transaction.quantite)
+                      )}
                     </td>
                     <td style={{ padding: '12px', maxWidth: '400px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ 
-                        color: transaction.nom.startsWith('nom_a_justifier_') ? '#dc3545' : '#666',
-                        fontWeight: transaction.nom.startsWith('nom_a_justifier_') ? '500' : 'normal',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        {transaction.nom.startsWith('nom_a_justifier_') && (
-                          <span style={{ fontSize: '14px' }}>⚠️</span>
-                        )}
-                        {transaction.nom}
-                      </span>
+                      {editingId === transaction.id ? (
+                        <input
+                          type="text"
+                          value={editingValues.nom !== undefined ? editingValues.nom : ''}
+                          onChange={(e) => setEditingValues({ ...editingValues, nom: e.target.value })}
+                          style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
+                        />
+                      ) : (
+                        <span style={{ 
+                          color: transaction.nom.startsWith('nom_a_justifier_') ? '#dc3545' : '#666',
+                          fontWeight: transaction.nom.startsWith('nom_a_justifier_') ? '500' : 'normal',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '4px'
+                        }}>
+                          {transaction.nom.startsWith('nom_a_justifier_') && (
+                            <span style={{ fontSize: '14px' }}>⚠️</span>
+                          )}
+                          {transaction.nom}
+                        </span>
+                      )}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'right', color: '#1a1a1a', fontWeight: '500' }}>
                       {formatAmount(transaction.solde)}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
-                        <button
-                          onClick={() => setEditingTransaction(transaction)}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: '#1e3a5f',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          ✏️
-                        </button>
-                        <button
-                          onClick={() => handleDelete(transaction.id)}
-                          disabled={deletingId === transaction.id}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: deletingId === transaction.id ? '#ccc' : '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            fontSize: '12px',
-                            cursor: deletingId === transaction.id ? 'not-allowed' : 'pointer',
-                            opacity: deletingId === transaction.id ? 0.6 : 1,
-                          }}
-                        >
-                          {deletingId === transaction.id ? '⏳' : '🗑️'}
-                        </button>
+                        {editingId === transaction.id ? (
+                          <button
+                            onClick={() => handleSaveEdit(transaction)}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✓
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleEdit(transaction)}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: '#1e3a5f',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✏️
+                          </button>
+                        )}
+                        {editingId === transaction.id ? (
+                          <button
+                            onClick={handleCancelEdit}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: '#6c757d',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            ✗
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleDelete(transaction.id)}
+                            disabled={deletingId === transaction.id}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: deletingId === transaction.id ? '#ccc' : '#dc3545',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '12px',
+                              cursor: deletingId === transaction.id ? 'not-allowed' : 'pointer',
+                              opacity: deletingId === transaction.id ? 0.6 : 1,
+                            }}
+                          >
+                            {deletingId === transaction.id ? '⏳' : '🗑️'}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -650,20 +772,6 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
         </>
       )}
 
-      {/* Modal d'édition */}
-      {editingTransaction && (
-        <EditTransactionModal
-          transaction={editingTransaction}
-          onClose={() => setEditingTransaction(null)}
-          onSave={() => {
-            setEditingTransaction(null);
-            loadTransactions();
-            if (onDelete) {
-              onDelete();
-            }
-          }}
-        />
-      )}
     </div>
   );
 }
