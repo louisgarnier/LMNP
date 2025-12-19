@@ -505,6 +505,15 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                   >
                     Solde {sortColumn === 'solde' && (sortDirection === 'asc' ? '↑' : '↓')}
                   </th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#1a1a1a' }}>
+                    Level 1
+                  </th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#1a1a1a' }}>
+                    Level 2
+                  </th>
+                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#1a1a1a' }}>
+                    Level 3
+                  </th>
                   <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600', color: '#1a1a1a' }}>
                     Actions
                   </th>
@@ -594,6 +603,15 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                     </td>
                     <td style={{ padding: '12px', textAlign: 'right', color: '#1a1a1a', fontWeight: '500' }}>
                       {formatAmount(transaction.solde)}
+                    </td>
+                    <td style={{ padding: '12px', color: transaction.level_1 ? '#666' : '#999', fontStyle: transaction.level_1 ? 'normal' : 'italic' }}>
+                      {transaction.level_1 || 'à remplir'}
+                    </td>
+                    <td style={{ padding: '12px', color: transaction.level_2 ? '#666' : '#999', fontStyle: transaction.level_2 ? 'normal' : 'italic' }}>
+                      {transaction.level_2 || 'à remplir'}
+                    </td>
+                    <td style={{ padding: '12px', color: transaction.level_3 ? '#666' : '#999', fontStyle: transaction.level_3 ? 'normal' : 'italic' }}>
+                      {transaction.level_3 || 'à remplir'}
                     </td>
                     <td style={{ padding: '12px', textAlign: 'center' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>

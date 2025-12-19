@@ -13,7 +13,8 @@ from pathlib import Path
 import pandas as pd
 
 from backend.database import get_db
-from backend.database.models import Transaction, FileImport
+from backend.database.models import Transaction, FileImport, EnrichedTransaction
+from backend.api.services.enrichment_service import enrich_transaction
 from backend.api.models import (
     TransactionCreate,
     TransactionUpdate,
@@ -67,8 +68,32 @@ async def get_transactions(
     # Pagination
     transactions = query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
     
+    # Récupérer les données enrichies pour chaque transaction
+    transaction_responses = []
+    for t in transactions:
+        # Récupérer les données enrichies
+        enriched = db.query(EnrichedTransaction).filter(
+            EnrichedTransaction.transaction_id == t.id
+        ).first()
+        
+        # Créer la réponse avec les données enrichies
+        transaction_dict = {
+            "id": t.id,
+            "date": t.date,
+            "quantite": t.quantite,
+            "nom": t.nom,
+            "solde": t.solde,
+            "source_file": t.source_file,
+            "created_at": t.created_at,
+            "updated_at": t.updated_at,
+            "level_1": enriched.level_1 if enriched else None,
+            "level_2": enriched.level_2 if enriched else None,
+            "level_3": enriched.level_3 if enriched else None,
+        }
+        transaction_responses.append(TransactionResponse(**transaction_dict))
+    
     return TransactionListResponse(
-        transactions=[TransactionResponse.model_validate(t) for t in transactions],
+        transactions=transaction_responses,
         total=total,
         page=(skip // limit) + 1,
         page_size=limit
@@ -100,7 +125,27 @@ async def get_transaction(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction non trouvée")
     
-    return TransactionResponse.model_validate(transaction)
+    # Récupérer les données enrichies
+    enriched = db.query(EnrichedTransaction).filter(
+        EnrichedTransaction.transaction_id == transaction.id
+    ).first()
+    
+    # Créer la réponse avec les données enrichies
+    transaction_dict = {
+        "id": transaction.id,
+        "date": transaction.date,
+        "quantite": transaction.quantite,
+        "nom": transaction.nom,
+        "solde": transaction.solde,
+        "source_file": transaction.source_file,
+        "created_at": transaction.created_at,
+        "updated_at": transaction.updated_at,
+        "level_1": enriched.level_1 if enriched else None,
+        "level_2": enriched.level_2 if enriched else None,
+        "level_3": enriched.level_3 if enriched else None,
+    }
+    
+    return TransactionResponse(**transaction_dict)
 
 
 @router.post("/transactions", response_model=TransactionResponse, status_code=201)
@@ -588,7 +633,7 @@ async def import_file(
         # Insérer toutes les transactions en une fois
         for transaction in transactions_to_insert:
             db.add(transaction)
-        db.commit()
+        db.flush()  # Flush pour obtenir les IDs sans commit
         
         # Recalculer tous les soldes après insertion
         # Si on a inséré des transactions, on doit recalculer depuis la date minimale
@@ -600,6 +645,16 @@ async def import_file(
             # Recalculer tous les soldes depuis le début pour garantir la cohérence
             # (plus simple et plus sûr que de recalculer depuis une date spécifique)
             recalculate_all_balances(db)
+            
+            # Enrichir automatiquement toutes les transactions insérées
+            # Charger les mappings une seule fois pour optimiser
+            from backend.database.models import Mapping
+            mappings = db.query(Mapping).all()
+            for transaction in transactions_to_insert:
+                # Enrichir la transaction (elle a déjà un ID après flush)
+                enrich_transaction(transaction, db, mappings)
+        
+        db.commit()
         
         # Créer ou mettre à jour l'enregistrement FileImport
         if existing_import:

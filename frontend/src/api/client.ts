@@ -90,6 +90,9 @@ export interface Transaction {
   source_file?: string;
   created_at: string;
   updated_at: string;
+  level_1?: string;
+  level_2?: string;
+  level_3?: string;
 }
 
 export interface TransactionCreate {

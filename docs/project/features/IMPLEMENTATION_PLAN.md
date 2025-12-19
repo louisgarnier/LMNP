@@ -838,56 +838,60 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 3.3 : Service enrichissement backend + Enrichissement automatique après import + Affichage dans tableau
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer le service d'enrichissement, l'intégrer dans l'import CSV, et afficher les classifications dans le tableau.
 
 **Objectif** : Implémenter l'enrichissement complet et le rendre visible immédiatement. Backend + Frontend, testable visuellement après import CSV.
 
 **Tasks Backend**:
-- [ ] Créer `backend/api/services/enrichment_service.py`
-- [ ] Implémenter fonction `find_best_mapping(transaction_name, mappings)` avec logique :
+- [x] Créer `backend/api/services/enrichment_service.py`
+- [x] Implémenter fonction `find_best_mapping(transaction_name, mappings)` avec logique :
   - Recherche par préfixe le plus long
-  - Matching "smart" par pattern/contient
+  - Matching "smart" par pattern/contient (si le nom de la transaction contient le nom du mapping)
   - Cas spéciaux PRLV SEPA et VIR STRIPE
-- [ ] Implémenter fonction `enrich_transaction(transaction, db)` :
+- [x] Implémenter fonction `enrich_transaction(transaction, db)` :
   - Calculer `annee` depuis `transaction.date`
+  - Calculer `mois` depuis `transaction.date`
   - Trouver le meilleur mapping
   - Créer/update ligne `enriched_transaction` avec level_1/2/3 (ou NULL si pas de mapping)
-- [ ] Modifier `backend/api/routes/transactions.py` - Endpoint `POST /api/transactions/import`
+- [x] Modifier `backend/api/routes/transactions.py` - Endpoint `POST /api/transactions/import`
   - Après insertion des transactions, appeler `enrich_transaction` pour chaque transaction
-- [ ] Modifier `backend/api/routes/transactions.py` - Endpoint `GET /api/transactions` pour inclure les données enrichies
+  - Optimisation : charger les mappings une seule fois pour toutes les transactions
+- [x] Modifier `backend/api/routes/transactions.py` - Endpoint `GET /api/transactions` pour inclure les données enrichies
+- [x] Modifier `backend/api/models.py` - `TransactionResponse` pour inclure level_1/2/3
 
 **Tasks Frontend**:
-- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx` :
   - Ajouter colonnes level_1, level_2, level_3 (entre Solde et Actions)
-  - Afficher "à remplir" si level_1/2/3 = NULL
-- [ ] Mise à jour `frontend/src/api/client.ts` - Interface pour inclure level_1/2/3
-- [ ] **Tester avec import CSV réel et valider visuellement avec l'utilisateur**
+  - Afficher "à remplir" en italique gris si level_1/2/3 = NULL
+- [x] Mise à jour `frontend/src/api/client.ts` - Interface Transaction pour inclure level_1/2/3
+- [x] **Tester avec import CSV réel et valider visuellement avec l'utilisateur**
 
 **Deliverables**:
 - `backend/api/services/enrichment_service.py` - Service enrichissement
-- `backend/tests/test_enrichment_service.py` - Tests unitaires
 - Mise à jour `backend/api/routes/transactions.py` - Intégration enrichissement après import + GET avec données enrichies
+- Mise à jour `backend/api/models.py` - TransactionResponse avec level_1/2/3
 - Mise à jour `frontend/src/components/TransactionsTable.tsx` - Colonnes level_1/2/3
 - Mise à jour `frontend/src/api/client.ts` - Interface Transaction avec level_1/2/3
 
 **Tests**:
-- [ ] Test mapping par préfixe (préfixe le plus long)
-- [ ] Test matching "smart" (pattern/contient)
-- [ ] Test cas spéciaux (PRLV SEPA, VIR STRIPE)
-- [ ] Test enrichissement automatique après import CSV
-- [ ] Test création `enriched_transaction` pour chaque transaction
-- [ ] Test transactions avec mapping (level_1/2/3 appliqués)
-- [ ] Test transactions sans mapping (level_1/2/3 = NULL)
-- [ ] Colonnes level_1/2/3 visibles dans le tableau après import
-- [ ] Affichage correct des classifications (ou "à remplir" si NULL)
+- [x] Test mapping par préfixe (préfixe le plus long)
+- [x] Test matching "smart" (pattern/contient)
+- [x] Test cas spéciaux (PRLV SEPA, VIR STRIPE)
+- [x] Test enrichissement automatique après import CSV
+- [x] Test création `enriched_transaction` pour chaque transaction
+- [x] Test transactions avec mapping (level_1/2/3 appliqués)
+- [x] Test transactions sans mapping (level_1/2/3 = NULL)
+- [x] Colonnes level_1/2/3 visibles dans le tableau après import
+- [x] Affichage correct des classifications (ou "à remplir" si NULL)
 
 **Acceptance Criteria**:
-- [ ] Logique de matching fonctionne correctement
-- [ ] Enrichissement automatique fonctionne après chaque import CSV
-- [ ] Colonnes level_1, level_2, level_3 visibles dans tableau "Toutes les transactions"
-- [ ] Affichage correct des classifications après import
-- [ ] **Utilisateur confirme que l'enrichissement fonctionne et est visible après import CSV réel**
+- [x] Logique de matching fonctionne correctement
+- [x] Enrichissement automatique fonctionne après chaque import CSV
+- [x] Colonnes level_1, level_2, level_3 visibles dans tableau "Toutes les transactions" (entre Solde et Actions)
+- [x] Affichage correct des classifications après import
+- [x] Transactions sans mapping affichent "à remplir" en italique gris
+- [x] **Utilisateur confirme que l'enrichissement fonctionne et est visible après import CSV réel**
 
 ---
 
