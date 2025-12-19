@@ -51,31 +51,6 @@ export default function FileUpload({ onFileSelect, onImportComplete }: FileUploa
     }
   };
   
-  const [isImporting, setIsImporting] = useState(false);
-
-  const handleConfirmImport = async (mapping: any[]) => {
-    if (!selectedFile) return;
-    
-    setIsImporting(true);
-    try {
-      const result = await fileUploadAPI.import(selectedFile, mapping);
-      setShowModal(false);
-      setSelectedFile(null);
-      setPreviewData(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      if (onImportComplete) {
-        onImportComplete();
-      }
-      alert(`Import terminé: ${result.imported_count} transactions importées, ${result.duplicates_count} doublons détectés`);
-    } catch (error) {
-      console.error('Erreur lors de l\'import:', error);
-      alert(`Erreur lors de l'import: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
-    } finally {
-      setIsImporting(false);
-    }
-  };
 
   const handleButtonClick = () => {
     fileInputRef.current?.click();
@@ -163,47 +138,30 @@ export default function FileUpload({ onFileSelect, onImportComplete }: FileUploa
         </div>
       )}
 
-      {showModal && selectedFile && previewData && !isImporting && (
+      {showModal && selectedFile && previewData && (
         <ColumnMappingModal
           file={selectedFile}
           previewData={previewData}
-          onConfirm={handleConfirmImport}
+          onImportComplete={() => {
+            setShowModal(false);
+            setSelectedFile(null);
+            setPreviewData(null);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
+            }
+            if (onImportComplete) {
+              onImportComplete();
+            }
+          }}
           onClose={() => {
-            if (!isImporting) {
-              setShowModal(false);
-              setSelectedFile(null);
-              setPreviewData(null);
-              if (fileInputRef.current) {
-                fileInputRef.current.value = '';
-              }
+            setShowModal(false);
+            setSelectedFile(null);
+            setPreviewData(null);
+            if (fileInputRef.current) {
+              fileInputRef.current.value = '';
             }
           }}
         />
-      )}
-
-      {isImporting && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1001,
-        }}>
-          <div style={{
-            backgroundColor: 'white',
-            padding: '24px',
-            borderRadius: '8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '16px', marginBottom: '12px' }}>⏳ Import en cours...</div>
-            <div style={{ fontSize: '14px', color: '#666' }}>Veuillez patienter</div>
-          </div>
-        </div>
       )}
     </div>
   );
