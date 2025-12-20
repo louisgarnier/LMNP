@@ -161,18 +161,28 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
         t.level_3?.toLowerCase().includes(filterLower)
       );
     }
-    // Filtrer par quantité seulement si la valeur est un nombre valide et non vide
+    // Filtrer par quantité avec filtre "contient" (si on tape "14", trouve 14, 14.02, 140, 14000, etc.)
     if (appliedFilterQuantite && appliedFilterQuantite.trim() !== '') {
-      const filterNum = parseFloat(appliedFilterQuantite.trim());
-      if (!isNaN(filterNum) && isFinite(filterNum)) {
-        filtered = filtered.filter(t => t.quantite === filterNum);
+      const filterValue = appliedFilterQuantite.trim();
+      // Vérifier si c'est un nombre valide (même partiel)
+      if (filterValue !== '' && !isNaN(Number(filterValue))) {
+        // Convertir en string pour vérifier si la valeur tapée est contenue dans le nombre
+        filtered = filtered.filter(t => {
+          const quantiteStr = t.quantite.toString();
+          return quantiteStr.includes(filterValue);
+        });
       }
     }
-    // Filtrer par solde seulement si la valeur est un nombre valide et non vide
+    // Filtrer par solde avec filtre "contient" (si on tape "14", trouve 14, 14.02, 140, 14000, etc.)
     if (appliedFilterSolde && appliedFilterSolde.trim() !== '') {
-      const filterNum = parseFloat(appliedFilterSolde.trim());
-      if (!isNaN(filterNum) && isFinite(filterNum)) {
-        filtered = filtered.filter(t => t.solde === filterNum);
+      const filterValue = appliedFilterSolde.trim();
+      // Vérifier si c'est un nombre valide (même partiel)
+      if (filterValue !== '' && !isNaN(Number(filterValue))) {
+        // Convertir en string pour vérifier si la valeur tapée est contenue dans le nombre
+        filtered = filtered.filter(t => {
+          const soldeStr = t.solde.toString();
+          return soldeStr.includes(filterValue);
+        });
       }
     }
 
@@ -983,10 +993,6 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
         <div style={{ padding: '40px', textAlign: 'center', color: '#dc3545' }}>
           ❌ {error}
         </div>
-      ) : transactions.length === 0 ? (
-        <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-          Aucune transaction trouvée
-        </div>
       ) : (
         <>
           <div style={{ 
@@ -1279,8 +1285,15 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((transaction) => (
-                  <tr
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                      Aucune transaction trouvée
+                    </td>
+                  </tr>
+                ) : (
+                  transactions.map((transaction) => (
+                    <tr
                     key={transaction.id}
                     style={{
                       borderBottom: '1px solid #e5e5e5',
@@ -1637,7 +1650,8 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

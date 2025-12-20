@@ -1531,6 +1531,12 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Quantité/Solde : filtre manuel via Enter (pas automatique)
 - [x] **Utilisateur confirme que les filtres fonctionnent**
 
+**Améliorations post-implémentation**:
+- [x] Filtre quantité/solde : passage de "exact" à "contient" (taper "14" trouve 14, 14.02, 140, 14000, etc.)
+- [x] Bouton "Clear filters" toujours visible (même quand aucune transaction ne correspond aux filtres)
+- [x] Tableau toujours affiché (même vide) pour que la ligne de filtres reste accessible
+- [x] Message "Aucune transaction trouvée" affiché dans le `<tbody>` du tableau
+
 ---
 
 #### Step 3.8.6 : Frontend - TransactionsTable - Pagination en haut
