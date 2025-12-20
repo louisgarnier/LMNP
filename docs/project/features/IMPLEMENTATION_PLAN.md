@@ -1385,79 +1385,88 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 3.8.1 : Backend - Ajouter paramètres de tri aux endpoints
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter les paramètres `sort_by` et `sort_direction` aux endpoints GET pour supporter le tri côté serveur.
 
 **Tasks**:
-- [ ] Modifier endpoint `GET /api/transactions` dans `backend/api/routes/transactions.py`
+- [x] Modifier endpoint `GET /api/transactions` dans `backend/api/routes/transactions.py`
   - Ajouter paramètre `sort_by` (date, quantite, nom, solde, level_1, level_2, level_3)
   - Ajouter paramètre `sort_direction` (asc, desc)
   - Implémenter tri SQLAlchemy pour chaque colonne
-- [ ] Modifier endpoint `GET /api/mappings` dans `backend/api/routes/mappings.py`
+  - Gérer le join avec EnrichedTransaction pour level_1/2/3
+- [x] Modifier endpoint `GET /api/mappings` dans `backend/api/routes/mappings.py`
   - Ajouter paramètre `sort_by` (id, nom, level_1, level_2, level_3)
   - Ajouter paramètre `sort_direction` (asc, desc)
   - Implémenter tri SQLAlchemy pour chaque colonne
-- [ ] Mettre à jour modèles Pydantic si nécessaire
-- [ ] **Tester les endpoints avec différents paramètres de tri**
+- [x] Mettre à jour imports (desc, asc depuis sqlalchemy)
+- [x] **Tester les endpoints avec différents paramètres de tri**
 
 **Deliverables**:
 - Mise à jour `backend/api/routes/transactions.py` - Paramètres de tri
 - Mise à jour `backend/api/routes/mappings.py` - Paramètres de tri
-- Tests backend pour vérifier le tri
+- Tests backend `backend/tests/test_sorting_and_unique_values.py` pour vérifier le tri
 
 **Acceptance Criteria**:
-- [ ] Tri par date fonctionne (asc/desc)
-- [ ] Tri par toutes les colonnes fonctionne
-- [ ] Tri combiné avec pagination fonctionne
-- [ ] Tests passent
+- [x] Tri par date fonctionne (asc/desc)
+- [x] Tri par toutes les colonnes fonctionne
+- [x] Tri combiné avec pagination fonctionne
+- [x] Tests passent
+- [x] **Utilisateur confirme que le tri fonctionne**
 
 ---
 
 #### Step 3.8.2 : Backend - Endpoints pour récupérer valeurs uniques (filtres)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer des endpoints pour récupérer les valeurs uniques de chaque colonne (pour les dropdowns de filtres).
 
 **Tasks**:
-- [ ] Créer endpoint `GET /api/transactions/unique-values` dans `backend/api/routes/transactions.py`
-  - Paramètre `column` (nom, level_1, level_2, level_3, etc.)
-  - Retourner liste des valeurs uniques (non null)
-  - Optionnel : filtrer par date range si présent
-- [ ] Créer endpoint `GET /api/mappings/unique-values` dans `backend/api/routes/mappings.py`
+- [x] Créer endpoint `GET /api/transactions/unique-values` dans `backend/api/routes/transactions.py`
   - Paramètre `column` (nom, level_1, level_2, level_3)
-  - Retourner liste des valeurs uniques (non null)
-- [ ] **Tester les endpoints**
+  - Retourner liste des valeurs uniques (non null, triées)
+  - Filtrer par date range si présent (start_date, end_date)
+  - Gérer le join avec EnrichedTransaction pour level_1/2/3
+- [x] Créer endpoint `GET /api/mappings/unique-values` dans `backend/api/routes/mappings.py`
+  - Paramètre `column` (nom, level_1, level_2, level_3)
+  - Retourner liste des valeurs uniques (non null, triées)
+  - Gestion d'erreur pour colonne invalide
+- [x] **Tester les endpoints**
 
 **Deliverables**:
 - Endpoint `GET /api/transactions/unique-values` dans `backend/api/routes/transactions.py`
 - Endpoint `GET /api/mappings/unique-values` dans `backend/api/routes/mappings.py`
+- Tests dans `backend/tests/test_sorting_and_unique_values.py`
 
 **Acceptance Criteria**:
-- [ ] Endpoints retournent les valeurs uniques correctes
-- [ ] Filtrage par date range fonctionne (transactions)
-- [ ] Tests passent
+- [x] Endpoints retournent les valeurs uniques correctes
+- [x] Filtrage par date range fonctionne (transactions)
+- [x] Gestion d'erreur pour colonne invalide
+- [x] Tests passent
+- [x] **Utilisateur confirme que les endpoints fonctionnent**
 
 ---
 
 #### Step 3.8.3 : Frontend - API client - Méthodes tri et valeurs uniques
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter les méthodes dans l'API client pour appeler les nouveaux endpoints.
 
 **Tasks**:
-- [ ] Mettre à jour `transactionsAPI.getAll()` dans `frontend/src/api/client.ts`
+- [x] Mettre à jour `transactionsAPI.getAll()` dans `frontend/src/api/client.ts`
   - Ajouter paramètres `sortBy?: string` et `sortDirection?: 'asc' | 'desc'`
-- [ ] Mettre à jour `mappingsAPI.list()` dans `frontend/src/api/client.ts`
+  - Support des paramètres startDate et endDate pour getUniqueValues
+- [x] Mettre à jour `mappingsAPI.list()` dans `frontend/src/api/client.ts`
   - Ajouter paramètres `sortBy?: string` et `sortDirection?: 'asc' | 'desc'`
-- [ ] Ajouter méthode `transactionsAPI.getUniqueValues(column: string)` dans `frontend/src/api/client.ts`
-- [ ] Ajouter méthode `mappingsAPI.getUniqueValues(column: string)` dans `frontend/src/api/client.ts`
-- [ ] **Tester les appels API**
+- [x] Ajouter méthode `transactionsAPI.getUniqueValues(column: string, startDate?: string, endDate?: string)` dans `frontend/src/api/client.ts`
+- [x] Ajouter méthode `mappingsAPI.getUniqueValues(column: string)` dans `frontend/src/api/client.ts`
+- [x] **Tester les appels API**
 
 **Deliverables**:
 - Mise à jour `frontend/src/api/client.ts` - Méthodes avec tri
 - Méthodes `getUniqueValues` pour transactions et mappings
 
 **Acceptance Criteria**:
-- [ ] Méthodes ajoutées avec types TypeScript corrects
-- [ ] Appels API fonctionnent
+- [x] Méthodes ajoutées avec types TypeScript corrects
+- [x] Appels API fonctionnent (testés avec curl)
+- [x] **Utilisateur confirme que les méthodes sont prêtes**
 
 ---
 

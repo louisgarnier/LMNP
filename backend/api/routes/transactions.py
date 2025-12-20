@@ -6,6 +6,7 @@ API routes for transactions.
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_, desc, asc
 from typing import List, Optional
 from datetime import date, datetime
 import os
@@ -44,6 +45,8 @@ async def get_transactions(
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     start_date: Optional[date] = Query(None, description="Date de début (filtre)"),
     end_date: Optional[date] = Query(None, description="Date de fin (filtre)"),
+    sort_by: Optional[str] = Query(None, description="Colonne de tri (date, quantite, nom, solde, level_1, level_2, level_3)"),
+    sort_direction: Optional[str] = Query("desc", description="Direction du tri (asc, desc)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -53,8 +56,19 @@ async def get_transactions(
     - **limit**: Nombre d'éléments à retourner (max 1000)
     - **start_date**: Filtrer par date de début (optionnel)
     - **end_date**: Filtrer par date de fin (optionnel)
+    - **sort_by**: Colonne de tri (date, quantite, nom, solde, level_1, level_2, level_3)
+    - **sort_direction**: Direction du tri (asc, desc)
     """
-    query = db.query(Transaction)
+    # Base query - on va joindre avec EnrichedTransaction si nécessaire pour le tri
+    base_query = db.query(Transaction)
+    
+    # Déterminer si on doit joindre avec EnrichedTransaction pour le tri
+    needs_join = sort_by and sort_by in ["level_1", "level_2", "level_3"]
+    
+    if needs_join:
+        query = base_query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+    else:
+        query = base_query
     
     # Filtres optionnels
     if start_date:
@@ -62,11 +76,53 @@ async def get_transactions(
     if end_date:
         query = query.filter(Transaction.date <= end_date)
     
-    # Compter le total
+    # Compter le total (avant tri)
     total = query.count()
     
+    # Tri
+    if sort_by:
+        # Normaliser la direction
+        sort_dir = sort_direction.lower() if sort_direction else "desc"
+        if sort_dir not in ["asc", "desc"]:
+            sort_dir = "desc"
+        
+        # Déterminer la colonne de tri
+        if sort_by == "date":
+            order_col = Transaction.date
+        elif sort_by == "quantite":
+            order_col = Transaction.quantite
+        elif sort_by == "nom":
+            order_col = Transaction.nom
+        elif sort_by == "solde":
+            order_col = Transaction.solde
+        elif sort_by == "level_1":
+            if not needs_join:
+                query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+            order_col = EnrichedTransaction.level_1
+        elif sort_by == "level_2":
+            if not needs_join:
+                query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+            order_col = EnrichedTransaction.level_2
+        elif sort_by == "level_3":
+            if not needs_join:
+                query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+            order_col = EnrichedTransaction.level_3
+        else:
+            # Par défaut, trier par date desc
+            order_col = Transaction.date
+            sort_dir = "desc"
+        
+        # Appliquer le tri
+        if sort_dir == "asc":
+            query = query.order_by(asc(order_col))
+        else:
+            query = query.order_by(desc(order_col))
+    else:
+        # Par défaut, trier par date desc
+        query = query.order_by(desc(Transaction.date))
+    
     # Pagination
-    transactions = query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
+    transactions = query.offset(skip).limit(limit).all()
     
     # Récupérer les données enrichies pour chaque transaction
     transaction_responses = []
@@ -98,6 +154,60 @@ async def get_transactions(
         page=(skip // limit) + 1,
         page_size=limit
     )
+
+
+@router.get("/transactions/unique-values")
+async def get_transaction_unique_values(
+    column: str = Query(..., description="Nom de la colonne (nom, level_1, level_2, level_3)"),
+    start_date: Optional[date] = Query(None, description="Date de début (filtre optionnel)"),
+    end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs uniques d'une colonne pour les filtres.
+    
+    - **column**: Nom de la colonne (nom, level_1, level_2, level_3)
+    - **start_date**: Filtrer par date de début (optionnel)
+    - **end_date**: Filtrer par date de fin (optionnel)
+    
+    Returns:
+        Liste des valeurs uniques (non null, triées)
+    """
+    # Base query avec join pour level_1/2/3
+    if column in ["level_1", "level_2", "level_3"]:
+        query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
+    else:
+        query = db.query(Transaction)
+    
+    # Filtres par date si fournis
+    if start_date:
+        if column in ["level_1", "level_2", "level_3"]:
+            query = query.filter(Transaction.date >= start_date)
+        else:
+            query = query.filter(Transaction.date >= start_date)
+    if end_date:
+        if column in ["level_1", "level_2", "level_3"]:
+            query = query.filter(Transaction.date <= end_date)
+        else:
+            query = query.filter(Transaction.date <= end_date)
+    
+    # Récupérer les valeurs uniques selon la colonne
+    if column == "nom":
+        values = query.with_entities(Transaction.nom).distinct().filter(Transaction.nom.isnot(None)).order_by(Transaction.nom).all()
+        unique_values = [v[0] for v in values if v[0]]
+    elif column == "level_1":
+        values = query.with_entities(EnrichedTransaction.level_1).distinct().filter(EnrichedTransaction.level_1.isnot(None)).order_by(EnrichedTransaction.level_1).all()
+        unique_values = [v[0] for v in values if v[0]]
+    elif column == "level_2":
+        values = query.with_entities(EnrichedTransaction.level_2).distinct().filter(EnrichedTransaction.level_2.isnot(None)).order_by(EnrichedTransaction.level_2).all()
+        unique_values = [v[0] for v in values if v[0]]
+    elif column == "level_3":
+        values = query.with_entities(EnrichedTransaction.level_3).distinct().filter(EnrichedTransaction.level_3.isnot(None)).order_by(EnrichedTransaction.level_3).all()
+        unique_values = [v[0] for v in values if v[0]]
+    else:
+        raise HTTPException(status_code=400, detail=f"Colonne '{column}' non supportée. Colonnes supportées: nom, level_1, level_2, level_3")
+    
+    return {"column": column, "values": unique_values}
 
 
 @router.get("/transactions/imports", response_model=List[FileImportHistory])

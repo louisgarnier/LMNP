@@ -6,7 +6,7 @@ API routes for mappings.
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import distinct
+from sqlalchemy import distinct, desc, asc
 from typing import List, Optional, Dict
 import pandas as pd
 import io
@@ -472,6 +472,8 @@ async def get_mappings(
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     search: Optional[str] = Query(None, description="Recherche dans le nom"),
+    sort_by: Optional[str] = Query(None, description="Colonne de tri (id, nom, level_1, level_2, level_3)"),
+    sort_direction: Optional[str] = Query("asc", description="Direction du tri (asc, desc)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -481,6 +483,8 @@ async def get_mappings(
         skip: Nombre d'éléments à sauter (pagination)
         limit: Nombre d'éléments à retourner
         search: Terme de recherche dans le nom
+        sort_by: Colonne de tri (id, nom, level_1, level_2, level_3)
+        sort_direction: Direction du tri (asc, desc)
         db: Session de base de données
     
     Returns:
@@ -492,16 +496,82 @@ async def get_mappings(
     if search:
         query = query.filter(Mapping.nom.contains(search))
     
-    # Comptage total
+    # Comptage total (avant tri)
     total = query.count()
     
+    # Tri
+    if sort_by:
+        # Normaliser la direction
+        sort_dir = sort_direction.lower() if sort_direction else "asc"
+        if sort_dir not in ["asc", "desc"]:
+            sort_dir = "asc"
+        
+        # Déterminer la colonne de tri
+        if sort_by == "id":
+            order_col = Mapping.id
+        elif sort_by == "nom":
+            order_col = Mapping.nom
+        elif sort_by == "level_1":
+            order_col = Mapping.level_1
+        elif sort_by == "level_2":
+            order_col = Mapping.level_2
+        elif sort_by == "level_3":
+            order_col = Mapping.level_3
+        else:
+            # Par défaut, trier par nom asc
+            order_col = Mapping.nom
+            sort_dir = "asc"
+        
+        # Appliquer le tri
+        if sort_dir == "asc":
+            query = query.order_by(asc(order_col))
+        else:
+            query = query.order_by(desc(order_col))
+    else:
+        # Par défaut, trier par nom asc
+        query = query.order_by(asc(Mapping.nom))
+    
     # Pagination
-    mappings = query.order_by(Mapping.nom).offset(skip).limit(limit).all()
+    mappings = query.offset(skip).limit(limit).all()
     
     return MappingListResponse(
         mappings=[MappingResponse.model_validate(m) for m in mappings],
         total=total
     )
+
+
+@router.get("/mappings/unique-values")
+async def get_mapping_unique_values(
+    column: str = Query(..., description="Nom de la colonne (nom, level_1, level_2, level_3)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs uniques d'une colonne pour les filtres.
+    
+    - **column**: Nom de la colonne (nom, level_1, level_2, level_3)
+    
+    Returns:
+        Liste des valeurs uniques (non null, triées)
+    """
+    query = db.query(Mapping)
+    
+    # Récupérer les valeurs uniques selon la colonne
+    if column == "nom":
+        values = query.with_entities(Mapping.nom).distinct().filter(Mapping.nom.isnot(None)).order_by(Mapping.nom).all()
+        unique_values = [v[0] for v in values if v[0]]
+    elif column == "level_1":
+        values = query.with_entities(Mapping.level_1).distinct().filter(Mapping.level_1.isnot(None)).order_by(Mapping.level_1).all()
+        unique_values = [v[0] for v in values if v[0]]
+    elif column == "level_2":
+        values = query.with_entities(Mapping.level_2).distinct().filter(Mapping.level_2.isnot(None)).order_by(Mapping.level_2).all()
+        unique_values = [v[0] for v in values if v[0]]
+    elif column == "level_3":
+        values = query.with_entities(Mapping.level_3).distinct().filter(Mapping.level_3.isnot(None)).order_by(Mapping.level_3).all()
+        unique_values = [v[0] for v in values if v[0]]
+    else:
+        raise HTTPException(status_code=400, detail=f"Colonne '{column}' non supportée. Colonnes supportées: nom, level_1, level_2, level_3")
+    
+    return {"column": column, "values": unique_values}
 
 
 @router.post("/mappings", response_model=MappingResponse, status_code=201)
