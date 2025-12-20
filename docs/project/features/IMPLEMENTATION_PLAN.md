@@ -1534,28 +1534,30 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 3.8.6 : Frontend - TransactionsTable - Pagination en haut
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Ajouter les contrôles de pagination (Première, Précédente, Suivante, Dernière) et le sélecteur "Par page" (50/100/200) en haut du tableau.
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Ajouter les contrôles de pagination (Première, Précédente, Suivante, Dernière) et le sélecteur "Par page" (25/50/100/200) en haut du tableau.
 
 **Tasks**:
-- [ ] Modifier `frontend/src/components/TransactionsTable.tsx`
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx`
   - Dupliquer les contrôles de pagination existants (qui sont en bas)
   - Les placer en haut du tableau (avant `<table>`)
   - Inclure : "Première", "Précédente", "Suivante", "Dernière"
-  - Inclure : Sélecteur "Par page: 50/100/200"
-  - Inclure : Affichage "Page X sur Y"
-  - Synchroniser les deux contrôles (haut et bas)
-- [ ] **Tester la pagination en haut**
+  - Inclure : Sélecteur "Par page: 25/50/100/200"
+  - Inclure : Affichage "Page X sur Y (total transactions)"
+  - Synchroniser les deux contrôles (haut et bas) - même état React
+  - Supprimer le texte redondant "X transactions au total" en haut
+- [x] **Tester la pagination en haut**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/TransactionsTable.tsx` - Pagination en haut
 
 **Acceptance Criteria**:
-- [ ] Contrôles de pagination visibles en haut
-- [ ] Tous les boutons fonctionnent (Première, Précédente, Suivante, Dernière)
-- [ ] Sélecteur "Par page" fonctionne
-- [ ] Synchronisation entre pagination haut et bas
-- [ ] **Utilisateur confirme que la pagination fonctionne**
+- [x] Contrôles de pagination visibles en haut
+- [x] Tous les boutons fonctionnent (Première, Précédente, Suivante, Dernière)
+- [x] Sélecteur "Par page" fonctionne
+- [x] Synchronisation entre pagination haut et bas (même état)
+- [x] Affichage conditionnel (seulement si totalPages > 1)
+- [x] **Utilisateur confirme que la pagination fonctionne**
 
 ---
 

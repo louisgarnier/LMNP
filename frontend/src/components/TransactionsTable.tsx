@@ -837,16 +837,17 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
       <div style={{ 
         marginBottom: '16px', 
         display: 'flex', 
-        justifyContent: 'space-between', 
+        justifyContent: 'flex-end', 
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '12px'
       }}>
-        <div style={{ fontSize: '14px', color: '#666' }}>
-          {total} transaction{total !== 1 ? 's' : ''} au total
-          {searchTerm && ` (filtrées par "${searchTerm}")`}
-          {(startDate || endDate) && ` (période: ${startDate || 'début'} - ${endDate || 'fin'})`}
-        </div>
+        {(searchTerm || startDate || endDate) && (
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            {searchTerm && `Filtrées par "${searchTerm}"`}
+            {(startDate || endDate) && ` (période: ${startDate || 'début'} - ${endDate || 'fin'})`}
+          </div>
+        )}
         {selectedIds.size > 0 && (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{ fontSize: '14px', color: '#1e3a5f', fontWeight: '500' }}>
@@ -871,6 +872,107 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
           </div>
         )}
       </div>
+
+      {/* Pagination en haut */}
+      {totalPages > 1 && (
+        <div style={{ 
+          marginBottom: '16px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            Page {page} sur {totalPages} ({total} transaction{total !== 1 ? 's' : ''})
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page === 1 ? '#e5e5e5' : '#1e3a5f',
+                color: page === 1 ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              « Première
+            </button>
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page === 1 ? '#e5e5e5' : '#1e3a5f',
+                color: page === 1 ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              ‹ Précédente
+            </button>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={page >= totalPages}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page >= totalPages ? '#e5e5e5' : '#1e3a5f',
+                color: page >= totalPages ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Suivante ›
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page >= totalPages}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page >= totalPages ? '#e5e5e5' : '#1e3a5f',
+                color: page >= totalPages ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Dernière »
+            </button>
+          </div>
+          <div>
+            <label style={{ fontSize: '14px', color: '#666', marginRight: '8px' }}>
+              Par page:
+            </label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              style={{
+                padding: '6px 12px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                fontSize: '14px',
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
+          </div>
+        </div>
+      )}
 
       {/* Tableau */}
       {isLoading ? (
