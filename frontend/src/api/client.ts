@@ -281,6 +281,53 @@ export interface MappingListResponse {
   total: number;
 }
 
+// Mapping import types
+export interface MappingPreviewResponse {
+  filename: string;
+  total_rows: number;
+  column_mapping: ColumnMapping[];
+  preview: Array<Record<string, any>>;
+  validation_errors: string[];
+  stats: {
+    total_rows: number;
+    detected_columns: number;
+    required_columns_detected: number;
+  };
+}
+
+export interface MappingError {
+  line_number: number;
+  nom?: string;
+  level_1?: string;
+  level_2?: string;
+  level_3?: string;
+  error_message: string;
+}
+
+export interface DuplicateMapping {
+  nom: string;
+  existing_id: number;
+}
+
+export interface MappingImportResponse {
+  filename: string;
+  imported_count: number;
+  duplicates_count: number;
+  errors_count: number;
+  duplicates: DuplicateMapping[];
+  errors: MappingError[];
+  message: string;
+}
+
+export interface MappingImportHistory {
+  id: number;
+  filename: string;
+  imported_at: string;
+  imported_count: number;
+  duplicates_count: number;
+  errors_count: number;
+}
+
 // Mapping API
 export const mappingsAPI = {
   /**
@@ -350,6 +397,92 @@ export const mappingsAPI = {
       `/api/mappings/combinations?${params.toString()}`
     );
   },
+
+  /**
+   * Prévisualiser un fichier Excel de mappings
+   */
+  preview: async (file: File): Promise<MappingPreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const url = `${API_BASE_URL}/api/mappings/preview`;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Importer un fichier Excel de mappings
+   */
+  import: async (file: File, mapping: ColumnMapping[]): Promise<MappingImportResponse> => {
+    console.log('📤 [API] Appel POST /api/mappings/import');
+    console.log('📤 [API] Fichier:', file.name);
+    console.log('📤 [API] Mapping:', mapping);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('mapping', JSON.stringify(mapping));
+    
+    const url = `${API_BASE_URL}/api/mappings/import`;
+    console.log('📤 [API] URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+    });
+
+    console.log('📥 [API] Réponse status:', response.status, response.statusText);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error('❌ [API] Erreur API:', error);
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ [API] Import réussi:', result);
+    return result;
+  },
+
+  /**
+   * Récupérer l'historique des imports de mappings
+   */
+  getImportsHistory: async (): Promise<MappingImportHistory[]> => {
+    return fetchAPI<MappingImportHistory[]>('/api/mappings/imports');
+  },
+
+  /**
+   * Supprimer un import de mapping de l'historique
+   */
+  deleteImport: async (importId: number): Promise<void> => {
+    return fetchAPI<void>(`/api/mappings/imports/${importId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Récupérer le nombre total de mappings
+   */
+  getCount: async (): Promise<{ count: number }> => {
+    return fetchAPI<{ count: number }>('/api/mappings/count');
+  },
+
+  /**
+   * Supprimer tous les imports de mappings de l'historique
+   */
+  deleteAllImports: async (): Promise<void> => {
+    return fetchAPI<void>('/api/mappings/imports', {
+      method: 'DELETE',
+    });
+  },
 };
 
 export const fileUploadAPI = {
@@ -391,6 +524,12 @@ export const fileUploadAPI = {
       period_start?: string;
       period_end?: string;
     }>>('/api/transactions/imports');
+  },
+
+  deleteAllImports: async (): Promise<void> => {
+    return fetchAPI<void>('/api/transactions/imports', {
+      method: 'DELETE',
+    });
   },
 
   import: async (file: File, mapping: ColumnMapping[]): Promise<FileImportResponse> => {

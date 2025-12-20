@@ -112,6 +112,21 @@ async def get_imports_history(
     return [FileImportHistory.model_validate(imp) for imp in imports]
 
 
+@router.delete("/transactions/imports", status_code=204)
+async def delete_all_imports(
+    db: Session = Depends(get_db)
+):
+    """
+    Supprime tous les imports de transactions de l'historique.
+    
+    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les historiques d'imports.
+    """
+    db.query(FileImport).delete()
+    db.commit()
+    
+    return None
+
+
 @router.get("/transactions/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: int,

@@ -131,3 +131,18 @@ CREATE TABLE IF NOT EXISTS file_imports (
 
 CREATE INDEX IF NOT EXISTS idx_file_imports_filename ON file_imports(filename);
 CREATE INDEX IF NOT EXISTS idx_file_imports_imported_at ON file_imports(imported_at);
+
+-- Mapping imports table - Track imported Excel mapping files to prevent duplicate processing
+CREATE TABLE IF NOT EXISTS mapping_imports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    filename VARCHAR(255) NOT NULL UNIQUE,
+    imported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported_count INTEGER DEFAULT 0,
+    duplicates_count INTEGER DEFAULT 0,
+    errors_count INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_mapping_imports_filename ON mapping_imports(filename);
+CREATE INDEX IF NOT EXISTS idx_mapping_imports_imported_at ON mapping_imports(imported_at);

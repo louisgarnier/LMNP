@@ -158,3 +158,23 @@ class FileImport(Base):
         Index('idx_file_imports_imported_at', 'imported_at'),
     )
 
+
+class MappingImport(Base):
+    """Track imported Excel mapping files to prevent duplicate processing."""
+    __tablename__ = "mapping_imports"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String(255), nullable=False, unique=True, index=True)  # Nom du fichier (unique)
+    imported_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    imported_count = Column(Integer, default=0)  # Nombre de mappings importés
+    duplicates_count = Column(Integer, default=0)  # Nombre de doublons détectés
+    errors_count = Column(Integer, default=0)  # Nombre d'erreurs
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_mapping_imports_filename', 'filename'),
+        Index('idx_mapping_imports_imported_at', 'imported_at'),
+    )
+

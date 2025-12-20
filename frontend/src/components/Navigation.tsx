@@ -13,7 +13,7 @@ const tabs = [
   { name: 'Toutes les transactions', href: '/dashboard/transactions' },
   { name: 'Non classées', href: '/dashboard/transactions?filter=unclassified' },
   { name: 'À valider', href: '/dashboard/transactions?filter=to_validate' },
-  { name: 'Load Trades', href: '/dashboard/transactions?tab=load_trades' },
+  { name: 'Load Trades/Mappings', href: '/dashboard/transactions?tab=load_trades' },
   { name: 'Mapping', href: '/dashboard/transactions?tab=mapping' },
 ];
 

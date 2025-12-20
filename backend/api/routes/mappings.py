@@ -4,22 +4,467 @@ API routes for mappings.
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import distinct
 from typing import List, Optional, Dict
+import pandas as pd
+import io
+import json
+from pathlib import Path
+from datetime import datetime
 
 from backend.database import get_db
-from backend.database.models import Mapping, Transaction, EnrichedTransaction
+from backend.database.models import Mapping, Transaction, EnrichedTransaction, MappingImport
 from backend.api.models import (
     MappingCreate,
     MappingUpdate,
     MappingResponse,
-    MappingListResponse
+    MappingListResponse,
+    MappingPreviewResponse,
+    MappingImportResponse,
+    MappingImportHistory,
+    ColumnMapping,
+    MappingError,
+    DuplicateMapping
 )
-from backend.api.services.enrichment_service import enrich_transaction
+from backend.api.services.enrichment_service import enrich_transaction, transaction_matches_mapping_name
 
 router = APIRouter()
+
+
+def detect_mapping_columns(df: pd.DataFrame) -> Dict[str, str]:
+    """
+    Détecte automatiquement les colonnes d'un fichier Excel de mappings.
+    
+    Cherche les colonnes correspondant à : nom, level_1, level_2, level_3
+    
+    Args:
+        df: DataFrame pandas du fichier Excel
+    
+    Returns:
+        Dictionnaire {nom_colonne_fichier: nom_colonne_bdd}
+    """
+    mapping = {}
+    df_columns_lower = {col.lower().strip(): col for col in df.columns}
+    
+    # Détection nom (obligatoire)
+    nom_variants = ['nom', 'name', 'libellé', 'libelle', 'description', 'desc', 'label', 'transaction', 'transac']
+    for variant in nom_variants:
+        if variant in df_columns_lower:
+            mapping[df_columns_lower[variant]] = 'nom'
+            break
+    
+    # Détection level_1 (obligatoire)
+    level_1_variants = ['level_1', 'level1', 'level 1', 'l1', 'catégorie', 'categorie', 'category', 'cat', 'niveau 1', 'niveau1']
+    for variant in level_1_variants:
+        if variant in df_columns_lower:
+            mapping[df_columns_lower[variant]] = 'level_1'
+            break
+    
+    # Détection level_2 (obligatoire)
+    level_2_variants = ['level_2', 'level2', 'level 2', 'l2', 'sous-catégorie', 'sous-categorie', 'subcategory', 'sub-cat', 'niveau 2', 'niveau2']
+    for variant in level_2_variants:
+        if variant in df_columns_lower:
+            mapping[df_columns_lower[variant]] = 'level_2'
+            break
+    
+    # Détection level_3 (optionnel)
+    level_3_variants = ['level_3', 'level3', 'level 3', 'l3', 'détail', 'detail', 'niveau 3', 'niveau3']
+    for variant in level_3_variants:
+        if variant in df_columns_lower:
+            mapping[df_columns_lower[variant]] = 'level_3'
+            break
+    
+    # Si pas de détection automatique, essayer de deviner par position (si 3-4 colonnes)
+    if len(df.columns) >= 3:
+        if 'nom' not in mapping.values() and len(df.columns) >= 1:
+            # Première colonne = nom (par défaut)
+            mapping[df.columns[0]] = 'nom'
+        if 'level_1' not in mapping.values() and len(df.columns) >= 2:
+            # Deuxième colonne = level_1
+            mapping[df.columns[1]] = 'level_1'
+        if 'level_2' not in mapping.values() and len(df.columns) >= 3:
+            # Troisième colonne = level_2
+            mapping[df.columns[2]] = 'level_2'
+        if 'level_3' not in mapping.values() and len(df.columns) >= 4:
+            # Quatrième colonne = level_3
+            mapping[df.columns[3]] = 'level_3'
+    
+    return mapping
+
+
+@router.post("/mappings/preview", response_model=MappingPreviewResponse)
+async def preview_mapping_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Prévisualise un fichier Excel de mappings et détecte le mapping des colonnes.
+    
+    - **file**: Fichier Excel (.xlsx ou .xls) à analyser
+    - Retourne: Preview, mapping proposé, statistiques
+    """
+    # Vérifier l'extension du fichier
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Nom de fichier manquant")
+    
+    filename_lower = file.filename.lower()
+    if not (filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls')):
+        raise HTTPException(
+            status_code=400,
+            detail="Le fichier doit être un fichier Excel (.xlsx ou .xls)"
+        )
+    
+    # Lire le fichier
+    file_content = await file.read()
+    
+    try:
+        # Lire Excel avec pandas
+        df = pd.read_excel(io.BytesIO(file_content), engine='openpyxl' if filename_lower.endswith('.xlsx') else None)
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="Le fichier Excel est vide")
+        
+        # Détecter mapping colonnes
+        detected_mapping = detect_mapping_columns(df)
+        
+        # Validation basique
+        validation_errors = []
+        required_columns = ['nom', 'level_1', 'level_2']
+        mapped_db_columns = list(detected_mapping.values())
+        
+        for required_col in required_columns:
+            if required_col not in mapped_db_columns:
+                validation_errors.append(
+                    f"Colonne '{required_col}' non détectée. Veuillez la mapper manuellement."
+                )
+        
+        # Créer mapping formaté pour la réponse
+        column_mapping = [
+            ColumnMapping(file_column=file_col, db_column=db_col)
+            for file_col, db_col in detected_mapping.items()
+        ]
+        
+        # Preview des premières lignes (max 10)
+        preview_rows = []
+        num_preview = min(10, len(df))
+        
+        for idx in range(num_preview):
+            row_dict = {}
+            for col in df.columns:
+                value = df.iloc[idx][col]
+                # Convertir les valeurs en string pour l'affichage
+                if pd.isna(value):
+                    row_dict[col] = None
+                elif isinstance(value, (int, float)):
+                    row_dict[col] = str(value)
+                else:
+                    row_dict[col] = str(value)
+            preview_rows.append(row_dict)
+        
+        # Statistiques
+        stats = {
+            "total_rows": len(df),
+            "detected_columns": len(detected_mapping),
+            "required_columns_detected": len([c for c in required_columns if c in mapped_db_columns])
+        }
+        
+        return MappingPreviewResponse(
+            filename=file.filename,
+            total_rows=len(df),
+            column_mapping=column_mapping,
+            preview=preview_rows,
+            validation_errors=validation_errors,
+            stats=stats
+        )
+        
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="Le fichier Excel est vide ou invalide")
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Erreur lors de la lecture du fichier Excel: {str(e)}"
+        )
+
+
+@router.post("/mappings/import", response_model=MappingImportResponse)
+async def import_mapping_file(
+    file: UploadFile = File(...),
+    mapping: str = Form(..., description="Mapping JSON string"),
+    db: Session = Depends(get_db)
+):
+    """
+    Importe un fichier Excel de mappings dans la base de données.
+    
+    - **file**: Fichier Excel (.xlsx ou .xls) à importer
+    - **mapping**: Mapping des colonnes (JSON string)
+    - Retourne: Statistiques d'import (imported, duplicates, errors)
+    """
+    try:
+        # Parser le mapping
+        mapping_data = json.loads(mapping)
+        column_mapping = {item['file_column']: item['db_column'] for item in mapping_data}
+        
+        # Vérifier si fichier déjà chargé (avertissement mais on continue)
+        filename = file.filename or "unknown.xlsx"
+        existing_import = db.query(MappingImport).filter(MappingImport.filename == filename).first()
+        warning_message = None
+        
+        if existing_import:
+            warning_message = f"⚠️ Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')}. Le traitement continue, les doublons seront détectés."
+            # Mettre à jour l'enregistrement existant au lieu d'en créer un nouveau
+            mapping_import = existing_import
+        else:
+            # Créer un nouvel enregistrement
+            mapping_import = MappingImport(
+                filename=filename,
+                imported_count=0,
+                duplicates_count=0,
+                errors_count=0
+            )
+            db.add(mapping_import)
+        
+        # Lire le fichier
+        file_content = await file.read()
+        
+        # Sauvegarder le fichier dans data/input/trades/ (archive)
+        trades_dir = Path(__file__).parent.parent.parent / "data" / "input" / "trades"
+        trades_dir.mkdir(parents=True, exist_ok=True)
+        file_path = trades_dir / filename
+        with open(file_path, 'wb') as f:
+            f.write(file_content)
+        
+        # Lire Excel
+        filename_lower = filename.lower()
+        df = pd.read_excel(io.BytesIO(file_content), engine='openpyxl' if filename_lower.endswith('.xlsx') else None)
+        
+        if df.empty:
+            raise HTTPException(status_code=400, detail="Le fichier Excel est vide")
+        
+        # Récupérer les colonnes mappées
+        nom_col = None
+        level_1_col = None
+        level_2_col = None
+        level_3_col = None
+        
+        for file_col, db_col in column_mapping.items():
+            if db_col == 'nom':
+                nom_col = file_col
+            elif db_col == 'level_1':
+                level_1_col = file_col
+            elif db_col == 'level_2':
+                level_2_col = file_col
+            elif db_col == 'level_3':
+                level_3_col = file_col
+        
+        # Vérifier que les colonnes obligatoires sont présentes
+        if not nom_col or not level_1_col or not level_2_col:
+            raise HTTPException(
+                status_code=400,
+                detail="Mapping incomplet: nom, level_1 et level_2 requis"
+            )
+        
+        # Valider et importer
+        imported_count = 0
+        duplicates_count = 0
+        duplicates_list = []
+        errors_count = 0
+        errors_list = []
+        
+        for idx, row in df.iterrows():
+            try:
+                line_number = idx + 2  # +2 car 0-based + en-tête
+                
+                # Récupérer les valeurs
+                nom_value = str(row[nom_col]).strip() if pd.notna(row[nom_col]) else ''
+                level_1_value = str(row[level_1_col]).strip() if pd.notna(row[level_1_col]) else ''
+                level_2_value = str(row[level_2_col]).strip() if pd.notna(row[level_2_col]) else ''
+                level_3_value = str(row[level_3_col]).strip() if pd.notna(row[level_3_col]) else '' if level_3_col else None
+                
+                # Validation
+                if not nom_value:
+                    errors_count += 1
+                    errors_list.append(MappingError(
+                        line_number=line_number,
+                        nom=None,
+                        level_1=level_1_value if level_1_value else None,
+                        level_2=level_2_value if level_2_value else None,
+                        level_3=level_3_value if level_3_value else None,
+                        error_message="Le champ 'nom' est obligatoire et ne peut pas être vide"
+                    ))
+                    continue
+                
+                if not level_1_value:
+                    errors_count += 1
+                    errors_list.append(MappingError(
+                        line_number=line_number,
+                        nom=nom_value,
+                        level_1=None,
+                        level_2=level_2_value if level_2_value else None,
+                        level_3=level_3_value if level_3_value else None,
+                        error_message="Le champ 'level_1' est obligatoire et ne peut pas être vide"
+                    ))
+                    continue
+                
+                if not level_2_value:
+                    errors_count += 1
+                    errors_list.append(MappingError(
+                        line_number=line_number,
+                        nom=nom_value,
+                        level_1=level_1_value,
+                        level_2=None,
+                        level_3=level_3_value if level_3_value else None,
+                        error_message="Le champ 'level_2' est obligatoire et ne peut pas être vide"
+                    ))
+                    continue
+                
+                # Vérifier doublon (basé sur nom uniquement)
+                existing = db.query(Mapping).filter(Mapping.nom == nom_value).first()
+                
+                if existing:
+                    duplicates_count += 1
+                    duplicates_list.append(DuplicateMapping(
+                        nom=nom_value,
+                        existing_id=existing.id
+                    ))
+                    continue
+                
+                # Créer le mapping
+                db_mapping = Mapping(
+                    nom=nom_value,
+                    level_1=level_1_value,
+                    level_2=level_2_value,
+                    level_3=level_3_value if level_3_value else None,
+                    is_prefix_match=True,  # Par défaut
+                    priority=0  # Par défaut
+                )
+                
+                db.add(db_mapping)
+                imported_count += 1
+                
+            except Exception as e:
+                errors_count += 1
+                errors_list.append(MappingError(
+                    line_number=idx + 2,
+                    nom=None,
+                    level_1=None,
+                    level_2=None,
+                    level_3=None,
+                    error_message=f"Erreur lors du traitement: {str(e)}"
+                ))
+                continue
+        
+        # Mettre à jour l'enregistrement MappingImport
+        mapping_import.imported_count = imported_count
+        mapping_import.duplicates_count = duplicates_count
+        mapping_import.errors_count = errors_count
+        mapping_import.imported_at = datetime.utcnow()
+        
+        db.commit()
+        
+        # Message de réponse
+        message = f"Import terminé: {imported_count} mapping(s) importé(s)"
+        if duplicates_count > 0:
+            message += f", {duplicates_count} doublon(s) ignoré(s)"
+        if errors_count > 0:
+            message += f", {errors_count} erreur(s)"
+        if warning_message:
+            message = f"{warning_message} {message}"
+        
+        return MappingImportResponse(
+            filename=filename,
+            imported_count=imported_count,
+            duplicates_count=duplicates_count,
+            errors_count=errors_count,
+            duplicates=duplicates_list,
+            errors=errors_list[:100],  # Limiter à 100 erreurs pour ne pas surcharger
+            message=message
+        )
+        
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Format JSON invalide pour le mapping")
+    except pd.errors.EmptyDataError:
+        raise HTTPException(status_code=400, detail="Le fichier Excel est vide ou invalide")
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=f"Erreur lors de l'import: {str(e)}"
+        )
+
+
+@router.get("/mappings/imports", response_model=List[MappingImportHistory])
+async def get_mapping_imports_history(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère l'historique des imports de fichiers de mappings.
+    
+    Returns:
+        Liste des imports de mappings triés par date (plus récent en premier)
+    """
+    imports = db.query(MappingImport).order_by(MappingImport.imported_at.desc()).all()
+    
+    return [MappingImportHistory.model_validate(imp) for imp in imports]
+
+
+@router.delete("/mappings/imports", status_code=204)
+async def delete_all_mapping_imports(
+    db: Session = Depends(get_db)
+):
+    """
+    Supprime tous les imports de mappings de l'historique.
+    
+    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les historiques d'imports de mappings.
+    """
+    db.query(MappingImport).delete()
+    db.commit()
+    
+    return None
+
+
+@router.delete("/mappings/imports/{import_id}", status_code=204)
+async def delete_mapping_import(
+    import_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Supprime un import de mapping de l'historique.
+    
+    Args:
+        import_id: ID de l'import à supprimer
+        db: Session de base de données
+    
+    Raises:
+        HTTPException: Si l'import n'existe pas
+    """
+    mapping_import = db.query(MappingImport).filter(MappingImport.id == import_id).first()
+    if not mapping_import:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Import de mapping avec ID {import_id} non trouvé"
+        )
+    
+    db.delete(mapping_import)
+    db.commit()
+    
+    return None
+
+
+@router.get("/mappings/count")
+async def get_mappings_count(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère le nombre total de mappings dans la base de données.
+    
+    Returns:
+        Dictionnaire avec le nombre total de mappings
+    """
+    count = db.query(Mapping).count()
+    
+    return {"count": count}
 
 
 @router.get("/mappings", response_model=MappingListResponse)
@@ -109,7 +554,12 @@ async def update_mapping(
     db: Session = Depends(get_db)
 ):
     """
-    Modifier un mapping existant.
+    Modifier un mapping existant et re-enrichir les transactions qui l'utilisaient.
+    
+    Lors de la modification d'un mapping :
+    1. Trouve toutes les transactions dont le nom correspond au mapping (avant modification)
+    2. Met à jour le mapping
+    3. Re-enrichit ces transactions (elles utiliseront le nouveau mapping si elles correspondent toujours)
     
     Args:
         mapping_id: ID du mapping à modifier
@@ -135,6 +585,22 @@ async def update_mapping(
                 detail=f"Un mapping avec le nom '{mapping_update.nom}' existe déjà"
             )
     
+    # Sauvegarder le nom du mapping AVANT la mise à jour
+    # pour trouver toutes les transactions qui correspondent à ce nom
+    old_mapping_nom = mapping.nom
+    
+    # Trouver TOUTES les transactions dont le nom correspond au mapping
+    # (peu importe leurs level_1/2/3 actuels)
+    # Cela permet de re-enrichir toutes les transactions avec le même nom
+    # même si elles n'avaient pas encore été enrichies ou avaient des valeurs différentes
+    all_transactions = db.query(Transaction).all()
+    
+    transactions_to_re_enrich = []
+    for transaction in all_transactions:
+        # Utiliser la fonction utilitaire pour vérifier si la transaction correspond au mapping
+        if transaction_matches_mapping_name(transaction.nom, old_mapping_nom):
+            transactions_to_re_enrich.append(transaction)
+    
     # Mettre à jour les champs
     update_data = mapping_update.model_dump(exclude_unset=True)
     for field, value in update_data.items():
@@ -142,6 +608,12 @@ async def update_mapping(
     
     db.commit()
     db.refresh(mapping)
+    
+    # Re-enrichir les transactions (elles utiliseront le nouveau mapping si elles correspondent toujours)
+    for transaction in transactions_to_re_enrich:
+        enrich_transaction(transaction, db)
+    
+    db.commit()
     
     return MappingResponse.model_validate(mapping)
 

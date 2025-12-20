@@ -689,8 +689,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
   - [x] Confirmation avant suppression
 - [x] Implémenter suppression des logs
   - [x] Supprimer logs en mémoire (via ImportLogContext)
-  - [x] Masquer logs de la base de données dans l'affichage
-  - [x] État persistant pour empêcher le rechargement automatique
+  - [x] ~~Masquer logs de la base de données dans l'affichage~~ (remplacé par suppression réelle)
+  - [x] ~~État persistant pour empêcher le rechargement automatique~~ (remplacé par suppression réelle)
+  - [x] **AMÉLIORATION** : Supprimer vraiment de la BDD via endpoint `DELETE /api/transactions/imports` (ajouté dans Step 3.7.9)
 - [x] Correction recalcul des soldes après import
   - [x] Recalculer tous les soldes depuis le début après chaque import
   - [x] Garantir la cohérence même si transactions insérées à dates antérieures
@@ -699,8 +700,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 **Deliverables**:
 - `frontend/app/dashboard/transactions/page.tsx` - Bouton Clear logs
-- `frontend/src/components/ImportLog.tsx` - Gestion masquage historique BDD
+- `frontend/src/components/ImportLog.tsx` - Gestion masquage historique BDD (initialement)
 - `backend/api/routes/transactions.py` - Recalcul complet des soldes après import
+- **AMÉLIORATION** : `backend/api/routes/transactions.py` - Endpoint `DELETE /api/transactions/imports` pour suppression réelle (ajouté dans Step 3.7.9)
 
 **Tests**:
 - [x] Test bouton Clear logs (suppression logs mémoire)
@@ -712,7 +714,8 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 **Acceptance Criteria**:
 - [x] Bouton "Clear logs" visible à droite de la carte "Transactions en BDD"
 - [x] Clic sur "Clear logs" supprime tous les logs affichés (mémoire + BDD)
-- [x] Les logs de la base de données ne se rechargent plus après Clear logs
+- [x] ~~Les logs de la base de données ne se rechargent plus après Clear logs~~ (remplacé par suppression réelle)
+- [x] **AMÉLIORATION** : Les logs sont vraiment supprimés de la BDD et ne réapparaissent plus (ajouté dans Step 3.7.9)
 - [x] Import de fichiers dans n'importe quel ordre chronologique fonctionne correctement
 - [x] Les soldes sont toujours corrects après import, même si transactions insérées à dates antérieures
 - [x] **Utilisateur confirme que toutes les fonctionnalités fonctionnent** (test avec fichiers réels)
@@ -1026,6 +1029,587 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [ ] Re-enrichissement en cascade fonctionne
 - [ ] Cohérence maintenue entre mappings et transactions
 - [ ] **Utilisateur confirme que le re-enrichissement fonctionne**
+
+---
+
+### Step 3.7 : Import de mappings depuis fichier Excel
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Permettre l'import de mappings depuis des fichiers Excel externes avec aperçu, logs et historique. **Même processus que "Load Trades" mais pour Excel et mappings.**
+
+**Objectif** : Faciliter l'ajout en masse de mappings depuis des fichiers Excel. Backend + Frontend, testable étape par étape.
+
+---
+
+#### Step 3.7.1 : Backend - Modèle MappingImport et table mapping_imports
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer le modèle et la table pour historiser les imports de mappings (identique à `file_imports`).
+
+**Tasks**:
+- [x] Créer modèle `MappingImport` dans `backend/database/models.py`
+  - Colonnes : id, filename, imported_at, imported_count, duplicates_count, errors_count, created_at, updated_at
+  - Index sur filename et imported_at
+- [x] Mettre à jour `backend/database/schema.sql` avec la table `mapping_imports`
+- [x] **Tester la création de la table et valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/database/models.py` - Modèle `MappingImport`
+- Mise à jour `backend/database/schema.sql` - Table `mapping_imports`
+- `backend/tests/test_mapping_imports_table.py` - Tests de validation
+
+**Acceptance Criteria**:
+- [x] Table `mapping_imports` créée dans la base de données
+- [x] Modèle SQLAlchemy fonctionnel
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que la table est créée correctement**
+
+---
+
+#### Step 3.7.2 : Backend - Endpoint preview mappings (POST /api/mappings/preview)
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer l'endpoint pour prévisualiser un fichier Excel de mappings (identique à `/api/transactions/preview`).
+
+**Tasks**:
+- [x] Créer fonction `detect_mapping_columns(df)` pour détecter automatiquement les colonnes (nom, level_1, level_2, level_3)
+- [x] Créer endpoint `POST /api/mappings/preview` dans `backend/api/routes/mappings.py`
+  - Parser le fichier Excel (pandas.read_excel)
+  - Détecter automatiquement les colonnes
+  - Créer preview des premières lignes (max 10)
+  - Validation basique (vérifier que nom, level_1, level_2 sont détectés)
+  - Retourner `MappingPreviewResponse`
+- [x] Créer modèle Pydantic `MappingPreviewResponse` dans `backend/api/models.py`
+  - filename, total_rows, column_mapping, preview, validation_errors, stats
+- [x] **Tester l'endpoint avec un fichier Excel et valider avec l'utilisateur**
+
+**Deliverables**:
+- Fonction `detect_mapping_columns` dans `backend/api/routes/mappings.py`
+- Endpoint `POST /api/mappings/preview` dans `backend/api/routes/mappings.py`
+- Modèle `MappingPreviewResponse` dans `backend/api/models.py`
+- `backend/tests/test_mappings_preview.py` - Tests de validation
+- Mise à jour `backend/requirements.txt` - Ajout pandas et openpyxl
+
+**Acceptance Criteria**:
+- [x] Endpoint répond correctement avec un fichier Excel
+- [x] Détection automatique des colonnes fonctionne
+- [x] Preview des données affiché
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que le preview fonctionne**
+
+---
+
+#### Step 3.7.3 : Backend - Endpoint import mappings (POST /api/mappings/import)
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer l'endpoint pour importer un fichier Excel de mappings (identique à `/api/transactions/import`).
+
+**Tasks**:
+- [x] Créer endpoint `POST /api/mappings/import` dans `backend/api/routes/mappings.py`
+  - Parser le mapping des colonnes (JSON string)
+  - Lire le fichier Excel
+  - Valider les données (nom, level_1, level_2 obligatoires)
+  - Gérer les doublons (ignorer si mapping existe déjà avec même nom)
+  - Créer l'enregistrement `MappingImport` pour l'historique
+  - Retourner statistiques (importés, doublons, erreurs) + liste détaillée
+- [x] Créer modèle Pydantic `MappingImportResponse` dans `backend/api/models.py`
+  - filename, imported_count, duplicates_count, errors_count, duplicates, errors, message
+- [x] Créer modèle Pydantic `MappingImportHistory` dans `backend/api/models.py`
+- [x] **Tester l'import avec un fichier Excel et valider avec l'utilisateur**
+
+**Deliverables**:
+- Endpoint `POST /api/mappings/import` dans `backend/api/routes/mappings.py`
+- Modèles `MappingImportResponse` et `MappingImportHistory` dans `backend/api/models.py`
+- Modèles `MappingError` et `DuplicateMapping` dans `backend/api/models.py`
+- `backend/tests/test_mappings_import.py` - Tests de validation
+
+**Acceptance Criteria**:
+- [x] Import crée les mappings dans la base de données
+- [x] Doublons ignorés (pas de mise à jour)
+- [x] Erreurs détectées et listées ligne par ligne
+- [x] Historique créé dans `mapping_imports`
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que l'import fonctionne**
+
+---
+
+#### Step 3.7.4 : Backend - Endpoints historique et count (GET /api/mappings/imports, DELETE, GET /api/mappings/count)
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer les endpoints pour l'historique et le compteur (identiques aux endpoints transactions).
+
+**Tasks**:
+- [x] Créer endpoint `GET /api/mappings/imports` pour récupérer l'historique
+- [x] Créer endpoint `DELETE /api/mappings/imports/{import_id}` pour supprimer un import
+- [x] Créer endpoint `GET /api/mappings/count` pour obtenir le nombre total de mappings
+- [x] Créer endpoint `DELETE /api/mappings/imports` pour supprimer tous les imports (Clear logs)
+- [x] **IMPORTANT** : Placer ces routes AVANT `/mappings/{mapping_id}` pour éviter les conflits de routing
+- [x] **Tester les endpoints et valider avec l'utilisateur**
+
+**Deliverables**:
+- Endpoints dans `backend/api/routes/mappings.py`
+- `backend/tests/test_mappings_history_count.py` - Tests de validation
+
+**Acceptance Criteria**:
+- [x] Historique récupéré correctement
+- [x] Suppression d'un import fonctionne
+- [x] Suppression de tous les imports fonctionne
+- [x] Compteur retourne le bon nombre
+- [x] Pas de conflit de routing
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que les endpoints fonctionnent**
+
+---
+
+#### Step 3.7.5 : Frontend - API client (endpoints mappings)
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Ajouter les endpoints mappings dans l'API client (identique à `fileUploadAPI`).
+
+**Tasks**:
+- [x] Ajouter types TypeScript dans `frontend/src/api/client.ts` :
+  - `MappingPreviewResponse`
+  - `MappingImportResponse`
+  - `MappingImportHistory`
+  - `MappingError`
+  - `DuplicateMapping`
+- [x] Ajouter méthodes dans `mappingsAPI` :
+  - `preview(file: File)` - Appel POST /api/mappings/preview
+  - `import(file: File, mapping: ColumnMapping[])` - Appel POST /api/mappings/import
+  - `getImportsHistory()` - Appel GET /api/mappings/imports
+  - `deleteImport(importId: number)` - Appel DELETE /api/mappings/imports/{id}
+  - `deleteAllImports()` - Appel DELETE /api/mappings/imports (Clear logs)
+  - `getCount()` - Appel GET /api/mappings/count
+- [x] **Tester les appels API et valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/api/client.ts` - Types et méthodes mappings
+
+**Acceptance Criteria**:
+- [x] Tous les endpoints sont accessibles depuis le frontend
+- [x] Types TypeScript corrects
+- [x] Code compile sans erreur
+- [x] **Utilisateur confirme que l'API client fonctionne**
+
+---
+
+#### Step 3.7.6 : Frontend - Composant MappingFileUpload
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer le composant pour uploader un fichier Excel de mappings (identique à `FileUpload.tsx`).
+
+**Tasks**:
+- [x] Créer `frontend/src/components/MappingFileUpload.tsx`
+  - Copier la structure de `FileUpload.tsx`
+  - Modifier pour accepter `.xlsx` et `.xls` au lieu de `.csv`
+  - Appeler `mappingsAPI.preview(file)` au lieu de `fileUploadAPI.preview(file)`
+  - Ouvrir `MappingColumnMappingModal` au lieu de `ColumnMappingModal`
+  - Bouton "📋 Load mapping" (même style que "📁 Load Trades")
+- [x] **Tester le composant et valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/MappingFileUpload.tsx`
+
+**Acceptance Criteria**:
+- [x] Bouton "Load mapping" visible et fonctionnel
+- [x] Sélection de fichier Excel fonctionne
+- [x] Preview appelé automatiquement
+- [x] Modal s'ouvre avec les données
+- [x] **Utilisateur confirme que le composant fonctionne**
+
+---
+
+#### Step 3.7.7 : Frontend - Composant MappingColumnMappingModal
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer le modal pour mapper les colonnes et importer (identique à `ColumnMappingModal.tsx`).
+
+**Tasks**:
+- [x] Créer `frontend/src/components/MappingColumnMappingModal.tsx`
+  - Copier la structure de `ColumnMappingModal.tsx`
+  - Modifier les colonnes DB : `nom`, `level_1`, `level_2`, `level_3` (au lieu de date, quantite, nom)
+  - Utiliser `mappingsAPI.import(file, mapping)` au lieu de `fileUploadAPI.import(file, mapping)`
+  - Utiliser `useImportLog` pour les logs en temps réel (même système que transactions)
+  - Afficher les logs détaillés (importés, doublons, erreurs ligne par ligne)
+  - Validation : nom, level_1, level_2 obligatoires
+- [x] **Tester le modal et valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/MappingColumnMappingModal.tsx`
+
+**Acceptance Criteria**:
+- [x] Mapping des colonnes fonctionne (auto + manuel)
+- [x] Aperçu des données affiché
+- [x] Import fonctionne
+- [x] Logs en temps réel affichés
+- [x] **Utilisateur confirme que le modal fonctionne**
+
+---
+
+#### Step 3.7.8 : Frontend - Composant MappingImportLog
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer le composant pour afficher l'historique des imports de mappings (identique à `ImportLog.tsx`).
+
+**Tasks**:
+- [x] Créer `frontend/src/components/MappingImportLog.tsx`
+  - Copier la structure de `ImportLog.tsx`
+  - Utiliser `mappingsAPI.getImportsHistory()` au lieu de `fileUploadAPI.getImportsHistory()`
+  - Utiliser `mappingsAPI.getCount()` pour le compteur "X lignes de mapping"
+  - Afficher l'historique (DB + mémoire via `useImportLog`)
+  - Afficher les détails d'un import (doublons, erreurs ligne par ligne)
+  - Bouton "Supprimer" pour chaque import
+  - Refresh automatique si import en cours
+  - Filtrer uniquement les logs Excel (.xlsx, .xls)
+- [x] **Tester le composant et valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/MappingImportLog.tsx`
+
+**Acceptance Criteria**:
+- [x] Historique affiché correctement
+- [x] Compteur "X lignes de mapping" affiché
+- [x] Détails d'un import affichés
+- [x] Suppression d'un import fonctionne
+- [x] **Utilisateur confirme que le composant fonctionne**
+
+---
+
+#### Step 3.7.9 : Frontend - Intégration dans page.tsx
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Intégrer tous les composants dans la page transactions (identique à l'intégration Load Trades).
+
+**Tasks**:
+- [x] Modifier `frontend/app/dashboard/transactions/page.tsx` :
+  - Ajouter état pour `mappingCount` et `isLoadingMappingCount`
+  - Ajouter fonction `loadMappingCount()`
+  - Dans l'onglet `load_trades` :
+    - Ajouter compteur "X lignes de mapping" à côté de "Transactions en BDD" (même style)
+    - Ajouter section séparée en dessous avec :
+      - Titre "Import de mappings"
+      - Composant `MappingFileUpload`
+      - Texte explicatif (comme pour Load Trades)
+      - Composant `MappingImportLog` (hideHeader=true)
+  - Mettre à jour bouton "Clear logs" pour supprimer vraiment de la BDD (transactions + mappings)
+- [x] **Tester l'intégration et valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/app/dashboard/transactions/page.tsx`
+
+**Acceptance Criteria**:
+- [x] Compteur "X lignes de mapping" visible et fonctionnel
+- [x] Section "Import de mappings" visible
+- [x] Tous les composants fonctionnent ensemble
+- [x] Bouton "Clear logs" supprime vraiment de la BDD
+- [x] **Utilisateur confirme que l'intégration fonctionne**
+
+---
+
+#### Step 3.7.10 : Frontend - Renommage onglet "Load Trades/Mappings"
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Renommer l'onglet pour refléter les deux fonctionnalités.
+
+**Tasks**:
+- [x] Modifier `frontend/src/components/Navigation.tsx`
+  - Changer "Load Trades" en "Load Trades/Mappings"
+- [x] **Tester et valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/Navigation.tsx`
+
+**Acceptance Criteria**:
+- [x] Onglet renommé correctement
+- [x] **Utilisateur confirme que le renommage est correct**
+
+---
+
+**Tests finaux**:
+- [x] Test complet du workflow (upload → preview → import → historique)
+- [x] Test avec différents formats Excel
+- [x] Test gestion des doublons
+- [x] Test logs détaillés
+- [x] Test compteur
+- [x] Test suppression de tous les imports (Clear logs)
+- [x] **Utilisateur confirme que tout fonctionne comme "Load Trades"**
+
+---
+
+#### Step 3.7.11 : Améliorations - Re-enrichissement automatique des transactions
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Améliorer le re-enrichissement automatique lors de la modification d'un mapping ou d'une transaction pour que toutes les transactions avec le même nom soient mises à jour.
+
+**Problème identifié**:
+- Quand on modifie un mapping, seules les transactions qui avaient exactement les mêmes level_1/2/3 étaient re-enrichies
+- Quand on modifie une transaction, les autres transactions avec le même nom n'étaient pas re-enrichies
+- Cas d'usage : plusieurs transactions avec le même nom (ex: facture d'électricité chaque mois) doivent toutes avoir le même mapping
+
+**Tasks**:
+- [x] Créer fonction utilitaire `transaction_matches_mapping_name()` dans `backend/api/services/enrichment_service.py`
+  - Utilise la même logique que `find_best_mapping` pour vérifier si une transaction correspond à un nom de mapping
+- [x] Améliorer endpoint `PUT /mappings/{mapping_id}` dans `backend/api/routes/mappings.py`
+  - Trouver TOUTES les transactions dont le nom correspond au mapping (peu importe leurs level_1/2/3 actuels)
+  - Re-enrichir toutes ces transactions après la mise à jour du mapping
+- [x] Améliorer endpoint `PUT /enrichment/transactions/{id}` dans `backend/api/routes/enrichment.py`
+  - Après la mise à jour du mapping, trouver toutes les transactions avec le même nom
+  - Re-enrichir automatiquement toutes ces transactions
+- [x] Améliorer gestion d'erreur 404 dans `frontend/src/components/MappingTable.tsx`
+  - Détecter si le mapping n'existe plus et rafraîchir automatiquement la liste
+- [x] Créer test `backend/tests/test_mapping_update_re_enrich.py`
+  - Vérifie que toutes les transactions correspondantes sont re-enrichies (même celles non encore enrichies)
+- [x] Créer test `backend/tests/test_transaction_update_re_enriches_others.py`
+  - Vérifie que la modification d'une transaction re-enrichit toutes les autres avec le même nom
+
+**Deliverables**:
+- Fonction `transaction_matches_mapping_name()` dans `backend/api/services/enrichment_service.py`
+- Mise à jour `PUT /mappings/{mapping_id}` dans `backend/api/routes/mappings.py`
+- Mise à jour `PUT /enrichment/transactions/{id}` dans `backend/api/routes/enrichment.py`
+- Amélioration gestion d'erreur dans `frontend/src/components/MappingTable.tsx`
+- Tests `backend/tests/test_mapping_update_re_enrich.py` et `backend/tests/test_transaction_update_re_enriches_others.py`
+
+**Acceptance Criteria**:
+- [x] Modification d'un mapping → toutes les transactions correspondantes sont re-enrichies
+- [x] Modification d'une transaction → toutes les autres transactions avec le même nom sont re-enrichies
+- [x] Fonctionne même pour les transactions non encore enrichies
+- [x] Tests passent avec succès
+- [x] **Utilisateur confirme que le comportement est correct**
+
+**Comportement final**:
+- ✅ **Scénario 1** : Modifier une transaction → toutes les transactions avec le même nom sont automatiquement re-enrichies
+- ✅ **Scénario 2** : Modifier un mapping → toutes les transactions correspondantes sont automatiquement re-enrichies (même celles non encore enrichies)
+
+---
+
+### Step 3.8 : Tri et filtres avancés pour TransactionsTable et MappingTable
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter le tri par colonnes (cliquable sur tous les en-têtes) et une ligne de filtres auto (comme Excel) sous les en-têtes pour filtrer les données en temps réel. Ajouter aussi les contrôles de pagination en haut du tableau.
+
+**Objectifs**:
+- Tri cliquable sur toutes les colonnes (avec indicateur visuel ↑/↓)
+- Ligne de filtres sous les en-têtes avec dropdown de valeurs uniques (comme Excel)
+- Filtrage en temps réel (insensible à la casse, contient)
+- Filtres combinables (AND entre colonnes)
+- Pagination en haut + en bas du tableau
+- Tri côté serveur pour gérer toutes les données (pas seulement la page courante)
+
+---
+
+#### Step 3.8.1 : Backend - Ajouter paramètres de tri aux endpoints
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter les paramètres `sort_by` et `sort_direction` aux endpoints GET pour supporter le tri côté serveur.
+
+**Tasks**:
+- [ ] Modifier endpoint `GET /api/transactions` dans `backend/api/routes/transactions.py`
+  - Ajouter paramètre `sort_by` (date, quantite, nom, solde, level_1, level_2, level_3)
+  - Ajouter paramètre `sort_direction` (asc, desc)
+  - Implémenter tri SQLAlchemy pour chaque colonne
+- [ ] Modifier endpoint `GET /api/mappings` dans `backend/api/routes/mappings.py`
+  - Ajouter paramètre `sort_by` (id, nom, level_1, level_2, level_3)
+  - Ajouter paramètre `sort_direction` (asc, desc)
+  - Implémenter tri SQLAlchemy pour chaque colonne
+- [ ] Mettre à jour modèles Pydantic si nécessaire
+- [ ] **Tester les endpoints avec différents paramètres de tri**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/transactions.py` - Paramètres de tri
+- Mise à jour `backend/api/routes/mappings.py` - Paramètres de tri
+- Tests backend pour vérifier le tri
+
+**Acceptance Criteria**:
+- [ ] Tri par date fonctionne (asc/desc)
+- [ ] Tri par toutes les colonnes fonctionne
+- [ ] Tri combiné avec pagination fonctionne
+- [ ] Tests passent
+
+---
+
+#### Step 3.8.2 : Backend - Endpoints pour récupérer valeurs uniques (filtres)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer des endpoints pour récupérer les valeurs uniques de chaque colonne (pour les dropdowns de filtres).
+
+**Tasks**:
+- [ ] Créer endpoint `GET /api/transactions/unique-values` dans `backend/api/routes/transactions.py`
+  - Paramètre `column` (nom, level_1, level_2, level_3, etc.)
+  - Retourner liste des valeurs uniques (non null)
+  - Optionnel : filtrer par date range si présent
+- [ ] Créer endpoint `GET /api/mappings/unique-values` dans `backend/api/routes/mappings.py`
+  - Paramètre `column` (nom, level_1, level_2, level_3)
+  - Retourner liste des valeurs uniques (non null)
+- [ ] **Tester les endpoints**
+
+**Deliverables**:
+- Endpoint `GET /api/transactions/unique-values` dans `backend/api/routes/transactions.py`
+- Endpoint `GET /api/mappings/unique-values` dans `backend/api/routes/mappings.py`
+
+**Acceptance Criteria**:
+- [ ] Endpoints retournent les valeurs uniques correctes
+- [ ] Filtrage par date range fonctionne (transactions)
+- [ ] Tests passent
+
+---
+
+#### Step 3.8.3 : Frontend - API client - Méthodes tri et valeurs uniques
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter les méthodes dans l'API client pour appeler les nouveaux endpoints.
+
+**Tasks**:
+- [ ] Mettre à jour `transactionsAPI.getAll()` dans `frontend/src/api/client.ts`
+  - Ajouter paramètres `sortBy?: string` et `sortDirection?: 'asc' | 'desc'`
+- [ ] Mettre à jour `mappingsAPI.list()` dans `frontend/src/api/client.ts`
+  - Ajouter paramètres `sortBy?: string` et `sortDirection?: 'asc' | 'desc'`
+- [ ] Ajouter méthode `transactionsAPI.getUniqueValues(column: string)` dans `frontend/src/api/client.ts`
+- [ ] Ajouter méthode `mappingsAPI.getUniqueValues(column: string)` dans `frontend/src/api/client.ts`
+- [ ] **Tester les appels API**
+
+**Deliverables**:
+- Mise à jour `frontend/src/api/client.ts` - Méthodes avec tri
+- Méthodes `getUniqueValues` pour transactions et mappings
+
+**Acceptance Criteria**:
+- [ ] Méthodes ajoutées avec types TypeScript corrects
+- [ ] Appels API fonctionnent
+
+---
+
+#### Step 3.8.4 : Frontend - TransactionsTable - Tri sur toutes les colonnes
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Rendre toutes les colonnes triables avec indicateur visuel et tri côté serveur.
+
+**Tasks**:
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx`
+  - Rendre tous les `<th>` cliquables (Date, Quantité, Nom, Solde, Level 1, Level 2, Level 3)
+  - Ajouter indicateur visuel (↑/↓) sur la colonne triée
+  - Modifier `handleSort()` pour gérer toutes les colonnes
+  - Changer le tri pour utiliser l'API (côté serveur) au lieu du tri côté client
+  - Passer `sortBy` et `sortDirection` à `transactionsAPI.getAll()`
+- [ ] Ajouter état pour colonne triée et direction
+- [ ] **Tester le tri sur chaque colonne**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Tri sur toutes les colonnes
+
+**Acceptance Criteria**:
+- [ ] Toutes les colonnes sont triables (cliquables)
+- [ ] Indicateur visuel (↑/↓) affiché sur colonne triée
+- [ ] Tri fonctionne côté serveur (toutes les données)
+- [ ] Tri alternant asc/desc au clic
+- [ ] **Utilisateur confirme que le tri fonctionne**
+
+---
+
+#### Step 3.8.5 : Frontend - TransactionsTable - Ligne de filtres auto
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter une ligne de filtres sous les en-têtes avec champs texte et dropdowns de valeurs uniques (comme Excel).
+
+**Tasks**:
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx`
+  - Ajouter ligne `<tr>` sous `<thead>` avec champs de filtre
+  - Un champ par colonne filtrable (Date, Quantité, Nom, Solde, Level 1, Level 2, Level 3)
+  - Chaque champ : input texte + dropdown avec valeurs uniques
+  - Charger valeurs uniques via `transactionsAPI.getUniqueValues()` au montage
+  - Implémenter filtrage en temps réel (insensible à la casse, contient)
+  - Filtres combinables (AND entre colonnes)
+  - Appliquer filtres côté serveur (modifier `transactionsAPI.getAll()` avec paramètres de filtre)
+- [ ] Ajouter état pour chaque filtre
+- [ ] Style similaire au filtre date existant
+- [ ] **Tester le filtrage en temps réel**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Ligne de filtres
+
+**Acceptance Criteria**:
+- [ ] Ligne de filtres visible sous les en-têtes
+- [ ] Champs texte fonctionnent (filtrage en temps réel)
+- [ ] Dropdowns avec valeurs uniques fonctionnent
+- [ ] Filtrage insensible à la casse
+- [ ] Filtrage "contient" (partiel)
+- [ ] Filtres combinables (AND)
+- [ ] Filtres appliqués côté serveur (toutes les données)
+- [ ] **Utilisateur confirme que les filtres fonctionnent**
+
+---
+
+#### Step 3.8.6 : Frontend - TransactionsTable - Pagination en haut
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter les contrôles de pagination (Première, Précédente, Suivante, Dernière) et le sélecteur "Par page" (50/100/200) en haut du tableau.
+
+**Tasks**:
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx`
+  - Dupliquer les contrôles de pagination existants (qui sont en bas)
+  - Les placer en haut du tableau (avant `<table>`)
+  - Inclure : "Première", "Précédente", "Suivante", "Dernière"
+  - Inclure : Sélecteur "Par page: 50/100/200"
+  - Inclure : Affichage "Page X sur Y"
+  - Synchroniser les deux contrôles (haut et bas)
+- [ ] **Tester la pagination en haut**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Pagination en haut
+
+**Acceptance Criteria**:
+- [ ] Contrôles de pagination visibles en haut
+- [ ] Tous les boutons fonctionnent (Première, Précédente, Suivante, Dernière)
+- [ ] Sélecteur "Par page" fonctionne
+- [ ] Synchronisation entre pagination haut et bas
+- [ ] **Utilisateur confirme que la pagination fonctionne**
+
+---
+
+#### Step 3.8.7 : Frontend - MappingTable - Tri et filtres (identique à TransactionsTable)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Appliquer les mêmes fonctionnalités de tri et filtres à MappingTable.
+
+**Tasks**:
+- [ ] Modifier `frontend/src/components/MappingTable.tsx`
+  - Rendre toutes les colonnes triables (ID, Nom, Level 1, Level 2, Level 3)
+  - Ajouter indicateur visuel (↑/↓) sur colonne triée
+  - Implémenter tri côté serveur (passer `sortBy` et `sortDirection` à `mappingsAPI.list()`)
+  - Ajouter ligne de filtres sous les en-têtes
+  - Champs texte + dropdowns avec valeurs uniques
+  - Filtrage en temps réel (insensible à la casse, contient)
+  - Filtres combinables (AND)
+  - Ajouter pagination en haut (comme TransactionsTable)
+- [ ] **Tester tri et filtres sur MappingTable**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/MappingTable.tsx` - Tri, filtres, pagination
+
+**Acceptance Criteria**:
+- [ ] Toutes les colonnes sont triables
+- [ ] Indicateur visuel affiché
+- [ ] Ligne de filtres fonctionne
+- [ ] Dropdowns avec valeurs uniques fonctionnent
+- [ ] Filtrage en temps réel fonctionne
+- [ ] Pagination en haut fonctionne
+- [ ] **Utilisateur confirme que tout fonctionne**
+
+---
+
+#### Step 3.8.8 : Backend - Ajouter paramètres de filtre aux endpoints
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter les paramètres de filtre aux endpoints GET pour supporter le filtrage côté serveur.
+
+**Tasks**:
+- [ ] Modifier endpoint `GET /api/transactions` dans `backend/api/routes/transactions.py`
+  - Ajouter paramètres de filtre optionnels : `filter_nom`, `filter_level_1`, `filter_level_2`, `filter_level_3`, `filter_quantite_min`, `filter_quantite_max`, `filter_solde_min`, `filter_solde_max`
+  - Implémenter filtrage SQLAlchemy (LIKE pour texte, BETWEEN pour nombres)
+  - Filtrage insensible à la casse pour texte
+- [ ] Modifier endpoint `GET /api/mappings` dans `backend/api/routes/mappings.py`
+  - Ajouter paramètres de filtre optionnels : `filter_nom`, `filter_level_1`, `filter_level_2`, `filter_level_3`
+  - Implémenter filtrage SQLAlchemy (LIKE, insensible à la casse)
+- [ ] **Tester les filtres avec différents paramètres**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/transactions.py` - Paramètres de filtre
+- Mise à jour `backend/api/routes/mappings.py` - Paramètres de filtre
+
+**Acceptance Criteria**:
+- [ ] Filtres texte fonctionnent (contient, insensible à la casse)
+- [ ] Filtres numériques fonctionnent (min/max)
+- [ ] Filtres combinables (AND)
+- [ ] Filtres combinés avec tri et pagination fonctionnent
+- [ ] Tests passent
+
+---
+
+**Tests finaux**:
+- [ ] Test tri sur toutes les colonnes (TransactionsTable et MappingTable)
+- [ ] Test filtres en temps réel (texte + dropdown)
+- [ ] Test filtres combinés (AND)
+- [ ] Test pagination en haut et en bas
+- [ ] Test combinaison tri + filtres + pagination
+- [ ] Test performance avec beaucoup de données
+- [ ] **Utilisateur confirme que toutes les fonctionnalités fonctionnent**
 
 ---
 

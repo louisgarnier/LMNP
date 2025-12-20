@@ -10,7 +10,12 @@ from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.database.models import Transaction, EnrichedTransaction
 from backend.api.models import TransactionResponse
-from backend.api.services.enrichment_service import update_transaction_classification, create_or_update_mapping_from_classification
+from backend.api.services.enrichment_service import (
+    update_transaction_classification,
+    create_or_update_mapping_from_classification,
+    enrich_transaction,
+    transaction_matches_mapping_name
+)
 
 router = APIRouter()
 
@@ -78,6 +83,16 @@ async def update_transaction_classifications(
             level_2=final_level_2,
             level_3=final_level_3
         )
+        
+        # Après avoir mis à jour le mapping, re-enrichir TOUTES les transactions
+        # avec le même nom pour qu'elles utilisent le nouveau mapping
+        all_transactions = db.query(Transaction).all()
+        for other_transaction in all_transactions:
+            if other_transaction.id != transaction.id:  # Ne pas re-enrichir la transaction qu'on vient de modifier
+                if transaction_matches_mapping_name(other_transaction.nom, transaction.nom):
+                    enrich_transaction(other_transaction, db)
+        
+        db.commit()
     
     # Recharger la transaction avec les données enrichies
     db.refresh(transaction)

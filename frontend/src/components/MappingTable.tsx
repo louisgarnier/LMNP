@@ -155,7 +155,15 @@ export default function MappingTable({ onMappingChange }: MappingTableProps) {
       loadMappings();
       onMappingChange?.();
     } catch (err: any) {
-      alert(`Erreur lors de la modification: ${err.message}`);
+      // Si le mapping n'existe plus (404), rafraîchir la liste
+      if (err.message && err.message.includes('non trouvé')) {
+        console.warn(`Mapping avec ID ${mapping.id} non trouvé, rafraîchissement de la liste...`);
+        loadMappings();
+        setEditingId(null);
+        alert(`Le mapping n'existe plus. La liste a été rafraîchie.`);
+      } else {
+        alert(`Erreur lors de la modification: ${err.message}`);
+      }
     }
   };
 

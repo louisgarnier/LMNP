@@ -67,6 +67,38 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
     return best_match
 
 
+def transaction_matches_mapping_name(transaction_name: str, mapping_name: str) -> bool:
+    """
+    Vérifie si une transaction correspond à un nom de mapping.
+    
+    Utilise la même logique que find_best_mapping pour déterminer si une transaction
+    correspond à un mapping donné.
+    
+    Args:
+        transaction_name: Nom de la transaction
+        mapping_name: Nom du mapping
+    
+    Returns:
+        True si la transaction correspond au mapping, False sinon
+    """
+    transaction_name = transaction_name.strip()
+    mapping_name = mapping_name.strip()
+    
+    # Cas spécial pour PRLV SEPA
+    if 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
+        return transaction_name.startswith(mapping_name)
+    
+    # Cas spécial pour VIR STRIPE (correspondance exacte)
+    if 'VIR STRIPE' in transaction_name and mapping_name == 'VIR STRIPE':
+        return True
+    
+    # Cas général : recherche par préfixe ou contient
+    if mapping_name in transaction_name or transaction_name.startswith(mapping_name):
+        return True
+    
+    return False
+
+
 def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional[list[Mapping]] = None) -> EnrichedTransaction:
     """
     Enrichit une transaction avec des classifications basées sur le mapping.

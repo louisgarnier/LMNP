@@ -180,3 +180,53 @@ class MappingListResponse(BaseModel):
     """Model for list of mappings response."""
     mappings: List[MappingResponse]
     total: int
+
+
+class MappingPreviewResponse(BaseModel):
+    """Model for mapping file preview response."""
+    filename: str
+    total_rows: int
+    column_mapping: List[ColumnMapping] = Field(..., description="Mapping proposé des colonnes (nom, level_1, level_2, level_3)")
+    preview: List[dict] = Field(..., description="Premières lignes pour aperçu (max 10)")
+    validation_errors: List[str] = Field(default_factory=list, description="Erreurs de validation")
+    stats: dict = Field(..., description="Statistiques (nombre de mappings valides, etc.)")
+
+
+class MappingError(BaseModel):
+    """Model for mapping error details."""
+    line_number: int = Field(..., description="Numéro de ligne dans le fichier (1-based)")
+    nom: Optional[str] = None
+    level_1: Optional[str] = None
+    level_2: Optional[str] = None
+    level_3: Optional[str] = None
+    error_message: str = Field(..., description="Message d'erreur détaillé")
+
+
+class DuplicateMapping(BaseModel):
+    """Model for duplicate mapping."""
+    nom: str
+    existing_id: int = Field(..., description="ID du mapping existant en BDD")
+
+
+class MappingImportResponse(BaseModel):
+    """Model for mapping import response."""
+    filename: str
+    imported_count: int
+    duplicates_count: int
+    errors_count: int
+    duplicates: List[DuplicateMapping] = Field(default_factory=list)
+    errors: List[MappingError] = Field(default_factory=list, description="Liste détaillée des erreurs")
+    message: str
+
+
+class MappingImportHistory(BaseModel):
+    """Model for mapping import history."""
+    id: int
+    filename: str
+    imported_at: datetime
+    imported_count: int
+    duplicates_count: int
+    errors_count: int
+
+    class Config:
+        from_attributes = True
