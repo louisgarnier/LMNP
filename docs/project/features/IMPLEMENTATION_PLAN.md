@@ -1568,32 +1568,40 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 3.8.7 : Frontend - MappingTable - Tri et filtres (identique à TransactionsTable)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Appliquer les mêmes fonctionnalités de tri et filtres à MappingTable.
 
 **Tasks**:
-- [ ] Modifier `frontend/src/components/MappingTable.tsx`
+- [x] Modifier `frontend/src/components/MappingTable.tsx`
   - Rendre toutes les colonnes triables (ID, Nom, Level 1, Level 2, Level 3)
   - Ajouter indicateur visuel (↑/↓) sur colonne triée
   - Implémenter tri côté serveur (passer `sortBy` et `sortDirection` à `mappingsAPI.list()`)
   - Ajouter ligne de filtres sous les en-têtes
-  - Champs texte + dropdowns avec valeurs uniques
-  - Filtrage en temps réel (insensible à la casse, contient)
+  - Champs texte + dropdowns avec valeurs uniques (`<datalist>`)
+  - Filtrage avec debounce 500ms (insensible à la casse, contient)
   - Filtres combinables (AND)
+  - Filtrage local avec `useMemo` (évite re-renders et préserve le focus)
+  - Bouton "Clear filters" pour réinitialiser tous les filtres
   - Ajouter pagination en haut (comme TransactionsTable)
-- [ ] **Tester tri et filtres sur MappingTable**
+  - Tableau toujours affiché (même vide) pour que la ligne de filtres reste accessible
+- [x] **Tester tri et filtres sur MappingTable**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/MappingTable.tsx` - Tri, filtres, pagination
 
 **Acceptance Criteria**:
-- [ ] Toutes les colonnes sont triables
-- [ ] Indicateur visuel affiché
-- [ ] Ligne de filtres fonctionne
-- [ ] Dropdowns avec valeurs uniques fonctionnent
-- [ ] Filtrage en temps réel fonctionne
-- [ ] Pagination en haut fonctionne
-- [ ] **Utilisateur confirme que tout fonctionne**
+- [x] Toutes les colonnes sont triables (ID, Nom, Level 1, Level 2, Level 3)
+- [x] Indicateur visuel affiché (↑/↓)
+- [x] Ligne de filtres fonctionne
+- [x] Dropdowns avec valeurs uniques fonctionnent (`<datalist>`)
+- [x] Filtrage en temps réel fonctionne (debounce 500ms)
+- [x] Filtrage insensible à la casse
+- [x] Filtrage "contient" (partiel)
+- [x] Filtres combinables (AND)
+- [x] Pagination en haut fonctionne
+- [x] Bouton "Clear filters" toujours visible
+- [x] Focus préservé pendant la saisie (grâce à `useMemo` et `useCallback`)
+- [x] **Utilisateur confirme que tout fonctionne**
 
 ---
 

@@ -1,20 +1,45 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { mappingsAPI, Mapping, MappingCreate, MappingUpdate } from '../api/client';
+
+type SortColumn = 'id' | 'nom' | 'level_1' | 'level_2' | 'level_3';
+type SortDirection = 'asc' | 'desc';
 
 interface MappingTableProps {
   onMappingChange?: () => void;
 }
 
 export default function MappingTable({ onMappingChange }: MappingTableProps) {
-  const [mappings, setMappings] = useState<Mapping[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('id');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  
+  // États pour les filtres (valeurs affichées dans les inputs)
+  const [filterNom, setFilterNom] = useState('');
+  const [filterLevel1, setFilterLevel1] = useState('');
+  const [filterLevel2, setFilterLevel2] = useState('');
+  const [filterLevel3, setFilterLevel3] = useState('');
+  
+  // États pour les filtres appliqués (après debounce)
+  const [appliedFilterNom, setAppliedFilterNom] = useState('');
+  const [appliedFilterLevel1, setAppliedFilterLevel1] = useState('');
+  const [appliedFilterLevel2, setAppliedFilterLevel2] = useState('');
+  const [appliedFilterLevel3, setAppliedFilterLevel3] = useState('');
+  
+  // Données brutes chargées depuis l'API (sans filtres appliqués)
+  const [rawMappings, setRawMappings] = useState<Mapping[]>([]);
+  
+  // Valeurs uniques pour les dropdowns
+  const [uniqueNoms, setUniqueNoms] = useState<string[]>([]);
+  const [uniqueLevel1s, setUniqueLevel1s] = useState<string[]>([]);
+  const [uniqueLevel2s, setUniqueLevel2s] = useState<string[]>([]);
+  const [uniqueLevel3s, setUniqueLevel3s] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -33,21 +58,28 @@ export default function MappingTable({ onMappingChange }: MappingTableProps) {
     setLoading(true);
     setError(null);
     try {
-      const response = await mappingsAPI.list((page - 1) * pageSize, pageSize, search || undefined);
-      setMappings(response.mappings);
+      const response = await mappingsAPI.list(
+        (page - 1) * pageSize,
+        pageSize,
+        search || undefined,
+        sortColumn,
+        sortDirection
+      );
+      
+      // Filtrer par terme de recherche si présent
+      let filtered = response.mappings;
+      if (search) {
+        const searchLower = search.toLowerCase();
+        filtered = filtered.filter(m => 
+          m.nom.toLowerCase().includes(searchLower)
+        );
+      }
+
+      // Stocker les données brutes (sans filtres de colonnes) pour filtrage local
+      setRawMappings(filtered);
       setTotal(response.total);
       
-      // Réinitialiser la sélection si les mappings chargés ne contiennent plus les IDs sélectionnés
-      setSelectedIds(prev => {
-        const loadedIds = new Set(response.mappings.map(m => m.id));
-        const newSet = new Set<number>();
-        prev.forEach(id => {
-          if (loadedIds.has(id)) {
-            newSet.add(id);
-          }
-        });
-        return newSet;
-      });
+      // Les filtres seront appliqués par useMemo (pas besoin de setMappings)
     } catch (err: any) {
       setError(err.message || 'Erreur lors du chargement des mappings');
       console.error('Erreur chargement mappings:', err);
@@ -56,9 +88,160 @@ export default function MappingTable({ onMappingChange }: MappingTableProps) {
     }
   };
 
+  // Recharger depuis l'API seulement quand page, tri, ou search change
   useEffect(() => {
     loadMappings();
-  }, [page, pageSize, search]);
+  }, [page, pageSize, search, sortColumn, sortDirection]);
+
+  // Calculer les mappings filtrés avec useMemo (évite les re-renders inutiles et préserve le focus)
+  const mappings = useMemo(() => {
+    if (rawMappings.length === 0) {
+      return [];
+    }
+    
+    let filtered = [...rawMappings];
+
+    // Filtrer par terme de recherche si présent
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filtered = filtered.filter(m => 
+        m.nom.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Appliquer les filtres de colonnes
+    if (appliedFilterNom) {
+      const filterLower = appliedFilterNom.toLowerCase();
+      filtered = filtered.filter(m => 
+        m.nom?.toLowerCase().includes(filterLower)
+      );
+    }
+    if (appliedFilterLevel1) {
+      const filterLower = appliedFilterLevel1.toLowerCase();
+      filtered = filtered.filter(m => 
+        m.level_1?.toLowerCase().includes(filterLower)
+      );
+    }
+    if (appliedFilterLevel2) {
+      const filterLower = appliedFilterLevel2.toLowerCase();
+      filtered = filtered.filter(m => 
+        m.level_2?.toLowerCase().includes(filterLower)
+      );
+    }
+    if (appliedFilterLevel3) {
+      const filterLower = appliedFilterLevel3.toLowerCase();
+      filtered = filtered.filter(m => 
+        m.level_3?.toLowerCase().includes(filterLower)
+      );
+    }
+
+    return filtered;
+  }, [rawMappings, search, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3]);
+
+  // Réinitialiser la sélection quand les mappings changent
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const loadedIds = new Set(mappings.map(m => m.id));
+      const newSet = new Set<number>();
+      prev.forEach(id => {
+        if (loadedIds.has(id)) {
+          newSet.add(id);
+        }
+      });
+      return newSet;
+    });
+  }, [mappings]);
+
+  // Debounce pour les filtres texte (attendre 500ms après la dernière frappe)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterNom(filterNom);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterNom]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterLevel1(filterLevel1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterLevel1]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterLevel2(filterLevel2);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterLevel2]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterLevel3(filterLevel3);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterLevel3]);
+
+  // Charger les valeurs uniques pour les filtres
+  useEffect(() => {
+    const loadUniqueValues = async () => {
+      try {
+        const [noms, level1s, level2s, level3s] = await Promise.all([
+          mappingsAPI.getUniqueValues('nom'),
+          mappingsAPI.getUniqueValues('level_1'),
+          mappingsAPI.getUniqueValues('level_2'),
+          mappingsAPI.getUniqueValues('level_3'),
+        ]);
+        setUniqueNoms(noms.values);
+        setUniqueLevel1s(level1s.values);
+        setUniqueLevel2s(level2s.values);
+        setUniqueLevel3s(level3s.values);
+      } catch (err) {
+        console.error('Error loading unique values:', err);
+      }
+    };
+    loadUniqueValues();
+  }, []);
+
+  const handleSort = useCallback((column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  }, [sortColumn, sortDirection]);
+
+  // Handlers pour les filtres (mémorisés pour éviter les re-renders)
+  const handleFilterNomChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterNom(e.target.value);
+  }, []);
+
+  const handleFilterLevel1Change = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterLevel1(e.target.value);
+  }, []);
+
+  const handleFilterLevel2Change = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterLevel2(e.target.value);
+  }, []);
+
+  const handleFilterLevel3Change = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterLevel3(e.target.value);
+  }, []);
+
+  // Fonction pour réinitialiser tous les filtres
+  const handleClearFilters = useCallback(() => {
+    // Réinitialiser tous les filtres (valeurs affichées)
+    setFilterNom('');
+    setFilterLevel1('');
+    setFilterLevel2('');
+    setFilterLevel3('');
+    
+    // Réinitialiser tous les filtres appliqués
+    setAppliedFilterNom('');
+    setAppliedFilterLevel1('');
+    setAppliedFilterLevel2('');
+    setAppliedFilterLevel3('');
+  }, []);
 
   const handleCreate = async () => {
     if (!newMapping.nom || !newMapping.level_1 || !newMapping.level_2) {
@@ -250,6 +433,107 @@ export default function MappingTable({ onMappingChange }: MappingTableProps) {
         </div>
       )}
 
+      {/* Pagination en haut */}
+      {totalPages > 1 && (
+        <div style={{ 
+          marginBottom: '16px', 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px'
+        }}>
+          <div style={{ fontSize: '14px', color: '#666' }}>
+            Page {page} sur {totalPages} ({total} mapping{total !== 1 ? 's' : ''})
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setPage(1)}
+              disabled={page === 1}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page === 1 ? '#e5e5e5' : '#1e3a5f',
+                color: page === 1 ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              « Première
+            </button>
+            <button
+              onClick={() => setPage(page - 1)}
+              disabled={page === 1}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page === 1 ? '#e5e5e5' : '#1e3a5f',
+                color: page === 1 ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page === 1 ? 'not-allowed' : 'pointer',
+              }}
+            >
+              ‹ Précédente
+            </button>
+            <button
+              onClick={() => setPage(page + 1)}
+              disabled={page >= totalPages}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page >= totalPages ? '#e5e5e5' : '#1e3a5f',
+                color: page >= totalPages ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Suivante ›
+            </button>
+            <button
+              onClick={() => setPage(totalPages)}
+              disabled={page >= totalPages}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: page >= totalPages ? '#e5e5e5' : '#1e3a5f',
+                color: page >= totalPages ? '#999' : 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: page >= totalPages ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Dernière »
+            </button>
+          </div>
+          <div>
+            <label style={{ fontSize: '14px', color: '#666', marginRight: '8px' }}>
+              Par page:
+            </label>
+            <select
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(1);
+              }}
+              style={{
+                padding: '6px 12px',
+                border: '1px solid #ccc',
+                borderRadius: '4px',
+                fontSize: '14px',
+              }}
+            >
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={200}>200</option>
+            </select>
+          </div>
+        </div>
+      )}
+
       {/* Tableau */}
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white' }}>
@@ -267,18 +551,206 @@ export default function MappingTable({ onMappingChange }: MappingTableProps) {
                   }}
                 />
               </th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>ID</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Nom</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Level 1</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Level 2</th>
-              <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600' }}>Level 3</th>
-              <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Préfixe</th>
-              <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600' }}>Actions</th>
+              <th
+                onClick={() => handleSort('id')}
+                style={{
+                  padding: '12px',
+                  textAlign: 'left',
+                  fontWeight: '600',
+                  color: '#1a1a1a',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                ID {sortColumn === 'id' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th
+                onClick={() => handleSort('nom')}
+                style={{
+                  padding: '12px',
+                  textAlign: 'left',
+                  fontWeight: '600',
+                  color: '#1a1a1a',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                Nom {sortColumn === 'nom' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th
+                onClick={() => handleSort('level_1')}
+                style={{
+                  padding: '12px',
+                  textAlign: 'left',
+                  fontWeight: '600',
+                  color: '#1a1a1a',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                Level 1 {sortColumn === 'level_1' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th
+                onClick={() => handleSort('level_2')}
+                style={{
+                  padding: '12px',
+                  textAlign: 'left',
+                  fontWeight: '600',
+                  color: '#1a1a1a',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                Level 2 {sortColumn === 'level_2' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th
+                onClick={() => handleSort('level_3')}
+                style={{
+                  padding: '12px',
+                  textAlign: 'left',
+                  fontWeight: '600',
+                  color: '#1a1a1a',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                }}
+              >
+                Level 3 {sortColumn === 'level_3' && (sortDirection === 'asc' ? '↑' : '↓')}
+              </th>
+              <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600', color: '#1a1a1a' }}>Préfixe</th>
+              <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600', color: '#1a1a1a' }}>Actions</th>
+            </tr>
+            {/* Ligne de filtres */}
+            <tr key="filter-row" style={{ backgroundColor: '#fafafa', borderBottom: '1px solid #e5e5e5' }}>
+              <td style={{ padding: '8px', textAlign: 'center' }}></td>
+              <td style={{ padding: '8px' }}></td>
+              <td style={{ padding: '8px' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={filterNom}
+                    onChange={handleFilterNomChange}
+                    placeholder="Filtrer..."
+                    list={`nom-list-${page}`}
+                    style={{
+                      width: '100%',
+                      padding: '4px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <datalist id={`nom-list-${page}`}>
+                    {uniqueNoms.map((nom) => (
+                      <option key={nom} value={nom} />
+                    ))}
+                  </datalist>
+                </div>
+              </td>
+              <td style={{ padding: '8px' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={filterLevel1}
+                    onChange={handleFilterLevel1Change}
+                    placeholder="Filtrer..."
+                    list={`level1-list-${page}`}
+                    style={{
+                      width: '100%',
+                      padding: '4px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <datalist id={`level1-list-${page}`}>
+                    {uniqueLevel1s.map((level1) => (
+                      <option key={level1} value={level1} />
+                    ))}
+                  </datalist>
+                </div>
+              </td>
+              <td style={{ padding: '8px' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={filterLevel2}
+                    onChange={handleFilterLevel2Change}
+                    placeholder="Filtrer..."
+                    list={`level2-list-${page}`}
+                    style={{
+                      width: '100%',
+                      padding: '4px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <datalist id={`level2-list-${page}`}>
+                    {uniqueLevel2s.map((level2) => (
+                      <option key={level2} value={level2} />
+                    ))}
+                  </datalist>
+                </div>
+              </td>
+              <td style={{ padding: '8px' }}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    value={filterLevel3}
+                    onChange={handleFilterLevel3Change}
+                    placeholder="Filtrer..."
+                    list={`level3-list-${page}`}
+                    style={{
+                      width: '100%',
+                      padding: '4px 8px',
+                      border: '1px solid #ddd',
+                      borderRadius: '4px',
+                      fontSize: '12px',
+                    }}
+                  />
+                  <datalist id={`level3-list-${page}`}>
+                    {uniqueLevel3s.map((level3) => (
+                      <option key={level3} value={level3} />
+                    ))}
+                  </datalist>
+                </div>
+              </td>
+              <td style={{ padding: '8px', textAlign: 'center' }}></td>
+              <td style={{ padding: '8px', textAlign: 'center' }}>
+                <button
+                  onClick={handleClearFilters}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: '#f44336',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '500',
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = '#d32f2f';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f44336';
+                  }}
+                >
+                  Clear filters
+                </button>
+              </td>
             </tr>
           </thead>
           <tbody>
-            {mappings.map((mapping) => (
-              <tr 
+            {mappings.length === 0 ? (
+              <tr>
+                <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                  Aucun mapping trouvé
+                </td>
+              </tr>
+            ) : (
+              mappings.map((mapping) => (
+                <tr 
                 key={mapping.id} 
                 style={{ 
                   borderBottom: '1px solid #eee',
@@ -417,7 +889,8 @@ export default function MappingTable({ onMappingChange }: MappingTableProps) {
                   )}
                 </td>
               </tr>
-            ))}
+              ))
+            )}
           </tbody>
         </table>
       </div>
