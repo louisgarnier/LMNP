@@ -135,7 +135,9 @@ export const transactionsAPI = {
     skip: number = 0,
     limit: number = 100,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    sortBy?: string,
+    sortDirection?: 'asc' | 'desc'
   ): Promise<TransactionListResponse> => {
     const params = new URLSearchParams({
       skip: skip.toString(),
@@ -143,6 +145,8 @@ export const transactionsAPI = {
     });
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
+    if (sortBy) params.append('sort_by', sortBy);
+    if (sortDirection) params.append('sort_direction', sortDirection);
     
     return fetchAPI<TransactionListResponse>(`/api/transactions?${params}`);
   },
@@ -177,6 +181,23 @@ export const transactionsAPI = {
     return fetchAPI<void>(`/api/transactions/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  /**
+   * Récupérer les valeurs uniques d'une colonne pour les filtres
+   */
+  getUniqueValues: async (
+    column: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<{ column: string; values: string[] }> => {
+    const params = new URLSearchParams({
+      column,
+    });
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    
+    return fetchAPI<{ column: string; values: string[] }>(`/api/transactions/unique-values?${params}`);
   },
 };
 
@@ -226,6 +247,14 @@ export interface FilePreviewResponse {
   };
 }
 
+export interface TransactionError {
+  line_number: number;
+  date?: string;
+  quantite?: number;
+  nom?: string;
+  error_message: string;
+}
+
 export interface FileImportResponse {
   filename: string;
   imported_count: number;
@@ -237,6 +266,7 @@ export interface FileImportResponse {
     nom: string;
     existing_id: number;
   }>;
+  errors: TransactionError[];
   period_start?: string;
   period_end?: string;
   message: string;
@@ -333,7 +363,13 @@ export const mappingsAPI = {
   /**
    * Récupérer la liste des mappings
    */
-  async list(skip: number = 0, limit: number = 100, search?: string): Promise<MappingListResponse> {
+  async list(
+    skip: number = 0,
+    limit: number = 100,
+    search?: string,
+    sortBy?: string,
+    sortDirection?: 'asc' | 'desc'
+  ): Promise<MappingListResponse> {
     const params = new URLSearchParams({
       skip: skip.toString(),
       limit: limit.toString(),
@@ -341,6 +377,8 @@ export const mappingsAPI = {
     if (search) {
       params.append('search', search);
     }
+    if (sortBy) params.append('sort_by', sortBy);
+    if (sortDirection) params.append('sort_direction', sortDirection);
     return fetchAPI<MappingListResponse>(`/api/mappings?${params.toString()}`);
   },
 
@@ -473,6 +511,17 @@ export const mappingsAPI = {
    */
   getCount: async (): Promise<{ count: number }> => {
     return fetchAPI<{ count: number }>('/api/mappings/count');
+  },
+
+  /**
+   * Récupérer les valeurs uniques d'une colonne pour les filtres
+   */
+  getUniqueValues: async (column: string): Promise<{ column: string; values: string[] }> => {
+    const params = new URLSearchParams({
+      column,
+    });
+    
+    return fetchAPI<{ column: string; values: string[] }>(`/api/mappings/unique-values?${params}`);
   },
 
   /**

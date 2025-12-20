@@ -27,8 +27,8 @@ export interface ImportLogEntry {
     period_start?: string;
     period_end?: string;
     duplicates?: Array<{
-      date: string;
-      quantite: number;
+      date?: string;
+      quantite?: number;
       nom: string;
       existing_id: number;
     }>;
