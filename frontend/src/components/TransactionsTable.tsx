@@ -6,18 +6,17 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { transactionsAPI, Transaction, TransactionUpdate, enrichmentAPI, mappingsAPI } from '@/api/client';
 
 interface TransactionsTableProps {
   onDelete?: () => void;
 }
 
-type SortColumn = 'date' | 'quantite' | 'nom' | 'solde';
+type SortColumn = 'date' | 'quantite' | 'nom' | 'solde' | 'level_1' | 'level_2' | 'level_3';
 type SortDirection = 'asc' | 'desc';
 
 export default function TransactionsTable({ onDelete }: TransactionsTableProps) {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -41,20 +40,50 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
   const [customLevel3, setCustomLevel3] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+  
+  // États pour les filtres (valeurs affichées dans les inputs)
+  const [filterDate, setFilterDate] = useState('');
+  const [filterQuantite, setFilterQuantite] = useState('');
+  const [filterNom, setFilterNom] = useState('');
+  const [filterSolde, setFilterSolde] = useState('');
+  const [filterLevel1, setFilterLevel1] = useState('');
+  const [filterLevel2, setFilterLevel2] = useState('');
+  const [filterLevel3, setFilterLevel3] = useState('');
+  
+  // États pour les filtres appliqués (après debounce)
+  const [appliedFilterDate, setAppliedFilterDate] = useState('');
+  const [appliedFilterQuantite, setAppliedFilterQuantite] = useState('');
+  const [appliedFilterNom, setAppliedFilterNom] = useState('');
+  const [appliedFilterSolde, setAppliedFilterSolde] = useState('');
+  const [appliedFilterLevel1, setAppliedFilterLevel1] = useState('');
+  const [appliedFilterLevel2, setAppliedFilterLevel2] = useState('');
+  const [appliedFilterLevel3, setAppliedFilterLevel3] = useState('');
+  
+  // Données brutes chargées depuis l'API (sans filtres appliqués)
+  const [rawTransactions, setRawTransactions] = useState<Transaction[]>([]);
+  
+  // Valeurs uniques pour les dropdowns
+  const [uniqueNoms, setUniqueNoms] = useState<string[]>([]);
+  const [uniqueLevel1s, setUniqueLevel1s] = useState<string[]>([]);
+  const [uniqueLevel2s, setUniqueLevel2s] = useState<string[]>([]);
+  const [uniqueLevel3s, setUniqueLevel3s] = useState<string[]>([]);
 
   const loadTransactions = async () => {
     setIsLoading(true);
     setError(null);
     try {
       const skip = (page - 1) * pageSize;
+      // Appel API avec tri côté serveur
       const response = await transactionsAPI.getAll(
         skip,
         pageSize,
         startDate || undefined,
-        endDate || undefined
+        endDate || undefined,
+        sortColumn, // Passer le tri à l'API
+        sortDirection
       );
       
-      // Filtrer par terme de recherche si présent
+      // Filtrer par terme de recherche si présent (côté client car pas encore implémenté côté serveur)
       let filtered = response.transactions;
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase();
@@ -63,51 +92,14 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
         );
       }
 
-      // Trier les transactions
-      filtered.sort((a, b) => {
-        let aValue: any;
-        let bValue: any;
-
-        switch (sortColumn) {
-          case 'date':
-            aValue = new Date(a.date).getTime();
-            bValue = new Date(b.date).getTime();
-            break;
-          case 'quantite':
-            aValue = a.quantite;
-            bValue = b.quantite;
-            break;
-          case 'nom':
-            aValue = a.nom.toLowerCase();
-            bValue = b.nom.toLowerCase();
-            break;
-          case 'solde':
-            aValue = a.solde;
-            bValue = b.solde;
-            break;
-          default:
-            return 0;
-        }
-
-        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-        return 0;
-      });
-
-      setTransactions(filtered);
+      // Stocker les données brutes (sans filtres de colonnes) pour filtrage local
+      setRawTransactions(filtered);
       setTotal(response.total);
       
+      // Les filtres seront appliqués par useMemo (pas besoin de setTransactions)
+      
       // Réinitialiser la sélection si les transactions chargées ne contiennent plus les IDs sélectionnés
-      setSelectedIds(prev => {
-        const loadedIds = new Set(filtered.map(t => t.id));
-        const newSet = new Set<number>();
-        prev.forEach(id => {
-          if (loadedIds.has(id)) {
-            newSet.add(id);
-          }
-        });
-        return newSet;
-      });
+      // (sera fait après le calcul des transactions filtrées par useMemo)
     } catch (err) {
       console.error('Error loading transactions:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
@@ -116,9 +108,149 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
     }
   };
 
+  // Recharger depuis l'API seulement quand page, tri, ou date range change
   useEffect(() => {
     loadTransactions();
   }, [page, pageSize, sortColumn, sortDirection, startDate, endDate]);
+
+  // Calculer les transactions filtrées avec useMemo (évite les re-renders inutiles et préserve le focus)
+  const transactions = useMemo(() => {
+    if (rawTransactions.length === 0) {
+      return [];
+    }
+    
+    let filtered = [...rawTransactions];
+
+    // Filtrer par terme de recherche si présent
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.nom.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Appliquer les filtres de colonnes
+    if (appliedFilterDate) {
+      const filterDateObj = new Date(appliedFilterDate);
+      filtered = filtered.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate.toDateString() === filterDateObj.toDateString();
+      });
+    }
+    if (appliedFilterNom) {
+      const filterLower = appliedFilterNom.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.nom?.toLowerCase().includes(filterLower)
+      );
+    }
+    if (appliedFilterLevel1) {
+      const filterLower = appliedFilterLevel1.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.level_1?.toLowerCase().includes(filterLower)
+      );
+    }
+    if (appliedFilterLevel2) {
+      const filterLower = appliedFilterLevel2.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.level_2?.toLowerCase().includes(filterLower)
+      );
+    }
+    if (appliedFilterLevel3) {
+      const filterLower = appliedFilterLevel3.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.level_3?.toLowerCase().includes(filterLower)
+      );
+    }
+    // Filtrer par quantité seulement si la valeur est un nombre valide et non vide
+    if (appliedFilterQuantite && appliedFilterQuantite.trim() !== '') {
+      const filterNum = parseFloat(appliedFilterQuantite.trim());
+      if (!isNaN(filterNum) && isFinite(filterNum)) {
+        filtered = filtered.filter(t => t.quantite === filterNum);
+      }
+    }
+    // Filtrer par solde seulement si la valeur est un nombre valide et non vide
+    if (appliedFilterSolde && appliedFilterSolde.trim() !== '') {
+      const filterNum = parseFloat(appliedFilterSolde.trim());
+      if (!isNaN(filterNum) && isFinite(filterNum)) {
+        filtered = filtered.filter(t => t.solde === filterNum);
+      }
+    }
+
+    return filtered;
+  }, [rawTransactions, searchTerm, appliedFilterDate, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
+
+  // Réinitialiser la sélection quand les transactions changent
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const loadedIds = new Set(transactions.map(t => t.id));
+      const newSet = new Set<number>();
+      prev.forEach(id => {
+        if (loadedIds.has(id)) {
+          newSet.add(id);
+        }
+      });
+      return newSet;
+    });
+  }, [transactions]);
+
+  // Debounce pour les filtres texte (attendre 500ms après la dernière frappe)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterNom(filterNom);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterNom]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterLevel1(filterLevel1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterLevel1]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterLevel2(filterLevel2);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterLevel2]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppliedFilterLevel3(filterLevel3);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [filterLevel3]);
+
+  // Pas de debounce pour date (changement immédiat)
+  useEffect(() => {
+    setAppliedFilterDate(filterDate);
+  }, [filterDate]);
+
+  // Pour quantite et solde, on n'applique le filtre que manuellement (pas de debounce automatique)
+  // Le filtre sera appliqué via onBlur ou onKeyDown (Enter)
+  // Cela évite de filtrer pendant la saisie et de tout cacher si aucune transaction ne correspond
+
+  // Charger les valeurs uniques pour les filtres
+  useEffect(() => {
+    const loadUniqueValues = async () => {
+      try {
+        const [noms, level1s, level2s, level3s] = await Promise.all([
+          transactionsAPI.getUniqueValues('nom', startDate || undefined, endDate || undefined),
+          transactionsAPI.getUniqueValues('level_1', startDate || undefined, endDate || undefined),
+          transactionsAPI.getUniqueValues('level_2', startDate || undefined, endDate || undefined),
+          transactionsAPI.getUniqueValues('level_3', startDate || undefined, endDate || undefined),
+        ]);
+        setUniqueNoms(noms.values);
+        setUniqueLevel1s(level1s.values);
+        setUniqueLevel2s(level2s.values);
+        setUniqueLevel3s(level3s.values);
+      } catch (err) {
+        console.error('Error loading unique values:', err);
+      }
+    };
+    loadUniqueValues();
+  }, [startDate, endDate]);
 
   // Recharger quand le terme de recherche change (avec debounce)
   useEffect(() => {
@@ -128,14 +260,110 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  const handleSort = (column: SortColumn) => {
+  const handleSort = useCallback((column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortColumn(column);
       setSortDirection('asc');
     }
-  };
+  }, [sortColumn, sortDirection]);
+
+  // Handlers pour les filtres (mémorisés pour éviter les re-renders)
+  const handleFilterDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterDate(e.target.value);
+  }, []);
+
+  const handleFilterQuantiteChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterQuantite(e.target.value);
+  }, []);
+
+  const handleFilterNomChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterNom(e.target.value);
+  }, []);
+
+  const handleFilterSoldeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterSolde(e.target.value);
+  }, []);
+
+  const handleFilterLevel1Change = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterLevel1(e.target.value);
+  }, []);
+
+  const handleFilterLevel2Change = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterLevel2(e.target.value);
+  }, []);
+
+  const handleFilterLevel3Change = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setFilterLevel3(e.target.value);
+  }, []);
+
+  // Handlers pour appliquer le filtre quantité/solde UNIQUEMENT via Enter (pas de onBlur)
+  const handleFilterQuantiteKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      // Appliquer le filtre seulement si la valeur est valide
+      const value = e.currentTarget.value.trim();
+      if (value === '') {
+        // Si vide, réinitialiser le filtre
+        setFilterQuantite('');
+        setAppliedFilterQuantite('');
+      } else {
+        const num = parseFloat(value);
+        if (!isNaN(num) && isFinite(num)) {
+          setAppliedFilterQuantite(value);
+        }
+      }
+      e.currentTarget.blur(); // Retirer le focus après validation
+    } else if (e.key === 'Escape') {
+      setFilterQuantite('');
+      setAppliedFilterQuantite('');
+      e.currentTarget.blur();
+    }
+  }, []);
+
+  const handleFilterSoldeKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      // Appliquer le filtre seulement si la valeur est valide
+      const value = e.currentTarget.value.trim();
+      if (value === '') {
+        // Si vide, réinitialiser le filtre
+        setFilterSolde('');
+        setAppliedFilterSolde('');
+      } else {
+        const num = parseFloat(value);
+        if (!isNaN(num) && isFinite(num)) {
+          setAppliedFilterSolde(value);
+        }
+      }
+      e.currentTarget.blur(); // Retirer le focus après validation
+    } else if (e.key === 'Escape') {
+      setFilterSolde('');
+      setAppliedFilterSolde('');
+      e.currentTarget.blur();
+    }
+  }, []);
+
+  // Fonction pour réinitialiser tous les filtres
+  const handleClearFilters = useCallback(() => {
+    // Réinitialiser tous les filtres (valeurs affichées)
+    setFilterDate('');
+    setFilterQuantite('');
+    setFilterNom('');
+    setFilterSolde('');
+    setFilterLevel1('');
+    setFilterLevel2('');
+    setFilterLevel3('');
+    
+    // Réinitialiser tous les filtres appliqués
+    setAppliedFilterDate('');
+    setAppliedFilterQuantite('');
+    setAppliedFilterNom('');
+    setAppliedFilterSolde('');
+    setAppliedFilterLevel1('');
+    setAppliedFilterLevel2('');
+    setAppliedFilterLevel3('');
+  }, []);
+
 
   const handleDelete = async (id: number) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) {
@@ -738,18 +966,214 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
                   >
                     Solde {sortColumn === 'solde' && (sortDirection === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#1a1a1a' }}>
-                    Level 1
+                  <th
+                    onClick={() => handleSort('level_1')}
+                    style={{
+                      padding: '12px',
+                      textAlign: 'left',
+                      fontWeight: '600',
+                      color: '#1a1a1a',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
+                    Level 1 {sortColumn === 'level_1' && (sortDirection === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#1a1a1a' }}>
-                    Level 2
+                  <th
+                    onClick={() => handleSort('level_2')}
+                    style={{
+                      padding: '12px',
+                      textAlign: 'left',
+                      fontWeight: '600',
+                      color: '#1a1a1a',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
+                    Level 2 {sortColumn === 'level_2' && (sortDirection === 'asc' ? '↑' : '↓')}
                   </th>
-                  <th style={{ padding: '12px', textAlign: 'left', fontWeight: '600', color: '#1a1a1a' }}>
-                    Level 3
+                  <th
+                    onClick={() => handleSort('level_3')}
+                    style={{
+                      padding: '12px',
+                      textAlign: 'left',
+                      fontWeight: '600',
+                      color: '#1a1a1a',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
+                    Level 3 {sortColumn === 'level_3' && (sortDirection === 'asc' ? '↑' : '↓')}
                   </th>
                   <th style={{ padding: '12px', textAlign: 'center', fontWeight: '600', color: '#1a1a1a' }}>
                     Actions
                   </th>
+                </tr>
+                {/* Ligne de filtres */}
+                <tr key="filter-row" style={{ backgroundColor: '#fafafa', borderBottom: '1px solid #e5e5e5' }}>
+                  <td style={{ padding: '8px', textAlign: 'center' }}></td>
+                  <td style={{ padding: '8px' }}>
+                    <input
+                      type="date"
+                      value={filterDate}
+                      onChange={handleFilterDateChange}
+                      placeholder="Filtrer..."
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <input
+                      type="number"
+                      value={filterQuantite}
+                      onChange={handleFilterQuantiteChange}
+                      onKeyDown={handleFilterQuantiteKeyDown}
+                      placeholder="Filtrer (Entrée pour valider)..."
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={filterNom}
+                        onChange={handleFilterNomChange}
+                        placeholder="Filtrer..."
+                        list={`nom-list-${page}`}
+                        style={{
+                          width: '100%',
+                          padding: '4px 8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <datalist id={`nom-list-${page}`}>
+                        {uniqueNoms.map((nom) => (
+                          <option key={nom} value={nom} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <input
+                      type="number"
+                      value={filterSolde}
+                      onChange={handleFilterSoldeChange}
+                      onKeyDown={handleFilterSoldeKeyDown}
+                      placeholder="Filtrer (Entrée pour valider)..."
+                      style={{
+                        width: '100%',
+                        padding: '4px 8px',
+                        border: '1px solid #ddd',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                      }}
+                    />
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={filterLevel1}
+                        onChange={handleFilterLevel1Change}
+                        placeholder="Filtrer..."
+                        list={`level1-list-${page}`}
+                        style={{
+                          width: '100%',
+                          padding: '4px 8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <datalist id={`level1-list-${page}`}>
+                        {uniqueLevel1s.map((level1) => (
+                          <option key={level1} value={level1} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={filterLevel2}
+                        onChange={handleFilterLevel2Change}
+                        placeholder="Filtrer..."
+                        list={`level2-list-${page}`}
+                        style={{
+                          width: '100%',
+                          padding: '4px 8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <datalist id={`level2-list-${page}`}>
+                        {uniqueLevel2s.map((level2) => (
+                          <option key={level2} value={level2} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </td>
+                  <td style={{ padding: '8px' }}>
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        value={filterLevel3}
+                        onChange={handleFilterLevel3Change}
+                        placeholder="Filtrer..."
+                        list={`level3-list-${page}`}
+                        style={{
+                          width: '100%',
+                          padding: '4px 8px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '12px',
+                        }}
+                      />
+                      <datalist id={`level3-list-${page}`}>
+                        {uniqueLevel3s.map((level3) => (
+                          <option key={level3} value={level3} />
+                        ))}
+                      </datalist>
+                    </div>
+                  </td>
+                  <td style={{ padding: '8px', textAlign: 'center' }}>
+                    <button
+                      onClick={handleClearFilters}
+                      style={{
+                        padding: '6px 12px',
+                        backgroundColor: '#f44336',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: '500',
+                      }}
+                      onMouseOver={(e) => {
+                        e.currentTarget.style.backgroundColor = '#d32f2f';
+                      }}
+                      onMouseOut={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f44336';
+                      }}
+                    >
+                      Clear filters
+                    </button>
+                  </td>
                 </tr>
               </thead>
               <tbody>

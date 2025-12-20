@@ -1471,60 +1471,65 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 3.8.4 : Frontend - TransactionsTable - Tri sur toutes les colonnes
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Rendre toutes les colonnes triables avec indicateur visuel et tri côté serveur.
 
 **Tasks**:
-- [ ] Modifier `frontend/src/components/TransactionsTable.tsx`
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx`
+  - Étendre type `SortColumn` pour inclure `'level_1' | 'level_2' | 'level_3'`
   - Rendre tous les `<th>` cliquables (Date, Quantité, Nom, Solde, Level 1, Level 2, Level 3)
   - Ajouter indicateur visuel (↑/↓) sur la colonne triée
-  - Modifier `handleSort()` pour gérer toutes les colonnes
+  - Modifier `handleSort()` pour gérer toutes les colonnes (déjà fonctionnel)
   - Changer le tri pour utiliser l'API (côté serveur) au lieu du tri côté client
   - Passer `sortBy` et `sortDirection` à `transactionsAPI.getAll()`
-- [ ] Ajouter état pour colonne triée et direction
-- [ ] **Tester le tri sur chaque colonne**
+  - Supprimer le tri côté client (lignes 67-95)
+- [x] **Tester le tri sur chaque colonne**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/TransactionsTable.tsx` - Tri sur toutes les colonnes
 
 **Acceptance Criteria**:
-- [ ] Toutes les colonnes sont triables (cliquables)
-- [ ] Indicateur visuel (↑/↓) affiché sur colonne triée
-- [ ] Tri fonctionne côté serveur (toutes les données)
-- [ ] Tri alternant asc/desc au clic
-- [ ] **Utilisateur confirme que le tri fonctionne**
+- [x] Toutes les colonnes sont triables (cliquables)
+- [x] Indicateur visuel (↑/↓) affiché sur colonne triée
+- [x] Tri fonctionne côté serveur (toutes les données)
+- [x] Tri alternant asc/desc au clic
+- [x] **Utilisateur confirme que le tri fonctionne**
 
 ---
 
 #### Step 3.8.5 : Frontend - TransactionsTable - Ligne de filtres auto
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter une ligne de filtres sous les en-têtes avec champs texte et dropdowns de valeurs uniques (comme Excel).
 
 **Tasks**:
-- [ ] Modifier `frontend/src/components/TransactionsTable.tsx`
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx`
   - Ajouter ligne `<tr>` sous `<thead>` avec champs de filtre
   - Un champ par colonne filtrable (Date, Quantité, Nom, Solde, Level 1, Level 2, Level 3)
-  - Chaque champ : input texte + dropdown avec valeurs uniques
+  - Chaque champ : input texte + dropdown avec valeurs uniques (`<datalist>`)
   - Charger valeurs uniques via `transactionsAPI.getUniqueValues()` au montage
-  - Implémenter filtrage en temps réel (insensible à la casse, contient)
+  - Implémenter filtrage avec debounce (500ms pour texte, manuel pour quantité/solde)
   - Filtres combinables (AND entre colonnes)
-  - Appliquer filtres côté serveur (modifier `transactionsAPI.getAll()` avec paramètres de filtre)
-- [ ] Ajouter état pour chaque filtre
-- [ ] Style similaire au filtre date existant
-- [ ] **Tester le filtrage en temps réel**
+  - Filtrage local avec `useMemo` (évite re-renders et préserve le focus)
+  - Bouton "Clear filters" pour réinitialiser tous les filtres
+- [x] Ajouter état pour chaque filtre (valeurs affichées + valeurs appliquées)
+- [x] Style similaire au filtre date existant
+- [x] **Tester le filtrage en temps réel**
 
 **Deliverables**:
-- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Ligne de filtres
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Ligne de filtres avec debounce et filtrage local
 
 **Acceptance Criteria**:
-- [ ] Ligne de filtres visible sous les en-têtes
-- [ ] Champs texte fonctionnent (filtrage en temps réel)
-- [ ] Dropdowns avec valeurs uniques fonctionnent
-- [ ] Filtrage insensible à la casse
-- [ ] Filtrage "contient" (partiel)
-- [ ] Filtres combinables (AND)
-- [ ] Filtres appliqués côté serveur (toutes les données)
-- [ ] **Utilisateur confirme que les filtres fonctionnent**
+- [x] Ligne de filtres visible sous les en-têtes
+- [x] Champs texte fonctionnent (filtrage avec debounce 500ms)
+- [x] Dropdowns avec valeurs uniques fonctionnent (`<datalist>`)
+- [x] Filtrage insensible à la casse
+- [x] Filtrage "contient" (partiel)
+- [x] Filtres combinables (AND)
+- [x] Filtrage local (côté client) - Step 3.8.8 pour côté serveur
+- [x] Bouton "Clear filters" pour réinitialiser
+- [x] Focus préservé pendant la saisie (grâce à `useMemo` et `useCallback`)
+- [x] Quantité/Solde : filtre manuel via Enter (pas automatique)
+- [x] **Utilisateur confirme que les filtres fonctionnent**
 
 ---
 
