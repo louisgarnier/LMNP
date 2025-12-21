@@ -11,7 +11,7 @@ interface MappingTableProps {
 }
 
 export interface MappingTableRef {
-  loadMappings: () => Promise<void>;
+  loadMappings: (resetPage?: boolean) => Promise<void>;
 }
 
 const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMappingChange }, ref) => {
@@ -58,12 +58,19 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     priority: 0,
   });
 
-  const loadMappings = async () => {
+  const loadMappings = async (resetPage: boolean = false) => {
+    // Si resetPage est true, réinitialiser la page à 1
+    if (resetPage) {
+      setPage(1);
+    }
+    
     setLoading(true);
     setError(null);
     try {
+      // Utiliser la page actuelle (ou 1 si resetPage)
+      const currentPage = resetPage ? 1 : page;
       const response = await mappingsAPI.list(
-        (page - 1) * pageSize,
+        (currentPage - 1) * pageSize,
         pageSize,
         search || undefined,
         sortColumn,

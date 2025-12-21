@@ -94,8 +94,9 @@ export default function TransactionsPage() {
             onDelete={handleImportComplete} 
             onUpdate={() => {
               // Rafraîchir MappingTable après mise à jour d'une transaction
+              // Réinitialiser la page à 1 pour voir le nouveau mapping s'il correspond aux filtres
               if (mappingTableRef.current) {
-                mappingTableRef.current.loadMappings();
+                mappingTableRef.current.loadMappings(true);
               }
             }}
           />
@@ -106,8 +107,9 @@ export default function TransactionsPage() {
             onDelete={handleImportComplete}
             onUpdate={() => {
               // Rafraîchir MappingTable après mise à jour d'une transaction
+              // Réinitialiser la page à 1 pour voir le nouveau mapping s'il correspond aux filtres
               if (mappingTableRef.current) {
-                mappingTableRef.current.loadMappings();
+                mappingTableRef.current.loadMappings(true);
               }
             }}
           />

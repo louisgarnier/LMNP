@@ -1016,17 +1016,19 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Appeler ce callback après succès de `handleSaveClassification` dans `TransactionsTable`
 - [x] Dans `page.tsx`, passer callback qui rafraîchit `MappingTable` (via `useRef` + méthode `loadMappings` ou prop `onMappingChange`)
 - [x] Convertir `MappingTable` en composant avec `forwardRef` et `useImperativeHandle` pour exposer `loadMappings()`
-- [x] **Tester : update transaction → vérifier que Mapping se rafraîchit**
+- [x] Ajouter paramètre `resetPage` à `loadMappings()` pour réinitialiser la page à 1 lors du rafraîchissement automatique
+- [x] **Tester : update transaction → vérifier que Mapping se rafraîchit et revient à la page 1**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/TransactionsTable.tsx` - Ajout callback `onUpdate`
 - Mise à jour `frontend/src/components/UnclassifiedTransactionsTable.tsx` - Propagation callback
-- Mise à jour `frontend/src/components/MappingTable.tsx` - forwardRef + useImperativeHandle
-- Mise à jour `frontend/app/dashboard/transactions/page.tsx` - Rafraîchissement MappingTable via ref
+- Mise à jour `frontend/src/components/MappingTable.tsx` - forwardRef + useImperativeHandle + paramètre resetPage
+- Mise à jour `frontend/app/dashboard/transactions/page.tsx` - Rafraîchissement MappingTable via ref avec resetPage=true
 
 **Acceptance Criteria**:
 - [x] Après update d'une transaction, l'onglet Mapping se rafraîchit automatiquement
 - [x] Le nouveau mapping créé apparaît dans l'onglet Mapping
+- [x] Si un filtre est actif, le nouveau mapping apparaît sur la page 1 (resetPage=true)
 - [x] **Utilisateur confirme que le rafraîchissement fonctionne**
 
 ---
@@ -1077,6 +1079,46 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [ ] Affiche "Page 1 sur 1 (X transactions)"
 - [ ] Contrôles de pagination visibles (boutons désactivés si nécessaire)
 - [ ] **Utilisateur confirme que la pagination est toujours visible**
+
+---
+
+#### Step 3.5.4 : Correction filtres - Filtrage côté serveur au lieu de côté client
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Actuellement, les filtres sont appliqués côté client sur les données déjà chargées (ex: 50 mappings de la page 1), donc seules ces 50 sont filtrées, pas toutes les mappings de la base. Il faut passer les filtres à l'API pour filtrer sur TOUTES les données de la base, puis paginer les résultats filtrés.
+
+**Problème identifié** :
+- Exemple : Filtrer "prl" dans Nom avec pageSize=25 → 3 résultats
+- Changer pageSize à 200 → 24 résultats
+- Le filtre ne s'applique que sur les données déjà chargées, pas sur toutes les données de la base
+
+**Tasks Backend**:
+- [x] Les paramètres de filtre sont déjà implémentés dans Step 3.8.8 (`filter_nom`, `filter_level_1`, `filter_level_2`, `filter_level_3`)
+
+**Tasks Frontend**:
+- [ ] Modifier `frontend/src/api/client.ts` :
+  - Ajouter paramètres de filtre à `mappingsAPI.list()` : `filterNom`, `filterLevel1`, `filterLevel2`, `filterLevel3`
+  - Ajouter paramètres de filtre à `transactionsAPI.getAll()` : `filterNom`, `filterLevel1`, `filterLevel2`, `filterLevel3`, `filterQuantiteMin`, `filterQuantiteMax`, `filterSoldeMin`, `filterSoldeMax`
+- [ ] Modifier `frontend/src/components/MappingTable.tsx` :
+  - Passer les filtres (`appliedFilterNom`, `appliedFilterLevel1`, etc.) à `mappingsAPI.list()` dans `loadMappings()`
+  - Supprimer le filtrage local (`useMemo` avec filtres) - l'API fait déjà le filtrage
+  - Réinitialiser la page à 1 quand les filtres changent (via `useEffect` sur `appliedFilter*`)
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Passer les filtres à `transactionsAPI.getAll()` dans `loadTransactions()`
+  - Supprimer le filtrage local - l'API fait déjà le filtrage
+  - Réinitialiser la page à 1 quand les filtres changent
+- [ ] **Tester : filtre sur toutes les données, pas juste la page actuelle**
+
+**Deliverables**:
+- Mise à jour `frontend/src/api/client.ts` - Paramètres de filtre dans API client
+- Mise à jour `frontend/src/components/MappingTable.tsx` - Filtrage côté serveur
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Filtrage côté serveur
+
+**Acceptance Criteria**:
+- [ ] Les filtres s'appliquent sur TOUTES les données de la base, pas juste la page actuelle
+- [ ] Changer pageSize affiche toujours le même nombre total de résultats filtrés
+- [ ] La pagination fonctionne correctement sur les résultats filtrés
+- [ ] Le total (`total`) reflète le nombre total de résultats filtrés, pas le total non filtré
+- [ ] **Utilisateur confirme que les filtres fonctionnent sur toutes les données**
 
 ---
 
