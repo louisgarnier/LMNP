@@ -970,32 +970,113 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 3.5 : Onglet Non classées
-**Status**: ⏸️ EN ATTENTE  
+**Status**: 🔄 EN COURS (Améliorations)  
 **Description**: Créer l'onglet "Non classées" pour afficher et éditer les transactions sans classifications.
 
 **Objectif** : Faciliter le travail sur les transactions non mappées. Frontend, testable.
 
 **Tasks**:
-- [ ] Créer `frontend/src/components/UnclassifiedTransactionsTable.tsx`
-- [ ] Ajouter sous-onglet "Non classées" dans `frontend/app/dashboard/transactions/page.tsx`
-- [ ] Filtrer uniquement les transactions avec level_1/2/3 = NULL
-- [ ] Permettre édition des classifications depuis cet onglet (avec dropdowns intelligents)
-- [ ] **Tester l'interface et valider avec l'utilisateur**
+- [x] Créer `frontend/src/components/UnclassifiedTransactionsTable.tsx`
+- [x] Ajouter sous-onglet "Non classées" dans `frontend/app/dashboard/transactions/page.tsx`
+- [x] Filtrer uniquement les transactions avec level_1/2/3 = NULL
+- [x] Permettre édition des classifications depuis cet onglet (avec dropdowns intelligents)
+- [ ] **Amélioration 3.5.1** : Rafraîchissement automatique de l'onglet Mapping après mise à jour
+- [ ] **Amélioration 3.5.2** : Filtre "à remplir" dans Toutes les transactions
+- [ ] **Amélioration 3.5.3** : Pagination toujours visible dans onglet Non classées
 
 **Deliverables**:
 - `frontend/src/components/UnclassifiedTransactionsTable.tsx` - Composant transactions non classées
 - Mise à jour `frontend/app/dashboard/transactions/page.tsx` - Ajout onglet Non classées
 
 **Tests**:
-- [ ] Affichage uniquement transactions avec level_1/2/3 = NULL
-- [ ] Édition depuis cet onglet fonctionne
-- [ ] Transactions disparaissent de l'onglet après classification
+- [x] Affichage uniquement transactions avec level_1/2/3 = NULL
+- [x] Édition depuis cet onglet fonctionne
+- [x] Transactions disparaissent de l'onglet après classification
+- [ ] **Test 3.5.1** : Mapping se rafraîchit automatiquement après update transaction
+- [ ] **Test 3.5.2** : Filtre "à remplir" affiche transactions NULL
+- [ ] **Test 3.5.3** : Pagination visible même avec 1 page
 
 **Acceptance Criteria**:
-- [ ] Onglet "Non classées" fonctionne
-- [ ] Affichage correct des transactions non classées
-- [ ] Édition fonctionne depuis cet onglet
-- [ ] **Utilisateur confirme que l'onglet est utile**
+- [x] Onglet "Non classées" fonctionne
+- [x] Affichage correct des transactions non classées
+- [x] Édition fonctionne depuis cet onglet
+- [ ] **Amélioration 3.5.1** : Onglet Mapping se rafraîchit après update transaction
+- [ ] **Amélioration 3.5.2** : Filtre "à remplir" fonctionne (affiche transactions NULL)
+- [ ] **Amélioration 3.5.3** : Pagination toujours visible avec "Page X sur Y (total transactions)"
+- [ ] **Utilisateur confirme que toutes les améliorations fonctionnent**
+
+---
+
+#### Step 3.5.1 : Rafraîchissement automatique Mapping après update transaction
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Lorsqu'une transaction est mise à jour (level_1/2/3) depuis l'onglet "Non classées" ou "Toutes les transactions", l'onglet "Mapping" doit se rafraîchir automatiquement pour afficher le nouveau mapping créé.
+
+**Tasks**:
+- [x] Ajouter prop `onUpdate` ou `onMappingChange` à `TransactionsTable` et `UnclassifiedTransactionsTable`
+- [x] Appeler ce callback après succès de `handleSaveClassification` dans `TransactionsTable`
+- [x] Dans `page.tsx`, passer callback qui rafraîchit `MappingTable` (via `useRef` + méthode `loadMappings` ou prop `onMappingChange`)
+- [x] Convertir `MappingTable` en composant avec `forwardRef` et `useImperativeHandle` pour exposer `loadMappings()`
+- [x] **Tester : update transaction → vérifier que Mapping se rafraîchit**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Ajout callback `onUpdate`
+- Mise à jour `frontend/src/components/UnclassifiedTransactionsTable.tsx` - Propagation callback
+- Mise à jour `frontend/src/components/MappingTable.tsx` - forwardRef + useImperativeHandle
+- Mise à jour `frontend/app/dashboard/transactions/page.tsx` - Rafraîchissement MappingTable via ref
+
+**Acceptance Criteria**:
+- [x] Après update d'une transaction, l'onglet Mapping se rafraîchit automatiquement
+- [x] Le nouveau mapping créé apparaît dans l'onglet Mapping
+- [x] **Utilisateur confirme que le rafraîchissement fonctionne**
+
+---
+
+#### Step 3.5.2 : Filtre "à remplir" dans Toutes les transactions
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Permettre de filtrer les transactions avec level_1/2/3 = NULL en tapant "à remplir" dans les filtres.
+
+**Tasks Backend**:
+- [ ] Modifier `backend/api/routes/transactions.py` :
+  - Détecter si `filter_level_1/2/3` contient "à remplir" (insensible à la casse)
+  - Si oui, filtrer sur `level_1/2/3 IS NULL` au lieu de `LIKE '%à remplir%'`
+- [ ] Modifier `backend/api/routes/mappings.py` :
+  - Même logique pour les filtres level_1/2/3
+- [ ] **Tester : filtre "à remplir" → affiche transactions NULL**
+
+**Tasks Frontend**:
+- [ ] Aucun changement nécessaire (le filtre texte est déjà en place)
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/transactions.py` - Détection "à remplir" → filtre NULL
+- Mise à jour `backend/api/routes/mappings.py` - Détection "à remplir" → filtre NULL
+
+**Acceptance Criteria**:
+- [ ] Taper "à remplir" dans filtre level_1/2/3 affiche uniquement transactions NULL
+- [ ] Filtre insensible à la casse ("à remplir", "À REMPLIR", etc.)
+- [ ] Fonctionne pour level_1, level_2, level_3
+- [ ] **Utilisateur confirme que le filtre fonctionne**
+
+---
+
+#### Step 3.5.3 : Pagination toujours visible dans onglet Non classées
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Afficher la pagination même s'il n'y a qu'une seule page, avec "Page 1 sur 1 (X transactions)" et tous les contrôles.
+
+**Tasks**:
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Changer condition `{totalPages > 1 && (` en `{totalPages >= 1 && (` ou simplement toujours afficher
+  - Afficher "Page X sur Y (total transactions)" même si Y = 1
+  - Afficher contrôles de pagination même si une seule page (boutons désactivés si nécessaire)
+- [ ] **Tester : pagination visible même avec 1 page**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Pagination toujours visible
+
+**Acceptance Criteria**:
+- [ ] Pagination visible même avec 1 page
+- [ ] Affiche "Page 1 sur 1 (X transactions)"
+- [ ] Contrôles de pagination visibles (boutons désactivés si nécessaire)
+- [ ] **Utilisateur confirme que la pagination est toujours visible**
 
 ---
 

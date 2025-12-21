@@ -55,6 +55,7 @@ async def get_transactions(
     filter_quantite_max: Optional[float] = Query(None, description="Filtre quantité maximum"),
     filter_solde_min: Optional[float] = Query(None, description="Filtre solde minimum"),
     filter_solde_max: Optional[float] = Query(None, description="Filtre solde maximum"),
+    unclassified_only: Optional[bool] = Query(None, description="Filtrer uniquement les transactions non classées (level_1/2/3 = NULL)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -81,13 +82,26 @@ async def get_transactions(
     # Déterminer si on doit joindre avec EnrichedTransaction
     needs_join = (
         (sort_by and sort_by in ["level_1", "level_2", "level_3"]) or
-        filter_level_1 or filter_level_2 or filter_level_3
+        filter_level_1 or filter_level_2 or filter_level_3 or
+        unclassified_only
     )
     
     if needs_join:
         query = base_query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
     else:
         query = base_query
+    
+    # Filtre pour transactions non classées (level_1/2/3 = NULL)
+    if unclassified_only:
+        if not needs_join:
+            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+        # Filtrer les transactions où level_1 est NULL (ou EnrichedTransaction n'existe pas)
+        query = query.filter(
+            or_(
+                EnrichedTransaction.level_1.is_(None),
+                EnrichedTransaction.transaction_id.is_(None)
+            )
+        )
     
     # Filtres par date
     if start_date:

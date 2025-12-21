@@ -137,7 +137,8 @@ export const transactionsAPI = {
     startDate?: string,
     endDate?: string,
     sortBy?: string,
-    sortDirection?: 'asc' | 'desc'
+    sortDirection?: 'asc' | 'desc',
+    unclassifiedOnly?: boolean
   ): Promise<TransactionListResponse> => {
     const params = new URLSearchParams({
       skip: skip.toString(),
@@ -147,7 +148,7 @@ export const transactionsAPI = {
     if (endDate) params.append('end_date', endDate);
     if (sortBy) params.append('sort_by', sortBy);
     if (sortDirection) params.append('sort_direction', sortDirection);
-    
+    if (unclassifiedOnly) params.append('unclassified_only', 'true');
     return fetchAPI<TransactionListResponse>(`/api/transactions?${params}`);
   },
 

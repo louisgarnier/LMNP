@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { mappingsAPI, Mapping, MappingCreate, MappingUpdate } from '../api/client';
 
 type SortColumn = 'id' | 'nom' | 'level_1' | 'level_2' | 'level_3';
@@ -10,7 +10,11 @@ interface MappingTableProps {
   onMappingChange?: () => void;
 }
 
-export default function MappingTable({ onMappingChange }: MappingTableProps) {
+export interface MappingTableRef {
+  loadMappings: () => Promise<void>;
+}
+
+const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMappingChange }, ref) => {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -1065,5 +1069,9 @@ export default function MappingTable({ onMappingChange }: MappingTableProps) {
       )}
     </div>
   );
-}
+});
+
+MappingTable.displayName = 'MappingTable';
+
+export default MappingTable;
 

@@ -7,11 +7,12 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import FileUpload from '@/components/FileUpload';
 import ImportLog from '@/components/ImportLog';
 import TransactionsTable from '@/components/TransactionsTable';
-import MappingTable from '@/components/MappingTable';
+import UnclassifiedTransactionsTable from '@/components/UnclassifiedTransactionsTable';
+import MappingTable, { MappingTableRef } from '@/components/MappingTable';
 import MappingFileUpload from '@/components/MappingFileUpload';
 import MappingImportLog from '@/components/MappingImportLog';
 import { transactionsAPI, mappingsAPI, fileUploadAPI } from '@/api/client';
@@ -26,6 +27,7 @@ export default function TransactionsPage() {
   const [mappingCount, setMappingCount] = useState<number | null>(null);
   const [isLoadingMappingCount, setIsLoadingMappingCount] = useState(false);
   const { clearLogs } = useImportLog();
+  const mappingTableRef = useRef<MappingTableRef>(null);
 
   const loadTransactionCount = async () => {
     setIsLoadingCount(true);
@@ -88,15 +90,27 @@ export default function TransactionsPage() {
         minHeight: '400px'
       }}>
         {(!filter && !tab) && (
-          <TransactionsTable onDelete={handleImportComplete} />
+          <TransactionsTable 
+            onDelete={handleImportComplete} 
+            onUpdate={() => {
+              // Rafraîchir MappingTable après mise à jour d'une transaction
+              if (mappingTableRef.current) {
+                mappingTableRef.current.loadMappings();
+              }
+            }}
+          />
         )}
 
         {filter === 'unclassified' && (
-          <div>
-            <p style={{ fontSize: '14px', color: '#666' }}>
-              Les transactions non classées seront affichées ici (à implémenter après enrichissement).
-            </p>
-          </div>
+          <UnclassifiedTransactionsTable 
+            onDelete={handleImportComplete}
+            onUpdate={() => {
+              // Rafraîchir MappingTable après mise à jour d'une transaction
+              if (mappingTableRef.current) {
+                mappingTableRef.current.loadMappings();
+              }
+            }}
+          />
         )}
 
         {filter === 'to_validate' && (
@@ -321,7 +335,7 @@ export default function TransactionsPage() {
 
         {tab === 'mapping' && (
           <div>
-            <MappingTable onMappingChange={handleImportComplete} />
+            <MappingTable ref={mappingTableRef} onMappingChange={handleImportComplete} />
           </div>
         )}
       </div>

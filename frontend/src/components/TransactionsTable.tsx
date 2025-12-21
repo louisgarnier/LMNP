@@ -11,12 +11,14 @@ import { transactionsAPI, Transaction, TransactionUpdate, enrichmentAPI, mapping
 
 interface TransactionsTableProps {
   onDelete?: () => void;
+  unclassifiedOnly?: boolean; // Si true, affiche uniquement les transactions non classées
+  onUpdate?: () => void; // Callback appelé après mise à jour d'une transaction (pour rafraîchir Mapping)
 }
 
 type SortColumn = 'date' | 'quantite' | 'nom' | 'solde' | 'level_1' | 'level_2' | 'level_3';
 type SortDirection = 'asc' | 'desc';
 
-export default function TransactionsTable({ onDelete }: TransactionsTableProps) {
+export default function TransactionsTable({ onDelete, unclassifiedOnly = false, onUpdate }: TransactionsTableProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -80,7 +82,8 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
         startDate || undefined,
         endDate || undefined,
         sortColumn, // Passer le tri à l'API
-        sortDirection
+        sortDirection,
+        unclassifiedOnly // Passer le filtre non classées
       );
       
       // Filtrer par terme de recherche si présent (côté client car pas encore implémenté côté serveur)
@@ -736,6 +739,10 @@ export default function TransactionsTable({ onDelete }: TransactionsTableProps) 
       setAvailableLevel2([]);
       setAvailableLevel3([]);
       await loadTransactions();
+      // Appeler le callback pour rafraîchir Mapping
+      if (onUpdate) {
+        onUpdate();
+      }
     } catch (err: any) {
       console.error('Error updating classification:', err);
       alert(`Erreur lors de la modification: ${err.message || 'Erreur inconnue'}`);
