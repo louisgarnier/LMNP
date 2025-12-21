@@ -6,7 +6,7 @@ API routes for transactions.
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, and_, desc, asc
+from sqlalchemy import or_, and_, desc, asc, func
 from typing import List, Optional
 from datetime import date, datetime
 import os
@@ -47,6 +47,14 @@ async def get_transactions(
     end_date: Optional[date] = Query(None, description="Date de fin (filtre)"),
     sort_by: Optional[str] = Query(None, description="Colonne de tri (date, quantite, nom, solde, level_1, level_2, level_3)"),
     sort_direction: Optional[str] = Query("desc", description="Direction du tri (asc, desc)"),
+    filter_nom: Optional[str] = Query(None, description="Filtre sur le nom (contient, insensible à la casse)"),
+    filter_level_1: Optional[str] = Query(None, description="Filtre sur level_1 (contient, insensible à la casse)"),
+    filter_level_2: Optional[str] = Query(None, description="Filtre sur level_2 (contient, insensible à la casse)"),
+    filter_level_3: Optional[str] = Query(None, description="Filtre sur level_3 (contient, insensible à la casse)"),
+    filter_quantite_min: Optional[float] = Query(None, description="Filtre quantité minimum"),
+    filter_quantite_max: Optional[float] = Query(None, description="Filtre quantité maximum"),
+    filter_solde_min: Optional[float] = Query(None, description="Filtre solde minimum"),
+    filter_solde_max: Optional[float] = Query(None, description="Filtre solde maximum"),
     db: Session = Depends(get_db)
 ):
     """
@@ -58,23 +66,65 @@ async def get_transactions(
     - **end_date**: Filtrer par date de fin (optionnel)
     - **sort_by**: Colonne de tri (date, quantite, nom, solde, level_1, level_2, level_3)
     - **sort_direction**: Direction du tri (asc, desc)
+    - **filter_nom**: Filtrer par nom (contient, insensible à la casse)
+    - **filter_level_1**: Filtrer par level_1 (contient, insensible à la casse)
+    - **filter_level_2**: Filtrer par level_2 (contient, insensible à la casse)
+    - **filter_level_3**: Filtrer par level_3 (contient, insensible à la casse)
+    - **filter_quantite_min**: Filtrer par quantité minimum
+    - **filter_quantite_max**: Filtrer par quantité maximum
+    - **filter_solde_min**: Filtrer par solde minimum
+    - **filter_solde_max**: Filtrer par solde maximum
     """
-    # Base query - on va joindre avec EnrichedTransaction si nécessaire pour le tri
+    # Base query - on va joindre avec EnrichedTransaction si nécessaire pour le tri ou les filtres
     base_query = db.query(Transaction)
     
-    # Déterminer si on doit joindre avec EnrichedTransaction pour le tri
-    needs_join = sort_by and sort_by in ["level_1", "level_2", "level_3"]
+    # Déterminer si on doit joindre avec EnrichedTransaction
+    needs_join = (
+        (sort_by and sort_by in ["level_1", "level_2", "level_3"]) or
+        filter_level_1 or filter_level_2 or filter_level_3
+    )
     
     if needs_join:
         query = base_query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
     else:
         query = base_query
     
-    # Filtres optionnels
+    # Filtres par date
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:
         query = query.filter(Transaction.date <= end_date)
+    
+    # Filtres texte (contient, insensible à la casse)
+    if filter_nom:
+        query = query.filter(func.lower(Transaction.nom).contains(func.lower(filter_nom)))
+    
+    if filter_level_1:
+        if not needs_join:
+            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+        query = query.filter(func.lower(EnrichedTransaction.level_1).contains(func.lower(filter_level_1)))
+    
+    if filter_level_2:
+        if not needs_join:
+            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+        query = query.filter(func.lower(EnrichedTransaction.level_2).contains(func.lower(filter_level_2)))
+    
+    if filter_level_3:
+        if not needs_join:
+            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+        query = query.filter(func.lower(EnrichedTransaction.level_3).contains(func.lower(filter_level_3)))
+    
+    # Filtres numériques (quantité)
+    if filter_quantite_min is not None:
+        query = query.filter(Transaction.quantite >= filter_quantite_min)
+    if filter_quantite_max is not None:
+        query = query.filter(Transaction.quantite <= filter_quantite_max)
+    
+    # Filtres numériques (solde)
+    if filter_solde_min is not None:
+        query = query.filter(Transaction.solde >= filter_solde_min)
+    if filter_solde_max is not None:
+        query = query.filter(Transaction.solde <= filter_solde_max)
     
     # Compter le total (avant tri)
     total = query.count()

@@ -6,7 +6,7 @@ API routes for mappings.
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import distinct, desc, asc
+from sqlalchemy import distinct, desc, asc, func
 from typing import List, Optional, Dict
 import pandas as pd
 import io
@@ -474,6 +474,10 @@ async def get_mappings(
     search: Optional[str] = Query(None, description="Recherche dans le nom"),
     sort_by: Optional[str] = Query(None, description="Colonne de tri (id, nom, level_1, level_2, level_3)"),
     sort_direction: Optional[str] = Query("asc", description="Direction du tri (asc, desc)"),
+    filter_nom: Optional[str] = Query(None, description="Filtre sur le nom (contient, insensible à la casse)"),
+    filter_level_1: Optional[str] = Query(None, description="Filtre sur level_1 (contient, insensible à la casse)"),
+    filter_level_2: Optional[str] = Query(None, description="Filtre sur level_2 (contient, insensible à la casse)"),
+    filter_level_3: Optional[str] = Query(None, description="Filtre sur level_3 (contient, insensible à la casse)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -485,6 +489,10 @@ async def get_mappings(
         search: Terme de recherche dans le nom
         sort_by: Colonne de tri (id, nom, level_1, level_2, level_3)
         sort_direction: Direction du tri (asc, desc)
+        filter_nom: Filtrer par nom (contient, insensible à la casse)
+        filter_level_1: Filtrer par level_1 (contient, insensible à la casse)
+        filter_level_2: Filtrer par level_2 (contient, insensible à la casse)
+        filter_level_3: Filtrer par level_3 (contient, insensible à la casse)
         db: Session de base de données
     
     Returns:
@@ -492,9 +500,22 @@ async def get_mappings(
     """
     query = db.query(Mapping)
     
-    # Filtre de recherche
+    # Filtre de recherche (legacy, pour compatibilité)
     if search:
         query = query.filter(Mapping.nom.contains(search))
+    
+    # Filtres texte (contient, insensible à la casse)
+    if filter_nom:
+        query = query.filter(func.lower(Mapping.nom).contains(func.lower(filter_nom)))
+    
+    if filter_level_1:
+        query = query.filter(func.lower(Mapping.level_1).contains(func.lower(filter_level_1)))
+    
+    if filter_level_2:
+        query = query.filter(func.lower(Mapping.level_2).contains(func.lower(filter_level_2)))
+    
+    if filter_level_3:
+        query = query.filter(func.lower(Mapping.level_3).contains(func.lower(filter_level_3)))
     
     # Comptage total (avant tri)
     total = query.count()
