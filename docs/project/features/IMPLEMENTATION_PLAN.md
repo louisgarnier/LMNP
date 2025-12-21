@@ -1606,29 +1606,31 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 3.8.8 : Backend - Ajouter paramètres de filtre aux endpoints
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter les paramètres de filtre aux endpoints GET pour supporter le filtrage côté serveur.
 
 **Tasks**:
-- [ ] Modifier endpoint `GET /api/transactions` dans `backend/api/routes/transactions.py`
+- [x] Modifier endpoint `GET /api/transactions` dans `backend/api/routes/transactions.py`
   - Ajouter paramètres de filtre optionnels : `filter_nom`, `filter_level_1`, `filter_level_2`, `filter_level_3`, `filter_quantite_min`, `filter_quantite_max`, `filter_solde_min`, `filter_solde_max`
-  - Implémenter filtrage SQLAlchemy (LIKE pour texte, BETWEEN pour nombres)
+  - Implémenter filtrage SQLAlchemy (LIKE pour texte avec `func.lower()`, >= et <= pour nombres)
   - Filtrage insensible à la casse pour texte
-- [ ] Modifier endpoint `GET /api/mappings` dans `backend/api/routes/mappings.py`
+  - Gestion des jointures avec `EnrichedTransaction` pour les filtres level_1/2/3
+- [x] Modifier endpoint `GET /api/mappings` dans `backend/api/routes/mappings.py`
   - Ajouter paramètres de filtre optionnels : `filter_nom`, `filter_level_1`, `filter_level_2`, `filter_level_3`
-  - Implémenter filtrage SQLAlchemy (LIKE, insensible à la casse)
-- [ ] **Tester les filtres avec différents paramètres**
+  - Implémenter filtrage SQLAlchemy (LIKE avec `func.lower()`, insensible à la casse)
+- [x] **Tester les filtres avec différents paramètres**
 
 **Deliverables**:
 - Mise à jour `backend/api/routes/transactions.py` - Paramètres de filtre
 - Mise à jour `backend/api/routes/mappings.py` - Paramètres de filtre
 
 **Acceptance Criteria**:
-- [ ] Filtres texte fonctionnent (contient, insensible à la casse)
-- [ ] Filtres numériques fonctionnent (min/max)
-- [ ] Filtres combinables (AND)
-- [ ] Filtres combinés avec tri et pagination fonctionnent
-- [ ] Tests passent
+- [x] Filtres texte fonctionnent (contient, insensible à la casse) avec `func.lower()` et `contains()`
+- [x] Filtres numériques fonctionnent (min/max pour quantité et solde) avec `>=` et `<=`
+- [x] Filtres combinables (AND) - tous les filtres sont appliqués simultanément
+- [x] Filtres compatibles avec tri et pagination - filtres appliqués avant tri et comptage
+- [x] Gestion correcte des jointures pour les filtres level_1/2/3 dans transactions
+- [x] **Utilisateur confirme que les filtres fonctionnent**
 
 ---
 
