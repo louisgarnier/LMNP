@@ -26,9 +26,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [pageSize, setPageSize] = useState(50);
   const [sortColumn, setSortColumn] = useState<SortColumn>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingValues, setEditingValues] = useState<{ date?: string; nom?: string; quantite?: number }>({});
@@ -84,8 +81,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       const response = await transactionsAPI.getAll(
         skip,
         pageSize,
-        startDate || undefined,
-        endDate || undefined,
+        undefined, // startDate (supprimé)
+        undefined, // endDate (supprimé)
         sortColumn, // Passer le tri à l'API
         sortDirection,
         unclassifiedOnly, // Passer le filtre non classées
@@ -120,7 +117,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   // Recharger depuis l'API quand page, tri, date range ou filtres changent
   useEffect(() => {
     loadTransactions();
-  }, [page, pageSize, sortColumn, sortDirection, startDate, endDate, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
+  }, [page, pageSize, sortColumn, sortDirection, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
 
   // L'API fait déjà le filtrage pour les filtres texte (nom, level_1/2/3)
   // On doit encore filtrer localement pour date, quantité et solde (non supportés côté serveur)
@@ -217,10 +214,10 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     const loadUniqueValues = async () => {
       try {
         const [noms, level1s, level2s, level3s] = await Promise.all([
-          transactionsAPI.getUniqueValues('nom', startDate || undefined, endDate || undefined),
-          transactionsAPI.getUniqueValues('level_1', startDate || undefined, endDate || undefined),
-          transactionsAPI.getUniqueValues('level_2', startDate || undefined, endDate || undefined),
-          transactionsAPI.getUniqueValues('level_3', startDate || undefined, endDate || undefined),
+          transactionsAPI.getUniqueValues('nom'),
+          transactionsAPI.getUniqueValues('level_1'),
+          transactionsAPI.getUniqueValues('level_2'),
+          transactionsAPI.getUniqueValues('level_3'),
         ]);
         setUniqueNoms(noms.values);
         setUniqueLevel1s(level1s.values);
@@ -231,15 +228,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       }
     };
     loadUniqueValues();
-  }, [startDate, endDate]);
-
-  // Recharger quand le terme de recherche change (avec debounce)
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadTransactions();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm]);
+  }, []);
 
   const handleSort = useCallback((column: SortColumn) => {
     if (sortColumn === column) {
@@ -732,92 +721,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
 
   return (
     <div>
-      {/* Filtres et recherche */}
-      <div style={{ 
-        marginBottom: '24px', 
-        padding: '16px', 
-        backgroundColor: '#f5f5f5', 
-        borderRadius: '8px',
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: '12px',
-        alignItems: 'flex-end'
-      }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
-          <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-            Recherche par nom
-          </label>
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher une transaction..."
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-        <div style={{ minWidth: '150px' }}>
-          <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-            Date début
-          </label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-        <div style={{ minWidth: '150px' }}>
-          <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-            Date fin
-          </label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              fontSize: '14px',
-            }}
-          />
-        </div>
-        <div>
-          <button
-            onClick={() => {
-              setSearchTerm('');
-              setStartDate('');
-              setEndDate('');
-              setPage(1);
-            }}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: '#6b7280',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              fontSize: '14px',
-              cursor: 'pointer',
-            }}
-          >
-            Réinitialiser
-          </button>
-        </div>
-      </div>
-
       {/* Statistiques et actions de sélection */}
       <div style={{ 
         marginBottom: '16px', 
@@ -827,12 +730,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         flexWrap: 'wrap',
         gap: '12px'
       }}>
-        {(searchTerm || startDate || endDate) && (
-          <div style={{ fontSize: '14px', color: '#666' }}>
-            {searchTerm && `Filtrées par "${searchTerm}"`}
-            {(startDate || endDate) && ` (période: ${startDate || 'début'} - ${endDate || 'fin'})`}
-          </div>
-        )}
         {selectedIds.size > 0 && (
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{ fontSize: '14px', color: '#1e3a5f', fontWeight: '500' }}>

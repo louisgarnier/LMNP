@@ -115,13 +115,6 @@ export default function TransactionsPage() {
           />
         )}
 
-        {filter === 'to_validate' && (
-          <div>
-            <p style={{ fontSize: '14px', color: '#666' }}>
-              Les transactions à valider seront affichées ici (à implémenter après enrichissement).
-            </p>
-          </div>
-        )}
 
         {tab === 'load_trades' && (
           <div>

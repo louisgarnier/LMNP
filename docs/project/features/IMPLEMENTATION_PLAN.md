@@ -1528,7 +1528,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 3.8 : Tri et filtres avancés pour TransactionsTable et MappingTable
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter le tri par colonnes (cliquable sur tous les en-têtes) et une ligne de filtres auto (comme Excel) sous les en-têtes pour filtrer les données en temps réel. Ajouter aussi les contrôles de pagination en haut du tableau.
 
 **Objectifs**:
@@ -1792,13 +1792,13 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 **Tests finaux**:
-- [ ] Test tri sur toutes les colonnes (TransactionsTable et MappingTable)
-- [ ] Test filtres en temps réel (texte + dropdown)
-- [ ] Test filtres combinés (AND)
-- [ ] Test pagination en haut et en bas
-- [ ] Test combinaison tri + filtres + pagination
-- [ ] Test performance avec beaucoup de données
-- [ ] **Utilisateur confirme que toutes les fonctionnalités fonctionnent**
+- [x] Test tri sur toutes les colonnes (TransactionsTable et MappingTable)
+- [x] Test filtres en temps réel (texte + dropdown)
+- [x] Test filtres combinés (AND)
+- [x] Test pagination en haut et en bas
+- [x] Test combinaison tri + filtres + pagination
+- [x] Test performance avec beaucoup de données
+- [x] **Utilisateur confirme que toutes les fonctionnalités fonctionnent**
 
 ---
 

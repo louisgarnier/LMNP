@@ -12,7 +12,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 const tabs = [
   { name: 'Toutes les transactions', href: '/dashboard/transactions' },
   { name: 'Non classées', href: '/dashboard/transactions?filter=unclassified' },
-  { name: 'À valider', href: '/dashboard/transactions?filter=to_validate' },
   { name: 'Load Trades/Mappings', href: '/dashboard/transactions?tab=load_trades' },
   { name: 'Mapping', href: '/dashboard/transactions?tab=mapping' },
 ];
@@ -39,8 +38,6 @@ export default function Navigation() {
             if (tab.href === '/dashboard/transactions' && !filter && !tabParam) {
               isActive = true; // "Toutes les transactions" par défaut
             } else if (tab.href.includes('filter=unclassified') && filter === 'unclassified') {
-              isActive = true;
-            } else if (tab.href.includes('filter=to_validate') && filter === 'to_validate') {
               isActive = true;
             } else if (tab.href.includes('tab=load_trades') && tabParam === 'load_trades') {
               isActive = true;
