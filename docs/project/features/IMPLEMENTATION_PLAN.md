@@ -1824,56 +1824,180 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 3. **Clic sur cellule/total** : afficher les transactions correspondantes en dessous du tableau
 4. **Affichage transactions** : tableau avec toutes les colonnes, pagination si nécessaire
 
-**Tasks Backend**:
-- [ ] Créer endpoint `GET /api/analytics/pivot` dans `backend/api/routes/analytics.py`
+---
+
+#### Step 4.1.1 : Backend - Endpoint pivot (GET /api/analytics/pivot)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer l'endpoint backend pour calculer les données du tableau croisé.
+
+**Tasks**:
+- [ ] Créer fichier `backend/api/routes/analytics.py`
+- [ ] Créer endpoint `GET /api/analytics/pivot`
   - Paramètres : `rows` (array de champs), `columns` (array de champs), `data` (champ + opération), `filters` (dict de filtres)
   - Calculer les agrégations (somme de quantite)
   - Retourner structure de données pour tableau croisé (lignes, colonnes, valeurs, totaux)
-- [ ] Créer endpoint `GET /api/analytics/pivot/details` pour récupérer les transactions d'une cellule
-  - Paramètres : mêmes filtres que la cellule cliquée
-  - Retourner liste des transactions correspondantes
+- [ ] Implémenter logique de groupby et agrégation
+- [ ] Calculer totaux et sous-totaux
+- [ ] **Créer test backend avec données réelles**
+- [ ] **Valider avec l'utilisateur**
 
-**Tasks Frontend**:
-- [ ] Créer composant `PivotTable.tsx` avec :
-  - Zone de sélection drag & drop (4 zones : Lignes, Colonnes, Data, Filtres)
+**Deliverables**:
+- `backend/api/routes/analytics.py` - Endpoint pivot
+- `backend/tests/test_pivot.py` - Tests backend
+
+**Acceptance Criteria**:
+- [ ] Endpoint répond correctement avec paramètres rows/columns/data/filters
+- [ ] Calculs d'agrégation corrects (somme de quantite)
+- [ ] Totaux et sous-totaux calculés
+- [ ] Test script exécutable et tous les tests passent
+- [ ] **Utilisateur confirme que l'endpoint fonctionne**
+
+---
+
+#### Step 4.1.2 : Backend - Endpoint details (GET /api/analytics/pivot/details)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer l'endpoint pour récupérer les transactions détaillées d'une cellule.
+
+**Tasks**:
+- [ ] Ajouter endpoint `GET /api/analytics/pivot/details` dans `backend/api/routes/analytics.py`
+  - Paramètres : mêmes filtres que la cellule cliquée (rows, columns, filters + valeurs spécifiques de la cellule)
+  - Retourner liste des transactions correspondantes avec pagination
+- [ ] **Créer test backend**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/analytics.py` - Endpoint details
+- Tests dans `backend/tests/test_pivot.py`
+
+**Acceptance Criteria**:
+- [ ] Endpoint retourne les transactions correspondantes à une cellule
+- [ ] Filtrage correct selon les paramètres de la cellule
+- [ ] Pagination fonctionne
+- [ ] Test script exécutable et tous les tests passent
+- [ ] **Utilisateur confirme que l'endpoint fonctionne**
+
+---
+
+#### Step 4.1.3 : Frontend - API client
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter les méthodes dans l'API client pour appeler les endpoints pivot.
+
+**Tasks**:
+- [ ] Mettre à jour `frontend/src/api/client.ts`
+  - Ajouter méthode `analyticsAPI.getPivot(rows, columns, data, filters)`
+  - Ajouter méthode `analyticsAPI.getPivotDetails(params, page, pageSize)`
+- [ ] **Tester les appels API**
+
+**Deliverables**:
+- Mise à jour `frontend/src/api/client.ts` - Méthodes API pivot
+
+**Acceptance Criteria**:
+- [ ] Méthodes ajoutées avec types TypeScript corrects
+- [ ] Appels API fonctionnent (testés avec curl ou Postman)
+- [ ] **Utilisateur confirme que les méthodes sont prêtes**
+
+---
+
+#### Step 4.1.4 : Frontend - Composant sélection champs (drag & drop)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer le composant pour sélectionner les champs par drag & drop (4 zones : Lignes, Colonnes, Data, Filtres).
+
+**Tasks**:
+- [ ] Installer librairie drag & drop (`@dnd-kit/core` ou `react-beautiful-dnd`)
+- [ ] Créer composant `PivotFieldSelector.tsx`
   - Liste des champs disponibles (date, mois, annee, level_1, level_2, level_3, nom, quantite)
-  - Tableau croisé avec format Excel (lignes/colonnes croisées)
-  - Totaux et sous-totaux
-  - Gestion du clic sur cellule/total
-- [ ] Créer composant `PivotDetailsTable.tsx` pour afficher les transactions en dessous
-  - Tableau avec toutes les colonnes des transactions
-  - Pagination si nécessaire
-  - Filtrage automatique selon la cellule cliquée
-- [ ] Créer page `frontend/app/dashboard/pivot/page.tsx`
-- [ ] Implémenter drag & drop (utiliser une librairie comme `react-beautiful-dnd` ou `@dnd-kit/core`)
+  - 4 zones drag & drop : Lignes, Colonnes, Data, Filtres
+  - Drag & drop fonctionnel
+  - Affichage des champs sélectionnés dans chaque zone
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `backend/api/routes/analytics.py` - Endpoints pivot
-- `frontend/app/dashboard/pivot/page.tsx` - Page pivot
-- `frontend/src/components/PivotTable.tsx` - Composant tableau croisé avec drag & drop
-- `frontend/src/components/PivotDetailsTable.tsx` - Composant affichage transactions détaillées
-- Mise à jour `frontend/src/api/client.ts` - Méthodes API pivot
-
-**Tests**:
-- [ ] Test drag & drop des champs
-- [ ] Test tableau croisé avec level_1 en lignes, mois en colonnes
-- [ ] Test tableau croisé avec plusieurs champs en lignes/colonnes
-- [ ] Test filtres
-- [ ] Test totaux et sous-totaux
-- [ ] Test clic sur cellule → affichage transactions
-- [ ] Test clic sur total → affichage transactions
-- [ ] Test pagination des transactions détaillées
+- `frontend/src/components/PivotFieldSelector.tsx` - Composant sélection champs
+- Mise à jour `frontend/package.json` - Librairie drag & drop
 
 **Acceptance Criteria**:
-- [ ] Sélection de champs par drag & drop fonctionne (comme Excel)
-- [ ] Tableau croisé s'affiche correctement (format Excel avec lignes/colonnes croisées)
-- [ ] Somme de quantite calculée correctement
+- [ ] Drag & drop fonctionne (glisser-déposer les champs)
+- [ ] 4 zones visibles et fonctionnelles
+- [ ] Champs disponibles affichés
+- [ ] Champs sélectionnés visibles dans chaque zone
+- [ ] **Utilisateur confirme que le drag & drop fonctionne**
+
+---
+
+#### Step 4.1.5 : Frontend - Composant tableau croisé (affichage)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer le composant pour afficher le tableau croisé format Excel avec totaux.
+
+**Tasks**:
+- [ ] Créer composant `PivotTable.tsx`
+  - Recevoir les données du backend (structure pivot)
+  - Afficher tableau croisé format Excel (lignes/colonnes croisées)
+  - Afficher totaux et sous-totaux
+  - Gestion du clic sur cellule/total
+  - Appeler API pivot quand les champs changent
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/PivotTable.tsx` - Composant tableau croisé
+
+**Acceptance Criteria**:
+- [ ] Tableau croisé s'affiche correctement (format Excel)
+- [ ] Lignes et colonnes se croisent correctement
 - [ ] Totaux et sous-totaux affichés
-- [ ] Clic sur cellule/total affiche les transactions correspondantes en dessous
-- [ ] Transactions affichées avec toutes les colonnes
+- [ ] Clic sur cellule/total fonctionne (prépare les paramètres pour details)
+- [ ] **Utilisateur confirme que le tableau s'affiche correctement**
+
+---
+
+#### Step 4.1.6 : Frontend - Composant transactions détaillées
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer le composant pour afficher les transactions correspondantes à une cellule cliquée.
+
+**Tasks**:
+- [ ] Créer composant `PivotDetailsTable.tsx`
+  - Tableau avec toutes les colonnes des transactions
+  - Pagination si nécessaire
+  - Appeler API pivot/details avec les paramètres de la cellule cliquée
+  - Afficher les transactions filtrées
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/PivotDetailsTable.tsx` - Composant transactions détaillées
+
+**Acceptance Criteria**:
+- [ ] Transactions s'affichent en dessous du tableau croisé
+- [ ] Toutes les colonnes affichées
 - [ ] Pagination fonctionne si beaucoup de transactions
+- [ ] Filtrage correct selon la cellule cliquée
+- [ ] **Utilisateur confirme que les transactions s'affichent correctement**
+
+---
+
+#### Step 4.1.7 : Frontend - Intégration page
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Intégrer tous les composants dans une page et ajouter l'onglet dans la navigation.
+
+**Tasks**:
+- [ ] Créer page `frontend/app/dashboard/pivot/page.tsx`
+  - Intégrer `PivotFieldSelector`
+  - Intégrer `PivotTable`
+  - Intégrer `PivotDetailsTable`
+  - Gérer l'état (champs sélectionnés, cellule cliquée)
+- [ ] Ajouter onglet "Tableau croisé" dans la navigation
+- [ ] **Créer test visuel complet dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/app/dashboard/pivot/page.tsx` - Page pivot
+- Mise à jour `frontend/src/components/Navigation.tsx` - Onglet Tableau croisé
+
+**Acceptance Criteria**:
+- [ ] Page pivot accessible via navigation
+- [ ] Tous les composants intégrés et fonctionnels
+- [ ] Workflow complet : sélection champs → affichage tableau → clic cellule → affichage transactions
 - [ ] **Utilisateur confirme que l'onglet fonctionne comme Excel**
 
 **Impact Frontend**: 
