@@ -1126,23 +1126,23 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 3.5.3 : Pagination toujours visible dans onglet Non classées
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Afficher la pagination même s'il n'y a qu'une seule page, avec "Page 1 sur 1 (X transactions)" et tous les contrôles.
 
 **Tasks**:
-- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
-  - Changer condition `{totalPages > 1 && (` en `{totalPages >= 1 && (` ou simplement toujours afficher
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Changer condition `{totalPages > 1 && (` en `{totalPages >= 1 && (` pour pagination en haut et en bas
   - Afficher "Page X sur Y (total transactions)" même si Y = 1
   - Afficher contrôles de pagination même si une seule page (boutons désactivés si nécessaire)
-- [ ] **Tester : pagination visible même avec 1 page**
+- [x] **Tester : pagination visible même avec 1 page**
 
 **Deliverables**:
-- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Pagination toujours visible
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Pagination toujours visible (haut et bas)
 
 **Acceptance Criteria**:
-- [ ] Pagination visible même avec 1 page
-- [ ] Affiche "Page 1 sur 1 (X transactions)"
-- [ ] Contrôles de pagination visibles (boutons désactivés si nécessaire)
+- [x] Pagination visible même avec 1 page
+- [x] Affiche "Page 1 sur 1 (X transactions)"
+- [x] Contrôles de pagination visibles (boutons désactivés si nécessaire)
 - [ ] **Utilisateur confirme que la pagination est toujours visible**
 
 ---

@@ -859,7 +859,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       </div>
 
       {/* Pagination en haut */}
-      {totalPages > 1 && (
+      {totalPages >= 1 && (
         <div style={{ 
           marginBottom: '16px', 
           display: 'flex', 
@@ -1632,7 +1632,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {totalPages >= 1 && (
             <div style={{ 
               marginTop: '24px', 
               display: 'flex', 
