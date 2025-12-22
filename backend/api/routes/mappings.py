@@ -509,13 +509,25 @@ async def get_mappings(
         query = query.filter(func.lower(Mapping.nom).contains(func.lower(filter_nom)))
     
     if filter_level_1:
-        query = query.filter(func.lower(Mapping.level_1).contains(func.lower(filter_level_1)))
+        # Détecter "à remplir" (insensible à la casse)
+        if filter_level_1.lower().strip() == "à remplir":
+            query = query.filter(Mapping.level_1.is_(None))
+        else:
+            query = query.filter(func.lower(Mapping.level_1).contains(func.lower(filter_level_1)))
     
     if filter_level_2:
-        query = query.filter(func.lower(Mapping.level_2).contains(func.lower(filter_level_2)))
+        # Détecter "à remplir" (insensible à la casse)
+        if filter_level_2.lower().strip() == "à remplir":
+            query = query.filter(Mapping.level_2.is_(None))
+        else:
+            query = query.filter(func.lower(Mapping.level_2).contains(func.lower(filter_level_2)))
     
     if filter_level_3:
-        query = query.filter(func.lower(Mapping.level_3).contains(func.lower(filter_level_3)))
+        # Détecter "à remplir" (insensible à la casse)
+        if filter_level_3.lower().strip() == "à remplir":
+            query = query.filter(Mapping.level_3.is_(None))
+        else:
+            query = query.filter(func.lower(Mapping.level_3).contains(func.lower(filter_level_3)))
     
     # Comptage total (avant tri)
     total = query.count()

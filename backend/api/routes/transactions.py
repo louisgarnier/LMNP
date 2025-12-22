@@ -116,17 +116,29 @@ async def get_transactions(
     if filter_level_1:
         if not needs_join:
             query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
-        query = query.filter(func.lower(EnrichedTransaction.level_1).contains(func.lower(filter_level_1)))
+        # Détecter "à remplir" (insensible à la casse)
+        if filter_level_1.lower().strip() == "à remplir":
+            query = query.filter(EnrichedTransaction.level_1.is_(None))
+        else:
+            query = query.filter(func.lower(EnrichedTransaction.level_1).contains(func.lower(filter_level_1)))
     
     if filter_level_2:
         if not needs_join:
             query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
-        query = query.filter(func.lower(EnrichedTransaction.level_2).contains(func.lower(filter_level_2)))
+        # Détecter "à remplir" (insensible à la casse)
+        if filter_level_2.lower().strip() == "à remplir":
+            query = query.filter(EnrichedTransaction.level_2.is_(None))
+        else:
+            query = query.filter(func.lower(EnrichedTransaction.level_2).contains(func.lower(filter_level_2)))
     
     if filter_level_3:
         if not needs_join:
             query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
-        query = query.filter(func.lower(EnrichedTransaction.level_3).contains(func.lower(filter_level_3)))
+        # Détecter "à remplir" (insensible à la casse)
+        if filter_level_3.lower().strip() == "à remplir":
+            query = query.filter(EnrichedTransaction.level_3.is_(None))
+        else:
+            query = query.filter(func.lower(EnrichedTransaction.level_3).contains(func.lower(filter_level_3)))
     
     # Filtres numériques (quantité)
     if filter_quantite_min is not None:

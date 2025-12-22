@@ -1078,29 +1078,29 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 3.5.2 : Filtre "à remplir" dans Toutes les transactions
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Permettre de filtrer les transactions avec level_1/2/3 = NULL en tapant "à remplir" dans les filtres.
 
 **Tasks Backend**:
-- [ ] Modifier `backend/api/routes/transactions.py` :
+- [x] Modifier `backend/api/routes/transactions.py` :
   - Détecter si `filter_level_1/2/3` contient "à remplir" (insensible à la casse)
   - Si oui, filtrer sur `level_1/2/3 IS NULL` au lieu de `LIKE '%à remplir%'`
-- [ ] Modifier `backend/api/routes/mappings.py` :
+- [x] Modifier `backend/api/routes/mappings.py` :
   - Même logique pour les filtres level_1/2/3
-- [ ] **Tester : filtre "à remplir" → affiche transactions NULL**
+- [x] **Tester : filtre "à remplir" → affiche transactions NULL**
 
 **Tasks Frontend**:
-- [ ] Aucun changement nécessaire (le filtre texte est déjà en place)
+- [x] Aucun changement nécessaire (le filtre texte est déjà en place)
 
 **Deliverables**:
 - Mise à jour `backend/api/routes/transactions.py` - Détection "à remplir" → filtre NULL
 - Mise à jour `backend/api/routes/mappings.py` - Détection "à remplir" → filtre NULL
 
 **Acceptance Criteria**:
-- [ ] Taper "à remplir" dans filtre level_1/2/3 affiche uniquement transactions NULL
-- [ ] Filtre insensible à la casse ("à remplir", "À REMPLIR", etc.)
-- [ ] Fonctionne pour level_1, level_2, level_3
-- [ ] **Utilisateur confirme que le filtre fonctionne**
+- [x] Taper "à remplir" dans filtre level_1/2/3 affiche uniquement transactions NULL
+- [x] Filtre insensible à la casse ("à remplir", "À REMPLIR", etc.) avec `.lower().strip()`
+- [x] Fonctionne pour level_1, level_2, level_3
+- [x] **Utilisateur confirme que le filtre fonctionne**
 
 ---
 
