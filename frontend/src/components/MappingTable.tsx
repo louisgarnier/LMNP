@@ -69,28 +69,22 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     try {
       // Utiliser la page actuelle (ou 1 si resetPage)
       const currentPage = resetPage ? 1 : page;
+      // Passer les filtres à l'API pour filtrage côté serveur
       const response = await mappingsAPI.list(
         (currentPage - 1) * pageSize,
         pageSize,
         search || undefined,
         sortColumn,
-        sortDirection
+        sortDirection,
+        appliedFilterNom || undefined,
+        appliedFilterLevel1 || undefined,
+        appliedFilterLevel2 || undefined,
+        appliedFilterLevel3 || undefined
       );
       
-      // Filtrer par terme de recherche si présent
-      let filtered = response.mappings;
-      if (search) {
-        const searchLower = search.toLowerCase();
-        filtered = filtered.filter(m => 
-          m.nom.toLowerCase().includes(searchLower)
-        );
-      }
-
-      // Stocker les données brutes (sans filtres de colonnes) pour filtrage local
-      setRawMappings(filtered);
+      // L'API fait déjà le filtrage, on utilise directement les résultats
+      setRawMappings(response.mappings);
       setTotal(response.total);
-      
-      // Les filtres seront appliqués par useMemo (pas besoin de setMappings)
     } catch (err: any) {
       setError(err.message || 'Erreur lors du chargement des mappings');
       console.error('Erreur chargement mappings:', err);
@@ -99,55 +93,20 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     }
   };
 
-  // Recharger depuis l'API seulement quand page, tri, ou search change
+  // Réinitialiser la page à 1 quand les filtres changent
+  useEffect(() => {
+    if (appliedFilterNom || appliedFilterLevel1 || appliedFilterLevel2 || appliedFilterLevel3) {
+      setPage(1);
+    }
+  }, [appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3]);
+
+  // Recharger depuis l'API quand page, tri, search ou filtres changent
   useEffect(() => {
     loadMappings();
-  }, [page, pageSize, search, sortColumn, sortDirection]);
+  }, [page, pageSize, search, sortColumn, sortDirection, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3]);
 
-  // Calculer les mappings filtrés avec useMemo (évite les re-renders inutiles et préserve le focus)
-  const mappings = useMemo(() => {
-    if (rawMappings.length === 0) {
-      return [];
-    }
-    
-    let filtered = [...rawMappings];
-
-    // Filtrer par terme de recherche si présent
-    if (search) {
-      const searchLower = search.toLowerCase();
-      filtered = filtered.filter(m => 
-        m.nom.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Appliquer les filtres de colonnes
-    if (appliedFilterNom) {
-      const filterLower = appliedFilterNom.toLowerCase();
-      filtered = filtered.filter(m => 
-        m.nom?.toLowerCase().includes(filterLower)
-      );
-    }
-    if (appliedFilterLevel1) {
-      const filterLower = appliedFilterLevel1.toLowerCase();
-      filtered = filtered.filter(m => 
-        m.level_1?.toLowerCase().includes(filterLower)
-      );
-    }
-    if (appliedFilterLevel2) {
-      const filterLower = appliedFilterLevel2.toLowerCase();
-      filtered = filtered.filter(m => 
-        m.level_2?.toLowerCase().includes(filterLower)
-      );
-    }
-    if (appliedFilterLevel3) {
-      const filterLower = appliedFilterLevel3.toLowerCase();
-      filtered = filtered.filter(m => 
-        m.level_3?.toLowerCase().includes(filterLower)
-      );
-    }
-
-    return filtered;
-  }, [rawMappings, search, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3]);
+  // L'API fait déjà le filtrage, on utilise directement les résultats
+  const mappings = rawMappings;
 
   // Réinitialiser la sélection quand les mappings changent
   useEffect(() => {

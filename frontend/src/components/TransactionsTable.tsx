@@ -75,7 +75,12 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     setError(null);
     try {
       const skip = (page - 1) * pageSize;
-      // Appel API avec tri côté serveur
+      
+      // Note: Les filtres quantité et solde utilisent un filtre "contient" (ex: "14" trouve 14, 14.02, 140, etc.)
+      // Le backend ne supporte pas encore ce type de filtre pour les nombres, donc on les garde côté client
+      // Pour l'instant, on ne passe pas ces filtres à l'API
+      
+      // Appel API avec tri et filtres côté serveur (texte uniquement)
       const response = await transactionsAPI.getAll(
         skip,
         pageSize,
@@ -83,26 +88,20 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         endDate || undefined,
         sortColumn, // Passer le tri à l'API
         sortDirection,
-        unclassifiedOnly // Passer le filtre non classées
+        unclassifiedOnly, // Passer le filtre non classées
+        appliedFilterNom || undefined, // Filtre nom
+        appliedFilterLevel1 || undefined, // Filtre level_1
+        appliedFilterLevel2 || undefined, // Filtre level_2
+        appliedFilterLevel3 || undefined, // Filtre level_3
+        undefined, // Filtre quantité min (non utilisé pour filtre "contient")
+        undefined, // Filtre quantité max (non utilisé pour filtre "contient")
+        undefined, // Filtre solde min (non utilisé pour filtre "contient")
+        undefined // Filtre solde max (non utilisé pour filtre "contient")
       );
       
-      // Filtrer par terme de recherche si présent (côté client car pas encore implémenté côté serveur)
-      let filtered = response.transactions;
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        filtered = filtered.filter(t => 
-          t.nom.toLowerCase().includes(searchLower)
-        );
-      }
-
-      // Stocker les données brutes (sans filtres de colonnes) pour filtrage local
-      setRawTransactions(filtered);
+      // L'API fait déjà le filtrage, on utilise directement les résultats
+      setRawTransactions(response.transactions);
       setTotal(response.total);
-      
-      // Les filtres seront appliqués par useMemo (pas besoin de setTransactions)
-      
-      // Réinitialiser la sélection si les transactions chargées ne contiennent plus les IDs sélectionnés
-      // (sera fait après le calcul des transactions filtrées par useMemo)
     } catch (err) {
       console.error('Error loading transactions:', err);
       setError(err instanceof Error ? err.message : 'Erreur lors du chargement');
@@ -111,28 +110,24 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     }
   };
 
-  // Recharger depuis l'API seulement quand page, tri, ou date range change
+  // Réinitialiser la page à 1 quand les filtres changent
+  useEffect(() => {
+    if (appliedFilterDate || appliedFilterNom || appliedFilterLevel1 || appliedFilterLevel2 || appliedFilterLevel3 || appliedFilterQuantite || appliedFilterSolde) {
+      setPage(1);
+    }
+  }, [appliedFilterDate, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
+
+  // Recharger depuis l'API quand page, tri, date range ou filtres changent
   useEffect(() => {
     loadTransactions();
-  }, [page, pageSize, sortColumn, sortDirection, startDate, endDate]);
+  }, [page, pageSize, sortColumn, sortDirection, startDate, endDate, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
 
-  // Calculer les transactions filtrées avec useMemo (évite les re-renders inutiles et préserve le focus)
+  // L'API fait déjà le filtrage pour les filtres texte (nom, level_1/2/3)
+  // On doit encore filtrer localement pour date, quantité et solde (non supportés côté serveur)
   const transactions = useMemo(() => {
-    if (rawTransactions.length === 0) {
-      return [];
-    }
-    
     let filtered = [...rawTransactions];
-
-    // Filtrer par terme de recherche si présent
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.nom.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Appliquer les filtres de colonnes
+    
+    // Filtrer par date (filtre exact)
     if (appliedFilterDate) {
       const filterDateObj = new Date(appliedFilterDate);
       filtered = filtered.filter(t => {
@@ -140,36 +135,11 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         return tDate.toDateString() === filterDateObj.toDateString();
       });
     }
-    if (appliedFilterNom) {
-      const filterLower = appliedFilterNom.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.nom?.toLowerCase().includes(filterLower)
-      );
-    }
-    if (appliedFilterLevel1) {
-      const filterLower = appliedFilterLevel1.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.level_1?.toLowerCase().includes(filterLower)
-      );
-    }
-    if (appliedFilterLevel2) {
-      const filterLower = appliedFilterLevel2.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.level_2?.toLowerCase().includes(filterLower)
-      );
-    }
-    if (appliedFilterLevel3) {
-      const filterLower = appliedFilterLevel3.toLowerCase();
-      filtered = filtered.filter(t => 
-        t.level_3?.toLowerCase().includes(filterLower)
-      );
-    }
+    
     // Filtrer par quantité avec filtre "contient" (si on tape "14", trouve 14, 14.02, 140, 14000, etc.)
     if (appliedFilterQuantite && appliedFilterQuantite.trim() !== '') {
       const filterValue = appliedFilterQuantite.trim();
-      // Vérifier si c'est un nombre valide (même partiel)
       if (filterValue !== '' && !isNaN(Number(filterValue))) {
-        // Convertir en string pour vérifier si la valeur tapée est contenue dans le nombre
         filtered = filtered.filter(t => {
           const quantiteStr = t.quantite.toString();
           return quantiteStr.includes(filterValue);
@@ -179,18 +149,16 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     // Filtrer par solde avec filtre "contient" (si on tape "14", trouve 14, 14.02, 140, 14000, etc.)
     if (appliedFilterSolde && appliedFilterSolde.trim() !== '') {
       const filterValue = appliedFilterSolde.trim();
-      // Vérifier si c'est un nombre valide (même partiel)
       if (filterValue !== '' && !isNaN(Number(filterValue))) {
-        // Convertir en string pour vérifier si la valeur tapée est contenue dans le nombre
         filtered = filtered.filter(t => {
           const soldeStr = t.solde.toString();
           return soldeStr.includes(filterValue);
         });
       }
     }
-
+    
     return filtered;
-  }, [rawTransactions, searchTerm, appliedFilterDate, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
+  }, [rawTransactions, appliedFilterDate, appliedFilterQuantite, appliedFilterSolde]);
 
   // Réinitialiser la sélection quand les transactions changent
   useEffect(() => {

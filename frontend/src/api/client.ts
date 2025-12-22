@@ -138,7 +138,15 @@ export const transactionsAPI = {
     endDate?: string,
     sortBy?: string,
     sortDirection?: 'asc' | 'desc',
-    unclassifiedOnly?: boolean
+    unclassifiedOnly?: boolean,
+    filterNom?: string,
+    filterLevel1?: string,
+    filterLevel2?: string,
+    filterLevel3?: string,
+    filterQuantiteMin?: number,
+    filterQuantiteMax?: number,
+    filterSoldeMin?: number,
+    filterSoldeMax?: number
   ): Promise<TransactionListResponse> => {
     const params = new URLSearchParams({
       skip: skip.toString(),
@@ -149,6 +157,14 @@ export const transactionsAPI = {
     if (sortBy) params.append('sort_by', sortBy);
     if (sortDirection) params.append('sort_direction', sortDirection);
     if (unclassifiedOnly) params.append('unclassified_only', 'true');
+    if (filterNom) params.append('filter_nom', filterNom);
+    if (filterLevel1) params.append('filter_level_1', filterLevel1);
+    if (filterLevel2) params.append('filter_level_2', filterLevel2);
+    if (filterLevel3) params.append('filter_level_3', filterLevel3);
+    if (filterQuantiteMin !== undefined) params.append('filter_quantite_min', filterQuantiteMin.toString());
+    if (filterQuantiteMax !== undefined) params.append('filter_quantite_max', filterQuantiteMax.toString());
+    if (filterSoldeMin !== undefined) params.append('filter_solde_min', filterSoldeMin.toString());
+    if (filterSoldeMax !== undefined) params.append('filter_solde_max', filterSoldeMax.toString());
     return fetchAPI<TransactionListResponse>(`/api/transactions?${params}`);
   },
 
@@ -369,7 +385,11 @@ export const mappingsAPI = {
     limit: number = 100,
     search?: string,
     sortBy?: string,
-    sortDirection?: 'asc' | 'desc'
+    sortDirection?: 'asc' | 'desc',
+    filterNom?: string,
+    filterLevel1?: string,
+    filterLevel2?: string,
+    filterLevel3?: string
   ): Promise<MappingListResponse> {
     const params = new URLSearchParams({
       skip: skip.toString(),
@@ -380,6 +400,10 @@ export const mappingsAPI = {
     }
     if (sortBy) params.append('sort_by', sortBy);
     if (sortDirection) params.append('sort_direction', sortDirection);
+    if (filterNom) params.append('filter_nom', filterNom);
+    if (filterLevel1) params.append('filter_level_1', filterLevel1);
+    if (filterLevel2) params.append('filter_level_2', filterLevel2);
+    if (filterLevel3) params.append('filter_level_3', filterLevel3);
     return fetchAPI<MappingListResponse>(`/api/mappings?${params.toString()}`);
   },
 

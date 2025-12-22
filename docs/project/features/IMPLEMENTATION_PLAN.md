@@ -1033,6 +1033,50 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+#### Step 3.5.4 : Correction filtres - Filtrage côté serveur au lieu de côté client
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Actuellement, les filtres sont appliqués côté client sur les données déjà chargées (ex: 50 mappings de la page 1), donc seules ces 50 sont filtrées, pas toutes les mappings de la base. Il faut passer les filtres à l'API pour filtrer sur TOUTES les données de la base, puis paginer les résultats filtrés.
+
+**Problème identifié** :
+- Exemple : Filtrer "prl" dans Nom avec pageSize=25 → 3 résultats
+- Changer pageSize à 200 → 24 résultats
+- Le filtre ne s'applique que sur les données déjà chargées, pas sur toutes les données de la base
+
+**Tasks Backend**:
+- [x] Les paramètres de filtre sont déjà implémentés dans Step 3.8.8 (`filter_nom`, `filter_level_1`, `filter_level_2`, `filter_level_3`)
+
+**Tasks Frontend**:
+- [x] Modifier `frontend/src/api/client.ts` :
+  - Ajouter paramètres de filtre à `mappingsAPI.list()` : `filterNom`, `filterLevel1`, `filterLevel2`, `filterLevel3`
+  - Ajouter paramètres de filtre à `transactionsAPI.getAll()` : `filterNom`, `filterLevel1`, `filterLevel2`, `filterLevel3`
+  - Note : Filtres quantité/solde non passés à l'API (filtre "contient" non supporté côté serveur, conservé côté client)
+- [x] Modifier `frontend/src/components/MappingTable.tsx` :
+  - Passer les filtres (`appliedFilterNom`, `appliedFilterLevel1`, etc.) à `mappingsAPI.list()` dans `loadMappings()`
+  - Supprimer le filtrage local (`useMemo` avec filtres) - l'API fait déjà le filtrage
+  - Réinitialiser la page à 1 quand les filtres changent (via `useEffect` sur `appliedFilter*`)
+  - Mettre à jour `useEffect` pour inclure les filtres dans les dépendances
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Passer les filtres texte à `transactionsAPI.getAll()` dans `loadTransactions()` (nom, level_1/2/3)
+  - Conserver filtrage local pour date, quantité, solde (non supportés côté serveur avec le type de filtre souhaité)
+  - Réinitialiser la page à 1 quand les filtres changent
+  - Mettre à jour `useEffect` pour inclure les filtres dans les dépendances
+- [x] **Tester : filtre sur toutes les données, pas juste la page actuelle**
+
+**Deliverables**:
+- Mise à jour `frontend/src/api/client.ts` - Paramètres de filtre dans API client
+- Mise à jour `frontend/src/components/MappingTable.tsx` - Filtrage côté serveur
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Filtrage côté serveur (texte uniquement)
+
+**Acceptance Criteria**:
+- [x] Les filtres texte (nom, level_1/2/3) s'appliquent sur TOUTES les données de la base, pas juste la page actuelle
+- [x] Changer pageSize affiche toujours le même nombre total de résultats filtrés (pour filtres texte)
+- [x] La pagination fonctionne correctement sur les résultats filtrés
+- [x] Le total (`total`) reflète le nombre total de résultats filtrés, pas le total non filtré
+- [x] Filtres date, quantité, solde conservés côté client (non supportés côté serveur avec le type de filtre souhaité)
+- [x] **Utilisateur confirme que les filtres fonctionnent sur toutes les données**
+
+---
+
 #### Step 3.5.2 : Filtre "à remplir" dans Toutes les transactions
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Permettre de filtrer les transactions avec level_1/2/3 = NULL en tapant "à remplir" dans les filtres.
@@ -1079,46 +1123,6 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [ ] Affiche "Page 1 sur 1 (X transactions)"
 - [ ] Contrôles de pagination visibles (boutons désactivés si nécessaire)
 - [ ] **Utilisateur confirme que la pagination est toujours visible**
-
----
-
-#### Step 3.5.4 : Correction filtres - Filtrage côté serveur au lieu de côté client
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Actuellement, les filtres sont appliqués côté client sur les données déjà chargées (ex: 50 mappings de la page 1), donc seules ces 50 sont filtrées, pas toutes les mappings de la base. Il faut passer les filtres à l'API pour filtrer sur TOUTES les données de la base, puis paginer les résultats filtrés.
-
-**Problème identifié** :
-- Exemple : Filtrer "prl" dans Nom avec pageSize=25 → 3 résultats
-- Changer pageSize à 200 → 24 résultats
-- Le filtre ne s'applique que sur les données déjà chargées, pas sur toutes les données de la base
-
-**Tasks Backend**:
-- [x] Les paramètres de filtre sont déjà implémentés dans Step 3.8.8 (`filter_nom`, `filter_level_1`, `filter_level_2`, `filter_level_3`)
-
-**Tasks Frontend**:
-- [ ] Modifier `frontend/src/api/client.ts` :
-  - Ajouter paramètres de filtre à `mappingsAPI.list()` : `filterNom`, `filterLevel1`, `filterLevel2`, `filterLevel3`
-  - Ajouter paramètres de filtre à `transactionsAPI.getAll()` : `filterNom`, `filterLevel1`, `filterLevel2`, `filterLevel3`, `filterQuantiteMin`, `filterQuantiteMax`, `filterSoldeMin`, `filterSoldeMax`
-- [ ] Modifier `frontend/src/components/MappingTable.tsx` :
-  - Passer les filtres (`appliedFilterNom`, `appliedFilterLevel1`, etc.) à `mappingsAPI.list()` dans `loadMappings()`
-  - Supprimer le filtrage local (`useMemo` avec filtres) - l'API fait déjà le filtrage
-  - Réinitialiser la page à 1 quand les filtres changent (via `useEffect` sur `appliedFilter*`)
-- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
-  - Passer les filtres à `transactionsAPI.getAll()` dans `loadTransactions()`
-  - Supprimer le filtrage local - l'API fait déjà le filtrage
-  - Réinitialiser la page à 1 quand les filtres changent
-- [ ] **Tester : filtre sur toutes les données, pas juste la page actuelle**
-
-**Deliverables**:
-- Mise à jour `frontend/src/api/client.ts` - Paramètres de filtre dans API client
-- Mise à jour `frontend/src/components/MappingTable.tsx` - Filtrage côté serveur
-- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Filtrage côté serveur
-
-**Acceptance Criteria**:
-- [ ] Les filtres s'appliquent sur TOUTES les données de la base, pas juste la page actuelle
-- [ ] Changer pageSize affiche toujours le même nombre total de résultats filtrés
-- [ ] La pagination fonctionne correctement sur les résultats filtrés
-- [ ] Le total (`total`) reflète le nombre total de résultats filtrés, pas le total non filtré
-- [ ] **Utilisateur confirme que les filtres fonctionnent sur toutes les données**
 
 ---
 
