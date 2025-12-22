@@ -128,7 +128,7 @@ def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional
         level_2 = best_mapping.level_2
         level_3 = best_mapping.level_3
     else:
-        # Pas de mapping trouvé → valeurs NULL (affichées "à remplir" dans l'interface)
+        # Pas de mapping trouvé → valeurs NULL (affichées "unassigned" dans l'interface)
         level_1 = None
         level_2 = None
         level_3 = None

@@ -530,7 +530,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       setAvailableLevel1(level1List);
       console.log('🔍 [Combinations] Level 1 final:', level1List);
       
-      // Charger TOUS les level_2 et level_3 disponibles dès le début (pour les transactions "à remplir")
+      // Charger TOUS les level_2 et level_3 disponibles dès le début (pour les transactions "unassigned")
       const allLevel2Combinations = await mappingsAPI.getCombinations(undefined, undefined, true, false);
       const allLevel2List = allLevel2Combinations.level_2 || [];
       console.log('🔍 [Combinations] All level_2 loaded (initial):', allLevel2List);
@@ -1399,7 +1399,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                           onClick={() => handleEditClassification(transaction)}
                           style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         >
-                          {transaction.level_1 || 'à remplir'}
+                          {transaction.level_1 || 'unassigned'}
                         </span>
                       )}
                     </td>
@@ -1463,7 +1463,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                           onClick={() => handleEditClassification(transaction)}
                           style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         >
-                          {transaction.level_2 || 'à remplir'}
+                          {transaction.level_2 || 'unassigned'}
                         </span>
                       )}
                     </td>
@@ -1520,7 +1520,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                           onClick={() => handleEditClassification(transaction)}
                           style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         >
-                          {transaction.level_3 || 'à remplir'}
+                          {transaction.level_3 || 'unassigned'}
                         </span>
                       )}
                     </td>

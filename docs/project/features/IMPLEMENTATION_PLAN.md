@@ -1077,29 +1077,50 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-#### Step 3.5.2 : Filtre "à remplir" dans Toutes les transactions
+#### Step 3.5.2 : Filtre "unassigned" dans Toutes les transactions
 **Status**: ✅ COMPLÉTÉ  
-**Description**: Permettre de filtrer les transactions avec level_1/2/3 = NULL en tapant "à remplir" dans les filtres.
+**Description**: Permettre de filtrer les transactions avec level_1/2/3 = NULL en tapant "unassigned" dans les filtres. **Solution simple : remplacer "à remplir" par "unassigned" pour éviter les problèmes d'accents.**
+
+**Changement d'approche** :
+- Problème initial : "à remplir" causait des problèmes avec les accents (filtre "à" seul ne fonctionnait pas)
+- Solution : Remplacer "à remplir" par "unassigned" partout (backend, frontend, affichage)
 
 **Tasks Backend**:
 - [x] Modifier `backend/api/routes/transactions.py` :
-  - Détecter si `filter_level_1/2/3` contient "à remplir" (insensible à la casse)
-  - Si oui, filtrer sur `level_1/2/3 IS NULL` au lieu de `LIKE '%à remplir%'`
+  - Détecter si `filter_level_1/2/3` contient "unassigned" (insensible à la casse)
+  - Si exactement "unassigned" → filtrer sur `level_1/2/3 IS NULL`
+  - Si préfixe de "unassigned" (ex: "un", "una", "unas") → filtrer sur `(IS NULL OR LIKE '%filtre%')`
+  - Sinon → filtre normal `LIKE '%filtre%'`
+  - Supprimer la détection de "à remplir"
 - [x] Modifier `backend/api/routes/mappings.py` :
-  - Même logique pour les filtres level_1/2/3
-- [x] **Tester : filtre "à remplir" → affiche transactions NULL**
+  - Même logique : détecter "unassigned" ou préfixe de "unassigned"
+  - Ajouter import `or_` pour la condition `(IS NULL OR LIKE)`
+- [x] Modifier `backend/api/services/enrichment_service.py` :
+  - Mettre à jour le commentaire pour refléter "unassigned"
+- [x] **Tester : filtre "unassigned" → affiche transactions NULL**
+- [x] **Tester : filtre "un", "una" → affiche transactions NULL ET valeurs contenant le préfixe**
 
 **Tasks Frontend**:
-- [x] Aucun changement nécessaire (le filtre texte est déjà en place)
+- [x] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Remplacer "à remplir" par "unassigned" dans l'affichage (quand level_1/2/3 est NULL)
+  - Mettre à jour les commentaires
+- [x] Vérifier `frontend/src/components/MappingTable.tsx` :
+  - Pas d'affichage "à remplir" nécessaire (affiche '-' ou '' pour NULL)
+- [x] Vérifier `frontend/src/components/UnclassifiedTransactionsTable.tsx` :
+  - Pas de changement nécessaire
 
 **Deliverables**:
-- Mise à jour `backend/api/routes/transactions.py` - Détection "à remplir" → filtre NULL
-- Mise à jour `backend/api/routes/mappings.py` - Détection "à remplir" → filtre NULL
+- Mise à jour `backend/api/routes/transactions.py` - Détection "unassigned" → filtre NULL
+- Mise à jour `backend/api/routes/mappings.py` - Détection "unassigned" → filtre NULL
+- Mise à jour `backend/api/services/enrichment_service.py` - Commentaire mis à jour
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Affichage "unassigned"
 
 **Acceptance Criteria**:
-- [x] Taper "à remplir" dans filtre level_1/2/3 affiche uniquement transactions NULL
-- [x] Filtre insensible à la casse ("à remplir", "À REMPLIR", etc.) avec `.lower().strip()`
+- [x] Taper "unassigned" dans filtre level_1/2/3 affiche uniquement transactions NULL
+- [x] Taper un préfixe de "unassigned" (ex: "un", "una", "unas") affiche les NULL ET les valeurs qui contiennent le préfixe
+- [x] Filtre insensible à la casse ("unassigned", "UNASSIGNED", etc.)
 - [x] Fonctionne pour level_1, level_2, level_3
+- [x] L'affichage montre "unassigned" au lieu de "à remplir" pour les valeurs NULL
 - [x] **Utilisateur confirme que le filtre fonctionne**
 
 ---

@@ -6,7 +6,7 @@ API routes for mappings.
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
-from sqlalchemy import distinct, desc, asc, func
+from sqlalchemy import distinct, desc, asc, func, or_
 from typing import List, Optional, Dict
 import pandas as pd
 import io
@@ -509,23 +509,50 @@ async def get_mappings(
         query = query.filter(func.lower(Mapping.nom).contains(func.lower(filter_nom)))
     
     if filter_level_1:
-        # Détecter "à remplir" (insensible à la casse)
-        if filter_level_1.lower().strip() == "à remplir":
+        filter_normalized = filter_level_1.lower().strip()
+        # Détecter "unassigned" ou préfixe de "unassigned" (ex: "un", "una", "unas")
+        if filter_normalized == "unassigned":
             query = query.filter(Mapping.level_1.is_(None))
+        elif "unassigned".startswith(filter_normalized):
+            # Si le filtre est un préfixe de "unassigned", inclure les NULL ET les valeurs qui contiennent le filtre
+            query = query.filter(
+                or_(
+                    Mapping.level_1.is_(None),
+                    func.lower(Mapping.level_1).contains(func.lower(filter_level_1))
+                )
+            )
         else:
             query = query.filter(func.lower(Mapping.level_1).contains(func.lower(filter_level_1)))
     
     if filter_level_2:
-        # Détecter "à remplir" (insensible à la casse)
-        if filter_level_2.lower().strip() == "à remplir":
+        filter_normalized = filter_level_2.lower().strip()
+        # Détecter "unassigned" ou préfixe de "unassigned" (ex: "un", "una", "unas")
+        if filter_normalized == "unassigned":
             query = query.filter(Mapping.level_2.is_(None))
+        elif "unassigned".startswith(filter_normalized):
+            # Si le filtre est un préfixe de "unassigned", inclure les NULL ET les valeurs qui contiennent le filtre
+            query = query.filter(
+                or_(
+                    Mapping.level_2.is_(None),
+                    func.lower(Mapping.level_2).contains(func.lower(filter_level_2))
+                )
+            )
         else:
             query = query.filter(func.lower(Mapping.level_2).contains(func.lower(filter_level_2)))
     
     if filter_level_3:
-        # Détecter "à remplir" (insensible à la casse)
-        if filter_level_3.lower().strip() == "à remplir":
+        filter_normalized = filter_level_3.lower().strip()
+        # Détecter "unassigned" ou préfixe de "unassigned" (ex: "un", "una", "unas")
+        if filter_normalized == "unassigned":
             query = query.filter(Mapping.level_3.is_(None))
+        elif "unassigned".startswith(filter_normalized):
+            # Si le filtre est un préfixe de "unassigned", inclure les NULL ET les valeurs qui contiennent le filtre
+            query = query.filter(
+                or_(
+                    Mapping.level_3.is_(None),
+                    func.lower(Mapping.level_3).contains(func.lower(filter_level_3))
+                )
+            )
         else:
             query = query.filter(func.lower(Mapping.level_3).contains(func.lower(filter_level_3)))
     
