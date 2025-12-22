@@ -1,29 +1,41 @@
 /**
- * Pivot table page - placeholder
+ * Pivot Table Page - Test page for PivotFieldSelector
  * 
  * ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
  */
 
 'use client';
 
-export default function PivotPage() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-          Tableau Croisé Dynamique
-        </h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
-          Analyses par catégories et années
-        </p>
-      </div>
+import { useState } from 'react';
+import PivotFieldSelector, { PivotFieldConfig } from '@/components/PivotFieldSelector';
+import PivotTable from '@/components/PivotTable';
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <p className="text-gray-600 dark:text-gray-400">
-          Cette page sera implémentée dans Step 6.3
-        </p>
+export default function PivotPage() {
+  const [config, setConfig] = useState<PivotFieldConfig>({
+    rows: [],
+    columns: [],
+    data: [],
+    filters: {},
+  });
+
+  const handleConfigChange = (newConfig: PivotFieldConfig) => {
+    setConfig(newConfig);
+    console.log('Configuration mise à jour:', newConfig);
+  };
+
+  const handleCellClick = (rowValues: (string | number)[], columnValues: (string | number)[]) => {
+    console.log('Cellule cliquée:', { rowValues, columnValues });
+    // TODO: Afficher les transactions détaillées (Step 4.1.6)
+  };
+
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
+      <PivotFieldSelector config={config} onChange={handleConfigChange} />
+      
+      {/* Tableau croisé */}
+      <div style={{ padding: '16px' }}>
+        <PivotTable config={config} onCellClick={handleCellClick} />
       </div>
     </div>
   );
 }
-

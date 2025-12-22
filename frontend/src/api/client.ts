@@ -656,4 +656,85 @@ export const fileUploadAPI = {
   },
 };
 
+// Analytics API Types
+export interface PivotData {
+  rows: (string | number | (string | number)[])[];
+  columns: (string | number | (string | number)[])[];
+  data: Record<string, Record<string, number>>;
+  row_totals: Record<string, number>;
+  column_totals: Record<string, number>;
+  grand_total: number;
+  row_fields: string[];
+  column_fields: string[];
+}
+
+export interface PivotDetailsParams {
+  rows?: string;
+  columns?: string;
+  row_values?: string; // JSON array string
+  column_values?: string; // JSON array string
+  filters?: string; // JSON object string
+}
+
+export const analyticsAPI = {
+  /**
+   * Récupère les données du tableau croisé dynamique
+   */
+  getPivot: async (
+    rows?: string[],
+    columns?: string[],
+    dataField: string = 'quantite',
+    dataOperation: string = 'sum',
+    filters?: Record<string, any>
+  ): Promise<PivotData> => {
+    const params = new URLSearchParams();
+    
+    if (rows && rows.length > 0) {
+      params.append('rows', rows.join(','));
+    }
+    if (columns && columns.length > 0) {
+      params.append('columns', columns.join(','));
+    }
+    params.append('data_field', dataField);
+    params.append('data_operation', dataOperation);
+    
+    if (filters && Object.keys(filters).length > 0) {
+      params.append('filters', JSON.stringify(filters));
+    }
+    
+    return fetchAPI<PivotData>(`/api/analytics/pivot?${params.toString()}`);
+  },
+
+  /**
+   * Récupère les transactions détaillées d'une cellule du tableau croisé
+   */
+  getPivotDetails: async (
+    params: PivotDetailsParams,
+    skip: number = 0,
+    limit: number = 100
+  ): Promise<TransactionListResponse> => {
+    const queryParams = new URLSearchParams();
+    
+    if (params.rows) {
+      queryParams.append('rows', params.rows);
+    }
+    if (params.columns) {
+      queryParams.append('columns', params.columns);
+    }
+    if (params.row_values) {
+      queryParams.append('row_values', params.row_values);
+    }
+    if (params.column_values) {
+      queryParams.append('column_values', params.column_values);
+    }
+    if (params.filters) {
+      queryParams.append('filters', params.filters);
+    }
+    queryParams.append('skip', skip.toString());
+    queryParams.append('limit', limit.toString());
+    
+    return fetchAPI<TransactionListResponse>(`/api/analytics/pivot/details?${queryParams.toString()}`);
+  },
+};
+
 

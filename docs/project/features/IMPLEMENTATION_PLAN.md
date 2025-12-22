@@ -1827,101 +1827,112 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 4.1.1 : Backend - Endpoint pivot (GET /api/analytics/pivot)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer l'endpoint backend pour calculer les données du tableau croisé.
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/routes/analytics.py`
-- [ ] Créer endpoint `GET /api/analytics/pivot`
+- [x] Créer fichier `backend/api/routes/analytics.py`
+- [x] Créer endpoint `GET /api/analytics/pivot`
   - Paramètres : `rows` (array de champs), `columns` (array de champs), `data` (champ + opération), `filters` (dict de filtres)
   - Calculer les agrégations (somme de quantite)
   - Retourner structure de données pour tableau croisé (lignes, colonnes, valeurs, totaux)
-- [ ] Implémenter logique de groupby et agrégation
-- [ ] Calculer totaux et sous-totaux
-- [ ] **Créer test backend avec données réelles**
-- [ ] **Valider avec l'utilisateur**
+- [x] Implémenter logique de groupby et agrégation
+- [x] Calculer totaux et sous-totaux
+- [x] **Créer test backend avec données réelles**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/api/routes/analytics.py` - Endpoint pivot
 - `backend/tests/test_pivot.py` - Tests backend
 
 **Acceptance Criteria**:
-- [ ] Endpoint répond correctement avec paramètres rows/columns/data/filters
-- [ ] Calculs d'agrégation corrects (somme de quantite)
-- [ ] Totaux et sous-totaux calculés
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que l'endpoint fonctionne**
+- [x] Endpoint répond correctement avec paramètres rows/columns/data/filters
+- [x] Calculs d'agrégation corrects (somme de quantite)
+- [x] Totaux et sous-totaux calculés
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que l'endpoint fonctionne**
 
 ---
 
 #### Step 4.1.2 : Backend - Endpoint details (GET /api/analytics/pivot/details)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer l'endpoint pour récupérer les transactions détaillées d'une cellule.
 
 **Tasks**:
-- [ ] Ajouter endpoint `GET /api/analytics/pivot/details` dans `backend/api/routes/analytics.py`
+- [x] Ajouter endpoint `GET /api/analytics/pivot/details` dans `backend/api/routes/analytics.py`
   - Paramètres : mêmes filtres que la cellule cliquée (rows, columns, filters + valeurs spécifiques de la cellule)
   - Retourner liste des transactions correspondantes avec pagination
-- [ ] **Créer test backend**
-- [ ] **Valider avec l'utilisateur**
+- [x] **Créer test backend**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `backend/api/routes/analytics.py` - Endpoint details
 - Tests dans `backend/tests/test_pivot.py`
 
 **Acceptance Criteria**:
-- [ ] Endpoint retourne les transactions correspondantes à une cellule
-- [ ] Filtrage correct selon les paramètres de la cellule
-- [ ] Pagination fonctionne
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que l'endpoint fonctionne**
+- [x] Endpoint retourne les transactions correspondantes à une cellule
+- [x] Filtrage correct selon les paramètres de la cellule
+- [x] Pagination fonctionne
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que l'endpoint fonctionne**
 
 ---
 
 #### Step 4.1.3 : Frontend - API client
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter les méthodes dans l'API client pour appeler les endpoints pivot.
 
 **Tasks**:
-- [ ] Mettre à jour `frontend/src/api/client.ts`
+- [x] Mettre à jour `frontend/src/api/client.ts`
   - Ajouter méthode `analyticsAPI.getPivot(rows, columns, data, filters)`
   - Ajouter méthode `analyticsAPI.getPivotDetails(params, page, pageSize)`
-- [ ] **Tester les appels API**
+- [x] **Tester les appels API**
 
 **Deliverables**:
 - Mise à jour `frontend/src/api/client.ts` - Méthodes API pivot
 
 **Acceptance Criteria**:
-- [ ] Méthodes ajoutées avec types TypeScript corrects
-- [ ] Appels API fonctionnent (testés avec curl ou Postman)
-- [ ] **Utilisateur confirme que les méthodes sont prêtes**
+- [x] Méthodes ajoutées avec types TypeScript corrects
+- [x] Appels API fonctionnent (testés avec curl ou Postman)
+- [x] **Utilisateur confirme que les méthodes sont prêtes**
 
 ---
 
-#### Step 4.1.4 : Frontend - Composant sélection champs (drag & drop)
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Créer le composant pour sélectionner les champs par drag & drop (4 zones : Lignes, Colonnes, Data, Filtres).
+#### Step 4.1.4 : Frontend - Composant sélection champs (panneau latéral)
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Créer le composant pour sélectionner les champs dans un panneau latéral style Excel pin headers (3 zones : Lignes, Colonnes, Data).
 
 **Tasks**:
-- [ ] Installer librairie drag & drop (`@dnd-kit/core` ou `react-beautiful-dnd`)
-- [ ] Créer composant `PivotFieldSelector.tsx`
+- [x] Créer composant `PivotFieldSelector.tsx`
+  - Panneau latéral fixe à droite (style Excel pin headers)
+  - Barre "CONFIG" visible à droite avec texte vertical
+  - Affichage au hover ou au clic sur la barre
+  - Fermeture au clic ailleurs (sur le tableau)
   - Liste des champs disponibles (date, mois, annee, level_1, level_2, level_3, nom, quantite)
-  - 4 zones drag & drop : Lignes, Colonnes, Data, Filtres
-  - Drag & drop fonctionnel
-  - Affichage des champs sélectionnés dans chaque zone
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - 3 zones avec listes déroulantes multiples : Lignes, Colonnes, Data
+  - Sélection multiple avec Ctrl/Cmd
+  - Boutons "+ Ajouter" pour ajouter des champs
+  - Validation : un champ ne peut être que dans une seule zone
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `frontend/src/components/PivotFieldSelector.tsx` - Composant sélection champs
-- Mise à jour `frontend/package.json` - Librairie drag & drop
+- `frontend/src/components/PivotFieldSelector.tsx` - Composant panneau latéral
+- `frontend/app/dashboard/pivot/page.tsx` - Page de test
 
 **Acceptance Criteria**:
-- [ ] Drag & drop fonctionne (glisser-déposer les champs)
-- [ ] 4 zones visibles et fonctionnelles
-- [ ] Champs disponibles affichés
-- [ ] Champs sélectionnés visibles dans chaque zone
-- [ ] **Utilisateur confirme que le drag & drop fonctionne**
+- [x] Panneau latéral s'affiche au hover/clic sur la barre "CONFIG"
+- [x] Panneau se ferme au clic ailleurs
+- [x] 3 zones visibles et fonctionnelles (Lignes, Colonnes, Data)
+- [x] Champs disponibles affichés dans menus déroulants
+- [x] Champs sélectionnés visibles dans chaque zone (listes multiples)
+- [x] Sélection multiple fonctionne (Ctrl/Cmd)
+- [x] **Utilisateur confirme que le panneau fonctionne correctement**
+
+**Notes**:
+- Initialement prévu avec drag & drop, mais simplifié avec listes déroulantes pour plus de fiabilité et rapidité
+- Panneau latéral style Excel pin headers pour ne pas gêner le tableau principal
+- Barre "CONFIG" visible (24px) avec texte vertical pour clarté
 
 ---
 
