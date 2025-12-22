@@ -219,6 +219,16 @@ export const transactionsAPI = {
 };
 
 /**
+ * Re-enrichment response
+ */
+export interface ReEnrichResponse {
+  enriched_count: number;
+  already_enriched_count: number;
+  total_processed: number;
+  message: string;
+}
+
+/**
  * Enrichment API
  */
 export const enrichmentAPI = {
@@ -238,6 +248,15 @@ export const enrichmentAPI = {
     
     return fetchAPI<Transaction>(`/api/enrichment/transactions/${transactionId}?${params.toString()}`, {
       method: 'PUT',
+    });
+  },
+
+  /**
+   * Re-enrichir toutes les transactions avec les mappings disponibles
+   */
+  reEnrichAll: async (): Promise<ReEnrichResponse> => {
+    return fetchAPI<ReEnrichResponse>('/api/enrichment/re-enrich', {
+      method: 'POST',
     });
   },
 };

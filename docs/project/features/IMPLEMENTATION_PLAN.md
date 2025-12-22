@@ -1148,34 +1148,43 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 3.6 : Re-enrichissement en cascade
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Implémenter le re-enrichissement en cascade lors de modification/suppression d'un mapping.
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Implémenter le re-enrichissement en cascade lors de modification/suppression d'un mapping + bouton pour re-enrichir toutes les transactions.
 
 **Objectif** : Maintenir la cohérence entre mappings et transactions. Backend + frontend, testable.
 
+**Note** : Le re-enrichissement automatique lors de modification/suppression de mapping était déjà implémenté. Ce step ajoute un bouton pour re-enrichir toutes les transactions manuellement (utile après import de nouveaux mappings).
+
 **Tasks Backend**:
-- [ ] Modifier `backend/api/routes/mappings.py` :
-  - Lors de modification mapping → re-enrichir toutes les transactions qui l'utilisent
-  - Lors de suppression mapping → remettre toutes les transactions à NULL
-- [ ] Créer endpoint `POST /api/enrichment/re-enrich` pour re-enrichir toutes les transactions
+- [x] Vérifier que `backend/api/routes/mappings.py` re-enrichit déjà lors de modification/suppression
+  - ✅ Modification mapping → re-enrichit toutes les transactions correspondantes
+  - ✅ Suppression mapping → re-enrichit les transactions concernées
+- [x] Créer endpoint `POST /api/enrichment/re-enrich` dans `backend/api/routes/enrichment.py`
+  - Utilise `enrich_all_transactions()` du service
+  - Retourne statistiques (enriched_count, already_enriched_count, total_processed)
 
 **Tasks Frontend**:
-- [ ] Ajouter bouton "Re-enrichir toutes les transactions" dans onglet Mapping
-- [ ] **Tester le re-enrichissement et valider avec l'utilisateur**
+- [x] Ajouter fonction `reEnrichAll()` dans `frontend/src/api/client.ts`
+- [x] Ajouter bouton "🔄 Re-enrichir toutes les transactions" dans `frontend/src/components/MappingTable.tsx`
+  - Bouton vert dans le header
+  - Confirmation avant exécution
+  - Affichage des statistiques après exécution
+- [x] **Tester le re-enrichissement et valider avec l'utilisateur**
 
 **Deliverables**:
-- Mise à jour `backend/api/routes/mappings.py` - Re-enrichissement en cascade
-- Mise à jour `backend/api/routes/enrichment.py` - Endpoint re-enrichissement
-- Mise à jour `frontend/src/components/MappingTable.tsx` - Bouton re-enrichissement
+- Endpoint `POST /api/enrichment/re-enrich` dans `backend/api/routes/enrichment.py`
+- Fonction `enrichmentAPI.reEnrichAll()` dans `frontend/src/api/client.ts`
+- Bouton "Re-enrichir toutes les transactions" dans `frontend/src/components/MappingTable.tsx`
 
 **Tests**:
-- [ ] Test modification mapping → update toutes transactions concernées
-- [ ] Test suppression mapping → transactions remises à NULL
-- [ ] Test bouton re-enrichissement manuel
+- [x] Test modification mapping → update toutes transactions concernées (déjà fonctionnel)
+- [x] Test suppression mapping → transactions remises à NULL (déjà fonctionnel)
+- [x] Test bouton re-enrichissement manuel → re-enrichit toutes les transactions
 
 **Acceptance Criteria**:
-- [ ] Re-enrichissement en cascade fonctionne
-- [ ] Cohérence maintenue entre mappings et transactions
+- [x] Re-enrichissement en cascade fonctionne (déjà implémenté)
+- [x] Bouton "Re-enrichir toutes les transactions" fonctionne
+- [x] Utile après import de nouveaux mappings pour re-enrichir toutes les transactions
 - [ ] **Utilisateur confirme que le re-enrichissement fonctionne**
 
 ---

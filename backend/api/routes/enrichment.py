@@ -14,7 +14,8 @@ from backend.api.services.enrichment_service import (
     update_transaction_classification,
     create_or_update_mapping_from_classification,
     enrich_transaction,
-    transaction_matches_mapping_name
+    transaction_matches_mapping_name,
+    enrich_all_transactions
 )
 
 router = APIRouter()
@@ -115,4 +116,28 @@ async def update_transaction_classifications(
         level_2=enriched_data.level_2 if enriched_data else None,
         level_3=enriched_data.level_3 if enriched_data else None,
     )
+
+
+@router.post("/enrichment/re-enrich")
+async def re_enrich_all_transactions(
+    db: Session = Depends(get_db)
+):
+    """
+    Re-enrichit toutes les transactions avec les mappings disponibles.
+    
+    Utile après avoir importé de nouveaux mappings pour que toutes les transactions
+    soient re-enrichies avec les nouveaux mappings.
+    
+    Returns:
+        Dict avec le nombre de transactions enrichies et déjà enrichies
+    """
+    enriched_count, already_enriched_count = enrich_all_transactions(db)
+    db.commit()
+    
+    return {
+        "enriched_count": enriched_count,
+        "already_enriched_count": already_enriched_count,
+        "total_processed": enriched_count + already_enriched_count,
+        "message": f"Re-enrichissement terminé: {enriched_count} nouvelles enrichies, {already_enriched_count} re-enrichies"
+    }
 

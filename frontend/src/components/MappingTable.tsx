@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { mappingsAPI, Mapping, MappingCreate, MappingUpdate } from '../api/client';
+import { mappingsAPI, enrichmentAPI, Mapping, MappingCreate, MappingUpdate } from '../api/client';
 
 type SortColumn = 'id' | 'nom' | 'level_1' | 'level_2' | 'level_3';
 type SortDirection = 'asc' | 'desc';
@@ -48,6 +48,7 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+  const [isReEnriching, setIsReEnriching] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newMapping, setNewMapping] = useState<MappingCreate>({
     nom: '',
@@ -320,6 +321,23 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     }
   };
 
+  const handleReEnrichAll = async () => {
+    if (!confirm('Êtes-vous sûr de vouloir re-enrichir toutes les transactions ? Cette opération peut prendre quelques instants.')) {
+      return;
+    }
+
+    setIsReEnriching(true);
+    try {
+      const result = await enrichmentAPI.reEnrichAll();
+      alert(`✅ ${result.message}\n\n${result.enriched_count} nouvelles transactions enrichies\n${result.already_enriched_count} transactions re-enrichies\nTotal: ${result.total_processed} transactions traitées`);
+      onMappingChange?.(); // Rafraîchir les transactions si nécessaire
+    } catch (err: any) {
+      alert(`Erreur lors du re-enrichissement: ${err.message}`);
+    } finally {
+      setIsReEnriching(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / pageSize);
 
   if (loading && mappings.length === 0) {
@@ -357,6 +375,23 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
           </span>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button
+            onClick={handleReEnrichAll}
+            disabled={isReEnriching}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              backgroundColor: isReEnriching ? '#ccc' : '#28a745',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isReEnriching ? 'not-allowed' : 'pointer',
+              opacity: isReEnriching ? 0.6 : 1,
+            }}
+            title="Re-enrichir toutes les transactions avec les mappings disponibles. Utile après avoir importé de nouveaux mappings."
+          >
+            {isReEnriching ? '⏳ Re-enrichissement...' : '🔄 Re-enrichir toutes les transactions'}
+          </button>
           {selectedIds.size > 0 && (
             <>
               <span style={{ fontSize: '14px', color: '#1e3a5f', fontWeight: '500' }}>
