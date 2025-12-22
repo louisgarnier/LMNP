@@ -133,13 +133,25 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
   };
 
   // Combine memory logs and DB history (only if showDbHistory is true)
+  // Filter to only show transaction-related logs (CSV files, not Excel)
   const allLogs = [
-    ...memoryLogs.map(log => ({
-      type: 'memory' as const,
-      data: log,
-      key: log.id,
-    })),
+    ...memoryLogs
+      .filter(log => {
+        const filenameLower = log.filename.toLowerCase();
+        // Only show CSV files, exclude Excel files (.xlsx, .xls)
+        return filenameLower.endsWith('.csv') && !filenameLower.endsWith('.xlsx') && !filenameLower.endsWith('.xls');
+      })
+      .map(log => ({
+        type: 'memory' as const,
+        data: log,
+        key: log.id,
+      })),
     ...(showDbHistory ? dbHistory
+      .filter(h => {
+        // Only show CSV files in DB history too
+        const filenameLower = h.filename.toLowerCase();
+        return filenameLower.endsWith('.csv') && !filenameLower.endsWith('.xlsx') && !filenameLower.endsWith('.xls');
+      })
       .filter(h => !memoryLogs.some(m => m.filename === h.filename))
       .map(history => ({
         type: 'db' as const,
