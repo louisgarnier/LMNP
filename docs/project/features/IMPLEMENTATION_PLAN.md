@@ -1802,9 +1802,91 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-## Phase 4 : Fonctionnalité 3 - Calcul des amortissements
+## Phase 4 : Tableau croisé dynamique
 
-### Step 4.1 : Service calcul amortissements backend
+### Step 4.1 : Onglet tableau croisé dynamique
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Interface tableau croisé dynamique style Excel avec drag & drop pour sélectionner les champs (lignes, colonnes, data, filtres). Affichage des transactions correspondantes au clic sur une cellule.
+
+**Objectif** : Permettre des analyses pivot interactives avec sélection de champs par drag & drop et visualisation des transactions détaillées.
+
+**Champs disponibles** :
+- **Lignes/Colonnes/Filtres** : `date`, `mois`, `annee`, `level_1`, `level_2`, `level_3`, `nom`
+- **Data (valeurs)** : `quantite` (somme uniquement)
+
+**Fonctionnalités** :
+1. **Sélection de champs par drag & drop** (comme Excel) :
+   - Zone "Lignes" : glisser-déposer les champs pour les lignes
+   - Zone "Colonnes" : glisser-déposer les champs pour les colonnes
+   - Zone "Data" : glisser-déposer `quantite` (somme)
+   - Zone "Filtres" : glisser-déposer les champs pour filtrer
+2. **Tableau croisé format Excel** : lignes et colonnes qui se croisent avec totaux et sous-totaux
+3. **Clic sur cellule/total** : afficher les transactions correspondantes en dessous du tableau
+4. **Affichage transactions** : tableau avec toutes les colonnes, pagination si nécessaire
+
+**Tasks Backend**:
+- [ ] Créer endpoint `GET /api/analytics/pivot` dans `backend/api/routes/analytics.py`
+  - Paramètres : `rows` (array de champs), `columns` (array de champs), `data` (champ + opération), `filters` (dict de filtres)
+  - Calculer les agrégations (somme de quantite)
+  - Retourner structure de données pour tableau croisé (lignes, colonnes, valeurs, totaux)
+- [ ] Créer endpoint `GET /api/analytics/pivot/details` pour récupérer les transactions d'une cellule
+  - Paramètres : mêmes filtres que la cellule cliquée
+  - Retourner liste des transactions correspondantes
+
+**Tasks Frontend**:
+- [ ] Créer composant `PivotTable.tsx` avec :
+  - Zone de sélection drag & drop (4 zones : Lignes, Colonnes, Data, Filtres)
+  - Liste des champs disponibles (date, mois, annee, level_1, level_2, level_3, nom, quantite)
+  - Tableau croisé avec format Excel (lignes/colonnes croisées)
+  - Totaux et sous-totaux
+  - Gestion du clic sur cellule/total
+- [ ] Créer composant `PivotDetailsTable.tsx` pour afficher les transactions en dessous
+  - Tableau avec toutes les colonnes des transactions
+  - Pagination si nécessaire
+  - Filtrage automatique selon la cellule cliquée
+- [ ] Créer page `frontend/app/dashboard/pivot/page.tsx`
+- [ ] Implémenter drag & drop (utiliser une librairie comme `react-beautiful-dnd` ou `@dnd-kit/core`)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/routes/analytics.py` - Endpoints pivot
+- `frontend/app/dashboard/pivot/page.tsx` - Page pivot
+- `frontend/src/components/PivotTable.tsx` - Composant tableau croisé avec drag & drop
+- `frontend/src/components/PivotDetailsTable.tsx` - Composant affichage transactions détaillées
+- Mise à jour `frontend/src/api/client.ts` - Méthodes API pivot
+
+**Tests**:
+- [ ] Test drag & drop des champs
+- [ ] Test tableau croisé avec level_1 en lignes, mois en colonnes
+- [ ] Test tableau croisé avec plusieurs champs en lignes/colonnes
+- [ ] Test filtres
+- [ ] Test totaux et sous-totaux
+- [ ] Test clic sur cellule → affichage transactions
+- [ ] Test clic sur total → affichage transactions
+- [ ] Test pagination des transactions détaillées
+
+**Acceptance Criteria**:
+- [ ] Sélection de champs par drag & drop fonctionne (comme Excel)
+- [ ] Tableau croisé s'affiche correctement (format Excel avec lignes/colonnes croisées)
+- [ ] Somme de quantite calculée correctement
+- [ ] Totaux et sous-totaux affichés
+- [ ] Clic sur cellule/total affiche les transactions correspondantes en dessous
+- [ ] Transactions affichées avec toutes les colonnes
+- [ ] Pagination fonctionne si beaucoup de transactions
+- [ ] **Utilisateur confirme que l'onglet fonctionne comme Excel**
+
+**Impact Frontend**: 
+- ✅ Onglet Pivot fonctionnel avec drag & drop
+- ✅ Tableau croisé format Excel
+- ✅ Affichage transactions détaillées au clic
+- ✅ Pagination des transactions
+
+---
+
+## Phase 5 : Fonctionnalité 3 - Calcul des amortissements
+
+### Step 5.1 : Service calcul amortissements backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer la logique de `amort.py` avec convention 30/360.
 
@@ -1841,7 +1923,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-### Step 4.2 : Vue amortissements frontend
+### Step 5.2 : Vue amortissements frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour visualiser les amortissements par catégorie et année.
 
@@ -1875,9 +1957,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-## Phase 5 : Fonctionnalités 4-6 - États financiers
+## Phase 6 : Fonctionnalités 4-6 - États financiers
 
-### Step 5.1 : Service compte de résultat backend
+### Step 6.1 : Service compte de résultat backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer la logique de `compte_de_resultat.py`.
 
@@ -1915,7 +1997,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-### Step 5.2 : Service bilans backend
+### Step 6.2 : Service bilans backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer les logiques de `bilan_actif.py` et `bilan_passif.py`.
 
@@ -1954,7 +2036,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-### Step 5.3 : Vue bilan frontend
+### Step 6.3 : Vue bilan frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour visualiser les bilans actif et passif.
 
@@ -1989,9 +2071,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-## Phase 6 : Fonctionnalité 7 - Consolidation et autres vues
+## Phase 7 : Fonctionnalité 7 - Consolidation et autres vues
 
-### Step 6.1 : Service consolidation backend
+### Step 7.1 : Service consolidation backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer la logique de `merge_etats_financiers.py`.
 
@@ -2027,7 +2109,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-### Step 6.2 : Vue cashflow frontend
+### Step 7.2 : Vue cashflow frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour suivre le solde bancaire et vérifier la cohérence.
 
@@ -2061,45 +2143,10 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-### Step 6.3 : Onglet tableau croisé dynamique
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Interface pour analyses pivot avec groupby par colonnes.
 
-**Tasks**:
-- [ ] Créer composant PivotTable
-- [ ] Créer page tableau croisé
-- [ ] Implémenter groupby par colonnes
-- [ ] Créer endpoint GET /api/analytics/pivot
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+## Phase 8 : Tests et validation finale
 
-**Deliverables**:
-- `frontend/app/dashboard/pivot/page.tsx` - Page pivot
-- `frontend/src/components/PivotTable.tsx` - Composant pivot
-- `backend/api/routes/analytics.py` - Endpoint pivot
-
-**Tests**:
-- [ ] Test groupby par level 1
-- [ ] Test groupby par level 2
-- [ ] Test groupby par mois/année
-- [ ] Test totaux et sous-totaux
-
-**Acceptance Criteria**:
-- [ ] Tableau croisé fonctionne avec groupby
-- [ ] Sélection des colonnes pour groupby
-- [ ] Totaux et sous-totaux affichés
-- [ ] **Utilisateur confirme que l'onglet fonctionne**
-
-**Impact Frontend**: 
-- ✅ Onglet Pivot fonctionnel
-- ✅ Groupby opérationnel
-- ✅ Totaux validés visuellement
-
----
-
-## Phase 7 : Tests et validation finale
-
-### Step 7.1 : Tests end-to-end
+### Step 8.1 : Tests end-to-end
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Tests complets du workflow depuis upload jusqu'aux états financiers.
 
@@ -2131,7 +2178,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-### Step 7.2 : Documentation et finalisation
+### Step 8.2 : Documentation et finalisation
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Documentation utilisateur et technique, optimisation finale.
 
