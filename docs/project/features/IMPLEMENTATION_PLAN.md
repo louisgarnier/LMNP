@@ -2151,53 +2151,60 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 4.1.6 : Frontend - Composant transactions détaillées
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer le composant pour afficher les transactions correspondantes à une cellule cliquée.
 
 **Tasks**:
-- [ ] Créer composant `PivotDetailsTable.tsx`
+- [x] Créer composant `PivotDetailsTable.tsx`
   - Tableau avec toutes les colonnes des transactions
   - Pagination si nécessaire
   - Appeler API pivot/details avec les paramètres de la cellule cliquée
   - Afficher les transactions filtrées
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Intégrer dans `pivot/page.tsx` avec gestion des clics sur cellules
+- [x] Corriger problème de correspondance nombre de valeurs / nombre de champs
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/src/components/PivotDetailsTable.tsx` - Composant transactions détaillées
+- Mise à jour `frontend/app/dashboard/pivot/page.tsx`
 
 **Acceptance Criteria**:
-- [ ] Transactions s'affichent en dessous du tableau croisé
-- [ ] Toutes les colonnes affichées
-- [ ] Pagination fonctionne si beaucoup de transactions
-- [ ] Filtrage correct selon la cellule cliquée
-- [ ] **Utilisateur confirme que les transactions s'affichent correctement**
+- [x] Transactions s'affichent en dessous du tableau croisé
+- [x] Toutes les colonnes affichées (Date, Nom, Quantité, Solde, Level 1/2/3)
+- [x] Pagination fonctionne si beaucoup de transactions (50/100/200 par page)
+- [x] Filtrage correct selon la cellule cliquée
+- [x] Gestion correcte des valeurs null pour niveaux intermédiaires
+- [x] **Utilisateur confirme que les transactions s'affichent correctement**
 
 ---
 
 #### Step 4.1.7 : Frontend - Intégration page
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Intégrer tous les composants dans une page et ajouter l'onglet dans la navigation.
 
 **Tasks**:
-- [ ] Créer page `frontend/app/dashboard/pivot/page.tsx`
+- [x] Créer page `frontend/app/dashboard/pivot/page.tsx`
   - Intégrer `PivotFieldSelector`
   - Intégrer `PivotTable`
   - Intégrer `PivotDetailsTable`
   - Gérer l'état (champs sélectionnés, cellule cliquée)
-- [ ] Ajouter onglet "Tableau croisé" dans la navigation
-- [ ] **Créer test visuel complet dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Gestion des sous-onglets avec `PivotTabs`
+  - Sauvegarde automatique des configurations
+- [x] Ajouter onglet "Tableau croisé dynamique" dans la navigation (`Header.tsx`)
+- [x] **Créer test visuel complet dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/app/dashboard/pivot/page.tsx` - Page pivot
-- Mise à jour `frontend/src/components/Navigation.tsx` - Onglet Tableau croisé
+- Mise à jour `frontend/src/components/Header.tsx` - Onglet Tableau croisé dynamique
 
 **Acceptance Criteria**:
-- [ ] Page pivot accessible via navigation
-- [ ] Tous les composants intégrés et fonctionnels
-- [ ] Workflow complet : sélection champs → affichage tableau → clic cellule → affichage transactions
-- [ ] **Utilisateur confirme que l'onglet fonctionne comme Excel**
+- [x] Page pivot accessible via navigation
+- [x] Tous les composants intégrés et fonctionnels
+- [x] Workflow complet : sélection champs → affichage tableau → clic cellule → affichage transactions
+- [x] Gestion des sous-onglets pour plusieurs tableaux sauvegardés
+- [x] **Utilisateur confirme que l'onglet fonctionne comme Excel**
 
 **Impact Frontend**: 
 - ✅ Onglet Pivot fonctionnel avec drag & drop

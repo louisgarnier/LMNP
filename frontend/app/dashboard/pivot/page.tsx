@@ -10,12 +10,15 @@ import { useState, useEffect, useCallback } from 'react';
 import PivotFieldSelector, { PivotFieldConfig } from '@/components/PivotFieldSelector';
 import PivotTable from '@/components/PivotTable';
 import PivotTabs, { PivotTab } from '@/components/PivotTabs';
+import PivotDetailsTable from '@/components/PivotDetailsTable';
 import { pivotConfigsAPI, PivotConfigResponse } from '@/api/client';
 
 export default function PivotPage() {
   const [tabs, setTabs] = useState<PivotTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedRowValues, setSelectedRowValues] = useState<(string | number)[]>([]);
+  const [selectedColumnValues, setSelectedColumnValues] = useState<(string | number)[]>([]);
 
   // Charger les tableaux sauvegardés au montage
   useEffect(() => {
@@ -248,7 +251,13 @@ export default function PivotPage() {
 
   const handleCellClick = (rowValues: (string | number)[], columnValues: (string | number)[]) => {
     console.log('Cellule cliquée:', { rowValues, columnValues });
-    // TODO: Afficher les transactions détaillées (Step 4.1.6)
+    setSelectedRowValues(rowValues);
+    setSelectedColumnValues(columnValues);
+  };
+
+  const handleCloseDetails = () => {
+    setSelectedRowValues([]);
+    setSelectedColumnValues([]);
   };
 
   if (isLoading) {
@@ -286,6 +295,16 @@ export default function PivotPage() {
           {/* Tableau croisé */}
           <div style={{ flex: 1, padding: '16px', overflow: 'auto' }}>
             <PivotTable config={activeTab.config} onCellClick={handleCellClick} />
+            
+            {/* Transactions détaillées */}
+            {(selectedRowValues.length > 0 || selectedColumnValues.length > 0) && (
+              <PivotDetailsTable
+                config={activeTab.config}
+                rowValues={selectedRowValues}
+                columnValues={selectedColumnValues}
+                onClose={handleCloseDetails}
+              />
+            )}
           </div>
         </div>
       )}
