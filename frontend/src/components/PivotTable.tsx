@@ -261,36 +261,30 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
     rowIndexByLevel.set(row.level, currentIndex + 1);
     const isEven = currentIndex % 2 === 0;
 
-    // Couleurs par niveau - Distinction claire pour 3+ niveaux
+    // Couleurs par niveau - Thème de l'application
     let bgColor: string;
     let textColor: string;
     let borderLeft: string = 'none';
     let fontWeight: string;
 
     if (row.level === 0) {
-      // Niveau 0 : Catégories principales - Bleu clair vif
-      bgColor = '#dbeafe';
-      textColor = '#0c4a6e';
+      // Niveau 1 : Fond blanc, texte noir bold
+      bgColor = '#ffffff';
+      textColor = '#000000';
       fontWeight = '700';
-      borderLeft = '5px solid #0284c7';
+      borderLeft = '4px solid #1e3a5f';
     } else if (row.level === 1) {
-      // Niveau 1 : Sous-catégories - Vert très clair pour distinction
-      bgColor = isEven ? '#f0fdf4' : '#ecfdf5';
-      textColor = '#14532d';
-      fontWeight = '600';
-      borderLeft = '4px solid #22c55e';
-    } else if (row.level === 2) {
-      // Niveau 2 : Sous-sous-catégories - Violet très clair pour distinction
-      bgColor = isEven ? '#faf5ff' : '#f3e8ff';
-      textColor = '#581c87';
-      fontWeight = '500';
-      borderLeft = '3px solid #a855f7';
+      // Niveau 2 : Fond bleu foncé (#1e3a5f), texte blanc bold
+      bgColor = '#1e3a5f';
+      textColor = '#ffffff';
+      fontWeight = '700';
+      borderLeft = '3px solid #1e3a5f';
     } else {
-      // Niveau 3+ : Alternance blanc/gris avec bordure orange
-      bgColor = isEven ? '#ffffff' : '#fff7ed';
-      textColor = '#7c2d12';
+      // Niveau 3+ : Alternance blanc/gris très clair, texte noir normal
+      bgColor = isEven ? '#ffffff' : '#f8f9fa';
+      textColor = '#000000';
       fontWeight = '400';
-      borderLeft = '2px solid #f97316';
+      borderLeft = '2px solid #e5e7eb';
     }
 
     return (
@@ -310,7 +304,7 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
               borderRight: '1px solid #e2e8f0',
               borderLeft: borderLeft,
               fontWeight: fontWeight,
-              fontSize: row.level === 0 ? '15px' : row.level === 1 ? '14px' : row.level === 2 ? '13px' : '12px',
+              fontSize: row.level === 0 ? '14px' : row.level === 1 ? '13px' : '12px',
               color: textColor,
               paddingLeft: `${12 + indent}px`,
               position: 'sticky',
@@ -365,12 +359,18 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
                   cursor: onCellClick ? 'pointer' : 'default',
                   backgroundColor: bgColor,
                   transition: 'background-color 0.15s',
-                  fontWeight: row.level === 0 ? '600' : '400',
+                  fontWeight: row.level === 0 ? '700' : row.level === 1 ? '700' : '400',
                   color: textColor,
                 }}
                 onMouseEnter={(e) => {
                   if (onCellClick) {
-                    e.currentTarget.style.backgroundColor = '#dbeafe';
+                    if (row.level === 0) {
+                      e.currentTarget.style.backgroundColor = '#f3f4f6';
+                    } else if (row.level === 1) {
+                      e.currentTarget.style.backgroundColor = '#2d4a6f';
+                    } else {
+                      e.currentTarget.style.backgroundColor = '#e5e7eb';
+                    }
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -387,20 +387,26 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
             style={{
               padding: '10px 12px',
               borderRight: '1px solid #e2e8f0',
-              backgroundColor: row.level === 0 ? '#bae6fd' : row.level === 1 ? '#bbf7d0' : row.level === 2 ? '#c4b5fd' : '#fed7aa',
-              fontWeight: '700',
+              backgroundColor: bgColor,
+              fontWeight: row.level === 0 ? '700' : row.level === 1 ? '700' : '400',
               textAlign: 'right',
               cursor: onCellClick ? 'pointer' : 'default',
               transition: 'background-color 0.15s',
-              color: row.level === 0 ? '#0c4a6e' : row.level === 1 ? '#14532d' : row.level === 2 ? '#581c87' : '#7c2d12',
+              color: textColor,
             }}
             onMouseEnter={(e) => {
               if (onCellClick) {
-                e.currentTarget.style.backgroundColor = row.level === 0 ? '#93c5fd' : row.level === 1 ? '#86efac' : row.level === 2 ? '#a78bfa' : '#fdba74';
+                if (row.level === 0) {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                } else if (row.level === 1) {
+                  e.currentTarget.style.backgroundColor = '#2d4a6f';
+                } else {
+                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                }
               }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = row.level === 0 ? '#bae6fd' : row.level === 1 ? '#bbf7d0' : row.level === 2 ? '#c4b5fd' : '#fed7aa';
+              e.currentTarget.style.backgroundColor = bgColor;
             }}
           >
             {row.total.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

@@ -1970,23 +1970,24 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 4.1.5.1 : Ajustement color code hiérarchique
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajuster les couleurs pour rester dans le thème de l'application.
 
 **Tasks**:
-- [ ] Modifier `PivotTable.tsx` pour ajuster les couleurs :
+- [x] Modifier `PivotTable.tsx` pour ajuster les couleurs :
   - Niveau 1 : Fond blanc, texte noir bold
   - Niveau 2 : Fond bleu foncé (#1e3a5f comme header), texte blanc bold
   - Niveau 3 : Alternance blanc/gris très clair, texte noir normal
-- [ ] **Valider avec l'utilisateur**
+- [x] Ajuster les couleurs de hover pour chaque niveau
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/PivotTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Couleurs cohérentes avec le thème de l'application
-- [ ] Distinction claire entre les 3 niveaux
-- [ ] **Utilisateur confirme que les couleurs sont correctes**
+- [x] Couleurs cohérentes avec le thème de l'application
+- [x] Distinction claire entre les 3 niveaux
+- [x] **Utilisateur confirme que les couleurs sont correctes**
 
 ---
 
