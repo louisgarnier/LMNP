@@ -737,4 +737,93 @@ export const analyticsAPI = {
   },
 };
 
+// ============================================================================
+// Pivot Configs API
+// ============================================================================
+
+export interface PivotConfigResponse {
+  id: number;
+  name: string;
+  config: {
+    rows: string[];
+    columns: string[];
+    data: string[];
+    filters: Record<string, any>;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PivotConfigListResponse {
+  items: PivotConfigResponse[];
+  total: number;
+}
+
+export interface PivotConfigCreate {
+  name: string;
+  config: {
+    rows: string[];
+    columns: string[];
+    data: string[];
+    filters: Record<string, any>;
+  };
+}
+
+export interface PivotConfigUpdate {
+  name?: string;
+  config?: {
+    rows: string[];
+    columns: string[];
+    data: string[];
+    filters: Record<string, any>;
+  };
+}
+
+export const pivotConfigsAPI = {
+  /**
+   * Liste tous les tableaux croisés sauvegardés
+   */
+  getAll: async (skip: number = 0, limit: number = 100): Promise<PivotConfigListResponse> => {
+    return fetchAPI<PivotConfigListResponse>(`/api/pivot-configs?skip=${skip}&limit=${limit}`);
+  },
+
+  /**
+   * Récupère un tableau croisé par ID
+   */
+  getById: async (id: number): Promise<PivotConfigResponse> => {
+    return fetchAPI<PivotConfigResponse>(`/api/pivot-configs/${id}`);
+  },
+
+  /**
+   * Crée un nouveau tableau croisé
+   */
+  create: async (data: PivotConfigCreate): Promise<PivotConfigResponse> => {
+    return fetchAPI<PivotConfigResponse>('/api/pivot-configs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Met à jour un tableau croisé
+   */
+  update: async (id: number, data: PivotConfigUpdate): Promise<PivotConfigResponse> => {
+    return fetchAPI<PivotConfigResponse>(`/api/pivot-configs/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Supprime un tableau croisé
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/pivot-configs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 

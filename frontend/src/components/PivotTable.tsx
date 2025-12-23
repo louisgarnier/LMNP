@@ -560,7 +560,14 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
           </td>
         </tr>
         {/* Rendre les enfants si expandé */}
-        {row.hasChildren && isExpanded && row.children && row.children.map(child => renderRow(child, columns, columnTotals, uniqueKey, rowIndexByLevel))}
+        {row.hasChildren && isExpanded && row.children && row.children.map((child, childIdx) => {
+          const childKey = keyToString(child.key);
+          return (
+            <React.Fragment key={`${uniqueKey}-child-${childIdx}-${childKey}`}>
+              {renderRow(child, columns, columnTotals, uniqueKey, rowIndexByLevel)}
+            </React.Fragment>
+          );
+        })}
       </>
     );
   };
@@ -663,7 +670,12 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
         <tbody>
           {hierarchicalRows.map((row, idx) => {
             const rowIndexByLevel = new Map<number, number>(); // Reset pour chaque ligne racine
-            return renderRow(row, columns, columnTotals, `root-${idx}`, rowIndexByLevel);
+            const rowKey = keyToString(row.key);
+            return (
+              <React.Fragment key={`root-${idx}-${rowKey}`}>
+                {renderRow(row, columns, columnTotals, `root-${idx}`, rowIndexByLevel)}
+              </React.Fragment>
+            );
           })}
           {/* Ligne de totaux */}
           <tr style={{ backgroundColor: '#f1f5f9', borderTop: '3px solid #cbd5e1' }}>

@@ -117,25 +117,61 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
     }
   };
 
-  // Ajouter un filtre
+  // Ajouter un filtre (OR pour le même champ, AND entre champs différents)
   const handleAddFilter = () => {
     if (!newFilterField || !newFilterValue) {
       return;
     }
 
     const newConfig = { ...config };
-    newConfig.filters = { ...newConfig.filters, [newFilterField]: newFilterValue };
+    const currentFilters = newConfig.filters || {};
+    
+    // Si le champ existe déjà, ajouter la valeur à l'array (OR)
+    // Sinon, créer un nouvel array avec la valeur
+    if (currentFilters[newFilterField]) {
+      const existingValues = Array.isArray(currentFilters[newFilterField]) 
+        ? currentFilters[newFilterField] 
+        : [currentFilters[newFilterField]];
+      
+      // Ne pas ajouter si la valeur existe déjà
+      if (!existingValues.includes(newFilterValue)) {
+        currentFilters[newFilterField] = [...existingValues, newFilterValue];
+      }
+    } else {
+      currentFilters[newFilterField] = [newFilterValue];
+    }
+    
+    newConfig.filters = currentFilters;
     onChange(newConfig);
     setNewFilterField('');
     setNewFilterValue('');
   };
 
-  // Retirer un filtre
-  const handleRemoveFilter = (field: string) => {
+  // Retirer une valeur spécifique d'un filtre (ou tout le filtre si c'est la dernière valeur)
+  const handleRemoveFilterValue = (field: string, value?: string) => {
     const newConfig = { ...config };
-    const newFilters = { ...newConfig.filters };
-    delete newFilters[field];
-    newConfig.filters = newFilters;
+    const currentFilters = { ...newConfig.filters };
+    
+    if (value !== undefined) {
+      // Retirer une valeur spécifique
+      const fieldValues = Array.isArray(currentFilters[field]) 
+        ? currentFilters[field] 
+        : [currentFilters[field]];
+      
+      const newValues = fieldValues.filter(v => v !== value);
+      
+      if (newValues.length === 0) {
+        // Si plus de valeurs, retirer tout le filtre
+        delete currentFilters[field];
+      } else {
+        currentFilters[field] = newValues;
+      }
+    } else {
+      // Retirer tout le filtre (compatibilité avec l'ancien code)
+      delete currentFilters[field];
+    }
+    
+    newConfig.filters = currentFilters;
     onChange(newConfig);
   };
 
@@ -447,40 +483,84 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
             {/* Liste des filtres actifs */}
             {Object.keys(config.filters || {}).length > 0 && (
               <div style={{ marginBottom: '8px' }}>
-                {Object.entries(config.filters || {}).map(([field, value]) => (
-                  <div
-                    key={field}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '4px 8px',
-                      marginBottom: '4px',
-                      backgroundColor: '#f3f4f6',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                    }}
-                  >
-                    <span style={{ color: '#374151' }}>
-                      <strong>{FIELD_LABELS[field as FieldType]}</strong>: {String(value)}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveFilter(field)}
-                      style={{
-                        padding: '2px 6px',
-                        fontSize: '10px',
-                        border: 'none',
-                        borderRadius: '3px',
-                        backgroundColor: '#ef4444',
-                        color: '#ffffff',
-                        cursor: 'pointer',
-                      }}
-                      title="Retirer ce filtre"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
+                {Object.entries(config.filters || {}).map(([field, value]) => {
+                  // Convertir en array si ce n'est pas déjà le cas (compatibilité)
+                  const values = Array.isArray(value) ? value : [value];
+                  
+                  return (
+                    <div key={field} style={{ marginBottom: '4px' }}>
+                      <div
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '4px 8px',
+                          backgroundColor: '#f3f4f6',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                        }}
+                      >
+                        <span style={{ color: '#374151', fontWeight: '600' }}>
+                          {FIELD_LABELS[field as FieldType]}:
+                        </span>
+                        <button
+                          onClick={() => handleRemoveFilterValue(field)}
+                          style={{
+                            padding: '2px 6px',
+                            fontSize: '10px',
+                            border: 'none',
+                            borderRadius: '3px',
+                            backgroundColor: '#ef4444',
+                            color: '#ffffff',
+                            cursor: 'pointer',
+                          }}
+                          title="Retirer tout le filtre"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      {/* Afficher toutes les valeurs avec possibilité de retirer individuellement */}
+                      <div style={{ marginTop: '2px', paddingLeft: '8px' }}>
+                        {values.map((val, idx) => (
+                          <div
+                            key={`${field}-${val}-${idx}`}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '2px 6px',
+                              marginTop: '2px',
+                              backgroundColor: '#ffffff',
+                              borderRadius: '3px',
+                              fontSize: '10px',
+                              border: '1px solid #e5e7eb',
+                            }}
+                          >
+                            <span style={{ color: '#6b7280' }}>
+                              {String(val)}
+                            </span>
+                            <button
+                              onClick={() => handleRemoveFilterValue(field, val)}
+                              style={{
+                                padding: '1px 4px',
+                                fontSize: '9px',
+                                border: 'none',
+                                borderRadius: '2px',
+                                backgroundColor: '#fca5a5',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                                marginLeft: '4px',
+                              }}
+                              title="Retirer cette valeur"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
 
@@ -493,7 +573,7 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
                   setNewFilterValue('');
                 }}
                 style={{
-                  flex: 1,
+                  flex: '0 0 100px',
                   padding: '4px',
                   fontSize: '11px',
                   border: '1px solid #d1d5db',
@@ -502,18 +582,24 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
                 }}
               >
                 <option value="">Champ</option>
-                {FILTER_FIELDS.map((field) => (
-                  <option key={field} value={field}>
-                    {FIELD_LABELS[field]}
-                  </option>
-                ))}
+                {FILTER_FIELDS.map((field) => {
+                  // Afficher si le champ a déjà un filtre
+                  const hasFilter = config.filters && config.filters[field];
+                  return (
+                    <option key={field} value={field}>
+                      {FIELD_LABELS[field]}{hasFilter ? ' (déjà filtré)' : ''}
+                    </option>
+                  );
+                })}
               </select>
               <select
                 value={newFilterValue}
                 onChange={(e) => setNewFilterValue(e.target.value)}
                 disabled={!newFilterField || loadingValues[newFilterField]}
                 style={{
-                  flex: 1,
+                  flex: '1 1 auto',
+                  minWidth: '120px',
+                  maxWidth: 'calc(100% - 140px)',
                   padding: '4px',
                   fontSize: '11px',
                   border: '1px solid #d1d5db',
@@ -531,16 +617,32 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
                         : 'Sélectionner une valeur'
                       : 'Sélectionner un champ'}
                 </option>
-                {newFilterField && uniqueValues[newFilterField]?.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
-                  </option>
-                ))}
+                {newFilterField && uniqueValues[newFilterField]?.map((value) => {
+                  // Vérifier si la valeur est déjà dans les filtres pour ce champ
+                  const existingValues = config.filters && config.filters[newFilterField]
+                    ? (Array.isArray(config.filters[newFilterField]) 
+                        ? config.filters[newFilterField] 
+                        : [config.filters[newFilterField]])
+                    : [];
+                  const isAlreadySelected = existingValues.includes(value);
+                  
+                  return (
+                    <option 
+                      key={value} 
+                      value={value}
+                      disabled={isAlreadySelected}
+                      style={isAlreadySelected ? { color: '#9ca3af', fontStyle: 'italic' } : {}}
+                    >
+                      {value}{isAlreadySelected ? ' (déjà sélectionné)' : ''}
+                    </option>
+                  );
+                })}
               </select>
               <button
                 onClick={handleAddFilter}
                 disabled={!newFilterField || !newFilterValue || loadingValues[newFilterField]}
                 style={{
+                  flex: '0 0 32px',
                   padding: '4px 8px',
                   fontSize: '11px',
                   border: '1px solid #d1d5db',
@@ -548,7 +650,6 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
                   backgroundColor: newFilterField && newFilterValue && !loadingValues[newFilterField] ? '#3b82f6' : '#f9fafb',
                   color: newFilterField && newFilterValue && !loadingValues[newFilterField] ? '#ffffff' : '#9ca3af',
                   cursor: newFilterField && newFilterValue && !loadingValues[newFilterField] ? 'pointer' : 'not-allowed',
-                  minWidth: '32px',
                   zIndex: 1001,
                   position: 'relative',
                 }}

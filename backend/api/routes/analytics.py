@@ -77,15 +77,35 @@ def apply_filters(query, filters: Dict[str, Any], transaction_alias=None, enrich
         
         column = get_field_column(field, transaction_alias, enriched_alias)
         
-        # Pour les champs texte, utiliser LIKE (contient)
-        if field in ['nom', 'level_1', 'level_2', 'level_3']:
-            query = query.filter(func.lower(column).contains(func.lower(str(value))))
-        # Pour les champs date, utiliser égalité
-        elif field == 'date':
-            query = query.filter(column == value)
-        # Pour les champs numériques (mois, annee), utiliser égalité
+        # Gérer les arrays de valeurs (OR pour le même champ)
+        if isinstance(value, list):
+            if len(value) == 0:
+                continue
+            # OR : au moins une des valeurs doit correspondre
+            conditions = []
+            for val in value:
+                if val is None:
+                    continue
+                if field in ['nom', 'level_1', 'level_2', 'level_3']:
+                    conditions.append(func.lower(column).contains(func.lower(str(val))))
+                elif field == 'date':
+                    conditions.append(column == val)
+                else:  # mois, annee
+                    conditions.append(column == val)
+            
+            if conditions:
+                query = query.filter(or_(*conditions))
         else:
-            query = query.filter(column == value)
+            # Valeur unique (compatibilité avec l'ancien format)
+            # Pour les champs texte, utiliser LIKE (contient)
+            if field in ['nom', 'level_1', 'level_2', 'level_3']:
+                query = query.filter(func.lower(column).contains(func.lower(str(value))))
+            # Pour les champs date, utiliser égalité
+            elif field == 'date':
+                query = query.filter(column == value)
+            # Pour les champs numériques (mois, annee), utiliser égalité
+            else:
+                query = query.filter(column == value)
     
     return query
 

@@ -2047,25 +2047,25 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 4.1.5.3 : Sauvegarde backend des tableaux croisés
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer système de sauvegarde des configurations de tableaux croisés dans la base de données.
 
 **Tasks**:
-- [ ] Créer table SQL `pivot_configs` :
+- [x] Créer table SQL `pivot_configs` :
   - id (INTEGER PRIMARY KEY)
   - name (VARCHAR) - Nom du tableau
   - config (TEXT/JSON) - Configuration (rows, columns, data, filters)
   - created_at (TIMESTAMP)
   - updated_at (TIMESTAMP)
-- [ ] Créer modèle SQLAlchemy `PivotConfig`
-- [ ] Créer endpoints backend :
+- [x] Créer modèle SQLAlchemy `PivotConfig`
+- [x] Créer endpoints backend :
   - `GET /api/pivot-configs` - Liste tous les tableaux sauvegardés
   - `POST /api/pivot-configs` - Créer un nouveau tableau
   - `PUT /api/pivot-configs/{id}` - Mettre à jour un tableau
   - `DELETE /api/pivot-configs/{id}` - Supprimer un tableau
-- [ ] Sauvegarde automatique quand le nom change
-- [ ] **Créer test backend**
-- [ ] **Valider avec l'utilisateur**
+- [x] Sauvegarde automatique quand le nom change
+- [x] **Créer test backend**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle PivotConfig
@@ -2074,11 +2074,11 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Tests backend
 
 **Acceptance Criteria**:
-- [ ] Table créée dans la base de données
-- [ ] Endpoints CRUD fonctionnent
-- [ ] Sauvegarde automatique au changement de nom
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que la sauvegarde fonctionne**
+- [x] Table créée dans la base de données
+- [x] Endpoints CRUD fonctionnent
+- [x] Sauvegarde automatique au changement de nom
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que la sauvegarde fonctionne**
 
 ---
 
@@ -2095,6 +2095,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Mettre à jour interface `PivotFieldConfig` pour inclure `filters` (déjà présent)
 - [x] Étendre endpoint backend pour supporter `date`, `mois`, `annee`
 - [x] Corriger problèmes UI (bouton CONFIG cache le "+", chargement des valeurs)
+- [x] Implémenter logique OR/AND : OR pour plusieurs valeurs du même champ, AND entre champs différents
 - [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
@@ -2108,16 +2109,18 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Plusieurs filtres peuvent être ajoutés
 - [x] Filtres appliqués correctement au tableau croisé
 - [x] Bouton "+" visible et fonctionnel
+- [x] Logique OR/AND fonctionne (OR pour même champ, AND entre champs différents)
+- [x] Possibilité de retirer une valeur individuelle d'un filtre
 - [x] **Utilisateur confirme que les filtres fonctionnent**
 
 ---
 
 #### Step 4.1.5.5 : Sous-onglets avec gestion
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer système de sous-onglets pour gérer plusieurs tableaux croisés sauvegardés.
 
 **Tasks**:
-- [ ] Modifier `frontend/app/dashboard/pivot/page.tsx` :
+- [x] Modifier `frontend/app/dashboard/pivot/page.tsx` :
   - Créer système de sous-onglets (comme Chrome)
   - Premier onglet : "New TCD" par défaut
   - Bouton "+" pour créer un nouvel onglet
@@ -2126,9 +2129,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
   - Menu contextuel (clic droit) : "Déplacer à gauche", "Déplacer à droite", "Supprimer"
   - Confirmation avant suppression
   - Chargement des tableaux sauvegardés depuis le backend
-- [ ] Créer composant `PivotTabs.tsx` pour gérer les onglets
-- [ ] Intégrer avec endpoints de sauvegarde (Step 4.1.5.3)
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer composant `PivotTabs.tsx` pour gérer les onglets
+- [x] Intégrer avec endpoints de sauvegarde (Step 4.1.5.3)
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/src/components/PivotTabs.tsx` - Composant gestion onglets
@@ -2136,14 +2139,14 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Mise à jour API client pour endpoints pivot-configs
 
 **Acceptance Criteria**:
-- [ ] Sous-onglets visibles et fonctionnels
-- [ ] Création d'un nouvel onglet fonctionne
-- [ ] Renommage fonctionne (double-clic ou menu)
-- [ ] Sauvegarde automatique au renommage
-- [ ] Menu contextuel fonctionne (déplacer, supprimer)
-- [ ] Confirmation avant suppression
-- [ ] Chargement des tableaux sauvegardés fonctionne
-- [ ] **Utilisateur confirme que les sous-onglets fonctionnent**
+- [x] Sous-onglets visibles et fonctionnels
+- [x] Création d'un nouvel onglet fonctionne
+- [x] Renommage fonctionne (double-clic ou menu)
+- [x] Sauvegarde automatique au renommage
+- [x] Menu contextuel fonctionne (déplacer, supprimer)
+- [x] Confirmation avant suppression
+- [x] Chargement des tableaux sauvegardés fonctionne
+- [x] **Utilisateur confirme que les sous-onglets fonctionnent**
 
 ---
 
