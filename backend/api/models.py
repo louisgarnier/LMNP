@@ -6,7 +6,7 @@ Always check with the user before modifying this file.
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from datetime import date, datetime
 
 
@@ -230,3 +230,38 @@ class MappingImportHistory(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Pivot Config models
+
+class PivotConfigBase(BaseModel):
+    """Base model for pivot config."""
+    name: str = Field(..., max_length=255, description="Nom du tableau croisé")
+    config: Dict[str, Any] = Field(..., description="Configuration JSON (rows, columns, data, filters)")
+
+
+class PivotConfigCreate(PivotConfigBase):
+    """Model for creating a pivot config."""
+    pass
+
+
+class PivotConfigUpdate(BaseModel):
+    """Model for updating a pivot config."""
+    name: Optional[str] = Field(None, max_length=255, description="Nom du tableau croisé")
+    config: Optional[Dict[str, Any]] = Field(None, description="Configuration JSON (rows, columns, data, filters)")
+
+
+class PivotConfigResponse(PivotConfigBase):
+    """Model for pivot config response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PivotConfigListResponse(BaseModel):
+    """Model for list of pivot configs."""
+    items: List[PivotConfigResponse]
+    total: int

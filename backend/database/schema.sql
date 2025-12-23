@@ -146,3 +146,14 @@ CREATE TABLE IF NOT EXISTS mapping_imports (
 
 CREATE INDEX IF NOT EXISTS idx_mapping_imports_filename ON mapping_imports(filename);
 CREATE INDEX IF NOT EXISTS idx_mapping_imports_imported_at ON mapping_imports(imported_at);
+
+-- Pivot configs table - Saved pivot table configurations
+CREATE TABLE IF NOT EXISTS pivot_configs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL,
+    config TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_pivot_configs_name ON pivot_configs(name);

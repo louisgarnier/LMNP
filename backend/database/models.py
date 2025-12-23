@@ -178,3 +178,19 @@ class MappingImport(Base):
         Index('idx_mapping_imports_imported_at', 'imported_at'),
     )
 
+
+class PivotConfig(Base):
+    """Saved pivot table configurations."""
+    __tablename__ = "pivot_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, index=True)  # Nom du tableau
+    config = Column(Text, nullable=False)  # Configuration JSON (rows, columns, data, filters)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_pivot_configs_name', 'name'),
+    )
+
