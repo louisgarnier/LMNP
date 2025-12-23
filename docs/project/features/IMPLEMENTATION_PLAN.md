@@ -1937,28 +1937,176 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 4.1.5 : Frontend - Composant tableau croisé (affichage)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer le composant pour afficher le tableau croisé format Excel avec totaux.
 
 **Tasks**:
-- [ ] Créer composant `PivotTable.tsx`
+- [x] Créer composant `PivotTable.tsx`
   - Recevoir les données du backend (structure pivot)
   - Afficher tableau croisé format Excel (lignes/colonnes croisées)
   - Afficher totaux et sous-totaux
   - Gestion du clic sur cellule/total
   - Appeler API pivot quand les champs changent
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Structure hiérarchique avec indentation
+  - Expand/collapse des catégories
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/src/components/PivotTable.tsx` - Composant tableau croisé
 
 **Acceptance Criteria**:
-- [ ] Tableau croisé s'affiche correctement (format Excel)
-- [ ] Lignes et colonnes se croisent correctement
-- [ ] Totaux et sous-totaux affichés
-- [ ] Clic sur cellule/total fonctionne (prépare les paramètres pour details)
-- [ ] **Utilisateur confirme que le tableau s'affiche correctement**
+- [x] Tableau croisé s'affiche correctement (format Excel)
+- [x] Lignes et colonnes se croisent correctement
+- [x] Totaux et sous-totaux affichés
+- [x] Clic sur cellule/total fonctionne (prépare les paramètres pour details)
+- [x] **Utilisateur confirme que le tableau s'affiche correctement**
+
+**Notes**:
+- Structure hiérarchique avec indentation par niveau
+- Expand/collapse fonctionnel
+- Color code par niveau (à améliorer dans Step 4.1.5.1)
+
+---
+
+#### Step 4.1.5.1 : Ajustement color code hiérarchique
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajuster les couleurs pour rester dans le thème de l'application.
+
+**Tasks**:
+- [ ] Modifier `PivotTable.tsx` pour ajuster les couleurs :
+  - Niveau 1 : Fond blanc, texte noir bold
+  - Niveau 2 : Fond bleu foncé (#1e3a5f comme header), texte blanc bold
+  - Niveau 3 : Alternance blanc/gris très clair, texte noir normal
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/PivotTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Couleurs cohérentes avec le thème de l'application
+- [ ] Distinction claire entre les 3 niveaux
+- [ ] **Utilisateur confirme que les couleurs sont correctes**
+
+---
+
+#### Step 4.1.5.2 : Menu contextuel expand/collapse
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter menu contextuel (clic droit) pour expand/collapse récursif.
+
+**Tasks**:
+- [ ] Ajouter menu contextuel sur les lignes du tableau
+  - Clic droit sur une ligne → menu contextuel
+  - Options : "Expand tout" / "Collapse tout"
+  - Expand/collapse récursif (ligne + tous ses sous-enfants)
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/PivotTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Menu contextuel s'affiche au clic droit
+- [ ] "Expand tout" expand récursivement tous les enfants
+- [ ] "Collapse tout" collapse récursivement tous les enfants
+- [ ] **Utilisateur confirme que le menu contextuel fonctionne**
+
+---
+
+#### Step 4.1.5.3 : Sauvegarde backend des tableaux croisés
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer système de sauvegarde des configurations de tableaux croisés dans la base de données.
+
+**Tasks**:
+- [ ] Créer table SQL `pivot_configs` :
+  - id (INTEGER PRIMARY KEY)
+  - name (VARCHAR) - Nom du tableau
+  - config (TEXT/JSON) - Configuration (rows, columns, data, filters)
+  - created_at (TIMESTAMP)
+  - updated_at (TIMESTAMP)
+- [ ] Créer modèle SQLAlchemy `PivotConfig`
+- [ ] Créer endpoints backend :
+  - `GET /api/pivot-configs` - Liste tous les tableaux sauvegardés
+  - `POST /api/pivot-configs` - Créer un nouveau tableau
+  - `PUT /api/pivot-configs/{id}` - Mettre à jour un tableau
+  - `DELETE /api/pivot-configs/{id}` - Supprimer un tableau
+- [ ] Sauvegarde automatique quand le nom change
+- [ ] **Créer test backend**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/database/models.py` - Modèle PivotConfig
+- `backend/api/routes/pivot_configs.py` - Endpoints CRUD
+- Mise à jour `backend/database/schema.sql`
+- Tests backend
+
+**Acceptance Criteria**:
+- [ ] Table créée dans la base de données
+- [ ] Endpoints CRUD fonctionnent
+- [ ] Sauvegarde automatique au changement de nom
+- [ ] Test script exécutable et tous les tests passent
+- [ ] **Utilisateur confirme que la sauvegarde fonctionne**
+
+---
+
+#### Step 4.1.5.4 : Filtres dans panneau config
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter zone Filtres dans le panneau de configuration.
+
+**Tasks**:
+- [ ] Ajouter zone "Filtres" dans `PivotFieldSelector.tsx`
+  - Liste déroulante pour sélectionner un champ (date, mois, annee, level_1, level_2, level_3, nom)
+  - Liste déroulante pour sélectionner une valeur (utiliser endpoints `/api/transactions/unique-values` ou `/api/mappings/unique-values`)
+  - Possibilité d'ajouter plusieurs filtres
+  - Bouton pour retirer un filtre
+- [ ] Mettre à jour interface `PivotFieldConfig` pour inclure `filters`
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/PivotFieldSelector.tsx`
+- Mise à jour interface `PivotFieldConfig`
+
+**Acceptance Criteria**:
+- [ ] Zone Filtres visible dans le panneau config
+- [ ] Sélection de champ fonctionne
+- [ ] Récupération des valeurs uniques fonctionne
+- [ ] Plusieurs filtres peuvent être ajoutés
+- [ ] Filtres appliqués correctement au tableau croisé
+- [ ] **Utilisateur confirme que les filtres fonctionnent**
+
+---
+
+#### Step 4.1.5.5 : Sous-onglets avec gestion
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer système de sous-onglets pour gérer plusieurs tableaux croisés sauvegardés.
+
+**Tasks**:
+- [ ] Modifier `frontend/app/dashboard/pivot/page.tsx` :
+  - Créer système de sous-onglets (comme Chrome)
+  - Premier onglet : "New TCD" par défaut
+  - Bouton "+" pour créer un nouvel onglet
+  - Renommage des onglets (double-clic ou menu contextuel)
+  - Sauvegarde automatique au renommage
+  - Menu contextuel (clic droit) : "Déplacer à gauche", "Déplacer à droite", "Supprimer"
+  - Confirmation avant suppression
+  - Chargement des tableaux sauvegardés depuis le backend
+- [ ] Créer composant `PivotTabs.tsx` pour gérer les onglets
+- [ ] Intégrer avec endpoints de sauvegarde (Step 4.1.5.3)
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/PivotTabs.tsx` - Composant gestion onglets
+- Mise à jour `frontend/app/dashboard/pivot/page.tsx`
+- Mise à jour API client pour endpoints pivot-configs
+
+**Acceptance Criteria**:
+- [ ] Sous-onglets visibles et fonctionnels
+- [ ] Création d'un nouvel onglet fonctionne
+- [ ] Renommage fonctionne (double-clic ou menu)
+- [ ] Sauvegarde automatique au renommage
+- [ ] Menu contextuel fonctionne (déplacer, supprimer)
+- [ ] Confirmation avant suppression
+- [ ] Chargement des tableaux sauvegardés fonctionne
+- [ ] **Utilisateur confirme que les sous-onglets fonctionnent**
 
 ---
 
