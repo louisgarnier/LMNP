@@ -1992,7 +1992,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 4.1.5.2 : Menu contextuel expand/collapse
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter menu contextuel (clic droit) style Excel avec options expand/collapse avancées.
 
 **Fonctionnalités principales**:
@@ -2017,32 +2017,32 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
    - "Expand to level 3" : Développer jusqu'au niveau 3 (afficher tous les niveaux)
 
 **Tasks**:
-- [ ] Ajouter menu contextuel sur les lignes du tableau
+- [x] Ajouter menu contextuel sur les lignes du tableau
   - Clic droit sur une ligne → menu contextuel
   - Menu unique avec toutes les options listées séquentiellement (pas de sous-menus)
   - Séparateurs visuels entre sections
-- [ ] Implémenter "Expand" / "Collapse" (élément unique)
+- [x] Implémenter "Expand" / "Collapse" (élément unique)
   - Expand : développer cet élément seulement
   - Collapse : réduire cet élément seulement
-- [ ] Implémenter "Expand Entire Field" / "Collapse Entire Field"
+- [x] Implémenter "Expand Entire Field" / "Collapse Entire Field"
   - Identifier le champ (field) de la ligne cliquée
   - Développer/réduire TOUS les éléments de ce champ dans tout le tableau
-- [ ] Implémenter navigation par niveaux
+- [x] Implémenter navigation par niveaux
   - "Collapse to level X" : masquer tous les niveaux > X
   - "Expand to level X" : afficher tous les niveaux <= X
   - Adapter la numérotation Excel (Level 1 = level 0, Level 2 = level 1, Level 3 = level 2)
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/PivotTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Menu contextuel s'affiche au clic droit avec toutes les options
-- [ ] "Expand" / "Collapse" fonctionnent sur l'élément unique
-- [ ] "Expand Entire Field" / "Collapse Entire Field" fonctionnent sur tous les éléments du champ
-- [ ] Navigation par niveaux fonctionne (Collapse to / Expand to)
-- [ ] Séparateurs visuels entre sections du menu
-- [ ] **Utilisateur confirme que toutes les fonctionnalités fonctionnent**
+- [x] Menu contextuel s'affiche au clic droit avec toutes les options
+- [x] "Expand" / "Collapse" fonctionnent sur l'élément unique
+- [x] "Expand Entire Field" / "Collapse Entire Field" fonctionnent sur tous les éléments du champ
+- [x] Navigation par niveaux fonctionne (Collapse to / Expand to)
+- [x] Séparateurs visuels entre sections du menu
+- [x] **Utilisateur confirme que toutes les fonctionnalités fonctionnent**
 
 ---
 

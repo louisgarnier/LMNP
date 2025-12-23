@@ -31,6 +31,7 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; rowKey: string | number | (string | number)[]; rowLevel: number } | null>(null);
 
   // Appeler l'API quand la config change
   useEffect(() => {
@@ -249,6 +250,150 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
     setExpandedRows(newExpanded);
   };
 
+  // Collecter récursivement toutes les clés des enfants d'un nœud
+  const collectAllChildKeys = (row: PivotRow): string[] => {
+    const keys: string[] = [keyToString(row.key)];
+    if (row.children) {
+      row.children.forEach(child => {
+        keys.push(...collectAllChildKeys(child));
+      });
+    }
+    return keys;
+  };
+
+  // Expand élément unique : expand cet élément seulement
+  const expandElement = (rowKey: string | number | (string | number)[]) => {
+    const keyStr = keyToString(rowKey);
+    const newExpanded = new Set(expandedRows);
+    newExpanded.add(keyStr);
+    setExpandedRows(newExpanded);
+    setContextMenu(null);
+  };
+
+  // Collapse élément unique : collapse cet élément seulement
+  const collapseElement = (rowKey: string | number | (string | number)[]) => {
+    const keyStr = keyToString(rowKey);
+    const newExpanded = new Set(expandedRows);
+    newExpanded.delete(keyStr);
+    setExpandedRows(newExpanded);
+    setContextMenu(null);
+  };
+
+  // Collecter toutes les clés d'un niveau spécifique dans tout le tableau
+  const collectAllKeysAtLevel = (targetLevel: number, nodes: PivotRow[]): string[] => {
+    const keys: string[] = [];
+    nodes.forEach(node => {
+      if (node.level === targetLevel) {
+        keys.push(keyToString(node.key));
+      }
+      if (node.children) {
+        keys.push(...collectAllKeysAtLevel(targetLevel, node.children));
+      }
+    });
+    return keys;
+  };
+
+  // Expand Entire Field : développer tous les éléments du même champ (même level)
+  const expandEntireField = (targetLevel: number) => {
+    const allKeys = collectAllKeysAtLevel(targetLevel, hierarchicalRows);
+    const newExpanded = new Set(expandedRows);
+    allKeys.forEach(key => newExpanded.add(key));
+    setExpandedRows(newExpanded);
+    setContextMenu(null);
+  };
+
+  // Collapse Entire Field : réduire tous les éléments du même champ (même level)
+  const collapseEntireField = (targetLevel: number) => {
+    const allKeys = collectAllKeysAtLevel(targetLevel, hierarchicalRows);
+    const newExpanded = new Set(expandedRows);
+    allKeys.forEach(key => newExpanded.delete(key));
+    setExpandedRows(newExpanded);
+    setContextMenu(null);
+  };
+
+  // Navigation par niveaux : Collapse to level X (masquer tous les niveaux > X)
+  // targetLevel est le niveau Excel (1-indexed), donc level 1 = niveau 0 dans mon code
+  const collapseToLevel = (targetExcelLevel: number) => {
+    const targetCodeLevel = targetExcelLevel - 1; // Convertir Excel Level (1-indexed) → Code level (0-indexed)
+    const newExpanded = new Set<string>();
+    // Garder seulement les clés des niveaux < targetCodeLevel (pour voir jusqu'à targetCodeLevel)
+    const collectKeysUpToLevel = (nodes: PivotRow[], maxLevel: number): void => {
+      nodes.forEach(node => {
+        if (node.level < maxLevel && node.hasChildren) {
+          newExpanded.add(keyToString(node.key));
+        }
+        if (node.children) {
+          collectKeysUpToLevel(node.children, maxLevel);
+        }
+      });
+    };
+    collectKeysUpToLevel(hierarchicalRows, targetCodeLevel);
+    setExpandedRows(newExpanded);
+    setContextMenu(null);
+  };
+
+  // Navigation par niveaux : Expand to level X (afficher tous les niveaux <= X)
+  // targetLevel est le niveau Excel (1-indexed), donc level 2 = niveau 1 dans mon code
+  const expandToLevel = (targetExcelLevel: number) => {
+    const targetCodeLevel = targetExcelLevel - 1; // Convertir Excel Level (1-indexed) → Code level (0-indexed)
+    const newExpanded = new Set(expandedRows);
+    // Ajouter toutes les clés des niveaux < targetCodeLevel (pour voir jusqu'à targetCodeLevel)
+    const collectKeysUpToLevel = (nodes: PivotRow[], maxLevel: number): void => {
+      nodes.forEach(node => {
+        if (node.level < maxLevel && node.hasChildren) {
+          newExpanded.add(keyToString(node.key));
+        }
+        if (node.children) {
+          collectKeysUpToLevel(node.children, maxLevel);
+        }
+      });
+    };
+    collectKeysUpToLevel(hierarchicalRows, targetCodeLevel);
+    setExpandedRows(newExpanded);
+    setContextMenu(null);
+  };
+
+  // Gérer le clic droit (menu contextuel)
+  const handleContextMenu = (e: React.MouseEvent, rowKey: string | number | (string | number)[], rowLevel: number) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      rowKey: rowKey,
+      rowLevel: rowLevel,
+    });
+  };
+
+  // Fermer le menu contextuel
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // Fermer le menu au clic ailleurs ou Escape
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu) {
+        closeContextMenu();
+      }
+    };
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && contextMenu) {
+        closeContextMenu();
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      document.addEventListener('keydown', handleEscape);
+    }
+
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [contextMenu]);
+
   // Rendre une ligne récursivement
   const renderRow = (row: PivotRow, columns: (string | number | (string | number)[])[], columnTotals: Record<string, number>, parentKey: string = '', rowIndexByLevel: Map<number, number> = new Map()): React.ReactNode => {
     const keyStr = keyToString(row.key);
@@ -291,10 +436,12 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
       <>
         <tr
           key={uniqueKey}
+          onContextMenu={(e) => handleContextMenu(e, row.key, row.level)}
           style={{
             backgroundColor: bgColor,
             borderBottom: '1px solid #e2e8f0',
             borderTop: row.level === 0 ? '2px solid #cbd5e1' : '1px solid #e2e8f0',
+            cursor: 'context-menu',
           }}
         >
           {/* Cellule de ligne */}
@@ -592,6 +739,200 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
           </tr>
         </tbody>
       </table>
+      
+      {/* Menu contextuel */}
+      {contextMenu && (() => {
+        const maxLevel = config.rows.length - 1; // Niveau maximum (0-indexed)
+        const excelLevel = contextMenu.rowLevel + 1; // Excel Level (1-indexed)
+        // Trouver la ligne cliquée pour vérifier si elle a des enfants
+        const clickedRow = findInHierarchy(hierarchicalRows, Array.isArray(contextMenu.rowKey) ? contextMenu.rowKey : [contextMenu.rowKey]);
+        const hasChildren = clickedRow?.hasChildren || false;
+        
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              top: contextMenu.y,
+              left: contextMenu.x,
+              backgroundColor: '#ffffff',
+              border: '1px solid #d1d5db',
+              borderRadius: '4px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              zIndex: 1000,
+              minWidth: '180px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Expand / Collapse (élément unique) */}
+            {hasChildren && (
+              <>
+                <button
+                  onClick={() => expandElement(contextMenu.rowKey)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: '#1f2937',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  Expand
+                </button>
+                <button
+                  onClick={() => collapseElement(contextMenu.rowKey)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    color: '#1f2937',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
+                >
+                  Collapse
+                </button>
+                <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '4px 0' }} />
+              </>
+            )}
+            
+            {/* Expand/Collapse Entire Field */}
+            <button
+              onClick={() => expandEntireField(contextMenu.rowLevel)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                textAlign: 'left',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                color: '#1f2937',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              Expand Entire Field
+            </button>
+            <button
+              onClick={() => collapseEntireField(contextMenu.rowLevel)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                textAlign: 'left',
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                fontSize: '14px',
+                color: '#1f2937',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              Collapse Entire Field
+            </button>
+            <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '4px 0' }} />
+            
+            {/* Navigation par niveaux */}
+            {/* Collapse to level 1 (Excel) = niveau 0 (code) = voir seulement le niveau racine */}
+            {maxLevel >= 0 && (
+              <button
+                onClick={() => collapseToLevel(1)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  textAlign: 'left',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: '#1f2937',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Collapse to "level 1"
+              </button>
+            )}
+            {/* Expand to level 2 (Excel) = niveau 1 (code) = voir jusqu'au niveau 2 */}
+            {maxLevel >= 1 && (
+              <button
+                onClick={() => expandToLevel(2)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  textAlign: 'left',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: '#1f2937',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Expand to "level 2"
+              </button>
+            )}
+            {/* Expand to level 3 (Excel) = niveau 2 (code) = voir jusqu'au niveau 3 (tout) */}
+            {maxLevel >= 2 && (
+              <button
+                onClick={() => expandToLevel(3)}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  textAlign: 'left',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  color: '#1f2937',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Expand to "level 3"
+              </button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
