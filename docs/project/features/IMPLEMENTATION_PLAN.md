@@ -1993,23 +1993,56 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 #### Step 4.1.5.2 : Menu contextuel expand/collapse
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Ajouter menu contextuel (clic droit) pour expand/collapse récursif.
+**Description**: Ajouter menu contextuel (clic droit) style Excel avec options expand/collapse avancées.
+
+**Fonctionnalités principales**:
+
+1. **Expand / Collapse** (élément unique) :
+   - Expand : Ouvre un niveau pour afficher les sous-éléments
+   - Collapse : Ferme un niveau pour masquer les détails
+
+2. **Expand/Collapse Entire Field** (champ entier) :
+   - Un "Field" = un champ de ligne dans la config (ex: `level_1`, `level_2`, `level_3`)
+   - "Expand Entire Field" sur `level_2` = développer TOUS les éléments `level_2` dans tout le tableau
+   - "Collapse Entire Field" sur `level_2` = réduire TOUS les éléments `level_2` dans tout le tableau
+   - Action globale sur tous les éléments de ce champ
+
+3. **Navigation par niveaux** :
+   - Correspondance Excel ↔ Code :
+     - Excel Level 1 = `row.level === 0` (premier champ, niveau racine)
+     - Excel Level 2 = `row.level === 1` (deuxième champ, intermédiaire)
+     - Excel Level 3 = `row.level === 2` (troisième champ, le plus détaillé)
+   - "Collapse to level 1" : Afficher uniquement jusqu'au niveau racine (masquer niveaux 2 et 3)
+   - "Expand to level 2" : Développer jusqu'au niveau 2 (afficher niveaux 1 et 2)
+   - "Expand to level 3" : Développer jusqu'au niveau 3 (afficher tous les niveaux)
 
 **Tasks**:
 - [ ] Ajouter menu contextuel sur les lignes du tableau
   - Clic droit sur une ligne → menu contextuel
-  - Options : "Expand tout" / "Collapse tout"
-  - Expand/collapse récursif (ligne + tous ses sous-enfants)
+  - Menu unique avec toutes les options listées séquentiellement (pas de sous-menus)
+  - Séparateurs visuels entre sections
+- [ ] Implémenter "Expand" / "Collapse" (élément unique)
+  - Expand : développer cet élément seulement
+  - Collapse : réduire cet élément seulement
+- [ ] Implémenter "Expand Entire Field" / "Collapse Entire Field"
+  - Identifier le champ (field) de la ligne cliquée
+  - Développer/réduire TOUS les éléments de ce champ dans tout le tableau
+- [ ] Implémenter navigation par niveaux
+  - "Collapse to level X" : masquer tous les niveaux > X
+  - "Expand to level X" : afficher tous les niveaux <= X
+  - Adapter la numérotation Excel (Level 1 = level 0, Level 2 = level 1, Level 3 = level 2)
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/PivotTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Menu contextuel s'affiche au clic droit
-- [ ] "Expand tout" expand récursivement tous les enfants
-- [ ] "Collapse tout" collapse récursivement tous les enfants
-- [ ] **Utilisateur confirme que le menu contextuel fonctionne**
+- [ ] Menu contextuel s'affiche au clic droit avec toutes les options
+- [ ] "Expand" / "Collapse" fonctionnent sur l'élément unique
+- [ ] "Expand Entire Field" / "Collapse Entire Field" fonctionnent sur tous les éléments du champ
+- [ ] Navigation par niveaux fonctionne (Collapse to / Expand to)
+- [ ] Séparateurs visuels entre sections du menu
+- [ ] **Utilisateur confirme que toutes les fonctionnalités fonctionnent**
 
 ---
 
