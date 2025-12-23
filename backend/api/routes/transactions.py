@@ -307,8 +307,28 @@ async def get_transaction_unique_values(
     elif column == "level_3":
         values = query.with_entities(EnrichedTransaction.level_3).distinct().filter(EnrichedTransaction.level_3.isnot(None)).order_by(EnrichedTransaction.level_3).all()
         unique_values = [v[0] for v in values if v[0]]
+    elif column == "date":
+        values = query.with_entities(Transaction.date).distinct().filter(Transaction.date.isnot(None)).order_by(Transaction.date).all()
+        unique_values = [v[0].strftime('%Y-%m-%d') if v[0] else None for v in values if v[0]]
+        unique_values = [v for v in unique_values if v]
+    elif column == "mois":
+        query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
+        if start_date:
+            query = query.filter(Transaction.date >= start_date)
+        if end_date:
+            query = query.filter(Transaction.date <= end_date)
+        values = query.with_entities(EnrichedTransaction.mois).distinct().filter(EnrichedTransaction.mois.isnot(None)).order_by(EnrichedTransaction.mois).all()
+        unique_values = [str(v[0]) for v in values if v[0] is not None]
+    elif column == "annee":
+        query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
+        if start_date:
+            query = query.filter(Transaction.date >= start_date)
+        if end_date:
+            query = query.filter(Transaction.date <= end_date)
+        values = query.with_entities(EnrichedTransaction.annee).distinct().filter(EnrichedTransaction.annee.isnot(None)).order_by(EnrichedTransaction.annee).all()
+        unique_values = [str(v[0]) for v in values if v[0] is not None]
     else:
-        raise HTTPException(status_code=400, detail=f"Colonne '{column}' non supportée. Colonnes supportées: nom, level_1, level_2, level_3")
+        raise HTTPException(status_code=400, detail=f"Colonne '{column}' non supportée. Colonnes supportées: nom, level_1, level_2, level_3, date, mois, annee")
     
     return {"column": column, "values": unique_values}
 

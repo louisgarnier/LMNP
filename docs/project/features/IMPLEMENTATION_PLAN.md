@@ -2083,29 +2083,32 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 4.1.5.4 : Filtres dans panneau config
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter zone Filtres dans le panneau de configuration.
 
 **Tasks**:
-- [ ] Ajouter zone "Filtres" dans `PivotFieldSelector.tsx`
+- [x] Ajouter zone "Filtres" dans `PivotFieldSelector.tsx`
   - Liste déroulante pour sélectionner un champ (date, mois, annee, level_1, level_2, level_3, nom)
-  - Liste déroulante pour sélectionner une valeur (utiliser endpoints `/api/transactions/unique-values` ou `/api/mappings/unique-values`)
+  - Liste déroulante pour sélectionner une valeur (utiliser endpoints `/api/transactions/unique-values`)
   - Possibilité d'ajouter plusieurs filtres
   - Bouton pour retirer un filtre
-- [ ] Mettre à jour interface `PivotFieldConfig` pour inclure `filters`
-- [ ] **Valider avec l'utilisateur**
+- [x] Mettre à jour interface `PivotFieldConfig` pour inclure `filters` (déjà présent)
+- [x] Étendre endpoint backend pour supporter `date`, `mois`, `annee`
+- [x] Corriger problèmes UI (bouton CONFIG cache le "+", chargement des valeurs)
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/PivotFieldSelector.tsx`
-- Mise à jour interface `PivotFieldConfig`
+- Mise à jour `backend/api/routes/transactions.py` (support date, mois, annee)
 
 **Acceptance Criteria**:
-- [ ] Zone Filtres visible dans le panneau config
-- [ ] Sélection de champ fonctionne
-- [ ] Récupération des valeurs uniques fonctionne
-- [ ] Plusieurs filtres peuvent être ajoutés
-- [ ] Filtres appliqués correctement au tableau croisé
-- [ ] **Utilisateur confirme que les filtres fonctionnent**
+- [x] Zone Filtres visible dans le panneau config
+- [x] Sélection de champ fonctionne
+- [x] Récupération des valeurs uniques fonctionne (tous les champs supportés)
+- [x] Plusieurs filtres peuvent être ajoutés
+- [x] Filtres appliqués correctement au tableau croisé
+- [x] Bouton "+" visible et fonctionnel
+- [x] **Utilisateur confirme que les filtres fonctionnent**
 
 ---
 
