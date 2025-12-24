@@ -1531,6 +1531,8 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 **Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter le tri par colonnes (cliquable sur tous les en-têtes) et une ligne de filtres auto (comme Excel) sous les en-têtes pour filtrer les données en temps réel. Ajouter aussi les contrôles de pagination en haut du tableau.
 
+
+
 **Objectifs**:
 - Tri cliquable sur toutes les colonnes (avec indicateur visuel ↑/↓)
 - Ligne de filtres sous les en-têtes avec dropdown de valeurs uniques (comme Excel)
@@ -1799,6 +1801,167 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Test combinaison tri + filtres + pagination
 - [x] Test performance avec beaucoup de données
 - [x] **Utilisateur confirme que toutes les fonctionnalités fonctionnent**
+
+---
+
+### Step 3.9 : Export des mappings vers Excel
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter fonctionnalité d'export de tous les mappings vers un fichier Excel (.xlsx) avec colonnes Nom, Level 1, Level 2, Level 3.
+
+**Objectifs**:
+- Bouton "📥 Extraire mapping" dans onglet Mapping (à gauche du bouton "Re-enrichir")
+- Export de tous les mappings vers fichier Excel
+- Colonnes : Nom, Level 1, Level 2, Level 3 (avec en-têtes)
+- Nom de fichier par défaut : `mappings_YYYY-MM-DD.xlsx`
+- Dialogue de sauvegarde pour choisir l'emplacement
+
+#### Step 3.9.1 : Frontend - Installation bibliothèque Excel
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Installer une bibliothèque JavaScript pour générer des fichiers Excel côté frontend.
+
+**Tasks**:
+- [ ] Choisir bibliothèque (xlsx ou exceljs)
+- [ ] Installer via npm/yarn
+- [ ] Vérifier compatibilité avec Next.js
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/package.json` avec dépendance Excel
+
+**Acceptance Criteria**:
+- [ ] Bibliothèque installée et fonctionnelle
+- [ ] Pas de conflits avec autres dépendances
+- [ ] **Utilisateur confirme le choix de bibliothèque**
+
+---
+
+#### Step 3.9.2 : Frontend - Fonction export Excel
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer une fonction utilitaire pour exporter les mappings vers un fichier Excel.
+
+**Tasks**:
+- [ ] Créer fonction `exportMappingsToExcel(mappings: Mapping[])`
+- [ ] Générer fichier Excel avec colonnes : Nom, Level 1, Level 2, Level 3
+- [ ] Ajouter en-têtes en première ligne
+- [ ] Format .xlsx uniquement
+- [ ] Gérer les valeurs null/vides (afficher chaîne vide)
+- [ ] **Créer test unitaire si possible**
+
+**Deliverables**:
+- `frontend/src/utils/excelExport.ts` - Fonction export Excel
+
+**Acceptance Criteria**:
+- [ ] Fonction génère fichier Excel valide
+- [ ] Colonnes dans l'ordre : Nom, Level 1, Level 2, Level 3
+- [ ] En-têtes présents en première ligne
+- [ ] Format .xlsx correct
+- [ ] Valeurs null gérées correctement
+- [ ] **Utilisateur confirme que le fichier généré est valide**
+
+---
+
+#### Step 3.9.3 : Frontend - Récupération tous les mappings
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer fonction pour récupérer tous les mappings depuis l'API (sans pagination ou avec limite élevée).
+
+**Tasks**:
+- [ ] Utiliser endpoint existant `GET /api/mappings` avec limite élevée (1000)
+- [ ] Ou créer endpoint backend dédié `GET /api/mappings/all` (sans pagination)
+- [ ] Gérer cas où il y a plus de 1000 mappings (appels multiples)
+- [ ] Afficher indicateur de chargement pendant récupération
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/api/client.ts` - Méthode pour récupérer tous les mappings
+- Optionnel : `backend/api/routes/mappings.py` - Endpoint `/api/mappings/all`
+
+**Acceptance Criteria**:
+- [ ] Tous les mappings sont récupérés (même si > 1000)
+- [ ] Indicateur de chargement visible
+- [ ] Gestion d'erreur si échec récupération
+- [ ] **Utilisateur confirme que tous les mappings sont récupérés**
+
+---
+
+#### Step 3.9.4 : Frontend - Bouton export dans MappingTable
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter bouton "Extraire mapping" à gauche du bouton "Re-enrichir toutes les transactions" dans MappingTable.
+
+**Tasks**:
+- [ ] Ajouter bouton dans `MappingTable.tsx`
+- [ ] Positionner à gauche du bouton "🔄 Re-enrichir toutes les transactions"
+- [ ] Icône/texte : "📥 Extraire mapping" ou similaire
+- [ ] Style cohérent avec autres boutons
+- [ ] Gérer état de chargement pendant export
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/MappingTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Bouton visible et bien positionné
+- [ ] Style cohérent avec l'interface
+- [ ] Indicateur de chargement pendant export
+- [ ] **Utilisateur confirme que le bouton est bien placé**
+
+---
+
+#### Step 3.9.5 : Frontend - Dialogue sauvegarde fichier
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter dialogue de sauvegarde avec nom de fichier par défaut incluant la date.
+
+**Tasks**:
+- [ ] Utiliser API File System Access ou fallback download
+- [ ] Nom de fichier par défaut : `mappings_YYYY-MM-DD.xlsx` (ex: `mappings_2025-12-24.xlsx`)
+- [ ] Permettre à l'utilisateur de modifier le nom
+- [ ] Gérer cas navigateurs ne supportant pas File System Access (fallback téléchargement direct)
+- [ ] Afficher message de succès après export
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/utils/excelExport.ts` - Fonction sauvegarde
+- Mise à jour `frontend/src/components/MappingTable.tsx` - Intégration dialogue
+
+**Acceptance Criteria**:
+- [ ] Dialogue de sauvegarde s'ouvre
+- [ ] Nom de fichier par défaut avec date correcte
+- [ ] Utilisateur peut modifier le nom
+- [ ] Fichier sauvegardé au bon emplacement
+- [ ] Message de succès affiché
+- [ ] Fallback fonctionne sur navigateurs non compatibles
+- [ ] **Utilisateur confirme que le dialogue fonctionne**
+
+---
+
+#### Step 3.9.6 : Frontend - Intégration complète et tests
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Intégrer toutes les fonctionnalités et tester le workflow complet.
+
+**Tasks**:
+- [ ] Tester export avec différents nombres de mappings (0, 1, 100, 1000+)
+- [ ] Tester avec mappings contenant valeurs null
+- [ ] Tester dialogue sauvegarde sur différents navigateurs
+- [ ] Vérifier que le fichier Excel généré s'ouvre correctement dans Excel/LibreOffice
+- [ ] Vérifier que les colonnes sont dans le bon ordre
+- [ ] **Créer test visuel complet dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Tests manuels complets
+- Documentation si nécessaire
+
+**Acceptance Criteria**:
+- [ ] Export fonctionne avec tous les cas de test
+- [ ] Fichier Excel valide et lisible
+- [ ] Workflow complet fonctionnel
+- [ ] **Utilisateur confirme que l'export fonctionne parfaitement**
+
+**Impact Frontend**: 
+- ✅ Bouton export visible dans onglet Mapping
+- ✅ Export Excel fonctionnel
+- ✅ Dialogue sauvegarde fonctionnel
+- ✅ Fichier avec nom incluant date
 
 ---
 
