@@ -524,9 +524,21 @@ export const mappingsAPI = {
     console.log('📥 [API] Réponse status:', response.status, response.statusText);
 
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
-      console.error('❌ [API] Erreur API:', error);
-      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const error = await response.json();
+        console.error('❌ [API] Erreur API:', error);
+        errorMessage = error.detail || error.message || error.error || JSON.stringify(error) || errorMessage;
+      } catch (e) {
+        // Si la réponse n'est pas du JSON, essayer de lire le texte
+        try {
+          const text = await response.text();
+          errorMessage = text || errorMessage;
+        } catch (textError) {
+          console.error('❌ [API] Impossible de lire la réponse d\'erreur:', textError);
+        }
+      }
+      throw new Error(errorMessage);
     }
 
     const result = await response.json();

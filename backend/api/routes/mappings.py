@@ -272,6 +272,9 @@ async def import_mapping_file(
         errors_count = 0
         errors_list = []
         
+        # Liste en mémoire des noms déjà traités dans cette session (pour détecter doublons dans le fichier)
+        processed_noms_in_session = set()
+        
         for idx, row in df.iterrows():
             try:
                 line_number = idx + 2  # +2 car 0-based + en-tête
@@ -319,7 +322,16 @@ async def import_mapping_file(
                     ))
                     continue
                 
-                # Vérifier doublon (basé sur nom uniquement)
+                # Vérifier doublon dans le fichier (déjà traité dans cette session)
+                if nom_value in processed_noms_in_session:
+                    duplicates_count += 1
+                    duplicates_list.append(DuplicateMapping(
+                        nom=nom_value,
+                        existing_id=None  # Pas encore en BDD, juste dans cette session
+                    ))
+                    continue
+                
+                # Vérifier doublon dans la base de données
                 existing = db.query(Mapping).filter(Mapping.nom == nom_value).first()
                 
                 if existing:
@@ -329,6 +341,9 @@ async def import_mapping_file(
                         existing_id=existing.id
                     ))
                     continue
+                
+                # Ajouter à la liste des noms traités dans cette session
+                processed_noms_in_session.add(nom_value)
                 
                 # Créer le mapping
                 db_mapping = Mapping(
@@ -342,6 +357,11 @@ async def import_mapping_file(
                 
                 db.add(db_mapping)
                 imported_count += 1
+                
+                # Flush périodique pour que les objets soient visibles dans les requêtes suivantes
+                # et éviter les erreurs UNIQUE constraint au commit final
+                if imported_count % 50 == 0:
+                    db.flush()
                 
             except Exception as e:
                 errors_count += 1
@@ -388,9 +408,22 @@ async def import_mapping_file(
         raise HTTPException(status_code=400, detail="Le fichier Excel est vide ou invalide")
     except Exception as e:
         db.rollback()
+        # Gérer spécifiquement les erreurs SQLite IntegrityError
+        error_str = str(e)
+        if "UNIQUE constraint failed" in error_str or "IntegrityError" in error_str:
+            # Extraire le nom du mapping en doublon si possible
+            import re
+            match = re.search(r"'([^']+)'", error_str)
+            if match:
+                nom_duplique = match.group(1)
+                detail = f"Un mapping avec le nom '{nom_duplique}' existe déjà dans la base de données. Les doublons ont été détectés et ignorés, mais cette erreur indique qu'un doublon n'a pas été correctement détecté. Veuillez vérifier votre fichier."
+            else:
+                detail = f"Erreur de contrainte unique: un mapping avec ce nom existe déjà dans la base de données. {error_str}"
+        else:
+            detail = f"Erreur lors de l'import: {error_str}"
         raise HTTPException(
             status_code=400,
-            detail=f"Erreur lors de l'import: {str(e)}"
+            detail=detail
         )
 
 
