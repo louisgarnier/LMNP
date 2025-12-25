@@ -2596,74 +2596,344 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ## Phase 5 : Fonctionnalité 3 - Calcul des amortissements
 
-### Step 5.1 : Service calcul amortissements backend
+**Ordre d'implémentation optimisé pour tests frontend progressifs :**
+
+1. **Backend** : Configuration + Tables + Service (Steps 5.1, 5.2)
+2. **Backend** : Endpoints API (Step 5.4)
+3. **Frontend** : Applet configuration (Step 5.5) ← **TESTABLE**
+4. **Frontend** : Vue tableau croisé (Step 5.6) ← **TESTABLE**
+5. **Frontend** : Drill-down transactions (Step 5.6.1) ← **TESTABLE**
+6. **Backend** : Recalcul automatique (Step 5.3)
+7. **Frontend** : Intégration et tests finaux (Step 5.7)
+
+---
+
+### Step 5.1 : Backend - Configuration amortissements (BDD)
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Migrer la logique de `amort.py` avec convention 30/360.
+**Description**: Créer table BDD et modèles pour stocker la configuration des amortissements.
+
+**Objectifs**:
+- Table `amortization_config` pour stocker la configuration
+- Modèle Pydantic pour la configuration
+- Endpoints GET/PUT pour gérer la configuration
 
 **Tasks**:
-- [ ] Créer amortization_service.py
-- [ ] Implémenter calcul convention 30/360
-- [ ] Implémenter répartition année par année
-- [ ] Créer endpoint POST /api/calculations/amortizations
+- [ ] Créer table `amortization_config` avec colonnes :
+  - `id` (PK)
+  - `level_2_value` (valeur de level_2 à considérer comme amortissement, ex: "ammortissements", "ammort")
+  - `level_3_mapping` (JSON : mapping des level_3 vers les 4 types)
+  - `duration_meubles` (durée en années)
+  - `duration_travaux` (durée en années)
+  - `duration_construction` (durée en années)
+  - `duration_terrain` (durée en années)
+  - `created_at`, `updated_at`
+- [ ] Créer modèle SQLAlchemy `AmortizationConfig`
+- [ ] Créer modèle Pydantic `AmortizationConfigResponse`
+- [ ] Créer endpoints :
+  - `GET /api/amortization/config` - Récupérer la configuration
+  - `PUT /api/amortization/config` - Mettre à jour la configuration
+- [ ] **Créer test unitaire**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/database/models.py` - Modèle `AmortizationConfig`
+- `backend/api/models.py` - Modèles Pydantic
+- `backend/api/routes/amortization.py` - Endpoints configuration
+
+**Acceptance Criteria**:
+- [ ] Table BDD créée
+- [ ] Configuration stockée et récupérable
+- [ ] Endpoints fonctionnels
+- [ ] **Utilisateur confirme que la configuration est sauvegardée**
+
+---
+
+### Step 5.2 : Backend - Table et service calcul amortissements
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer table BDD pour stocker les résultats d'amortissements et service de calcul.
+
+**Objectifs**:
+- Table `amortization_results` pour stocker les résultats
+- Service de calcul avec convention 30/360
+- Recalcul automatique lors des changements de transactions
+
+**Tasks**:
+- [ ] Créer table `amortization_results` avec colonnes :
+  - `id` (PK)
+  - `transaction_id` (FK vers Transaction)
+  - `year` (année, ex: 2021, 2022)
+  - `category` (type: meubles, travaux, construction, terrain)
+  - `amount` (montant amorti pour cette année, négatif)
+  - `created_at`, `updated_at`
+- [ ] Créer modèle SQLAlchemy `AmortizationResult`
+- [ ] Créer service `amortization_service.py` avec :
+  - Fonction `calculate_30_360_days(start_date, end_date)`
+  - Fonction `calculate_yearly_amounts(start_date, total_amount, duration)`
+  - Fonction `recalculate_all_amortizations()` - Recalcul complet
+  - Fonction `recalculate_transaction_amortization(transaction_id)` - Recalcul pour une transaction
+- [ ] Implémenter logique Yearly Amount Distribution :
+  - Calcul montant journalier (total_amount / total_days)
+  - Répartition proportionnelle par année
+  - Dernière année = solde restant pour garantir somme exacte
+- [ ] Validation : vérifier que somme des amortissements = montant initial
 - [ ] **Créer test complet avec calculs réels**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `backend/api/services/amortization_service.py` - Service amortissements
-- `backend/api/routes/calculations.py` - Endpoint amortissements
+- `backend/database/models.py` - Modèle `AmortizationResult`
+- `backend/api/services/amortization_service.py` - Service calcul amortissements
 - `backend/tests/test_amortization.py` - Tests amortissements
 
 **Tests**:
 - [ ] Test calcul convention 30/360
 - [ ] Test répartition proportionnelle
 - [ ] Test 4 catégories (meubles, travaux, construction, terrain)
-- [ ] Test paramètres configurables
 - [ ] Test validation somme = montant initial
+- [ ] Test recalcul complet
+- [ ] Test recalcul transaction unique
 
 **Acceptance Criteria**:
-- [ ] Calculs d'amortissements corrects
+- [ ] Calculs d'amortissements corrects (convention 30/360)
 - [ ] Répartition proportionnelle validée
-- [ ] Stockage en DB
-- [ ] Test script exécutable et tous les tests passent
+- [ ] Validation somme = montant initial
+- [ ] Stockage en DB fonctionnel
 - [ ] **Utilisateur confirme que les calculs sont corrects**
-
-**Impact Frontend**: 
-- [ ] Afficher résultats calculs dans console/logs
-- [ ] Tester calcul depuis interface
 
 ---
 
-### Step 5.2 : Vue amortissements frontend
+### Step 5.4 : Backend - Endpoints API amortissements
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Interface pour visualiser les amortissements par catégorie et année.
+**Description**: Créer endpoints API pour récupérer les résultats d'amortissements.
 
 **Tasks**:
-- [ ] Créer composant AmortizationTable
-- [ ] Créer page vue amortissements
-- [ ] Implémenter affichage par catégorie et année
+- [ ] Créer endpoint `GET /api/amortization/results` :
+  - Retourne résultats agrégés par année et catégorie
+  - Format : `{ year: { category: amount, ... }, ... }`
+  - Inclure ligne Total et colonne Total
+- [ ] Créer endpoint `GET /api/amortization/results/aggregated` :
+  - Retourne tableau croisé prêt pour affichage
+  - Format : `{ categories: [...], years: [...], data: [[...], ...], totals: {...} }`
+- [ ] Créer endpoint `GET /api/amortization/results/details` :
+  - Paramètres : `year` (optionnel), `category` (optionnel)
+  - Retourne liste des transactions correspondantes (avec pagination)
+  - Utilisé pour drill-down depuis le tableau croisé
+- [ ] Créer endpoint `POST /api/amortization/recalculate` :
+  - Force recalcul complet de tous les amortissements
+  - Utile pour recalculer après changement de config
+- [ ] **Créer test unitaire**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/routes/amortization.py` - Endpoints API
+
+**Acceptance Criteria**:
+- [ ] Endpoints retournent données correctes
+- [ ] Format adapté pour affichage frontend
+- [ ] Totaux calculés correctement
+- [ ] **Utilisateur confirme que les endpoints fonctionnent**
+
+---
+
+### Step 5.5 : Frontend - Applet configuration amortissements
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer applet de configuration (comme TCD) pour configurer les amortissements.
+
+**Objectifs**:
+- Applet qui s'affiche au hover (comme config TCD)
+- Sélection du level_2 à considérer comme amortissement
+- Mapping des level_3 vers les 4 types d'amortissement (multi-select)
+- Configuration des durées pour chaque type
+
+**Tasks**:
+- [ ] Créer composant `AmortizationConfigPanel.tsx` :
+  - Applet latéral qui s'affiche au hover
+  - Input pour sélectionner level_2 (dropdown avec valeurs uniques)
+  - 4 sections pour mapper level_3 vers chaque type :
+    - Multi-select pour "ammortissement meubles"
+    - Multi-select pour "ammortissement travaux"
+    - Multi-select pour "ammortissement construction"
+    - Multi-select pour "ammortissement terrain"
+  - 4 inputs pour durées (en années) pour chaque type
+  - Bouton "Sauvegarder" qui appelle API PUT
+- [ ] Récupérer valeurs uniques de level_2 et level_3 depuis API
+- [ ] Gérer état local de la configuration
+- [ ] Afficher indicateur de chargement pendant sauvegarde
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/AmortizationConfigPanel.tsx` - Applet configuration
+- Mise à jour `frontend/src/api/client.ts` - Méthodes API configuration
+
+**Acceptance Criteria**:
+- [ ] Applet s'affiche au hover (comme config TCD)
+- [ ] Sélection level_2 fonctionne
+- [ ] Mapping level_3 multi-select fonctionne
+- [ ] Configuration durées fonctionne
+- [ ] Sauvegarde en BDD fonctionne
+- [ ] **Utilisateur confirme que la configuration fonctionne**
+
+---
+
+### Step 5.6 : Frontend - Vue amortissements (tableau croisé)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer page et composant pour afficher les amortissements en tableau croisé.
+
+**Tasks**:
+- [ ] Créer page `frontend/app/dashboard/amortissements/page.tsx`
+- [ ] Créer composant `AmortizationTable.tsx` :
+  - Tableau croisé : années en colonnes, catégories en lignes
+  - Ligne Total en bas
+  - Colonne Total à droite
+  - Formatage montants : 2 décimales, négatifs en rouge
+  - Intégrer `AmortizationConfigPanel` (applet config)
+- [ ] Appeler API `GET /api/amortization/results/aggregated`
+- [ ] Gérer état de chargement
+- [ ] Afficher message si aucune configuration
+- [ ] Afficher message si aucun résultat
+- [ ] Rendre les cellules cliquables (sauf totaux)
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/app/dashboard/amortissements/page.tsx` - Page amortissements
 - `frontend/src/components/AmortizationTable.tsx` - Tableau amortissements
-
-**Tests**:
-- [ ] Test affichage tableau amortissements
-- [ ] Test répartition par catégorie
-- [ ] Test répartition par année
-- [ ] Test totaux corrects
+- Mise à jour `frontend/src/api/client.ts` - Méthodes API amortissements
 
 **Acceptance Criteria**:
 - [ ] Tableau des amortissements s'affiche
 - [ ] Répartition par catégorie et année visible
-- [ ] Totaux corrects
+- [ ] Ligne Total et colonne Total correctes
+- [ ] Formatage montants correct (2 décimales, négatifs en rouge)
+- [ ] Applet config intégré et fonctionnel
+- [ ] Cellules cliquables (sauf totaux)
 - [ ] **Utilisateur confirme que la vue fonctionne**
+
+---
+
+#### Step 5.6.1 : Frontend - Drill-down transactions détaillées
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Afficher les transactions détaillées lorsqu'on clique sur une cellule du tableau croisé.
+
+**Objectifs**:
+- Au clic sur une cellule (année × catégorie), afficher les transactions correspondantes
+- Même principe que le TCD (PivotDetailsTable)
+
+**Tasks**:
+- [ ] Créer endpoint backend `GET /api/amortization/results/details` :
+  - Paramètres : `year` (optionnel), `category` (optionnel)
+  - Retourne liste des transactions correspondantes
+- [ ] Créer composant `AmortizationDetailsTable.tsx` :
+  - Affiche transactions en dessous du tableau croisé
+  - Colonnes : Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3
+  - Pagination si nécessaire
+  - Style cohérent avec PivotDetailsTable
+- [ ] Intégrer dans `AmortizationTable.tsx` :
+  - Gérer état de la cellule cliquée (year, category)
+  - Afficher `AmortizationDetailsTable` en dessous du tableau
+  - Bouton "Fermer" pour masquer les détails
+- [ ] Gérer cas où aucune transaction (message informatif)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/routes/amortization.py` - Endpoint `/api/amortization/results/details`
+- `frontend/src/components/AmortizationDetailsTable.tsx` - Composant transactions détaillées
+- Mise à jour `frontend/src/components/AmortizationTable.tsx` - Intégration drill-down
+- Mise à jour `frontend/src/api/client.ts` - Méthode API details
+
+**Acceptance Criteria**:
+- [ ] Clic sur cellule affiche transactions correspondantes
+- [ ] Transactions affichées en dessous du tableau croisé
+- [ ] Colonnes complètes affichées
+- [ ] Pagination fonctionne si beaucoup de transactions
+- [ ] Bouton "Fermer" fonctionne
+- [ ] Message si aucune transaction
+- [ ] **Utilisateur confirme que le drill-down fonctionne**
+
+---
+
+### Step 5.3 : Backend - Recalcul automatique
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter recalcul automatique lors des changements de transactions.
+
+**Note**: Cette étape vient après que le frontend soit fonctionnel pour permettre de tester le recalcul automatique.
+
+**Tasks**:
+- [ ] Modifier endpoint `PUT /api/transactions/{transaction_id}` :
+  - Détecter si level_2 ou level_3 a changé
+  - Si transaction concerne amortissement, déclencher recalcul
+- [ ] Modifier endpoint `PUT /api/enrichment/transactions/{transaction_id}` :
+  - Détecter si level_2 ou level_3 a changé
+  - Si transaction concerne amortissement, déclencher recalcul
+- [ ] Modifier endpoint `POST /api/transactions` :
+  - Si nouvelle transaction concerne amortissement, déclencher recalcul
+- [ ] Modifier endpoint `DELETE /api/transactions/{transaction_id}` :
+  - Si transaction supprimée concernait amortissement, déclencher recalcul
+- [ ] Modifier endpoint `PUT /api/amortization/config` :
+  - Après mise à jour config, déclencher recalcul complet
+- [ ] Implémenter logique de recalcul :
+  - Supprimer anciens résultats pour la transaction
+  - Recalculer si transaction correspond à la config
+  - Insérer nouveaux résultats
+- [ ] **Créer test unitaire**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/transactions.py`
+- Mise à jour `backend/api/routes/enrichment.py`
+- Mise à jour `backend/api/routes/amortization.py`
+- Mise à jour `backend/api/services/amortization_service.py`
+
+**Acceptance Criteria**:
+- [ ] Recalcul automatique lors création transaction
+- [ ] Recalcul automatique lors modification transaction
+- [ ] Recalcul automatique lors suppression transaction
+- [ ] Recalcul complet si config change
+- [ ] **Utilisateur confirme que le recalcul est automatique**
+
+---
+
+### Step 5.7 : Frontend - Intégration et tests finaux
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Intégrer tous les composants et tester le workflow complet.
+
+**Tasks**:
+- [ ] Ajouter onglet "Amortissements" dans la navigation
+- [ ] Tester workflow complet :
+  - Configuration initiale
+  - Ajout transaction avec level_2/level_3 d'amortissement
+  - Vérification recalcul automatique
+  - Affichage résultats dans tableau
+  - Modification configuration
+  - Vérification recalcul après changement config
+- [ ] Tester cas limites :
+  - Transaction modifiée (montant, date, level_2/level_3)
+  - Transaction supprimée
+  - Plusieurs transactions même catégorie
+  - Transactions sur plusieurs années
+- [ ] Vérifier validation somme = montant initial
+- [ ] **Créer test visuel complet dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Tests manuels complets
+- Documentation si nécessaire
+
+**Acceptance Criteria**:
+- [ ] Workflow complet fonctionnel
+- [ ] Recalcul automatique fonctionne
+- [ ] Tableau affiche résultats corrects
+- [ ] Configuration sauvegardée et appliquée
+- [ ] Validation somme = montant initial
+- [ ] **Utilisateur confirme que tout fonctionne parfaitement**
 
 **Impact Frontend**: 
 - ✅ Onglet Amortissements fonctionnel
-- ✅ Tableau avec répartition visible
-- ✅ Totaux validés visuellement
+- ✅ Applet configuration (comme TCD)
+- ✅ Tableau croisé avec répartition visible
+- ✅ Totaux validés
+- ✅ Recalcul automatique
 
 ---
 
