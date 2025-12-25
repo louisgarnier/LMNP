@@ -1975,6 +1975,163 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+### Step 3.10 : Export des transactions vers Excel
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter fonctionnalité d'export de toutes les transactions vers un fichier Excel (.xlsx) avec colonnes Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3.
+
+**Objectifs**:
+- Bouton "📥 Extraire transactions" dans onglet Toutes les transactions (entre bouton "Dernière" et "Par page:")
+- Export de **toutes** les transactions (ignorer les filtres actifs)
+- Colonnes : Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3 (avec en-têtes)
+- Nom de fichier par défaut : `transactions_YYYY-MM-DD.xlsx`
+- Dialogue de sauvegarde pour choisir l'emplacement
+- Même structure que Step 3.9 (mappings)
+
+#### Step 3.10.1 : Frontend - Fonction export Excel transactions
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer une fonction utilitaire pour exporter les transactions vers un fichier Excel.
+
+**Tasks**:
+- [ ] Créer fonction `exportTransactionsToExcel(transactions: Transaction[])`
+- [ ] Générer fichier Excel avec colonnes : Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3
+- [ ] Ajouter en-têtes en première ligne
+- [ ] Format .xlsx uniquement
+- [ ] Gérer les valeurs null/vides (afficher chaîne vide pour level_1/2/3)
+- [ ] Formater la date au format français (DD/MM/YYYY)
+- [ ] Formater les nombres (quantité, solde) avec 2 décimales
+
+**Deliverables**:
+- Mise à jour `frontend/src/utils/excelExport.ts` - Fonction export transactions
+
+**Acceptance Criteria**:
+- [ ] Fonction génère fichier Excel valide
+- [ ] Colonnes dans l'ordre : Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3
+- [ ] En-têtes présents en première ligne
+- [ ] Format .xlsx correct
+- [ ] Valeurs null gérées correctement
+- [ ] Date formatée correctement
+- [ ] Nombres formatés avec 2 décimales
+- [ ] **Utilisateur confirme que le fichier généré est valide**
+
+---
+
+#### Step 3.10.2 : Frontend - Récupération toutes les transactions
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer fonction pour récupérer toutes les transactions depuis l'API (sans pagination, ignorer les filtres).
+
+**Tasks**:
+- [ ] Créer endpoint backend dédié `GET /api/transactions/all` (sans pagination, sans filtres)
+- [ ] Ajouter méthode `getAll()` dans `transactionsAPI` frontend
+- [ ] Endpoint retourne toutes les transactions triées par date (asc)
+- [ ] Afficher indicateur de chargement pendant récupération
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/api/client.ts` - Méthode pour récupérer toutes les transactions
+- `backend/api/routes/transactions.py` - Endpoint `/api/transactions/all`
+
+**Acceptance Criteria**:
+- [ ] Toutes les transactions sont récupérées (même si > 1000)
+- [ ] Filtres actifs ignorés (toutes les transactions exportées)
+- [ ] Indicateur de chargement visible
+- [ ] Gestion d'erreur si échec récupération
+- [ ] **Utilisateur confirme que toutes les transactions sont récupérées**
+
+---
+
+#### Step 3.10.3 : Frontend - Bouton export dans TransactionsTable
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter bouton "Extraire transactions" dans la zone de pagination de TransactionsTable.
+
+**Tasks**:
+- [ ] Ajouter bouton dans `TransactionsTable.tsx`
+- [ ] Positionner entre le bouton "Dernière »" et le texte "Par page:"
+- [ ] Icône/texte : "📥 Extraire transactions"
+- [ ] Style cohérent avec autres boutons
+- [ ] Gérer état de chargement pendant export
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Bouton visible et bien positionné (entre "Dernière" et "Par page:")
+- [ ] Style cohérent avec l'interface
+- [ ] Indicateur de chargement pendant export
+- [ ] **Utilisateur confirme que le bouton est bien placé**
+
+---
+
+#### Step 3.10.4 : Frontend - Dialogue sauvegarde fichier
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter dialogue de sauvegarde avec nom de fichier par défaut incluant la date.
+
+**Tasks**:
+- [ ] Utiliser fonction `saveExcelFileWithDialog()` existante (réutiliser code Step 3.9.5)
+- [ ] Nom de fichier par défaut : `transactions_YYYY-MM-DD.xlsx` (ex: `transactions_2025-12-25.xlsx`)
+- [ ] Permettre à l'utilisateur de modifier le nom
+- [ ] Gérer cas navigateurs ne supportant pas File System Access (fallback téléchargement direct)
+- [ ] Afficher message de succès après export
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/utils/excelExport.ts` - Fonction `exportAndDownloadTransactions()`
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Intégration dialogue
+
+**Acceptance Criteria**:
+- [ ] Dialogue de sauvegarde s'ouvre (Chrome/Edge avec File System Access API)
+- [ ] Téléchargement direct fonctionne (Firefox/Safari avec fallback)
+- [ ] Nom de fichier par défaut avec date correcte
+- [ ] Utilisateur peut modifier le nom avant sauvegarde
+- [ ] Fichier sauvegardé au bon emplacement
+- [ ] Message de succès affiché
+- [ ] Fallback fonctionne sur navigateurs non compatibles
+- [ ] **Utilisateur confirme que le dialogue fonctionne**
+
+---
+
+#### Step 3.10.5 : Frontend - Intégration complète et tests
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Intégrer toutes les fonctionnalités et tester le workflow complet.
+
+**Tasks**:
+- [ ] Tester export avec différents nombres de transactions (0, 1, 100, 1000+)
+- [ ] Tester avec transactions contenant valeurs null (level_1/2/3 = NULL)
+- [ ] Tester dialogue sauvegarde sur différents navigateurs
+- [ ] Vérifier que le fichier Excel généré s'ouvre correctement dans Excel/LibreOffice
+- [ ] Vérifier que les colonnes sont dans le bon ordre : Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3
+- [ ] Vérifier que les en-têtes sont présents
+- [ ] Vérifier que les dates sont formatées correctement
+- [ ] Vérifier que les nombres sont formatés avec 2 décimales
+- [ ] Vérifier que les filtres sont ignorés (toutes les transactions exportées même si filtres actifs)
+- [ ] **Créer test visuel complet dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Tests manuels complets
+- Documentation si nécessaire
+
+**Acceptance Criteria**:
+- [ ] Export fonctionne avec tous les cas de test
+- [ ] Fichier Excel valide et lisible dans Excel/LibreOffice
+- [ ] Colonnes dans le bon ordre
+- [ ] En-têtes présents
+- [ ] Valeurs null gérées correctement (affichées comme chaîne vide)
+- [ ] Dates formatées correctement (DD/MM/YYYY)
+- [ ] Nombres formatés avec 2 décimales
+- [ ] Filtres ignorés (toutes les transactions exportées)
+- [ ] Workflow complet fonctionnel
+- [ ] **Utilisateur confirme que l'export fonctionne parfaitement**
+
+**Impact Frontend**: 
+- ✅ Bouton export visible dans onglet Toutes les transactions
+- ✅ Export Excel fonctionnel pour toutes les transactions
+- ✅ Dialogue sauvegarde fonctionnel
+- ✅ Fichier avec nom incluant date
+
+---
+
 ## Phase 4 : Tableau croisé dynamique
 
 ### Step 4.1 : Onglet tableau croisé dynamique
