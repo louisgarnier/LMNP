@@ -500,6 +500,22 @@ async def get_mappings_count(
     return {"count": count}
 
 
+@router.get("/mappings/all", response_model=List[MappingResponse])
+async def get_all_mappings(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère tous les mappings sans pagination.
+    
+    Utilisé pour l'export Excel de tous les mappings.
+    
+    Returns:
+        Liste de tous les mappings
+    """
+    mappings = db.query(Mapping).order_by(Mapping.id.asc()).all()
+    return [MappingResponse.model_validate(m) for m in mappings]
+
+
 @router.get("/mappings", response_model=MappingListResponse)
 async def get_mappings(
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),

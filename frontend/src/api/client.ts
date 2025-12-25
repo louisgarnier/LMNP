@@ -397,6 +397,14 @@ export interface MappingImportHistory {
 // Mapping API
 export const mappingsAPI = {
   /**
+   * Récupérer tous les mappings (sans pagination)
+   * Utilisé pour l'export Excel
+   */
+  async getAll(): Promise<Mapping[]> {
+    return fetchAPI<Mapping[]>('/api/mappings/all');
+  },
+
+  /**
    * Récupérer la liste des mappings
    */
   async list(

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { mappingsAPI, enrichmentAPI, Mapping, MappingCreate, MappingUpdate } from '../api/client';
+import { exportAndDownloadMappings, generateDefaultFilename } from '../utils/excelExport';
 
 type SortColumn = 'id' | 'nom' | 'level_1' | 'level_2' | 'level_3';
 type SortDirection = 'asc' | 'desc';
@@ -49,6 +50,7 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
   const [isReEnriching, setIsReEnriching] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newMapping, setNewMapping] = useState<MappingCreate>({
     nom: '',
@@ -321,6 +323,39 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     }
   };
 
+  const handleExportMappings = async () => {
+    setIsExporting(true);
+    try {
+      // Récupérer tous les mappings
+      const allMappings = await mappingsAPI.getAll();
+      
+      if (allMappings.length === 0) {
+        alert('Aucun mapping à exporter.');
+        setIsExporting(false);
+        return;
+      }
+      
+      // Générer le nom de fichier avec la date
+      const filename = generateDefaultFilename();
+      
+      // Exporter et ouvrir le dialogue de sauvegarde
+      await exportAndDownloadMappings(allMappings, filename);
+      
+      // Message de succès
+      alert(`✅ Export réussi !\n\n${allMappings.length} mapping${allMappings.length > 1 ? 's' : ''} exporté${allMappings.length > 1 ? 's' : ''} vers ${filename}`);
+    } catch (err: any) {
+      // Ne pas afficher d'erreur si l'utilisateur a annulé
+      if (err.message && err.message.includes('annulé')) {
+        // L'utilisateur a annulé, ne rien faire
+        return;
+      }
+      alert(`❌ Erreur lors de l'export: ${err.message}`);
+      console.error('Erreur export mappings:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleReEnrichAll = async () => {
     if (!confirm('Êtes-vous sûr de vouloir re-enrichir toutes les transactions ? Cette opération peut prendre quelques instants.')) {
       return;
@@ -375,6 +410,23 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
           </span>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          <button
+            onClick={handleExportMappings}
+            disabled={isExporting}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              backgroundColor: isExporting ? '#ccc' : '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: isExporting ? 'not-allowed' : 'pointer',
+              opacity: isExporting ? 0.6 : 1,
+            }}
+            title="Exporter tous les mappings vers un fichier Excel (.xlsx)"
+          >
+            {isExporting ? '⏳ Export...' : '📥 Extraire mapping'}
+          </button>
           <button
             onClick={handleReEnrichAll}
             disabled={isReEnriching}
