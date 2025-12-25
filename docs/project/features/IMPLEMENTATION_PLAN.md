@@ -2609,7 +2609,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 5.1 : Backend - Configuration amortissements (BDD)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer table BDD et modèles pour stocker la configuration des amortissements.
 
 **Objectifs**:
@@ -2618,7 +2618,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Endpoints GET/PUT pour gérer la configuration
 
 **Tasks**:
-- [ ] Créer table `amortization_config` avec colonnes :
+- [x] Créer table `amortization_config` avec colonnes :
   - `id` (PK)
   - `level_2_value` (valeur de level_2 à considérer comme amortissement, ex: "ammortissements", "ammort")
   - `level_3_mapping` (JSON : mapping des level_3 vers les 4 types)
@@ -2627,23 +2627,29 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
   - `duration_construction` (durée en années)
   - `duration_terrain` (durée en années)
   - `created_at`, `updated_at`
-- [ ] Créer modèle SQLAlchemy `AmortizationConfig`
-- [ ] Créer modèle Pydantic `AmortizationConfigResponse`
-- [ ] Créer endpoints :
+- [x] Créer modèle SQLAlchemy `AmortizationConfig`
+- [x] Créer modèles Pydantic (`AmortizationConfigBase`, `AmortizationConfigUpdate`, `AmortizationConfigResponse`)
+- [x] Créer endpoints :
   - `GET /api/amortization/config` - Récupérer la configuration
-  - `PUT /api/amortization/config` - Mettre à jour la configuration
-- [ ] **Créer test unitaire**
+  - `PUT /api/amortization/config` - Mettre à jour la configuration (singleton)
+- [x] Enregistrer router dans `main.py`
+- [x] **Créer test unitaire** (6 tests)
+- [x] **Exécuter tests** (6/6 passés)
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle `AmortizationConfig`
 - `backend/api/models.py` - Modèles Pydantic
 - `backend/api/routes/amortization.py` - Endpoints configuration
+- `backend/tests/test_amortization_config.py` - Tests unitaires
 
 **Acceptance Criteria**:
-- [ ] Table BDD créée
-- [ ] Configuration stockée et récupérable
-- [ ] Endpoints fonctionnels
+- [x] Table BDD créée
+- [x] Configuration stockée et récupérable
+- [x] Endpoints fonctionnels (GET/PUT)
+- [x] Validation des données (clés requises, durées >= 1)
+- [x] Singleton pattern (une seule config)
+- [x] Tests unitaires passent (6/6)
 - [ ] **Utilisateur confirme que la configuration est sauvegardée**
 
 ---

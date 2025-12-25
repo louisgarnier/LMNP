@@ -265,3 +265,30 @@ class PivotConfigListResponse(BaseModel):
     """Model for list of pivot configs."""
     items: List[PivotConfigResponse]
     total: int
+
+
+# Amortization Config models
+
+class AmortizationConfigBase(BaseModel):
+    """Base model for amortization configuration."""
+    level_2_value: str = Field(..., max_length=100, description="Valeur de level_2 à considérer comme amortissement")
+    level_3_mapping: Dict[str, List[str]] = Field(..., description="Mapping des level_3 vers les 4 types: {\"meubles\": [...], \"travaux\": [...], \"construction\": [...], \"terrain\": [...]}")
+    duration_meubles: int = Field(..., ge=1, description="Durée d'amortissement meubles en années")
+    duration_travaux: int = Field(..., ge=1, description="Durée d'amortissement travaux en années")
+    duration_construction: int = Field(..., ge=1, description="Durée d'amortissement construction en années")
+    duration_terrain: int = Field(..., ge=1, description="Durée d'amortissement terrain en années")
+
+
+class AmortizationConfigUpdate(AmortizationConfigBase):
+    """Model for updating amortization configuration."""
+    pass
+
+
+class AmortizationConfigResponse(AmortizationConfigBase):
+    """Model for amortization configuration response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

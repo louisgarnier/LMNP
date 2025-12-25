@@ -6,7 +6,7 @@ SQLAlchemy models for the LMNP application.
 
 from sqlalchemy import (
     Column, Integer, String, Float, Date, DateTime, Text, 
-    ForeignKey, Boolean, Index
+    ForeignKey, Boolean, Index, JSON
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -192,5 +192,25 @@ class PivotConfig(Base):
     # Index pour recherches
     __table_args__ = (
         Index('idx_pivot_configs_name', 'name'),
+    )
+
+
+class AmortizationConfig(Base):
+    """Configuration for amortization calculations."""
+    __tablename__ = "amortization_config"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    level_2_value = Column(String(100), nullable=False, index=True)  # Valeur de level_2 à considérer comme amortissement
+    level_3_mapping = Column(JSON, nullable=False)  # Mapping des level_3 vers les 4 types: {"meubles": [...], "travaux": [...], "construction": [...], "terrain": [...]}
+    duration_meubles = Column(Integer, nullable=False)  # Durée en années
+    duration_travaux = Column(Integer, nullable=False)  # Durée en années
+    duration_construction = Column(Integer, nullable=False)  # Durée en années
+    duration_terrain = Column(Integer, nullable=False)  # Durée en années
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Une seule configuration à la fois (singleton)
+    __table_args__ = (
+        Index('idx_amortization_config_singleton', 'id'),
     )
 
