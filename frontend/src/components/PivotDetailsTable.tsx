@@ -17,6 +17,9 @@ interface PivotDetailsTableProps {
   onClose?: () => void;
 }
 
+type SortColumn = 'date' | 'nom' | 'quantite' | 'solde' | 'level_1' | 'level_2' | 'level_3';
+type SortDirection = 'asc' | 'desc';
+
 export default function PivotDetailsTable({ 
   config, 
   rowValues, 
@@ -29,6 +32,8 @@ export default function PivotDetailsTable({
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   // Charger les transactions quand les paramètres changent
   useEffect(() => {
@@ -72,6 +77,8 @@ export default function PivotDetailsTable({
           filters: config.filters && Object.keys(config.filters).length > 0 
             ? JSON.stringify(config.filters) 
             : undefined,
+          sort_by: sortColumn,
+          sort_direction: sortDirection,
         };
 
         const response: TransactionListResponse = await analyticsAPI.getPivotDetails(
@@ -93,12 +100,28 @@ export default function PivotDetailsTable({
     };
 
     loadTransactions();
-  }, [config, rowValues, columnValues, page, pageSize]);
+  }, [config, rowValues, columnValues, page, pageSize, sortColumn, sortDirection]);
 
-  // Réinitialiser la page quand les valeurs changent
+  // Réinitialiser la page et le tri quand les valeurs changent (nouveau clic sur cellule)
   useEffect(() => {
     setPage(1);
+    setSortColumn('date');
+    setSortDirection('asc');
   }, [rowValues, columnValues]);
+
+  // Handler pour le tri
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      // Si on clique sur la même colonne, inverser la direction
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // Si on clique sur une nouvelle colonne, trier par défaut en asc
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    // Réinitialiser la page à 1 quand on change le tri
+    setPage(1);
+  };
 
   const totalPages = Math.ceil(total / pageSize);
 
@@ -212,67 +235,102 @@ export default function PivotDetailsTable({
                 }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-                      <th style={{ 
-                        padding: '10px 12px', 
-                        textAlign: 'left', 
-                        fontWeight: '600', 
-                        color: '#374151',
-                        borderRight: '1px solid #e5e7eb'
-                      }}>
-                        Date
+                      <th 
+                        onClick={() => handleSort('date')}
+                        style={{ 
+                          padding: '10px 12px', 
+                          textAlign: 'left', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          borderRight: '1px solid #e5e7eb',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        Date {sortColumn === 'date' && (sortDirection === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ 
-                        padding: '10px 12px', 
-                        textAlign: 'left', 
-                        fontWeight: '600', 
-                        color: '#374151',
-                        borderRight: '1px solid #e5e7eb'
-                      }}>
-                        Nom
+                      <th 
+                        onClick={() => handleSort('nom')}
+                        style={{ 
+                          padding: '10px 12px', 
+                          textAlign: 'left', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          borderRight: '1px solid #e5e7eb',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        Nom {sortColumn === 'nom' && (sortDirection === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ 
-                        padding: '10px 12px', 
-                        textAlign: 'right', 
-                        fontWeight: '600', 
-                        color: '#374151',
-                        borderRight: '1px solid #e5e7eb'
-                      }}>
-                        Quantité
+                      <th 
+                        onClick={() => handleSort('quantite')}
+                        style={{ 
+                          padding: '10px 12px', 
+                          textAlign: 'right', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          borderRight: '1px solid #e5e7eb',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        Quantité {sortColumn === 'quantite' && (sortDirection === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ 
-                        padding: '10px 12px', 
-                        textAlign: 'right', 
-                        fontWeight: '600', 
-                        color: '#374151',
-                        borderRight: '1px solid #e5e7eb'
-                      }}>
-                        Solde
+                      <th 
+                        onClick={() => handleSort('solde')}
+                        style={{ 
+                          padding: '10px 12px', 
+                          textAlign: 'right', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          borderRight: '1px solid #e5e7eb',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        Solde {sortColumn === 'solde' && (sortDirection === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ 
-                        padding: '10px 12px', 
-                        textAlign: 'left', 
-                        fontWeight: '600', 
-                        color: '#374151',
-                        borderRight: '1px solid #e5e7eb'
-                      }}>
-                        Level 1
+                      <th 
+                        onClick={() => handleSort('level_1')}
+                        style={{ 
+                          padding: '10px 12px', 
+                          textAlign: 'left', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          borderRight: '1px solid #e5e7eb',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        Level 1 {sortColumn === 'level_1' && (sortDirection === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ 
-                        padding: '10px 12px', 
-                        textAlign: 'left', 
-                        fontWeight: '600', 
-                        color: '#374151',
-                        borderRight: '1px solid #e5e7eb'
-                      }}>
-                        Level 2
+                      <th 
+                        onClick={() => handleSort('level_2')}
+                        style={{ 
+                          padding: '10px 12px', 
+                          textAlign: 'left', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          borderRight: '1px solid #e5e7eb',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        Level 2 {sortColumn === 'level_2' && (sortDirection === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th style={{ 
-                        padding: '10px 12px', 
-                        textAlign: 'left', 
-                        fontWeight: '600', 
-                        color: '#374151'
-                      }}>
-                        Level 3
+                      <th 
+                        onClick={() => handleSort('level_3')}
+                        style={{ 
+                          padding: '10px 12px', 
+                          textAlign: 'left', 
+                          fontWeight: '600', 
+                          color: '#374151',
+                          cursor: 'pointer',
+                          userSelect: 'none'
+                        }}
+                      >
+                        Level 3 {sortColumn === 'level_3' && (sortDirection === 'asc' ? '↑' : '↓')}
                       </th>
                     </tr>
                   </thead>

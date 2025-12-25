@@ -6,7 +6,7 @@ API routes for analytics and pivot tables.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_, or_
+from sqlalchemy import func, and_, or_, asc, desc
 from typing import List, Optional, Dict, Any
 from datetime import date
 
@@ -315,6 +315,8 @@ async def get_pivot_details(
     row_values: Optional[str] = Query(None, description="Valeurs spécifiques de la ligne (JSON array, ex: '[\"CHARGES\", \"Énergie\"]')"),
     column_values: Optional[str] = Query(None, description="Valeurs spécifiques de la colonne (JSON array, ex: '[1]')"),
     filters: Optional[str] = Query(None, description="Filtres au format JSON (ex: '{\"level_1\": \"CHARGES\"}')"),
+    sort_by: Optional[str] = Query(None, description="Colonne de tri (date, quantite, nom, solde, level_1, level_2, level_3)"),
+    sort_direction: Optional[str] = Query("asc", description="Direction du tri (asc, desc)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     db: Session = Depends(get_db)
@@ -411,6 +413,42 @@ async def get_pivot_details(
             # Pour les autres champs, utiliser égalité
             else:
                 query = query.filter(column == value)
+    
+    # Appliquer le tri
+    if sort_by:
+        # Normaliser la direction
+        sort_dir = sort_direction.lower() if sort_direction else "asc"
+        if sort_dir not in ["asc", "desc"]:
+            sort_dir = "asc"
+        
+        # Déterminer la colonne de tri
+        if sort_by == "date":
+            order_col = Transaction.date
+        elif sort_by == "quantite":
+            order_col = Transaction.quantite
+        elif sort_by == "nom":
+            order_col = Transaction.nom
+        elif sort_by == "solde":
+            order_col = Transaction.solde
+        elif sort_by == "level_1":
+            order_col = EnrichedTransaction.level_1
+        elif sort_by == "level_2":
+            order_col = EnrichedTransaction.level_2
+        elif sort_by == "level_3":
+            order_col = EnrichedTransaction.level_3
+        else:
+            # Par défaut, trier par date asc
+            order_col = Transaction.date
+            sort_dir = "asc"
+        
+        # Appliquer le tri
+        if sort_dir == "asc":
+            query = query.order_by(asc(order_col))
+        else:
+            query = query.order_by(desc(order_col))
+    else:
+        # Par défaut, trier par date asc (old to new)
+        query = query.order_by(asc(Transaction.date))
     
     # Compter le total
     total = query.count()

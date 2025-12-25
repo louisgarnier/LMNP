@@ -686,6 +686,8 @@ export interface PivotDetailsParams {
   row_values?: string; // JSON array string
   column_values?: string; // JSON array string
   filters?: string; // JSON object string
+  sort_by?: string; // Colonne de tri (date, quantite, nom, solde, level_1, level_2, level_3)
+  sort_direction?: string; // Direction du tri (asc, desc)
 }
 
 export const analyticsAPI = {
@@ -741,6 +743,12 @@ export const analyticsAPI = {
     }
     if (params.filters) {
       queryParams.append('filters', params.filters);
+    }
+    if (params.sort_by) {
+      queryParams.append('sort_by', params.sort_by);
+    }
+    if (params.sort_direction) {
+      queryParams.append('sort_direction', params.sort_direction);
     }
     queryParams.append('skip', skip.toString());
     queryParams.append('limit', limit.toString());

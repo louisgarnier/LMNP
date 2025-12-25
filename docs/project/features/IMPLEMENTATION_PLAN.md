@@ -1532,7 +1532,6 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 **Description**: Ajouter le tri par colonnes (cliquable sur tous les en-têtes) et une ligne de filtres auto (comme Excel) sous les en-têtes pour filtrer les données en temps réel. Ajouter aussi les contrôles de pagination en haut du tableau.
 
 
-
 **Objectifs**:
 - Tri cliquable sur toutes les colonnes (avec indicateur visuel ↑/↓)
 - Ligne de filtres sous les en-têtes avec dropdown de valeurs uniques (comme Excel)
@@ -2374,6 +2373,52 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - ✅ Tableau croisé format Excel
 - ✅ Affichage transactions détaillées au clic
 - ✅ Pagination des transactions
+
+---
+
+#### Step 4.1.8 : Frontend - Tri dans transactions détaillées
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Ajouter fonctionnalité de tri sur toutes les colonnes dans le tableau des transactions détaillées (PivotDetailsTable).
+
+**Objectifs**:
+- Tri cliquable sur toutes les colonnes (Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3)
+- Tri côté serveur (via API `/api/analytics/pivot/details`)
+- Indicateur visuel ↑/↓ sur colonne triée (comme TransactionsTable)
+- Tri se réinitialise à chaque nouveau clic sur une cellule
+- Direction par défaut : ascendant (old to new) pour toutes les colonnes
+
+**Tasks**:
+- [x] Backend - Ajouter paramètres `sort_by` et `sort_direction` à l'endpoint `/api/analytics/pivot/details`
+  - Support des colonnes : `date`, `nom`, `quantite`, `solde`, `level_1`, `level_2`, `level_3`
+  - Implémenter tri SQLAlchemy avec jointure `EnrichedTransaction` pour level_1/2/3
+- [x] Frontend - API client - Ajouter paramètres de tri à `analyticsAPI.getPivotDetails`
+- [x] Frontend - PivotDetailsTable - Ajouter état pour `sortColumn` et `sortDirection`
+- [x] Frontend - PivotDetailsTable - Rendre toutes les colonnes cliquables avec gestion du tri
+- [x] Frontend - PivotDetailsTable - Afficher indicateur visuel ↑/↓ sur colonne triée
+- [x] Frontend - PivotDetailsTable - Réinitialiser le tri à chaque nouveau clic sur cellule
+- [x] Frontend - PivotDetailsTable - Direction par défaut : ascendant (old to new)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/analytics.py` - Paramètres de tri dans endpoint pivot/details
+- Mise à jour `frontend/src/api/client.ts` - Paramètres de tri dans getPivotDetails
+- Mise à jour `frontend/src/components/PivotDetailsTable.tsx` - Fonctionnalité de tri
+
+**Acceptance Criteria**:
+- [x] Toutes les colonnes sont triables (Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3)
+- [x] Tri fonctionne côté serveur (toutes les transactions, pas seulement la page actuelle)
+- [x] Indicateur visuel ↑/↓ affiché sur colonne triée
+- [x] Tri alternant asc/desc au clic
+- [x] Tri se réinitialise à chaque nouveau clic sur une cellule du tableau croisé
+- [x] Direction par défaut : ascendant (old to new)
+- [x] Tri compatible avec pagination
+- [ ] **Utilisateur confirme que le tri fonctionne correctement**
+
+**Impact Frontend**: 
+- ✅ Tri fonctionnel sur toutes les colonnes des transactions détaillées
+- ✅ Tri côté serveur pour gérer toutes les transactions
+- ✅ Indicateur visuel cohérent avec TransactionsTable
 
 ---
 
