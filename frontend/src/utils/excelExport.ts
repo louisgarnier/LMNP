@@ -7,7 +7,7 @@
  */
 
 import * as XLSX from 'xlsx';
-import { Mapping } from '@/api/client';
+import { Mapping, Transaction } from '@/api/client';
 
 /**
  * Exporte les mappings vers un fichier Excel (.xlsx)
@@ -65,6 +65,105 @@ export function generateDefaultFilename(): string {
   const day = String(today.getDate()).padStart(2, '0');
   
   return `mappings_${year}-${month}-${day}.xlsx`;
+}
+
+/**
+ * Génère un nom de fichier par défaut pour les transactions avec la date actuelle
+ * Format: transactions_YYYY-MM-DD.xlsx
+ * 
+ * @returns Nom de fichier avec date
+ */
+export function generateTransactionsFilename(): string {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const day = String(today.getDate()).padStart(2, '0');
+  
+  return `transactions_${year}-${month}-${day}.xlsx`;
+}
+
+/**
+ * Formate une date au format français DD/MM/YYYY
+ * 
+ * @param dateString - Date au format ISO string
+ * @returns Date formatée DD/MM/YYYY
+ */
+function formatDate(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return dateString;
+  }
+}
+
+/**
+ * Exporte les transactions vers un fichier Excel (.xlsx)
+ * 
+ * @param transactions - Liste des transactions à exporter
+ * @returns Workbook Excel généré
+ */
+export function exportTransactionsToExcel(transactions: Transaction[]): XLSX.WorkBook {
+  // Créer un nouveau workbook
+  const workbook = XLSX.utils.book_new();
+  
+  // Préparer les données avec en-têtes
+  const data: any[][] = [];
+  
+  // Ajouter les en-têtes en première ligne
+  data.push(['Date', 'Nom', 'Quantité', 'Solde', 'Level 1', 'Level 2', 'Level 3']);
+  
+  // Ajouter les données des transactions
+  transactions.forEach((transaction) => {
+    data.push([
+      formatDate(transaction.date), // Date formatée DD/MM/YYYY
+      transaction.nom || '',
+      transaction.quantite.toFixed(2), // Format avec 2 décimales
+      transaction.solde.toFixed(2), // Format avec 2 décimales
+      transaction.level_1 || '', // Gérer les valeurs null/vides
+      transaction.level_2 || '',
+      transaction.level_3 || '',
+    ]);
+  });
+  
+  // Créer une worksheet à partir des données
+  const worksheet = XLSX.utils.aoa_to_sheet(data);
+  
+  // Définir la largeur des colonnes (optionnel, pour meilleure lisibilité)
+  worksheet['!cols'] = [
+    { wch: 12 }, // Date
+    { wch: 30 }, // Nom
+    { wch: 12 }, // Quantité
+    { wch: 12 }, // Solde
+    { wch: 20 }, // Level 1
+    { wch: 20 }, // Level 2
+    { wch: 20 }, // Level 3
+  ];
+  
+  // Ajouter la worksheet au workbook
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Transactions');
+  
+  return workbook;
+}
+
+/**
+ * Exporte les transactions et ouvre le dialogue de sauvegarde
+ * Fonction principale à utiliser dans les composants
+ * 
+ * @param transactions - Liste des transactions à exporter
+ * @param filename - Nom du fichier (optionnel, par défaut avec date)
+ * @returns Promise qui se résout quand le fichier est sauvegardé
+ */
+export async function exportAndDownloadTransactions(
+  transactions: Transaction[], 
+  filename?: string
+): Promise<void> {
+  const workbook = exportTransactionsToExcel(transactions);
+  const defaultFilename = filename || generateTransactionsFilename();
+  await saveExcelFileWithDialog(workbook, defaultFilename);
 }
 
 /**

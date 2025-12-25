@@ -131,6 +131,14 @@ export const healthAPI = {
  * Transactions API
  */
 export const transactionsAPI = {
+  /**
+   * Récupérer toutes les transactions (sans pagination, sans filtres)
+   * Utilisé pour l'export Excel
+   */
+  getAllForExport: async (): Promise<Transaction[]> => {
+    return fetchAPI<Transaction[]>('/api/transactions/all');
+  },
+
   getAll: async (
     skip: number = 0,
     limit: number = 100,

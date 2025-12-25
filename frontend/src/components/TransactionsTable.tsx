@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { transactionsAPI, Transaction, TransactionUpdate, enrichmentAPI, mappingsAPI } from '@/api/client';
+import { exportAndDownloadTransactions, generateTransactionsFilename } from '@/utils/excelExport';
 
 interface TransactionsTableProps {
   onDelete?: () => void;
@@ -39,6 +40,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [customLevel3, setCustomLevel3] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   
   // États pour les filtres (valeurs affichées dans les inputs)
   const [filterDate, setFilterDate] = useState('');
@@ -238,6 +240,39 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       setSortDirection('asc');
     }
   }, [sortColumn, sortDirection]);
+
+  const handleExportTransactions = async () => {
+    setIsExporting(true);
+    try {
+      // Récupérer toutes les transactions (sans filtres)
+      const allTransactions = await transactionsAPI.getAllForExport();
+      
+      if (allTransactions.length === 0) {
+        alert('Aucune transaction à exporter.');
+        setIsExporting(false);
+        return;
+      }
+      
+      // Générer le nom de fichier avec la date
+      const filename = generateTransactionsFilename();
+      
+      // Exporter et ouvrir le dialogue de sauvegarde
+      await exportAndDownloadTransactions(allTransactions, filename);
+      
+      // Message de succès
+      alert(`✅ Export réussi !\n\n${allTransactions.length} transaction${allTransactions.length > 1 ? 's' : ''} exportée${allTransactions.length > 1 ? 's' : ''} vers ${filename}`);
+    } catch (err: any) {
+      // Ne pas afficher d'erreur si l'utilisateur a annulé
+      if (err.message && err.message.includes('annulé')) {
+        // L'utilisateur a annulé, ne rien faire
+        return;
+      }
+      alert(`❌ Erreur lors de l'export: ${err.message}`);
+      console.error('Erreur export transactions:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   // Handlers pour les filtres (mémorisés pour éviter les re-renders)
   const handleFilterDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -828,6 +863,24 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
               }}
             >
               Dernière »
+            </button>
+            <button
+              onClick={handleExportTransactions}
+              disabled={isExporting}
+              style={{
+                padding: '8px 12px',
+                backgroundColor: isExporting ? '#ccc' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '14px',
+                cursor: isExporting ? 'not-allowed' : 'pointer',
+                opacity: isExporting ? 0.6 : 1,
+                marginLeft: '8px',
+              }}
+              title="Exporter toutes les transactions vers un fichier Excel (.xlsx)"
+            >
+              {isExporting ? '⏳ Export...' : '📥 Extraire transactions'}
             </button>
           </div>
           <div>
@@ -1601,6 +1654,24 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                   }}
                 >
                   Dernière »
+                </button>
+                <button
+                  onClick={handleExportTransactions}
+                  disabled={isExporting}
+                  style={{
+                    padding: '8px 12px',
+                    backgroundColor: isExporting ? '#ccc' : '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: isExporting ? 'not-allowed' : 'pointer',
+                    opacity: isExporting ? 0.6 : 1,
+                    marginLeft: '8px',
+                  }}
+                  title="Exporter toutes les transactions vers un fichier Excel (.xlsx)"
+                >
+                  {isExporting ? '⏳ Export...' : '📥 Extraire transactions'}
                 </button>
               </div>
               <div>

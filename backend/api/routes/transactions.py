@@ -39,6 +39,56 @@ from backend.api.utils.csv_utils import (
 router = APIRouter()
 
 
+@router.get("/transactions/all", response_model=List[TransactionResponse])
+async def get_all_transactions(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère toutes les transactions sans pagination et sans filtres.
+    
+    Utilisé pour l'export Excel de toutes les transactions.
+    
+    Returns:
+        Liste de toutes les transactions triées par date (asc)
+    """
+    # Construire la requête de base avec jointure EnrichedTransaction
+    query = db.query(Transaction).outerjoin(
+        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+    )
+    
+    # Trier par date asc (old to new)
+    query = query.order_by(asc(Transaction.date))
+    
+    # Récupérer toutes les transactions
+    transactions = query.all()
+    
+    # Récupérer les données enrichies pour chaque transaction
+    transaction_responses = []
+    for t in transactions:
+        # Récupérer les données enrichies
+        enriched = db.query(EnrichedTransaction).filter(
+            EnrichedTransaction.transaction_id == t.id
+        ).first()
+        
+        # Créer la réponse avec les données enrichies
+        transaction_dict = {
+            "id": t.id,
+            "date": t.date,
+            "quantite": t.quantite,
+            "nom": t.nom,
+            "solde": t.solde,
+            "source_file": t.source_file,
+            "created_at": t.created_at,
+            "updated_at": t.updated_at,
+            "level_1": enriched.level_1 if enriched else None,
+            "level_2": enriched.level_2 if enriched else None,
+            "level_3": enriched.level_3 if enriched else None,
+        }
+        transaction_responses.append(TransactionResponse(**transaction_dict))
+    
+    return transaction_responses
+
+
 @router.get("/transactions", response_model=TransactionListResponse)
 async def get_transactions(
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
