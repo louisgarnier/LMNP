@@ -3313,6 +3313,58 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+#### Step 5.6.16: Frontend - Recalcul automatique des amortissements
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Améliorer la fluidité en déclenchant automatiquement le recalcul des amortissements après modification des paramètres.
+
+**Objectifs**:
+- Recalcul automatique après modification de paramètres impactant les amortissements
+- Rechargement automatique des montants cumulés après recalcul
+- Améliorer l'expérience utilisateur (pas besoin de cliquer manuellement sur "🔄 Calculer les amortissements")
+
+**Problème actuel**:
+- Après modification de la date de début (ou autres paramètres), l'utilisateur doit :
+  1. Cliquer manuellement sur "🔄 Calculer les amortissements"
+  2. Rafraîchir la page pour que le "montant cumulé" se mette à jour
+- Ce n'est pas fluide et nécessite des actions manuelles
+
+**Tasks**:
+- [ ] Identifier les champs qui impactent les amortissements :
+  - `start_date` (date de début)
+  - `duration` (durée d'amortissement)
+  - `annual_amount` (annuité d'amortissement)
+  - `level_1_values` (valeurs level_1 mappées)
+- [ ] Après sauvegarde de ces champs, déclencher automatiquement :
+  - Appel à `amortizationAPI.recalculate()` (recalcul complet)
+  - Afficher un indicateur de chargement pendant le recalcul
+- [ ] Après le recalcul, recharger automatiquement :
+  - `loadCumulatedAmounts()` (montants cumulés)
+  - Rafraîchir le tableau d'amortissements (via `onConfigUpdated()`)
+- [ ] Gérer les erreurs potentielles lors du recalcul automatique
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+  - Modifier `handleDateEditSave()` pour déclencher le recalcul
+  - Modifier `handleDurationEditSave()` pour déclencher le recalcul
+  - Modifier `handleAnnualAmountEditSave()` pour déclencher le recalcul
+  - Modifier `handleLevel1Add()` et `handleLevel1Remove()` pour déclencher le recalcul
+- Ajouter état de chargement pour le recalcul automatique
+- Ajouter fonction utilitaire `triggerAutoRecalculate()` pour centraliser la logique
+
+**Acceptance Criteria**:
+- [ ] Modification de `start_date` → recalcul automatique → montant cumulé mis à jour
+- [ ] Modification de `duration` → recalcul automatique → montant cumulé mis à jour
+- [ ] Modification de `annual_amount` → recalcul automatique → montant cumulé mis à jour
+- [ ] Modification de `level_1_values` → recalcul automatique → montant cumulé mis à jour
+- [ ] Indicateur de chargement visible pendant le recalcul
+- [ ] Pas besoin de rafraîchir la page manuellement
+- [ ] Pas besoin de cliquer sur "🔄 Calculer les amortissements" manuellement
+- [ ] Gestion d'erreur si le recalcul échoue
+
+---
+
 #### Step 5.7: Frontend - Drill-down transactions détaillées
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Afficher les transactions détaillées lorsqu'on clique sur une cellule du tableau croisé.
