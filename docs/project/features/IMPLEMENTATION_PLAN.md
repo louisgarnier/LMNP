@@ -3279,7 +3279,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.15: Frontend - Suppression de type (clic droit)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la fonctionnalité de suppression via clic droit.
 
 **Objectifs**:
@@ -3288,25 +3288,28 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Appeler `DELETE /api/amortization/types/{id}`
 
 **Tasks**:
-- [ ] Ajouter menu contextuel :
-  - Clic droit sur une ligne du tableau
-  - Afficher menu avec option "Supprimer"
-  - Confirmation avant suppression
+- [x] Ajouter menu contextuel :
+  - Clic droit sur une ligne du tableau (`onContextMenu`)
+  - Afficher menu avec option "Supprimer" à la position du clic
+  - Confirmation avant suppression (window.confirm)
   - Appeler API `DELETE /api/amortization/types/{id}`
-  - Rafraîchir le tableau
-- [ ] Gérer cas d'erreur (type utilisé dans des amortissements)
-- [ ] **Créer test visuel dans navigateur**
+  - Rafraîchir le tableau et les montants
+  - Fermer le menu après action ou clic ailleurs
+- [x] Gérer cas d'erreur (type utilisé dans des amortissements)
+  - Message d'erreur spécifique si le type est référencé
+  - Message générique pour les autres erreurs
+- [x] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
-- Mise à jour `frontend/src/api/client.ts` - Méthode `deleteAmortizationType()`
+- Méthode `delete()` déjà disponible dans `frontend/src/api/client.ts`
 
 **Acceptance Criteria**:
-- [ ] Menu contextuel s'affiche
-- [ ] Confirmation fonctionne
-- [ ] Suppression fonctionne
-- [ ] Gestion d'erreur correcte
+- [x] Menu contextuel s'affiche à la position du clic
+- [x] Confirmation fonctionne (window.confirm)
+- [x] Suppression fonctionne (appel API DELETE)
+- [x] Gestion d'erreur correcte (message spécifique si type référencé)
 
 ---
 

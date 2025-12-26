@@ -57,7 +57,16 @@ async function fetchAPI<T>(
         errorMessage = error.message;
       }
       
-      console.error(`❌ [API] Erreur ${response.status} (${endpoint}):`, error);
+      // Logger différemment selon le type d'erreur
+      // 400/404/422 = erreurs métier/validation (normales) → warn
+      // 500+ = erreurs techniques (vraies erreurs) → error
+      if (response.status >= 500) {
+        console.error(`❌ [API] Erreur serveur ${response.status} (${endpoint}): ${errorMessage}`);
+      } else {
+        // Erreurs métier normales (400, 404, 422) - pas besoin de logger comme erreur
+        // Le message sera affiché à l'utilisateur via l'alerte
+        console.log(`ℹ️ [API] Réponse ${response.status} (${endpoint}): ${errorMessage}`);
+      }
       throw new Error(errorMessage);
     }
 

@@ -33,6 +33,7 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const [editingDurationValue, setEditingDurationValue] = useState<string>('');
   const [editingAnnualAmountId, setEditingAnnualAmountId] = useState<number | null>(null);
   const [editingAnnualAmountValue, setEditingAnnualAmountValue] = useState<string>('');
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; typeId: number } | null>(null);
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
@@ -408,6 +409,87 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     }
   };
 
+  // Gérer le clic droit pour afficher le menu contextuel
+  const handleContextMenu = (e: React.MouseEvent<HTMLTableRowElement>, typeId: number) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, typeId });
+  };
+
+  // Fermer le menu contextuel
+  const handleCloseContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // Supprimer un type d'amortissement
+  const handleDeleteType = async (typeId: number) => {
+    const type = amortizationTypes.find(t => t.id === typeId);
+    if (!type) return;
+
+    // Confirmation
+    const confirmed = window.confirm(
+      `Êtes-vous sûr de vouloir supprimer le type "${type.name}" ?\n\n` +
+      `Cette action est irréversible. Si ce type est utilisé dans des amortissements, la suppression échouera.`
+    );
+
+    if (!confirmed) {
+      handleCloseContextMenu();
+      return;
+    }
+
+    try {
+      console.log('🗑️ [AmortizationConfigCard] Suppression du type d\'amortissement:', typeId);
+      await amortizationTypesAPI.delete(typeId);
+      console.log('✅ [AmortizationConfigCard] Type supprimé avec succès');
+      
+      // Recharger les types
+      await loadAmortizationTypes();
+      
+      // Recharger les montants
+      await loadAmounts();
+      await loadCumulatedAmounts();
+      
+      handleCloseContextMenu();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression du type:', err);
+      
+      // Extraire le message d'erreur
+      let errorMessage = 'Erreur inconnue';
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      // Afficher le message d'erreur approprié
+      if (errorMessage.includes('utilisé') || errorMessage.includes('référencé') || errorMessage.includes('résultat')) {
+        alert(`❌ ${errorMessage}`);
+      } else {
+        alert(`❌ Erreur lors de la suppression: ${errorMessage}`);
+      }
+      handleCloseContextMenu();
+    }
+  };
+
+  // Fermer le menu contextuel quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu) {
+        handleCloseContextMenu();
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
+    }
+  }, [contextMenu]);
+
   // Calculer l'annuité automatiquement pour un type
   const calculateAnnualAmount = (type: AmortizationType): number | null => {
     const amount = amounts[type.id] || 0;
@@ -618,7 +700,11 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
               </tr>
             ) : (
               amortizationTypes.map((type) => (
-                <tr key={type.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <tr 
+                  key={type.id} 
+                  style={{ borderBottom: '1px solid #e5e7eb', cursor: 'context-menu' }}
+                  onContextMenu={(e) => handleContextMenu(e, type.id)}
+                >
                   {/* Colonne Type d'immobilisation */}
                   <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb' }}>
                     {editingNameId === type.id ? (
@@ -1090,6 +1176,47 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
           </tbody>
         </table>
       </div>
+
+      {/* Menu contextuel */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+            backgroundColor: '#ffffff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '6px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            zIndex: 1000,
+            minWidth: '150px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => handleDeleteType(contextMenu.typeId)}
+            style={{
+              width: '100%',
+              padding: '10px 16px',
+              textAlign: 'left',
+              fontSize: '14px',
+              color: '#dc2626',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              borderRadius: '6px',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#fef2f2';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            🗑️ Supprimer
+          </button>
+        </div>
+      )}
     </div>
   );
 }
