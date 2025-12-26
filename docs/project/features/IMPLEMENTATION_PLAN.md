@@ -2683,11 +2683,16 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
   - Dernière année = solde restant pour garantir somme exacte
 - [x] Validation : vérifier que somme des amortissements = montant initial
 - [x] **Créer test complet avec calculs réels** (8 tests, tous passés)
-- [ ] **Valider avec l'utilisateur**
+- [x] **Migration vers AmortizationType** : Service refactorisé pour utiliser `AmortizationType` au lieu de `AmortizationConfig`
+  - `recalculate_transaction_amortization()` utilise maintenant les `AmortizationType` configurés
+  - Gestion de `start_date` override depuis le type
+  - Gestion de `annual_amount` override depuis le type
+  - Stockage du nom du type dans `AmortizationResult.category`
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle `AmortizationResult`
-- `backend/api/services/amortization_service.py` - Service calcul amortissements
+- `backend/api/services/amortization_service.py` - Service calcul amortissements (migré vers AmortizationType)
 - `backend/tests/test_amortization_service.py` - Tests amortissements (8 tests)
 
 **Tests**:
@@ -2703,7 +2708,10 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Répartition proportionnelle validée
 - [x] Validation somme = montant initial
 - [x] Stockage en DB fonctionnel
-- [ ] **Utilisateur confirme que les calculs sont corrects**
+- [x] Service utilise `AmortizationType` pour le matching des transactions
+- [x] Gestion de `start_date` override depuis le type
+- [x] Gestion de `annual_amount` override depuis le type
+- [x] **Utilisateur confirme que les calculs sont corrects**
 
 ---
 

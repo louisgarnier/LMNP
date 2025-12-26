@@ -4,11 +4,11 @@ Service for calculating amortizations using 30/360 convention.
 ⚠️ Before making changes, read: ../../../docs/workflow/BEST_PRACTICES.md
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 from typing import Dict, List, Optional
 from sqlalchemy.orm import Session
 from backend.database.models import (
-    Transaction, EnrichedTransaction, AmortizationConfig, AmortizationResult
+    Transaction, EnrichedTransaction, AmortizationConfig, AmortizationResult, AmortizationType
 )
 
 
@@ -156,14 +156,13 @@ def recalculate_transaction_amortization(
     db: Session
 ) -> List[AmortizationResult]:
     """
-    Recalculate amortization for a single transaction.
+    Recalculate amortization for a single transaction using AmortizationType.
     
     Steps:
     1. Get transaction and enriched transaction
-    2. Check if transaction matches amortization criteria (level_2 and level_1)
-    3. Get configuration
-    4. Calculate yearly amounts
-    5. Delete old results and insert new ones
+    2. Find matching AmortizationType (level_2 and level_1)
+    3. Calculate yearly amounts using type's duration and annual_amount
+    4. Delete old results and insert new ones
     
     Args:
         transaction_id: ID of the transaction
@@ -182,49 +181,79 @@ def recalculate_transaction_amortization(
         EnrichedTransaction.transaction_id == transaction_id
     ).first()
     
-    if not enriched:
-        return []
-    
-    # Get configuration
-    config = db.query(AmortizationConfig).first()
-    if not config:
-        return []
-    
-    # Check if transaction matches amortization criteria
-    if enriched.level_2 != config.level_2_value:
-        # Transaction doesn't match, delete any existing results
+    if not enriched or not enriched.level_2 or not enriched.level_1:
+        # No enriched data or missing level_2/level_1, delete any existing results
         db.query(AmortizationResult).filter(
             AmortizationResult.transaction_id == transaction_id
         ).delete()
         db.commit()
         return []
     
-    # Get category from level_1
-    category = get_amortization_category(enriched.level_1, config)
-    if not category:
-        # No matching category, delete any existing results
+    # Find matching AmortizationType
+    # Match: level_2 == type.level_2_value AND level_1 IN type.level_1_values
+    amortization_types = db.query(AmortizationType).filter(
+        AmortizationType.level_2_value == enriched.level_2
+    ).all()
+    
+    matching_type = None
+    for amort_type in amortization_types:
+        if amort_type.level_1_values and enriched.level_1 in amort_type.level_1_values:
+            matching_type = amort_type
+            break
+    
+    if not matching_type:
+        # No matching type, delete any existing results
         db.query(AmortizationResult).filter(
             AmortizationResult.transaction_id == transaction_id
         ).delete()
         db.commit()
         return []
     
-    # Get duration for this category
-    duration = get_amortization_duration(category, config)
-    if not duration or duration <= 0:
+    # Check duration
+    if not matching_type.duration or matching_type.duration <= 0:
         # Durée non configurée ou invalide, ne pas calculer d'amortissement
+        db.query(AmortizationResult).filter(
+            AmortizationResult.transaction_id == transaction_id
+        ).delete()
+        db.commit()
         return []
     
-    # Calculate yearly amounts
-    # Use absolute value of quantite (it's already negative in the database)
-    total_amount = abs(transaction.quantite)
-    # Convert date to datetime for calculations
-    if isinstance(transaction.date, datetime):
-        start_date = transaction.date
+    # Determine start date: use type.start_date if defined, otherwise transaction.date
+    if matching_type.start_date:
+        # Use override date from type
+        if isinstance(matching_type.start_date, datetime):
+            start_date = matching_type.start_date
+        else:
+            start_date = datetime.combine(matching_type.start_date, datetime.min.time())
     else:
-        start_date = datetime.combine(transaction.date, datetime.min.time())
+        # Use transaction date
+        if isinstance(transaction.date, datetime):
+            start_date = transaction.date
+        else:
+            start_date = datetime.combine(transaction.date, datetime.min.time())
     
-    yearly_amounts = calculate_yearly_amounts(start_date, total_amount, duration)
+    # Calculate total amount (absolute value)
+    total_amount = abs(transaction.quantite)
+    
+    # Determine annual amount: use type.annual_amount if set, otherwise calculate
+    if matching_type.annual_amount and matching_type.annual_amount > 0:
+        # Use override annual amount
+        annual_amount = matching_type.annual_amount
+        # Calculate yearly amounts using fixed annual amount
+        yearly_amounts = {}
+        current_year = start_date.year
+        end_year = current_year + int(matching_type.duration) - 1
+        remaining_amount = total_amount
+        
+        for year in range(current_year, end_year + 1):
+            if remaining_amount <= 0:
+                break
+            amount = min(annual_amount, remaining_amount)
+            yearly_amounts[year] = amount
+            remaining_amount -= amount
+    else:
+        # Calculate proportional distribution
+        yearly_amounts = calculate_yearly_amounts(start_date, total_amount, matching_type.duration)
     
     # Delete old results for this transaction
     db.query(AmortizationResult).filter(
@@ -237,7 +266,7 @@ def recalculate_transaction_amortization(
         result = AmortizationResult(
             transaction_id=transaction_id,
             year=year,
-            category=category,
+            category=matching_type.name,  # Store type name in category field
             amount=-abs(amount)  # Negative as it's an expense
         )
         db.add(result)
@@ -250,7 +279,7 @@ def recalculate_transaction_amortization(
 
 def recalculate_all_amortizations(db: Session) -> int:
     """
-    Recalculate amortization for all transactions that match the criteria.
+    Recalculate amortization for all transactions that match any AmortizationType.
     
     Args:
         db: Database session
@@ -258,17 +287,20 @@ def recalculate_all_amortizations(db: Session) -> int:
     Returns:
         Number of transactions processed
     """
-    # Get configuration
-    config = db.query(AmortizationConfig).first()
-    if not config:
+    # Get all AmortizationTypes
+    amortization_types = db.query(AmortizationType).all()
+    if not amortization_types:
         return 0
+    
+    # Get all unique level_2_values from types
+    level_2_values = list(set([t.level_2_value for t in amortization_types]))
     
     # Get all transactions with matching level_2
     transactions = db.query(Transaction).join(
         EnrichedTransaction,
         Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
-        EnrichedTransaction.level_2 == config.level_2_value
+        EnrichedTransaction.level_2.in_(level_2_values)
     ).all()
     
     count = 0

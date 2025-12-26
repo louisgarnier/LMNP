@@ -27,6 +27,8 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const [editingDateValue, setEditingDateValue] = useState<string>('');
   const [amounts, setAmounts] = useState<Record<number, number>>({});
   const [loadingAmounts, setLoadingAmounts] = useState<Record<number, boolean>>({});
+  const [cumulatedAmounts, setCumulatedAmounts] = useState<Record<number, number>>({});
+  const [loadingCumulatedAmounts, setLoadingCumulatedAmounts] = useState<Record<number, boolean>>({});
   const [editingDurationId, setEditingDurationId] = useState<number | null>(null);
   const [editingDurationValue, setEditingDurationValue] = useState<string>('');
   const [editingAnnualAmountId, setEditingAnnualAmountId] = useState<number | null>(null);
@@ -62,6 +64,7 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     });
     if (amortizationTypes.length > 0 && level2Value) {
       loadAmounts();
+      loadCumulatedAmounts();
     } else {
       console.log('⚠️ [AmortizationConfigCard] loadAmounts non déclenché:', { 
         typesCount: amortizationTypes.length, 
@@ -439,6 +442,41 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     console.log('💾 [AmortizationConfigCard] Montants calculés:', newAmounts);
     setAmounts(newAmounts);
     setLoadingAmounts(newLoadingAmounts);
+  };
+
+  const loadCumulatedAmounts = async () => {
+    if (!level2Value || amortizationTypes.length === 0) return;
+    
+    const newCumulatedAmounts: Record<number, number> = {};
+    const newLoadingCumulatedAmounts: Record<number, boolean> = {};
+    
+    // Marquer tous les types comme en cours de chargement
+    amortizationTypes.forEach(type => {
+      newLoadingCumulatedAmounts[type.id] = true;
+    });
+    setLoadingCumulatedAmounts(newLoadingCumulatedAmounts);
+    
+    console.log('📊 [AmortizationConfigCard] Calcul des montants cumulés pour', amortizationTypes.length, 'types');
+    
+    // Charger les montants cumulés pour tous les types en parallèle
+    const promises = amortizationTypes.map(async (type) => {
+      try {
+        console.log(`📤 [AmortizationConfigCard] Appel API cumulated pour type ${type.id} (${type.name})`);
+        const response = await amortizationTypesAPI.getCumulated(type.id);
+        console.log(`✅ [AmortizationConfigCard] Montant cumulé reçu pour type ${type.id}:`, response.cumulated_amount);
+        newCumulatedAmounts[type.id] = response.cumulated_amount;
+      } catch (err: any) {
+        console.error(`❌ [AmortizationConfigCard] Erreur lors du calcul du montant cumulé pour type ${type.id}:`, err);
+        newCumulatedAmounts[type.id] = 0;
+      } finally {
+        newLoadingCumulatedAmounts[type.id] = false;
+      }
+    });
+    
+    await Promise.all(promises);
+    console.log('💾 [AmortizationConfigCard] Montants cumulés calculés:', newCumulatedAmounts);
+    setCumulatedAmounts(newCumulatedAmounts);
+    setLoadingCumulatedAmounts(newLoadingCumulatedAmounts);
   };
 
   return (
@@ -949,10 +987,24 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                       </div>
                     )}
                   </td>
-                  {/* Colonnes suivantes à venir dans les prochaines étapes */}
-                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
-                    -
+                  {/* Colonne Montant cumulé */}
+                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px', fontWeight: '500' }}>
+                    {loadingCumulatedAmounts[type.id] ? (
+                      <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>⏳ Calcul...</span>
+                    ) : (
+                      <span style={{ color: '#111827' }}>
+                        {cumulatedAmounts[type.id] !== undefined 
+                          ? new Intl.NumberFormat('fr-FR', { 
+                              style: 'currency', 
+                              currency: 'EUR',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            }).format(Math.abs(cumulatedAmounts[type.id]))
+                          : '0,00 €'}
+                      </span>
+                    )}
                   </td>
+                  {/* Colonne VNC */}
                   <td style={{ padding: '6px 8px', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
                     -
                   </td>

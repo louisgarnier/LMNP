@@ -255,8 +255,9 @@ async def get_amortization_type_cumulated(
     """
     Calcule le montant cumulé des amortissements pour un type d'amortissement.
     
-    Montant cumulé = Somme de tous les AmortizationResult où :
-    - AmortizationResult.category = nom_du_type
+    Montant cumulé = Somme de tous les AmortizationResult pour les transactions où :
+    - transaction.enriched_transaction.level_2 = level_2_value
+    - transaction.enriched_transaction.level_1 IN level_1_values
     - AmortizationResult.year <= année_courante
     
     Args:
@@ -269,6 +270,7 @@ async def get_amortization_type_cumulated(
         HTTPException: Si le type n'existe pas
     """
     from datetime import datetime
+    from backend.database.models import Transaction, EnrichedTransaction
     
     amortization_type = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
     
@@ -277,11 +279,41 @@ async def get_amortization_type_cumulated(
     
     current_year = datetime.now().year
     
-    # Calculer le montant cumulé
-    # Note: On utilise le nom du type comme category dans AmortizationResult
+    # Si aucune valeur level_1 mappée, montant cumulé = 0
+    if not amortization_type.level_1_values or len(amortization_type.level_1_values) == 0:
+        return AmortizationTypeCumulatedResponse(
+            type_id=amortization_type.id,
+            type_name=amortization_type.name,
+            cumulated_amount=0.0
+        )
+    
+    # Trouver toutes les transactions correspondantes au type
+    # Jointure Transaction -> EnrichedTransaction
+    # Filtre : level_2 = level_2_value ET level_1 IN level_1_values
+    matching_transactions = db.query(Transaction.id).join(
+        EnrichedTransaction,
+        Transaction.id == EnrichedTransaction.transaction_id
+    ).filter(
+        and_(
+            EnrichedTransaction.level_2 == amortization_type.level_2_value,
+            EnrichedTransaction.level_1.in_(amortization_type.level_1_values)
+        )
+    ).all()
+    
+    transaction_ids = [t[0] for t in matching_transactions]
+    
+    if not transaction_ids:
+        return AmortizationTypeCumulatedResponse(
+            type_id=amortization_type.id,
+            type_name=amortization_type.name,
+            cumulated_amount=0.0
+        )
+    
+    # Calculer le montant cumulé : somme de tous les AmortizationResult pour ces transactions
+    # jusqu'à l'année courante
     result = db.query(func.sum(AmortizationResult.amount)).filter(
         and_(
-            AmortizationResult.category == amortization_type.name,
+            AmortizationResult.transaction_id.in_(transaction_ids),
             AmortizationResult.year <= current_year
         )
     ).scalar()
