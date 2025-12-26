@@ -7,7 +7,7 @@
 'use client';
 
 import { useState } from 'react';
-import AmortizationConfigPanel from '@/components/AmortizationConfigPanel';
+import AmortizationConfigCard from '@/components/AmortizationConfigCard';
 import AmortizationTable from '@/components/AmortizationTable';
 import { amortizationAPI } from '@/api/client';
 
@@ -71,6 +71,9 @@ export default function AmortissementsPage() {
         </button>
       </div>
 
+      {/* Card de configuration */}
+      <AmortizationConfigCard onConfigUpdated={handleConfigUpdated} />
+
       <div
         style={{
           backgroundColor: '#ffffff',
@@ -81,9 +84,6 @@ export default function AmortissementsPage() {
       >
         <AmortizationTable key={refreshKey} onCellClick={handleCellClick} />
       </div>
-
-      {/* Applet de configuration */}
-      <AmortizationConfigPanel onConfigUpdated={handleConfigUpdated} />
     </div>
   );
 }

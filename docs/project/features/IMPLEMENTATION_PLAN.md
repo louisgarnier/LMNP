@@ -2894,7 +2894,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.3: Frontend - Card de configuration (structure de base)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la card de configuration au-dessus du tableau année par année.
 
 **Objectifs**:
@@ -2902,10 +2902,10 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Supprimer le panneau latéral actuel
 
 **Tasks**:
-- [ ] Créer composant `AmortizationConfigCard.tsx` :
+- [x] Créer composant `AmortizationConfigCard.tsx` :
   - Card avec titre "Configuration des amortissements"
   - Structure de base (vide pour l'instant)
-- [ ] Modifier `frontend/app/dashboard/amortissements/page.tsx` :
+- [x] Modifier `frontend/app/dashboard/amortissements/page.tsx` :
   - Afficher `AmortizationConfigCard` au-dessus de `AmortizationTable`
   - Supprimer `AmortizationConfigPanel` (panneau latéral)
 - [ ] **Créer test visuel dans navigateur**
@@ -2916,9 +2916,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Mise à jour `frontend/app/dashboard/amortissements/page.tsx`
 
 **Acceptance Criteria**:
-- [ ] Card s'affiche au-dessus du tableau
-- [ ] Panneau latéral supprimé
-- [ ] Layout correct
+- [x] Card s'affiche au-dessus du tableau
+- [x] Panneau latéral supprimé
+- [x] Layout correct
 
 ---
 
