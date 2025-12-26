@@ -27,6 +27,8 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const [editingDateValue, setEditingDateValue] = useState<string>('');
   const [amounts, setAmounts] = useState<Record<number, number>>({});
   const [loadingAmounts, setLoadingAmounts] = useState<Record<number, boolean>>({});
+  const [editingDurationId, setEditingDurationId] = useState<number | null>(null);
+  const [editingDurationValue, setEditingDurationValue] = useState<string>('');
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
@@ -266,6 +268,54 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const handleDateEditCancel = () => {
     setEditingDateId(null);
     setEditingDateValue('');
+  };
+
+  const handleDurationEditStart = (type: AmortizationType) => {
+    setEditingDurationId(type.id);
+    setEditingDurationValue(type.duration.toString());
+  };
+
+  const handleDurationEditSave = async (typeId: number) => {
+    try {
+      const durationValue = parseFloat(editingDurationValue);
+      if (isNaN(durationValue) || durationValue < 0) {
+        alert('⚠️ La durée doit être un nombre positif');
+        setEditingDurationId(null);
+        setEditingDurationValue('');
+        return;
+      }
+      
+      console.log('💾 [AmortizationConfigCard] Sauvegarde de durée:', durationValue, 'pour type:', typeId);
+      
+      // Recalculer l'annuité si le montant est disponible
+      const type = amortizationTypes.find(t => t.id === typeId);
+      const amount = amounts[typeId] || 0;
+      let annualAmount: number | null = null;
+      
+      if (amount > 0 && durationValue > 0) {
+        annualAmount = amount / durationValue;
+        console.log('💰 [AmortizationConfigCard] Annuité recalculée:', annualAmount, '(Montant:', amount, '/ Durée:', durationValue, ')');
+      }
+      
+      await amortizationTypesAPI.update(typeId, {
+        duration: durationValue,
+        annual_amount: annualAmount,
+      });
+      await loadAmortizationTypes();
+      setEditingDurationId(null);
+      setEditingDurationValue('');
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de la durée:', err);
+      alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  const handleDurationEditCancel = () => {
+    setEditingDurationId(null);
+    setEditingDurationValue('');
   };
 
   const loadAmounts = async () => {
@@ -693,10 +743,60 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                       </span>
                     )}
                   </td>
-                  {/* Colonnes suivantes à venir dans les prochaines étapes */}
-                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
-                    -
+                  {/* Colonne Durée d'amortissement */}
+                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px' }}>
+                    {editingDurationId === type.id ? (
+                      <input
+                        type="number"
+                        value={editingDurationValue}
+                        onChange={(e) => setEditingDurationValue(e.target.value)}
+                        onBlur={() => handleDurationEditSave(type.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleDurationEditSave(type.id);
+                          } else if (e.key === 'Escape') {
+                            handleDurationEditCancel();
+                          }
+                        }}
+                        autoFocus
+                        min="0"
+                        step="0.1"
+                        style={{
+                          width: '100%',
+                          padding: '4px 6px',
+                          fontSize: '12px',
+                          border: '1px solid #3b82f6',
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff',
+                          textAlign: 'right',
+                        }}
+                      />
+                    ) : (
+                      <div
+                        onClick={() => handleDurationEditStart(type)}
+                        style={{
+                          padding: '4px 6px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.2s',
+                          fontSize: '13px',
+                          color: type.duration > 0 ? '#111827' : '#9ca3af',
+                          fontStyle: type.duration > 0 ? 'normal' : 'italic',
+                          textAlign: 'right',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                        title="Cliquer pour éditer"
+                      >
+                        {type.duration > 0 ? `${type.duration} ans` : '0 ans'}
+                      </div>
+                    )}
                   </td>
+                  {/* Colonnes suivantes à venir dans les prochaines étapes */}
                   <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
                     -
                   </td>
