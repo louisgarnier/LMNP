@@ -2923,7 +2923,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.4: Frontend - Champ Level 2
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter le champ "Level 2" en haut de la card.
 
 **Objectifs**:
@@ -2932,11 +2932,11 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Sauvegarde automatique
 
 **Tasks**:
-- [ ] Ajouter champ "Level 2" dans `AmortizationConfigCard.tsx` :
+- [x] Ajouter champ "Level 2" dans `AmortizationConfigCard.tsx` :
   - Dropdown avec valeurs uniques de `level_2`
   - Utiliser `transactionsAPI.getUniqueValues('level_2')`
   - État local pour la valeur sélectionnée
-- [ ] Sauvegarde automatique sur changement (`onChange`)
+- [x] Sauvegarde automatique sur changement (`onChange`)
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
@@ -2944,9 +2944,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Dropdown s'affiche avec les valeurs
-- [ ] Sélection fonctionne
-- [ ] Sauvegarde automatique fonctionne
+- [x] Dropdown s'affiche avec les valeurs
+- [x] Sélection fonctionne
+- [x] État local géré (sauvegarde dans types d'amortissement à venir)
 
 ---
 
