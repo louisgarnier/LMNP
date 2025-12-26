@@ -863,3 +863,113 @@ export const pivotConfigsAPI = {
 };
 
 
+// Amortization API
+
+export interface AmortizationConfig {
+  level_2_value: string;
+  level_3_mapping: {
+    part_terrain: string[];
+    structure_go: string[];
+    mobilier: string[];
+    igt: string[];
+    agencements: string[];
+    facade_toiture: string[];
+    travaux: string[];
+  };
+  duration_part_terrain: number;
+  duration_structure_go: number;
+  duration_mobilier: number;
+  duration_igt: number;
+  duration_agencements: number;
+  duration_facade_toiture: number;
+  duration_travaux: number;
+}
+
+export interface AmortizationConfigResponse extends AmortizationConfig {
+  id: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AmortizationResultsResponse {
+  results: Record<number, Record<string, number>>;
+  totals_by_year: Record<number, number>;
+  totals_by_category: Record<string, number>;
+  grand_total: number;
+}
+
+export interface AmortizationAggregatedResponse {
+  categories: string[];
+  years: number[];
+  data: number[][];
+  row_totals: number[];
+  column_totals: number[];
+  grand_total: number;
+}
+
+export interface AmortizationRecalculateResponse {
+  message: string;
+  transactions_processed: number;
+}
+
+export const amortizationAPI = {
+  /**
+   * Récupère la configuration des amortissements
+   */
+  getConfig: async (): Promise<AmortizationConfigResponse> => {
+    return fetchAPI<AmortizationConfigResponse>('/api/amortization/config');
+  },
+
+  /**
+   * Met à jour la configuration des amortissements
+   */
+  updateConfig: async (config: AmortizationConfig): Promise<AmortizationConfigResponse> => {
+    return fetchAPI<AmortizationConfigResponse>('/api/amortization/config', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  },
+
+  /**
+   * Récupère les résultats d'amortissements agrégés
+   */
+  getResults: async (): Promise<AmortizationResultsResponse> => {
+    return fetchAPI<AmortizationResultsResponse>('/api/amortization/results');
+  },
+
+  /**
+   * Récupère les résultats d'amortissements sous forme de tableau croisé
+   */
+  getResultsAggregated: async (): Promise<AmortizationAggregatedResponse> => {
+    return fetchAPI<AmortizationAggregatedResponse>('/api/amortization/results/aggregated');
+  },
+
+  /**
+   * Récupère les transactions détaillées pour un drill-down
+   */
+  getResultsDetails: async (
+    year?: number,
+    category?: string,
+    skip: number = 0,
+    limit: number = 100
+  ): Promise<TransactionListResponse> => {
+    const params = new URLSearchParams();
+    if (year !== undefined) params.append('year', year.toString());
+    if (category) params.append('category', category);
+    params.append('skip', skip.toString());
+    params.append('limit', limit.toString());
+    
+    return fetchAPI<TransactionListResponse>(`/api/amortization/results/details?${params.toString()}`);
+  },
+
+  /**
+   * Force le recalcul complet de tous les amortissements
+   */
+  recalculate: async (): Promise<AmortizationRecalculateResponse> => {
+    return fetchAPI<AmortizationRecalculateResponse>('/api/amortization/recalculate', {
+      method: 'POST',
+    });
+  },
+};
+
+

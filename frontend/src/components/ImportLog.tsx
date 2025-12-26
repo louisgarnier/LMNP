@@ -142,10 +142,10 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
         return filenameLower.endsWith('.csv') && !filenameLower.endsWith('.xlsx') && !filenameLower.endsWith('.xls');
       })
       .map(log => ({
-        type: 'memory' as const,
-        data: log,
-        key: log.id,
-      })),
+      type: 'memory' as const,
+      data: log,
+      key: log.id,
+    })),
     ...(showDbHistory ? dbHistory
       .filter(h => {
         // Only show CSV files in DB history too

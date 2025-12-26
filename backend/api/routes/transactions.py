@@ -530,7 +530,7 @@ async def delete_transaction(
     Supprimer une transaction.
     Note: Supprime également les données enrichies associées et recalcule les soldes.
     """
-    from backend.database.models import EnrichedTransaction, Amortization
+    from backend.database.models import EnrichedTransaction, AmortizationResult
     from backend.api.utils.balance_utils import recalculate_balances_from_date
     
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
@@ -546,8 +546,9 @@ async def delete_transaction(
         EnrichedTransaction.transaction_id == transaction_id
     ).delete()
     
-    db.query(Amortization).filter(
-        Amortization.transaction_id == transaction_id
+    # Supprimer les résultats d'amortissement associés
+    db.query(AmortizationResult).filter(
+        AmortizationResult.transaction_id == transaction_id
     ).delete()
     
     # Supprimer la transaction

@@ -201,16 +201,41 @@ class AmortizationConfig(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     level_2_value = Column(String(100), nullable=False, index=True)  # Valeur de level_2 à considérer comme amortissement
-    level_3_mapping = Column(JSON, nullable=False)  # Mapping des level_3 vers les 4 types: {"meubles": [...], "travaux": [...], "construction": [...], "terrain": [...]}
-    duration_meubles = Column(Integer, nullable=False)  # Durée en années
-    duration_travaux = Column(Integer, nullable=False)  # Durée en années
-    duration_construction = Column(Integer, nullable=False)  # Durée en années
-    duration_terrain = Column(Integer, nullable=False)  # Durée en années
+    level_3_mapping = Column(JSON, nullable=False)  # Mapping des level_1 vers les 7 catégories: {"part_terrain": [...], "structure_go": [...], "mobilier": [...], "igt": [...], "agencements": [...], "facade_toiture": [...], "travaux": [...]}
+    duration_part_terrain = Column(Float, nullable=False, default=0.0)  # Durée en années (0 = non configuré)
+    duration_structure_go = Column(Float, nullable=False, default=0.0)  # Durée en années (0 = non configuré)
+    duration_mobilier = Column(Float, nullable=False, default=0.0)  # Durée en années (0 = non configuré)
+    duration_igt = Column(Float, nullable=False, default=0.0)  # Durée en années (0 = non configuré)
+    duration_agencements = Column(Float, nullable=False, default=0.0)  # Durée en années (0 = non configuré)
+    duration_facade_toiture = Column(Float, nullable=False, default=0.0)  # Durée en années (0 = non configuré)
+    duration_travaux = Column(Float, nullable=False, default=0.0)  # Durée en années (0 = non configuré)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Une seule configuration à la fois (singleton)
     __table_args__ = (
         Index('idx_amortization_config_singleton', 'id'),
+    )
+
+
+class AmortizationResult(Base):
+    """Results of amortization calculations for each transaction and year."""
+    __tablename__ = "amortization_results"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)  # Année (ex: 2021, 2022)
+    category = Column(String(50), nullable=False, index=True)  # Type: meubles, travaux, construction, terrain
+    amount = Column(Float, nullable=False)  # Montant amorti pour cette année (négatif car c'est une dépense)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relation avec Transaction
+    transaction = relationship("Transaction", backref="amortization_results")
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_amortization_results_transaction_year', 'transaction_id', 'year'),
+        Index('idx_amortization_results_year_category', 'year', 'category'),
     )
 

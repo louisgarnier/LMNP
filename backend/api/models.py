@@ -272,11 +272,14 @@ class PivotConfigListResponse(BaseModel):
 class AmortizationConfigBase(BaseModel):
     """Base model for amortization configuration."""
     level_2_value: str = Field(..., max_length=100, description="Valeur de level_2 à considérer comme amortissement")
-    level_3_mapping: Dict[str, List[str]] = Field(..., description="Mapping des level_3 vers les 4 types: {\"meubles\": [...], \"travaux\": [...], \"construction\": [...], \"terrain\": [...]}")
-    duration_meubles: int = Field(..., ge=1, description="Durée d'amortissement meubles en années")
-    duration_travaux: int = Field(..., ge=1, description="Durée d'amortissement travaux en années")
-    duration_construction: int = Field(..., ge=1, description="Durée d'amortissement construction en années")
-    duration_terrain: int = Field(..., ge=1, description="Durée d'amortissement terrain en années")
+    level_3_mapping: Dict[str, List[str]] = Field(..., description="Mapping des level_1 vers les 7 catégories: {\"part_terrain\": [...], \"structure_go\": [...], \"mobilier\": [...], \"igt\": [...], \"agencements\": [...], \"facade_toiture\": [...], \"travaux\": [...]}")
+    duration_part_terrain: float = Field(0.0, ge=0.0, description="Durée d'amortissement Part terrain en années (0 = non configuré)")
+    duration_structure_go: float = Field(0.0, ge=0.0, description="Durée d'amortissement Immobilisation structure/GO en années (0 = non configuré)")
+    duration_mobilier: float = Field(0.0, ge=0.0, description="Durée d'amortissement Immobilisation mobilier en années (0 = non configuré)")
+    duration_igt: float = Field(0.0, ge=0.0, description="Durée d'amortissement Immobilisation IGT en années (0 = non configuré)")
+    duration_agencements: float = Field(0.0, ge=0.0, description="Durée d'amortissement Immobilisation agencements en années (0 = non configuré)")
+    duration_facade_toiture: float = Field(0.0, ge=0.0, description="Durée d'amortissement Immobilisation Facade/Toiture en années (0 = non configuré)")
+    duration_travaux: float = Field(0.0, ge=0.0, description="Durée d'amortissement Immobilisation travaux en années (0 = non configuré)")
 
 
 class AmortizationConfigUpdate(AmortizationConfigBase):
@@ -292,3 +295,29 @@ class AmortizationConfigResponse(AmortizationConfigBase):
 
     class Config:
         from_attributes = True
+
+
+# Amortization Results models
+
+class AmortizationResultsResponse(BaseModel):
+    """Model for aggregated amortization results by year and category."""
+    results: Dict[int, Dict[str, float]] = Field(..., description="Results by year: {year: {category: amount, ...}, ...}")
+    totals_by_year: Dict[int, float] = Field(..., description="Total by year: {year: total, ...}")
+    totals_by_category: Dict[str, float] = Field(..., description="Total by category: {category: total, ...}")
+    grand_total: float = Field(..., description="Grand total across all years and categories")
+
+
+class AmortizationAggregatedResponse(BaseModel):
+    """Model for pivot table ready amortization results."""
+    categories: List[str] = Field(..., description="List of categories (meubles, travaux, construction, terrain)")
+    years: List[int] = Field(..., description="List of years")
+    data: List[List[float]] = Field(..., description="Matrix of amounts: data[row][col] = amount for category[row] and year[years[col]]")
+    row_totals: List[float] = Field(..., description="Total for each category (row)")
+    column_totals: List[float] = Field(..., description="Total for each year (column)")
+    grand_total: float = Field(..., description="Grand total")
+
+
+class AmortizationRecalculateResponse(BaseModel):
+    """Model for recalculate response."""
+    message: str = Field(..., description="Success message")
+    transactions_processed: int = Field(..., description="Number of transactions processed")

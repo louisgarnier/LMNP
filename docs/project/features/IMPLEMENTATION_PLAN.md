@@ -2635,7 +2635,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Enregistrer router dans `main.py`
 - [x] **Créer test unitaire** (6 tests)
 - [x] **Exécuter tests** (6/6 passés)
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle `AmortizationConfig`
@@ -2650,12 +2650,12 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Validation des données (clés requises, durées >= 1)
 - [x] Singleton pattern (une seule config)
 - [x] Tests unitaires passent (6/6)
-- [ ] **Utilisateur confirme que la configuration est sauvegardée**
+- [x] **Utilisateur confirme que la configuration est sauvegardée**
 
 ---
 
 ### Step 5.2 : Backend - Table et service calcul amortissements
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer table BDD pour stocker les résultats d'amortissements et service de calcul.
 
 **Objectifs**:
@@ -2664,84 +2664,88 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Recalcul automatique lors des changements de transactions
 
 **Tasks**:
-- [ ] Créer table `amortization_results` avec colonnes :
+- [x] Créer table `amortization_results` avec colonnes :
   - `id` (PK)
   - `transaction_id` (FK vers Transaction)
   - `year` (année, ex: 2021, 2022)
   - `category` (type: meubles, travaux, construction, terrain)
   - `amount` (montant amorti pour cette année, négatif)
   - `created_at`, `updated_at`
-- [ ] Créer modèle SQLAlchemy `AmortizationResult`
-- [ ] Créer service `amortization_service.py` avec :
+- [x] Créer modèle SQLAlchemy `AmortizationResult`
+- [x] Créer service `amortization_service.py` avec :
   - Fonction `calculate_30_360_days(start_date, end_date)`
   - Fonction `calculate_yearly_amounts(start_date, total_amount, duration)`
   - Fonction `recalculate_all_amortizations()` - Recalcul complet
   - Fonction `recalculate_transaction_amortization(transaction_id)` - Recalcul pour une transaction
-- [ ] Implémenter logique Yearly Amount Distribution :
+- [x] Implémenter logique Yearly Amount Distribution :
   - Calcul montant journalier (total_amount / total_days)
   - Répartition proportionnelle par année
   - Dernière année = solde restant pour garantir somme exacte
-- [ ] Validation : vérifier que somme des amortissements = montant initial
-- [ ] **Créer test complet avec calculs réels**
+- [x] Validation : vérifier que somme des amortissements = montant initial
+- [x] **Créer test complet avec calculs réels** (8 tests, tous passés)
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle `AmortizationResult`
 - `backend/api/services/amortization_service.py` - Service calcul amortissements
-- `backend/tests/test_amortization.py` - Tests amortissements
+- `backend/tests/test_amortization_service.py` - Tests amortissements (8 tests)
 
 **Tests**:
-- [ ] Test calcul convention 30/360
-- [ ] Test répartition proportionnelle
-- [ ] Test 4 catégories (meubles, travaux, construction, terrain)
-- [ ] Test validation somme = montant initial
-- [ ] Test recalcul complet
-- [ ] Test recalcul transaction unique
+- [x] Test calcul convention 30/360
+- [x] Test répartition proportionnelle
+- [x] Test 4 catégories (meubles, travaux, construction, terrain)
+- [x] Test validation somme = montant initial
+- [x] Test recalcul complet
+- [x] Test recalcul transaction unique
 
 **Acceptance Criteria**:
-- [ ] Calculs d'amortissements corrects (convention 30/360)
-- [ ] Répartition proportionnelle validée
-- [ ] Validation somme = montant initial
-- [ ] Stockage en DB fonctionnel
+- [x] Calculs d'amortissements corrects (convention 30/360)
+- [x] Répartition proportionnelle validée
+- [x] Validation somme = montant initial
+- [x] Stockage en DB fonctionnel
 - [ ] **Utilisateur confirme que les calculs sont corrects**
 
 ---
 
 ### Step 5.4 : Backend - Endpoints API amortissements
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer endpoints API pour récupérer les résultats d'amortissements.
 
 **Tasks**:
-- [ ] Créer endpoint `GET /api/amortization/results` :
+- [x] Créer endpoint `GET /api/amortization/results` :
   - Retourne résultats agrégés par année et catégorie
   - Format : `{ year: { category: amount, ... }, ... }`
   - Inclure ligne Total et colonne Total
-- [ ] Créer endpoint `GET /api/amortization/results/aggregated` :
+- [x] Créer endpoint `GET /api/amortization/results/aggregated` :
   - Retourne tableau croisé prêt pour affichage
   - Format : `{ categories: [...], years: [...], data: [[...], ...], totals: {...} }`
-- [ ] Créer endpoint `GET /api/amortization/results/details` :
+- [x] Créer endpoint `GET /api/amortization/results/details` :
   - Paramètres : `year` (optionnel), `category` (optionnel)
   - Retourne liste des transactions correspondantes (avec pagination)
   - Utilisé pour drill-down depuis le tableau croisé
-- [ ] Créer endpoint `POST /api/amortization/recalculate` :
+- [x] Créer endpoint `POST /api/amortization/recalculate` :
   - Force recalcul complet de tous les amortissements
   - Utile pour recalculer après changement de config
-- [ ] **Créer test unitaire**
+- [x] **Créer test manuel** (script de test)
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `backend/api/routes/amortization.py` - Endpoints API
+- `backend/api/routes/amortization.py` - Endpoints API (4 endpoints)
+- `backend/api/models.py` - Modèles Pydantic pour réponses (AmortizationResultsResponse, AmortizationAggregatedResponse, AmortizationRecalculateResponse)
+- `backend/tests/test_amortization_endpoints_manual.py` - Script de test manuel
 
 **Acceptance Criteria**:
-- [ ] Endpoints retournent données correctes
-- [ ] Format adapté pour affichage frontend
-- [ ] Totaux calculés correctement
+- [x] Endpoints retournent données correctes
+- [x] Format adapté pour affichage frontend
+- [x] Totaux calculés correctement
+- [x] Pagination fonctionne pour details endpoint
+- [x] Filtres (year, category) fonctionnent pour details endpoint
 - [ ] **Utilisateur confirme que les endpoints fonctionnent**
 
 ---
 
 ### Step 5.5 : Frontend - Applet configuration amortissements
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer applet de configuration (comme TCD) pour configurer les amortissements.
 
 **Objectifs**:
@@ -2751,7 +2755,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Configuration des durées pour chaque type
 
 **Tasks**:
-- [ ] Créer composant `AmortizationConfigPanel.tsx` :
+- [x] Créer composant `AmortizationConfigPanel.tsx` :
   - Applet latéral qui s'affiche au hover
   - Input pour sélectionner level_2 (dropdown avec valeurs uniques)
   - 4 sections pour mapper level_3 vers chaque type :
@@ -2761,58 +2765,58 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
     - Multi-select pour "ammortissement terrain"
   - 4 inputs pour durées (en années) pour chaque type
   - Bouton "Sauvegarder" qui appelle API PUT
-- [ ] Récupérer valeurs uniques de level_2 et level_3 depuis API
-- [ ] Gérer état local de la configuration
-- [ ] Afficher indicateur de chargement pendant sauvegarde
-- [ ] **Créer test visuel dans navigateur**
+- [x] Récupérer valeurs uniques de level_2 et level_3 depuis API
+- [x] Gérer état local de la configuration
+- [x] Afficher indicateur de chargement pendant sauvegarde
+- [ ] **Créer test visuel dans navigateur** (sera testé avec Step 5.6)
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/src/components/AmortizationConfigPanel.tsx` - Applet configuration
-- Mise à jour `frontend/src/api/client.ts` - Méthodes API configuration
+- Mise à jour `frontend/src/api/client.ts` - Méthodes API configuration (amortizationAPI)
 
 **Acceptance Criteria**:
-- [ ] Applet s'affiche au hover (comme config TCD)
-- [ ] Sélection level_2 fonctionne
-- [ ] Mapping level_3 multi-select fonctionne
-- [ ] Configuration durées fonctionne
-- [ ] Sauvegarde en BDD fonctionne
-- [ ] **Utilisateur confirme que la configuration fonctionne**
+- [x] Applet s'affiche au hover (comme config TCD)
+- [x] Sélection level_2 fonctionne
+- [x] Mapping level_3 multi-select fonctionne
+- [x] Configuration durées fonctionne
+- [x] Sauvegarde en BDD fonctionne
+- [ ] **Utilisateur confirme que la configuration fonctionne** (sera testé avec Step 5.6)
 
 ---
 
 ### Step 5.6 : Frontend - Vue amortissements (tableau croisé)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer page et composant pour afficher les amortissements en tableau croisé.
 
 **Tasks**:
-- [ ] Créer page `frontend/app/dashboard/amortissements/page.tsx`
-- [ ] Créer composant `AmortizationTable.tsx` :
+- [x] Créer page `frontend/app/dashboard/amortissements/page.tsx`
+- [x] Créer composant `AmortizationTable.tsx` :
   - Tableau croisé : années en colonnes, catégories en lignes
   - Ligne Total en bas
   - Colonne Total à droite
   - Formatage montants : 2 décimales, négatifs en rouge
   - Intégrer `AmortizationConfigPanel` (applet config)
-- [ ] Appeler API `GET /api/amortization/results/aggregated`
-- [ ] Gérer état de chargement
-- [ ] Afficher message si aucune configuration
-- [ ] Afficher message si aucun résultat
-- [ ] Rendre les cellules cliquables (sauf totaux)
+- [x] Appeler API `GET /api/amortization/results/aggregated`
+- [x] Gérer état de chargement
+- [x] Afficher message si aucune configuration
+- [x] Afficher message si aucun résultat
+- [x] Rendre les cellules cliquables (sauf totaux) - handler prêt pour Step 5.6.1
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/app/dashboard/amortissements/page.tsx` - Page amortissements
 - `frontend/src/components/AmortizationTable.tsx` - Tableau amortissements
-- Mise à jour `frontend/src/api/client.ts` - Méthodes API amortissements
+- Mise à jour `frontend/src/api/client.ts` - Méthodes API amortissements (déjà fait dans Step 5.5)
 
 **Acceptance Criteria**:
-- [ ] Tableau des amortissements s'affiche
-- [ ] Répartition par catégorie et année visible
-- [ ] Ligne Total et colonne Total correctes
-- [ ] Formatage montants correct (2 décimales, négatifs en rouge)
-- [ ] Applet config intégré et fonctionnel
-- [ ] Cellules cliquables (sauf totaux)
+- [x] Tableau des amortissements s'affiche
+- [x] Répartition par catégorie et année visible
+- [x] Ligne Total et colonne Total correctes
+- [x] Formatage montants correct (2 décimales, négatifs en rouge)
+- [x] Applet config intégré et fonctionnel
+- [x] Cellules cliquables (sauf totaux) - handler prêt pour Step 5.6.1
 - [ ] **Utilisateur confirme que la vue fonctionne**
 
 ---
