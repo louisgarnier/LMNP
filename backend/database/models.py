@@ -239,3 +239,23 @@ class AmortizationResult(Base):
         Index('idx_amortization_results_year_category', 'year', 'category'),
     )
 
+
+class AmortizationType(Base):
+    """Types d'amortissement configurables (remplace la structure fixe de AmortizationConfig)."""
+    __tablename__ = "amortization_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)  # "Part terrain", "Immobilisation mobilier", etc.
+    level_2_value = Column(String(100), nullable=False, index=True)  # "ammortissements" (référence au champ global)
+    level_1_values = Column(JSON, nullable=False)  # ["value1", "value2", ...] - Liste des level_1 mappés
+    start_date = Column(Date, nullable=True)  # NULL = utiliser dates transactions, sinon override date
+    duration = Column(Float, nullable=False)  # Durée en années (obligatoire)
+    annual_amount = Column(Float, nullable=True)  # NULL = calculer (Montant/Durée), sinon override
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_amortization_types_level2', 'level_2_value'),
+    )
+

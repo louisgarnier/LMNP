@@ -2822,7 +2822,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.1: Backend - Nouvelle table AmortizationType
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la nouvelle table `amortization_types` pour remplacer la structure actuelle.
 
 **Objectifs**:
@@ -2831,25 +2831,27 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Créer script de migration des données existantes (7 catégories initiales)
 
 **Tasks**:
-- [ ] Créer modèle `AmortizationType` dans `backend/database/models.py` :
+- [x] Créer modèle `AmortizationType` dans `backend/database/models.py` :
   - `id`, `name`, `level_2_value`, `level_1_values` (JSON), `start_date` (nullable), `duration`, `annual_amount` (nullable)
   - Index sur `level_2_value`
-- [ ] Créer script de migration `backend/scripts/migrate_to_amortization_types.py` :
+- [x] Créer script de migration `backend/scripts/migrate_to_amortization_types.py` :
   - Lire `AmortizationConfig` existant
   - Créer 7 lignes initiales dans `amortization_types`
   - Conserver `level_2_value` global
-- [ ] Exécuter migration et valider
-- [ ] **Créer test unitaire pour le modèle**
+- [x] Exécuter migration et valider
+- [x] **Créer test unitaire pour le modèle**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle `AmortizationType`
 - `backend/scripts/migrate_to_amortization_types.py` - Script de migration
+- `backend/tests/test_amortization_type.py` - Tests unitaires
 
 **Acceptance Criteria**:
-- [ ] Table `amortization_types` créée
-- [ ] 7 lignes initiales créées avec les noms des catégories
-- [ ] Migration testée et validée
+- [x] Table `amortization_types` créée
+- [x] 7 lignes initiales créées avec les noms des catégories
+- [x] Migration testée et validée
+- [x] Tests unitaires passent (4 tests)
 
 ---
 
