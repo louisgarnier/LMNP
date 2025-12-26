@@ -25,6 +25,8 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const [editingLevel1Id, setEditingLevel1Id] = useState<number | null>(null);
   const [editingDateId, setEditingDateId] = useState<number | null>(null);
   const [editingDateValue, setEditingDateValue] = useState<string>('');
+  const [amounts, setAmounts] = useState<Record<number, number>>({});
+  const [loadingAmounts, setLoadingAmounts] = useState<Record<number, boolean>>({});
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
@@ -46,6 +48,23 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       loadAmortizationTypes();
     }
   }, [level2Value]);
+
+  // Recharger les montants quand les types changent ou quand level2Value change
+  useEffect(() => {
+    console.log('🔄 [AmortizationConfigCard] useEffect loadAmounts déclenché', { 
+      typesCount: amortizationTypes.length, 
+      level2Value,
+      shouldLoad: amortizationTypes.length > 0 && level2Value 
+    });
+    if (amortizationTypes.length > 0 && level2Value) {
+      loadAmounts();
+    } else {
+      console.log('⚠️ [AmortizationConfigCard] loadAmounts non déclenché:', { 
+        typesCount: amortizationTypes.length, 
+        level2Value 
+      });
+    }
+  }, [amortizationTypes, level2Value]);
 
   const loadLevel2Values = async () => {
     try {
@@ -180,6 +199,8 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
         level_1_values: updatedValues,
       });
       await loadAmortizationTypes();
+      // Recharger les montants après modification des level_1_values
+      await loadAmounts();
       if (onConfigUpdated) {
         onConfigUpdated();
       }
@@ -201,6 +222,8 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
         level_1_values: updatedValues,
       });
       await loadAmortizationTypes();
+      // Recharger les montants après modification des level_1_values
+      await loadAmounts();
       if (onConfigUpdated) {
         onConfigUpdated();
       }
@@ -243,6 +266,45 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const handleDateEditCancel = () => {
     setEditingDateId(null);
     setEditingDateValue('');
+  };
+
+  const loadAmounts = async () => {
+    console.log('🔍 [AmortizationConfigCard] loadAmounts appelé', { level2Value, typesCount: amortizationTypes.length });
+    if (!level2Value || amortizationTypes.length === 0) {
+      console.log('⚠️ [AmortizationConfigCard] loadAmounts annulé: level2Value ou types manquants');
+      return;
+    }
+    
+    const newAmounts: Record<number, number> = {};
+    const newLoadingAmounts: Record<number, boolean> = {};
+    
+    // Marquer tous les types comme en cours de chargement
+    amortizationTypes.forEach(type => {
+      newLoadingAmounts[type.id] = true;
+    });
+    setLoadingAmounts(newLoadingAmounts);
+    
+    console.log('📊 [AmortizationConfigCard] Calcul des montants pour', amortizationTypes.length, 'types');
+    
+    // Charger les montants pour tous les types en parallèle
+    const promises = amortizationTypes.map(async (type) => {
+      try {
+        console.log(`📤 [AmortizationConfigCard] Appel API pour type ${type.id} (${type.name})`);
+        const response = await amortizationTypesAPI.getAmount(type.id);
+        console.log(`✅ [AmortizationConfigCard] Montant reçu pour type ${type.id}:`, response.amount);
+        newAmounts[type.id] = response.amount;
+      } catch (err: any) {
+        console.error(`❌ [AmortizationConfigCard] Erreur lors du calcul du montant pour type ${type.id}:`, err);
+        newAmounts[type.id] = 0;
+      } finally {
+        newLoadingAmounts[type.id] = false;
+      }
+    });
+    
+    await Promise.all(promises);
+    console.log('💾 [AmortizationConfigCard] Montants calculés:', newAmounts);
+    setAmounts(newAmounts);
+    setLoadingAmounts(newLoadingAmounts);
   };
 
   return (
@@ -614,10 +676,24 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                       </div>
                     )}
                   </td>
-                  {/* Colonnes suivantes à venir dans les prochaines étapes */}
-                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
-                    -
+                  {/* Colonne Montant d'immobilisation */}
+                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px', fontWeight: '500' }}>
+                    {loadingAmounts[type.id] ? (
+                      <span style={{ color: '#9ca3af', fontStyle: 'italic' }}>⏳ Calcul...</span>
+                    ) : (
+                      <span style={{ color: '#111827' }}>
+                        {amounts[type.id] !== undefined 
+                          ? new Intl.NumberFormat('fr-FR', { 
+                              style: 'currency', 
+                              currency: 'EUR',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            }).format(amounts[type.id])
+                          : '0,00 €'}
+                      </span>
+                    )}
                   </td>
+                  {/* Colonnes suivantes à venir dans les prochaines étapes */}
                   <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
                     -
                   </td>
