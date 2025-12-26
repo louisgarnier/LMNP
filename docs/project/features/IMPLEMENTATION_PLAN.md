@@ -3077,7 +3077,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.9: Frontend - Colonne "Montant d'immobilisation" (calculé)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "Montant d'immobilisation" avec calcul automatique.
 
 **Objectifs**:
@@ -3086,83 +3086,89 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Appeler `GET /api/amortization/types/{id}/amount`
 
 **Tasks**:
-- [ ] Ajouter colonne "Montant d'immobilisation" :
+- [x] Ajouter colonne "Montant d'immobilisation" :
   - Champ en lecture seule (calculé)
   - Appeler API pour calculer le montant
   - Recalculer quand `level_1_values` ou `level_2_value` change
-- [ ] Afficher formatage monétaire (2 décimales)
-- [ ] Gérer état de chargement
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Indicateur de chargement "⏳ Calcul..." pendant le calcul
+- [x] Afficher formatage monétaire (2 décimales, EUR)
+- [x] Gérer état de chargement
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
-- Mise à jour `frontend/src/api/client.ts` - Méthode `getAmortizationTypeAmount()`
 
 **Acceptance Criteria**:
-- [ ] Montant s'affiche correctement
-- [ ] Recalcul automatique fonctionne
-- [ ] Formatage correct
+- [x] Montant s'affiche correctement
+- [x] Recalcul automatique fonctionne (quand types chargés, level2Value change, level_1_values modifiés)
+- [x] Formatage correct (EUR, 2 décimales)
 
 ---
 
 #### Step 5.6.10: Frontend - Colonne "Durée d'amortissement"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "Durée d'amortissement" (input nombre).
 
 **Objectifs**:
 - Champ nombre éditable (obligatoire)
 - Sauvegarde automatique
 - Recalcul de l'annuité quand durée change
+- **0 ans signifie que l'immobilisation ne s'amortit pas (ex: terrain)**
 
 **Tasks**:
-- [ ] Ajouter colonne "Durée d'amortissement" :
+- [x] Ajouter colonne "Durée d'amortissement" :
   - Input type="number" avec `min="0"` et `step="0.1"`
-  - Validation : obligatoire
-  - Sauvegarde automatique sur `onBlur`
-- [ ] Recalculer annuité quand durée change : `Annuité = Montant / Durée`
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Validation : nombre positif obligatoire
+  - Sauvegarde automatique sur `onBlur` ou `Enter`
+  - Affichage formaté : "X ans" ou "0 ans" (au lieu de "Non défini")
+- [x] Recalculer annuité quand durée change : `Annuité = Montant / Durée` (si montant > 0 et durée > 0)
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Champ durée s'affiche
-- [ ] Édition fonctionne
-- [ ] Validation obligatoire fonctionne
-- [ ] Recalcul annuité fonctionne
-- [ ] Sauvegarde automatique fonctionne
+- [x] Champ durée s'affiche
+- [x] Édition fonctionne (clic sur la cellule)
+- [x] Validation obligatoire fonctionne (nombre positif)
+- [x] Recalcul annuité fonctionne (automatique si montant disponible)
+- [x] Sauvegarde automatique fonctionne
 
 ---
 
 #### Step 5.6.11: Frontend - Colonne "Annuité d'amortissement"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "Annuité d'amortissement" (calculée puis éditable).
 
 **Objectifs**:
-- Calcul automatique : `Annuité = Montant / Durée`
+- Calcul automatique : `Annuité = abs(Montant) / Durée`
 - Éditable manuellement
 - Sauvegarde automatique
+- **Gestion des montants négatifs avec Math.abs()**
+- **annual_amount = 0 considéré comme "non défini" (calcul automatique)**
 
 **Tasks**:
-- [ ] Ajouter colonne "Annuité d'amortissement" :
-  - Calcul automatique : `Annuité = Montant / Durée` (si Montant et Durée renseignés)
+- [x] Ajouter colonne "Annuité d'amortissement" :
+  - Calcul automatique : `Annuité = abs(Montant) / Durée` (si Montant ≠ 0 et Durée > 0)
   - Input type="number" éditable
-  - Sauvegarde automatique sur `onBlur`
-- [ ] Recalculer quand Montant ou Durée change
-- [ ] Formatage monétaire (2 décimales)
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Sauvegarde automatique sur `onBlur` ou `Enter`
+  - Formatage monétaire EUR avec 2 décimales
+- [x] Recalculer quand Montant ou Durée change
+- [x] **Gérer les montants négatifs avec Math.abs()**
+- [x] **Ignorer annual_amount = 0 pour permettre le calcul automatique**
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Calcul automatique fonctionne
-- [ ] Édition manuelle fonctionne
-- [ ] Recalcul automatique fonctionne
-- [ ] Sauvegarde automatique fonctionne
+- [x] Calcul automatique fonctionne (avec montants négatifs)
+- [x] Édition manuelle fonctionne (clic sur la cellule)
+- [x] Recalcul automatique fonctionne (quand montant ou durée change)
+- [x] Sauvegarde automatique fonctionne
 
 ---
 

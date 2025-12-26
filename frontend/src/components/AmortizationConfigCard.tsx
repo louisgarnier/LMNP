@@ -29,6 +29,8 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const [loadingAmounts, setLoadingAmounts] = useState<Record<number, boolean>>({});
   const [editingDurationId, setEditingDurationId] = useState<number | null>(null);
   const [editingDurationValue, setEditingDurationValue] = useState<string>('');
+  const [editingAnnualAmountId, setEditingAnnualAmountId] = useState<number | null>(null);
+  const [editingAnnualAmountValue, setEditingAnnualAmountValue] = useState<string>('');
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
@@ -316,6 +318,88 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const handleDurationEditCancel = () => {
     setEditingDurationId(null);
     setEditingDurationValue('');
+  };
+
+  const handleAnnualAmountEditStart = (type: AmortizationType) => {
+    setEditingAnnualAmountId(type.id);
+    // Afficher la valeur actuelle ou calculer si nécessaire
+    const amount = amounts[type.id] || 0;
+    const duration = type.duration || 0;
+    let displayValue = '';
+    
+    if (type.annual_amount !== null && type.annual_amount !== undefined) {
+      displayValue = type.annual_amount.toString();
+    } else if (amount > 0 && duration > 0) {
+      displayValue = (amount / duration).toString();
+    } else {
+      displayValue = '0';
+    }
+    
+    setEditingAnnualAmountValue(displayValue);
+  };
+
+  const handleAnnualAmountEditSave = async (typeId: number) => {
+    try {
+      const annualAmountValue = parseFloat(editingAnnualAmountValue);
+      if (isNaN(annualAmountValue) || annualAmountValue < 0) {
+        alert('⚠️ L\'annuité doit être un nombre positif');
+        setEditingAnnualAmountId(null);
+        setEditingAnnualAmountValue('');
+        return;
+      }
+      
+      console.log('💾 [AmortizationConfigCard] Sauvegarde d\'annuité:', annualAmountValue, 'pour type:', typeId);
+      
+      await amortizationTypesAPI.update(typeId, {
+        annual_amount: annualAmountValue,
+      });
+      await loadAmortizationTypes();
+      setEditingAnnualAmountId(null);
+      setEditingAnnualAmountValue('');
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de l\'annuité:', err);
+      alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  const handleAnnualAmountEditCancel = () => {
+    setEditingAnnualAmountId(null);
+    setEditingAnnualAmountValue('');
+  };
+
+  // Calculer l'annuité automatiquement pour un type
+  const calculateAnnualAmount = (type: AmortizationType): number | null => {
+    const amount = amounts[type.id] || 0;
+    const duration = type.duration || 0;
+    
+    console.log(`🔍 [AmortizationConfigCard] Calcul annuité pour type ${type.id} (${type.name}):`, {
+      amount,
+      duration,
+      annual_amount: type.annual_amount,
+      hasManualAmount: type.annual_amount !== null && type.annual_amount !== undefined && type.annual_amount !== 0
+    });
+    
+    // Si une annuité est déjà définie manuellement (et différente de 0), la retourner
+    // annual_amount = 0 signifie "pas encore défini", on calcule automatiquement
+    if (type.annual_amount !== null && type.annual_amount !== undefined && type.annual_amount !== 0) {
+      console.log(`✅ [AmortizationConfigCard] Annuité manuelle pour type ${type.id}:`, type.annual_amount);
+      return type.annual_amount;
+    }
+    
+    // Sinon, calculer : Montant / Durée
+    // Utiliser Math.abs() pour gérer les montants négatifs (dépenses)
+    const absAmount = Math.abs(amount);
+    if (absAmount > 0 && duration > 0) {
+      const calculated = absAmount / duration;
+      console.log(`💰 [AmortizationConfigCard] Annuité calculée pour type ${type.id}:`, calculated, `(abs(${amount}) / ${duration})`);
+      return calculated;
+    }
+    
+    console.log(`⚠️ [AmortizationConfigCard] Impossible de calculer annuité pour type ${type.id}: amount=${amount}, duration=${duration}`);
+    return null;
   };
 
   const loadAmounts = async () => {
@@ -738,7 +822,7 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                               currency: 'EUR',
                               minimumFractionDigits: 2,
                               maximumFractionDigits: 2
-                            }).format(amounts[type.id])
+                            }).format(Math.abs(amounts[type.id]))
                           : '0,00 €'}
                       </span>
                     )}
@@ -796,10 +880,76 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                       </div>
                     )}
                   </td>
-                  {/* Colonnes suivantes à venir dans les prochaines étapes */}
-                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
-                    -
+                  {/* Colonne Annuité d'amortissement */}
+                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px', fontWeight: '500' }}>
+                    {editingAnnualAmountId === type.id ? (
+                      <input
+                        type="number"
+                        value={editingAnnualAmountValue}
+                        onChange={(e) => setEditingAnnualAmountValue(e.target.value)}
+                        onBlur={() => handleAnnualAmountEditSave(type.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAnnualAmountEditSave(type.id);
+                          } else if (e.key === 'Escape') {
+                            handleAnnualAmountEditCancel();
+                          }
+                        }}
+                        autoFocus
+                        min="0"
+                        step="0.01"
+                        style={{
+                          width: '100%',
+                          padding: '4px 6px',
+                          fontSize: '12px',
+                          border: '1px solid #3b82f6',
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff',
+                          textAlign: 'right',
+                        }}
+                      />
+                    ) : (
+                      <div
+                        onClick={() => handleAnnualAmountEditStart(type)}
+                        style={{
+                          padding: '4px 6px',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          transition: 'background-color 0.2s',
+                          fontSize: '13px',
+                          color: '#111827',
+                          textAlign: 'right',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                        title="Cliquer pour éditer"
+                      >
+                        {(() => {
+                          const calculatedAmount = calculateAnnualAmount(type);
+                          console.log(`📊 [AmortizationConfigCard] Affichage annuité pour type ${type.id}:`, {
+                            calculatedAmount,
+                            amount: amounts[type.id],
+                            duration: type.duration,
+                            annual_amount: type.annual_amount
+                          });
+                          if (calculatedAmount !== null && calculatedAmount > 0) {
+                            return new Intl.NumberFormat('fr-FR', {
+                              style: 'currency',
+                              currency: 'EUR',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
+                            }).format(calculatedAmount);
+                          }
+                          return '0,00 €';
+                        })()}
+                      </div>
+                    )}
                   </td>
+                  {/* Colonnes suivantes à venir dans les prochaines étapes */}
                   <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
                     -
                   </td>
