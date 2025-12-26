@@ -2951,7 +2951,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.5: Frontend - Tableau (structure vide)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la structure du tableau dans la card.
 
 **Objectifs**:
@@ -2959,10 +2959,10 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Pas de données pour l'instant
 
 **Tasks**:
-- [ ] Ajouter tableau dans `AmortizationConfigCard.tsx` :
+- [x] Ajouter tableau dans `AmortizationConfigCard.tsx` :
   - En-têtes : Type d'immobilisation, Level 1 (valeurs), Date de début, Montant, Durée, Annuité, Cumulé, VNC
   - Structure `<table>` avec `<thead>` et `<tbody>` vide
-- [ ] Style cohérent avec le reste de l'app
+- [x] Style cohérent avec le reste de l'app
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
@@ -2970,14 +2970,14 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Tableau s'affiche avec en-têtes
-- [ ] Style correct
-- [ ] Structure prête pour les données
+- [x] Tableau s'affiche avec en-têtes
+- [x] Style correct
+- [x] Structure prête pour les données
 
 ---
 
 #### Step 5.6.6: Frontend - Colonne "Type d'immobilisation"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "Type d'immobilisation" avec les 7 types initiaux.
 
 **Objectifs**:
@@ -2986,78 +2986,93 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Charger depuis l'API au démarrage
 
 **Tasks**:
-- [ ] Ajouter logique pour charger les types depuis `GET /api/amortization/types`
-- [ ] Afficher les 7 types initiaux (créés automatiquement si inexistants)
-- [ ] Colonne "Type d'immobilisation" : champ texte éditable
-- [ ] Sauvegarde automatique sur `onBlur`
+- [x] Ajouter logique pour charger les types depuis `GET /api/amortization/types`
+- [x] Afficher les 7 types initiaux (créés automatiquement si inexistants)
+- [x] Colonne "Type d'immobilisation" : champ texte éditable (clic pour éditer)
+- [x] Sauvegarde automatique sur `onBlur` (ou Enter/Escape)
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
-- Mise à jour `frontend/src/api/client.ts` - Méthode `getAmortizationTypes()`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `amortizationTypesAPI.getAll()`
 
 **Acceptance Criteria**:
-- [ ] 7 types initiaux s'affichent
-- [ ] Édition du nom fonctionne
-- [ ] Sauvegarde automatique fonctionne
+- [x] 7 types initiaux s'affichent (créés automatiquement si inexistants)
+- [x] Édition du nom fonctionne (clic pour éditer, onBlur/Enter pour sauvegarder)
+- [x] Sauvegarde automatique fonctionne
 
 ---
 
 #### Step 5.6.7: Frontend - Colonne "Level 1 (valeurs)"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "Level 1 (valeurs)" avec multi-select.
 
 **Objectifs**:
 - Multi-select pour mapper les valeurs `level_1` à chaque type
 - Charger les valeurs uniques depuis l'API
+- **Filtrer les valeurs `level_1` par le `level_2` sélectionné** (ex: si `level_2 = "ammortissements"`, ne montrer que les `level_1` associés)
 - Sauvegarde automatique
 
 **Tasks**:
-- [ ] Ajouter colonne "Level 1 (valeurs)" :
+- [x] Ajouter colonne "Level 1 (valeurs)" :
   - Multi-select dropdown
-  - Utiliser `transactionsAPI.getUniqueValues('level_1')`
-  - Afficher les valeurs sélectionnées
+  - Utiliser `transactionsAPI.getUniqueValues('level_1', undefined, undefined, level2Value)`
+  - Afficher les valeurs sélectionnées sous forme de tags bleus
   - Bouton "+" pour ajouter une valeur
-- [ ] Sauvegarde automatique sur changement
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Bouton "×" sur chaque tag pour supprimer
+- [x] **Backend - Ajouter paramètre `filter_level_2` à `/api/transactions/unique-values`**
+- [x] **Frontend - Filtrer les valeurs `level_1` par `level2Value`**
+- [x] **Recharger automatiquement les valeurs `level_1` quand `level2Value` change**
+- [x] Sauvegarde automatique sur changement
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
+- Mise à jour `backend/api/routes/transactions.py` (endpoint `get_transaction_unique_values`)
+- Mise à jour `frontend/src/api/client.ts` (méthode `getUniqueValues`)
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Multi-select fonctionne
-- [ ] Ajout/suppression de valeurs fonctionne
-- [ ] Sauvegarde automatique fonctionne
+- [x] Multi-select fonctionne
+- [x] Ajout/suppression de valeurs fonctionne
+- [x] **Filtrage par `level_2` fonctionne (seules les valeurs `level_1` associées au `level_2` sélectionné sont affichées)**
+- [x] Sauvegarde automatique fonctionne
 
 ---
 
 #### Step 5.6.8: Frontend - Colonne "Date de début"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "Date de début" (input date).
 
 **Objectifs**:
 - Champ date éditable (nullable)
+- **Permettre de supprimer la date (retour à NULL)**
 - Sauvegarde automatique
+- **Comportement** : Si `start_date` est NULL, utiliser les dates des transactions. Si une date est définie, elle override les dates des transactions pour le calcul d'amortissement.
 
 **Tasks**:
-- [ ] Ajouter colonne "Date de début" :
+- [x] Ajouter colonne "Date de début" :
   - Input type="date"
   - Peut être vide (NULL)
-  - Format date correct
-- [ ] Sauvegarde automatique sur `onBlur`
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Format date correct (affichage DD/MM/YYYY)
+  - Bouton "×" pour supprimer la date
+- [x] **Backend - Modifier `update_amortization_type` pour accepter `start_date: null`**
+  - Utiliser `model_dump(exclude_unset=True)` pour distinguer "champ non fourni" vs "champ = None"
+- [x] Sauvegarde automatique sur `onBlur` ou `Enter`
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
+- Mise à jour `backend/api/routes/amortization_types.py` (méthode `update_amortization_type`)
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Champ date s'affiche
-- [ ] Édition fonctionne
-- [ ] Valeur NULL gérée correctement
-- [ ] Sauvegarde automatique fonctionne
+- [x] Champ date s'affiche
+- [x] Édition fonctionne
+- [x] Valeur NULL gérée correctement (peut être définie et supprimée)
+- [x] Bouton "×" supprime la date correctement
+- [x] Sauvegarde automatique fonctionne
 
 ---
 

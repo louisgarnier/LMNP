@@ -314,6 +314,7 @@ async def get_transaction_unique_values(
     column: str = Query(..., description="Nom de la colonne (nom, level_1, level_2, level_3)"),
     start_date: Optional[date] = Query(None, description="Date de début (filtre optionnel)"),
     end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel)"),
+    filter_level_2: Optional[str] = Query(None, description="Filtrer par level_2 (exact match, optionnel)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -343,6 +344,11 @@ async def get_transaction_unique_values(
             query = query.filter(Transaction.date <= end_date)
         else:
             query = query.filter(Transaction.date <= end_date)
+    
+    # Filtre par level_2 si fourni (pour filtrer les level_1 par exemple)
+    if filter_level_2:
+        if column in ["level_1", "level_2", "level_3"]:
+            query = query.filter(EnrichedTransaction.level_2 == filter_level_2)
     
     # Récupérer les valeurs uniques selon la colonne
     if column == "nom":

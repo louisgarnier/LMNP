@@ -124,18 +124,23 @@ async def update_amortization_type(
         raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
     
     # Mettre à jour uniquement les champs fournis
-    if type_data.name is not None:
-        amortization_type.name = type_data.name
-    if type_data.level_2_value is not None:
-        amortization_type.level_2_value = type_data.level_2_value
-    if type_data.level_1_values is not None:
-        amortization_type.level_1_values = type_data.level_1_values
-    if type_data.start_date is not None:
-        amortization_type.start_date = type_data.start_date
-    if type_data.duration is not None:
-        amortization_type.duration = type_data.duration
-    if type_data.annual_amount is not None:
-        amortization_type.annual_amount = type_data.annual_amount
+    # Utiliser model_dump(exclude_unset=True) pour distinguer entre "champ non fourni" et "champ = None"
+    update_data = type_data.model_dump(exclude_unset=True)
+    
+    if 'name' in update_data:
+        amortization_type.name = update_data['name']
+    if 'level_2_value' in update_data:
+        amortization_type.level_2_value = update_data['level_2_value']
+    if 'level_1_values' in update_data:
+        amortization_type.level_1_values = update_data['level_1_values']
+    if 'start_date' in update_data:
+        # Permettre explicitement de définir start_date à None pour supprimer la date
+        # None signifie "utiliser les dates des transactions" (pas d'override)
+        amortization_type.start_date = update_data['start_date']
+    if 'duration' in update_data:
+        amortization_type.duration = update_data['duration']
+    if 'annual_amount' in update_data:
+        amortization_type.annual_amount = update_data['annual_amount']
     
     db.commit()
     db.refresh(amortization_type)

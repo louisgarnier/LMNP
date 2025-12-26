@@ -214,13 +214,15 @@ export const transactionsAPI = {
   getUniqueValues: async (
     column: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    filterLevel2?: string
   ): Promise<{ column: string; values: string[] }> => {
     const params = new URLSearchParams({
       column,
     });
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
+    if (filterLevel2) params.append('filter_level_2', filterLevel2);
     
     return fetchAPI<{ column: string; values: string[] }>(`/api/transactions/unique-values?${params}`);
   },
@@ -912,6 +914,41 @@ export interface AmortizationRecalculateResponse {
   transactions_processed: number;
 }
 
+export interface AmortizationType {
+  id: number;
+  name: string;
+  level_2_value: string;
+  level_1_values: string[];
+  start_date: string | null;
+  duration: number;
+  annual_amount: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AmortizationTypeListResponse {
+  types: AmortizationType[];
+  total: number;
+}
+
+export interface AmortizationTypeCreate {
+  name: string;
+  level_2_value: string;
+  level_1_values: string[];
+  start_date?: string | null;
+  duration: number;
+  annual_amount?: number | null;
+}
+
+export interface AmortizationTypeUpdate {
+  name?: string;
+  level_2_value?: string;
+  level_1_values?: string[];
+  start_date?: string | null;
+  duration?: number;
+  annual_amount?: number | null;
+}
+
 export const amortizationAPI = {
   /**
    * Récupère la configuration des amortissements
@@ -969,6 +1006,68 @@ export const amortizationAPI = {
     return fetchAPI<AmortizationRecalculateResponse>('/api/amortization/recalculate', {
       method: 'POST',
     });
+  },
+};
+
+/**
+ * Amortization Types API
+ */
+export const amortizationTypesAPI = {
+  /**
+   * Récupère tous les types d'amortissement
+   */
+  getAll: async (): Promise<AmortizationTypeListResponse> => {
+    return fetchAPI<AmortizationTypeListResponse>('/api/amortization/types');
+  },
+
+  /**
+   * Récupère un type d'amortissement par ID
+   */
+  getById: async (id: number): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}`);
+  },
+
+  /**
+   * Crée un nouveau type d'amortissement
+   */
+  create: async (type: AmortizationTypeCreate): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>('/api/amortization/types', {
+      method: 'POST',
+      body: JSON.stringify(type),
+    });
+  },
+
+  /**
+   * Met à jour un type d'amortissement
+   */
+  update: async (id: number, type: AmortizationTypeUpdate): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(type),
+    });
+  },
+
+  /**
+   * Supprime un type d'amortissement
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/amortization/types/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Calcule le montant d'immobilisation pour un type
+   */
+  getAmount: async (id: number): Promise<{ type_id: number; type_name: string; amount: number }> => {
+    return fetchAPI<{ type_id: number; type_name: string; amount: number }>(`/api/amortization/types/${id}/amount`);
+  },
+
+  /**
+   * Calcule le montant cumulé pour un type
+   */
+  getCumulated: async (id: number): Promise<{ type_id: number; type_name: string; cumulated_amount: number }> => {
+    return fetchAPI<{ type_id: number; type_name: string; cumulated_amount: number }>(`/api/amortization/types/${id}/cumulated`);
   },
 };
 
