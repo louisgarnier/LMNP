@@ -373,6 +373,41 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     setEditingAnnualAmountValue('');
   };
 
+  // Créer un nouveau type d'amortissement
+  const handleAddType = async () => {
+    if (!level2Value) {
+      alert('⚠️ Veuillez d\'abord sélectionner une valeur pour Level 2');
+      return;
+    }
+
+    try {
+      console.log('➕ [AmortizationConfigCard] Création d\'un nouveau type d\'amortissement...');
+      const newType = await amortizationTypesAPI.create({
+        name: 'Nouveau type',
+        level_2_value: level2Value,
+        level_1_values: [],
+        start_date: null,
+        duration: 0,
+        annual_amount: null,
+      });
+      console.log('✅ [AmortizationConfigCard] Nouveau type créé:', newType);
+      
+      // Recharger les types
+      await loadAmortizationTypes();
+      
+      // Recharger les montants
+      await loadAmounts();
+      await loadCumulatedAmounts();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la création du type:', err);
+      alert(`❌ Erreur lors de la création: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
   // Calculer l'annuité automatiquement pour un type
   const calculateAnnualAmount = (type: AmortizationType): number | null => {
     const amount = amounts[type.id] || 0;
@@ -1025,6 +1060,33 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                 </tr>
               ))
             )}
+            {/* Ligne pour ajouter un nouveau type */}
+            <tr style={{ backgroundColor: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
+              <td colSpan={8} style={{ padding: '12px', textAlign: 'center' }}>
+                <button
+                  onClick={handleAddType}
+                  disabled={!level2Value || loadingTypes}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    color: '#ffffff',
+                    backgroundColor: (!level2Value || loadingTypes) ? '#9ca3af' : '#3b82f6',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: (!level2Value || loadingTypes) ? 'not-allowed' : 'pointer',
+                    boxShadow: (!level2Value || loadingTypes) ? 'none' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                  }}
+                  title={!level2Value ? 'Sélectionnez d\'abord une valeur pour Level 2' : 'Ajouter un nouveau type d\'amortissement'}
+                >
+                  <span>+</span>
+                  <span>Ajouter un type</span>
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>

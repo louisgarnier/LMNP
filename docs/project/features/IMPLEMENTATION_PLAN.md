@@ -3241,7 +3241,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.14: Frontend - Bouton "+" Ajouter un type
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter le bouton "+" pour créer un nouveau type d'amortissement.
 
 **Objectifs**:
@@ -3250,27 +3250,31 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Appeler `POST /api/amortization/types`
 
 **Tasks**:
-- [ ] Ajouter bouton "+" dans le tableau :
-  - Position : après la dernière ligne ou dans l'en-tête
+- [x] Ajouter bouton "+" dans le tableau :
+  - Position : après la dernière ligne (ligne dédiée avec colspan)
   - Créer nouveau type avec valeurs par défaut :
-    - `name` : "" (vide, à renseigner)
+    - `name` : "Nouveau type" (à renommer par l'utilisateur)
+    - `level_2_value` : valeur sélectionnée dans le dropdown
     - `level_1_values` : `[]`
-    - `start_date` : `NULL`
+    - `start_date` : `null`
     - `duration` : `0`
-    - `annual_amount` : `NULL`
+    - `annual_amount` : `null`
   - Appeler API `POST /api/amortization/types`
-  - Rafraîchir le tableau
-- [ ] **Créer test visuel dans navigateur**
+  - Rafraîchir le tableau et les montants
+  - Bouton désactivé si `level2Value` n'est pas sélectionné
+- [x] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
-- Mise à jour `frontend/src/api/client.ts` - Méthode `createAmortizationType()`
+- Méthode `create()` déjà disponible dans `frontend/src/api/client.ts`
 
 **Acceptance Criteria**:
-- [ ] Bouton "+" s'affiche
-- [ ] Création d'un nouveau type fonctionne
-- [ ] Nouveau type apparaît dans le tableau
+- [x] Bouton "+" s'affiche (après toutes les lignes)
+- [x] Création d'un nouveau type fonctionne
+- [x] Nouveau type apparaît dans le tableau
+- [x] Bouton désactivé si Level 2 non sélectionné
+- [x] Rechargement automatique des types et montants après création
 
 ---
 
