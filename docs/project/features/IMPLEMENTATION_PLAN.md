@@ -2821,7 +2821,456 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
-#### Step 5.6.1 : Frontend - Drill-down transactions détaillées
+#### Step 5.6.1: Backend - Nouvelle table AmortizationType
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la nouvelle table `amortization_types` pour remplacer la structure actuelle.
+
+**Objectifs**:
+- Créer modèle SQLAlchemy `AmortizationType`
+- Créer migration pour créer la table
+- Créer script de migration des données existantes (7 catégories initiales)
+
+**Tasks**:
+- [ ] Créer modèle `AmortizationType` dans `backend/database/models.py` :
+  - `id`, `name`, `level_2_value`, `level_1_values` (JSON), `start_date` (nullable), `duration`, `annual_amount` (nullable)
+  - Index sur `level_2_value`
+- [ ] Créer script de migration `backend/scripts/migrate_to_amortization_types.py` :
+  - Lire `AmortizationConfig` existant
+  - Créer 7 lignes initiales dans `amortization_types`
+  - Conserver `level_2_value` global
+- [ ] Exécuter migration et valider
+- [ ] **Créer test unitaire pour le modèle**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/database/models.py` - Modèle `AmortizationType`
+- `backend/scripts/migrate_to_amortization_types.py` - Script de migration
+
+**Acceptance Criteria**:
+- [ ] Table `amortization_types` créée
+- [ ] 7 lignes initiales créées avec les noms des catégories
+- [ ] Migration testée et validée
+
+---
+
+#### Step 5.6.2: Backend - API Endpoints AmortizationType
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer les endpoints API pour gérer les types d'amortissement.
+
+**Objectifs**:
+- CRUD complet pour `AmortizationType`
+- Endpoint pour calculer les montants et cumulés
+
+**Tasks**:
+- [ ] Créer `backend/api/models.py` - Modèles Pydantic :
+  - `AmortizationTypeBase`, `AmortizationTypeCreate`, `AmortizationTypeUpdate`, `AmortizationTypeResponse`
+- [ ] Créer `backend/api/routes/amortization_types.py` :
+  - `GET /api/amortization/types` - Liste tous les types
+  - `POST /api/amortization/types` - Créer un type
+  - `GET /api/amortization/types/{id}` - Récupérer un type
+  - `PUT /api/amortization/types/{id}` - Mettre à jour un type
+  - `DELETE /api/amortization/types/{id}` - Supprimer un type
+  - `GET /api/amortization/types/{id}/amount` - Calculer montant d'immobilisation
+  - `GET /api/amortization/types/{id}/cumulated` - Calculer montant cumulé
+- [ ] Intégrer dans `backend/api/main.py`
+- [ ] **Créer tests API (curl ou pytest)**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/models.py` - Modèles Pydantic
+- `backend/api/routes/amortization_types.py` - Routes API
+- Mise à jour `backend/api/main.py`
+
+**Acceptance Criteria**:
+- [ ] Tous les endpoints fonctionnent
+- [ ] Validation des données (durée obligatoire, etc.)
+- [ ] Tests passent
+
+---
+
+#### Step 5.6.3: Frontend - Card de configuration (structure de base)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la card de configuration au-dessus du tableau année par année.
+
+**Objectifs**:
+- Afficher une card vide au-dessus de `AmortizationTable`
+- Supprimer le panneau latéral actuel
+
+**Tasks**:
+- [ ] Créer composant `AmortizationConfigCard.tsx` :
+  - Card avec titre "Configuration des amortissements"
+  - Structure de base (vide pour l'instant)
+- [ ] Modifier `frontend/app/dashboard/amortissements/page.tsx` :
+  - Afficher `AmortizationConfigCard` au-dessus de `AmortizationTable`
+  - Supprimer `AmortizationConfigPanel` (panneau latéral)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/AmortizationConfigCard.tsx` - Card de configuration
+- Mise à jour `frontend/app/dashboard/amortissements/page.tsx`
+
+**Acceptance Criteria**:
+- [ ] Card s'affiche au-dessus du tableau
+- [ ] Panneau latéral supprimé
+- [ ] Layout correct
+
+---
+
+#### Step 5.6.4: Frontend - Champ Level 2
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter le champ "Level 2" en haut de la card.
+
+**Objectifs**:
+- Dropdown pour sélectionner la valeur `level_2`
+- Charger les valeurs uniques depuis l'API
+- Sauvegarde automatique
+
+**Tasks**:
+- [ ] Ajouter champ "Level 2" dans `AmortizationConfigCard.tsx` :
+  - Dropdown avec valeurs uniques de `level_2`
+  - Utiliser `transactionsAPI.getUniqueValues('level_2')`
+  - État local pour la valeur sélectionnée
+- [ ] Sauvegarde automatique sur changement (`onChange`)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Dropdown s'affiche avec les valeurs
+- [ ] Sélection fonctionne
+- [ ] Sauvegarde automatique fonctionne
+
+---
+
+#### Step 5.6.5: Frontend - Tableau (structure vide)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la structure du tableau dans la card.
+
+**Objectifs**:
+- Tableau HTML avec en-têtes de colonnes
+- Pas de données pour l'instant
+
+**Tasks**:
+- [ ] Ajouter tableau dans `AmortizationConfigCard.tsx` :
+  - En-têtes : Type d'immobilisation, Level 1 (valeurs), Date de début, Montant, Durée, Annuité, Cumulé, VNC
+  - Structure `<table>` avec `<thead>` et `<tbody>` vide
+- [ ] Style cohérent avec le reste de l'app
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Tableau s'affiche avec en-têtes
+- [ ] Style correct
+- [ ] Structure prête pour les données
+
+---
+
+#### Step 5.6.6: Frontend - Colonne "Type d'immobilisation"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "Type d'immobilisation" avec les 7 types initiaux.
+
+**Objectifs**:
+- Afficher les 7 types initiaux dans le tableau
+- Champ texte éditable pour chaque type
+- Charger depuis l'API au démarrage
+
+**Tasks**:
+- [ ] Ajouter logique pour charger les types depuis `GET /api/amortization/types`
+- [ ] Afficher les 7 types initiaux (créés automatiquement si inexistants)
+- [ ] Colonne "Type d'immobilisation" : champ texte éditable
+- [ ] Sauvegarde automatique sur `onBlur`
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `getAmortizationTypes()`
+
+**Acceptance Criteria**:
+- [ ] 7 types initiaux s'affichent
+- [ ] Édition du nom fonctionne
+- [ ] Sauvegarde automatique fonctionne
+
+---
+
+#### Step 5.6.7: Frontend - Colonne "Level 1 (valeurs)"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "Level 1 (valeurs)" avec multi-select.
+
+**Objectifs**:
+- Multi-select pour mapper les valeurs `level_1` à chaque type
+- Charger les valeurs uniques depuis l'API
+- Sauvegarde automatique
+
+**Tasks**:
+- [ ] Ajouter colonne "Level 1 (valeurs)" :
+  - Multi-select dropdown
+  - Utiliser `transactionsAPI.getUniqueValues('level_1')`
+  - Afficher les valeurs sélectionnées
+  - Bouton "+" pour ajouter une valeur
+- [ ] Sauvegarde automatique sur changement
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Multi-select fonctionne
+- [ ] Ajout/suppression de valeurs fonctionne
+- [ ] Sauvegarde automatique fonctionne
+
+---
+
+#### Step 5.6.8: Frontend - Colonne "Date de début"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "Date de début" (input date).
+
+**Objectifs**:
+- Champ date éditable (nullable)
+- Sauvegarde automatique
+
+**Tasks**:
+- [ ] Ajouter colonne "Date de début" :
+  - Input type="date"
+  - Peut être vide (NULL)
+  - Format date correct
+- [ ] Sauvegarde automatique sur `onBlur`
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Champ date s'affiche
+- [ ] Édition fonctionne
+- [ ] Valeur NULL gérée correctement
+- [ ] Sauvegarde automatique fonctionne
+
+---
+
+#### Step 5.6.9: Frontend - Colonne "Montant d'immobilisation" (calculé)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "Montant d'immobilisation" avec calcul automatique.
+
+**Objectifs**:
+- Afficher le montant calculé (somme des transactions)
+- Recalcul automatique quand `level_1_values` change
+- Appeler `GET /api/amortization/types/{id}/amount`
+
+**Tasks**:
+- [ ] Ajouter colonne "Montant d'immobilisation" :
+  - Champ en lecture seule (calculé)
+  - Appeler API pour calculer le montant
+  - Recalculer quand `level_1_values` ou `level_2_value` change
+- [ ] Afficher formatage monétaire (2 décimales)
+- [ ] Gérer état de chargement
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `getAmortizationTypeAmount()`
+
+**Acceptance Criteria**:
+- [ ] Montant s'affiche correctement
+- [ ] Recalcul automatique fonctionne
+- [ ] Formatage correct
+
+---
+
+#### Step 5.6.10: Frontend - Colonne "Durée d'amortissement"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "Durée d'amortissement" (input nombre).
+
+**Objectifs**:
+- Champ nombre éditable (obligatoire)
+- Sauvegarde automatique
+- Recalcul de l'annuité quand durée change
+
+**Tasks**:
+- [ ] Ajouter colonne "Durée d'amortissement" :
+  - Input type="number" avec `min="0"` et `step="0.1"`
+  - Validation : obligatoire
+  - Sauvegarde automatique sur `onBlur`
+- [ ] Recalculer annuité quand durée change : `Annuité = Montant / Durée`
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Champ durée s'affiche
+- [ ] Édition fonctionne
+- [ ] Validation obligatoire fonctionne
+- [ ] Recalcul annuité fonctionne
+- [ ] Sauvegarde automatique fonctionne
+
+---
+
+#### Step 5.6.11: Frontend - Colonne "Annuité d'amortissement"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "Annuité d'amortissement" (calculée puis éditable).
+
+**Objectifs**:
+- Calcul automatique : `Annuité = Montant / Durée`
+- Éditable manuellement
+- Sauvegarde automatique
+
+**Tasks**:
+- [ ] Ajouter colonne "Annuité d'amortissement" :
+  - Calcul automatique : `Annuité = Montant / Durée` (si Montant et Durée renseignés)
+  - Input type="number" éditable
+  - Sauvegarde automatique sur `onBlur`
+- [ ] Recalculer quand Montant ou Durée change
+- [ ] Formatage monétaire (2 décimales)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Calcul automatique fonctionne
+- [ ] Édition manuelle fonctionne
+- [ ] Recalcul automatique fonctionne
+- [ ] Sauvegarde automatique fonctionne
+
+---
+
+#### Step 5.6.12: Frontend - Colonne "Montant cumulé" (calculé)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "Montant cumulé" avec calcul automatique.
+
+**Objectifs**:
+- Afficher le montant cumulé (somme des `AmortizationResult`)
+- Recalcul automatique après calcul d'amortissement
+- Appeler `GET /api/amortization/types/{id}/cumulated`
+
+**Tasks**:
+- [ ] Ajouter colonne "Montant cumulé" :
+  - Champ en lecture seule (calculé)
+  - Appeler API pour calculer le cumulé
+  - Recalculer après chaque calcul d'amortissement
+- [ ] Afficher formatage monétaire (2 décimales)
+- [ ] Gérer état de chargement
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `getAmortizationTypeCumulated()`
+
+**Acceptance Criteria**:
+- [ ] Montant cumulé s'affiche correctement
+- [ ] Recalcul automatique fonctionne
+- [ ] Formatage correct
+
+---
+
+#### Step 5.6.13: Frontend - Colonne "VNC" (calculé)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la colonne "VNC" avec calcul automatique.
+
+**Objectifs**:
+- Calcul automatique : `VNC = Montant - Cumulé`
+- Recalcul automatique quand Montant ou Cumulé change
+
+**Tasks**:
+- [ ] Ajouter colonne "VNC" :
+  - Champ en lecture seule (calculé)
+  - Calcul : `VNC = Montant - Cumulé`
+  - Recalculer quand Montant ou Cumulé change
+- [ ] Afficher formatage monétaire (2 décimales)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] VNC s'affiche correctement
+- [ ] Calcul automatique fonctionne
+- [ ] Recalcul automatique fonctionne
+- [ ] Formatage correct
+
+---
+
+#### Step 5.6.14: Frontend - Bouton "+" Ajouter un type
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter le bouton "+" pour créer un nouveau type d'amortissement.
+
+**Objectifs**:
+- Bouton "+" dans le tableau
+- Créer un nouveau type avec valeurs par défaut
+- Appeler `POST /api/amortization/types`
+
+**Tasks**:
+- [ ] Ajouter bouton "+" dans le tableau :
+  - Position : après la dernière ligne ou dans l'en-tête
+  - Créer nouveau type avec valeurs par défaut :
+    - `name` : "" (vide, à renseigner)
+    - `level_1_values` : `[]`
+    - `start_date` : `NULL`
+    - `duration` : `0`
+    - `annual_amount` : `NULL`
+  - Appeler API `POST /api/amortization/types`
+  - Rafraîchir le tableau
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `createAmortizationType()`
+
+**Acceptance Criteria**:
+- [ ] Bouton "+" s'affiche
+- [ ] Création d'un nouveau type fonctionne
+- [ ] Nouveau type apparaît dans le tableau
+
+---
+
+#### Step 5.6.15: Frontend - Suppression de type (clic droit)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la fonctionnalité de suppression via clic droit.
+
+**Objectifs**:
+- Menu contextuel (clic droit) sur chaque ligne
+- Option "Supprimer" avec confirmation
+- Appeler `DELETE /api/amortization/types/{id}`
+
+**Tasks**:
+- [ ] Ajouter menu contextuel :
+  - Clic droit sur une ligne du tableau
+  - Afficher menu avec option "Supprimer"
+  - Confirmation avant suppression
+  - Appeler API `DELETE /api/amortization/types/{id}`
+  - Rafraîchir le tableau
+- [ ] Gérer cas d'erreur (type utilisé dans des amortissements)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `deleteAmortizationType()`
+
+**Acceptance Criteria**:
+- [ ] Menu contextuel s'affiche
+- [ ] Confirmation fonctionne
+- [ ] Suppression fonctionne
+- [ ] Gestion d'erreur correcte
+
+---
+
+#### Step 5.7: Frontend - Drill-down transactions détaillées
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Afficher les transactions détaillées lorsqu'on clique sur une cellule du tableau croisé.
 
