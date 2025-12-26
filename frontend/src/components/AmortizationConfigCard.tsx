@@ -1005,8 +1005,22 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                     )}
                   </td>
                   {/* Colonne VNC */}
-                  <td style={{ padding: '6px 8px', textAlign: 'right', color: '#9ca3af', fontSize: '13px' }}>
-                    -
+                  <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', textAlign: 'right', fontSize: '13px', fontWeight: '500' }}>
+                    {(() => {
+                      const montant = amounts[type.id] || 0;
+                      const cumule = cumulatedAmounts[type.id] || 0;
+                      const vnc = Math.abs(montant) - Math.abs(cumule);
+                      return (
+                        <span style={{ color: vnc >= 0 ? '#111827' : '#dc2626' }}>
+                          {new Intl.NumberFormat('fr-FR', { 
+                            style: 'currency', 
+                            currency: 'EUR',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
+                          }).format(vnc)}
+                        </span>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))

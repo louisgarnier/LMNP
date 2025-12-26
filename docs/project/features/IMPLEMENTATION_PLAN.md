@@ -3181,7 +3181,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.12: Frontend - Colonne "Montant cumulé" (calculé)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "Montant cumulé" avec calcul automatique.
 
 **Objectifs**:
@@ -3190,28 +3190,28 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Appeler `GET /api/amortization/types/{id}/cumulated`
 
 **Tasks**:
-- [ ] Ajouter colonne "Montant cumulé" :
+- [x] Ajouter colonne "Montant cumulé" :
   - Champ en lecture seule (calculé)
   - Appeler API pour calculer le cumulé
   - Recalculer après chaque calcul d'amortissement
-- [ ] Afficher formatage monétaire (2 décimales)
-- [ ] Gérer état de chargement
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Afficher formatage monétaire (2 décimales)
+- [x] Gérer état de chargement
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 - Mise à jour `frontend/src/api/client.ts` - Méthode `getAmortizationTypeCumulated()`
 
 **Acceptance Criteria**:
-- [ ] Montant cumulé s'affiche correctement
-- [ ] Recalcul automatique fonctionne
-- [ ] Formatage correct
+- [x] Montant cumulé s'affiche correctement
+- [x] Recalcul automatique fonctionne
+- [x] Formatage correct
 
 ---
 
 #### Step 5.6.13: Frontend - Colonne "VNC" (calculé)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter la colonne "VNC" avec calcul automatique.
 
 **Objectifs**:
@@ -3219,22 +3219,24 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Recalcul automatique quand Montant ou Cumulé change
 
 **Tasks**:
-- [ ] Ajouter colonne "VNC" :
+- [x] Ajouter colonne "VNC" :
   - Champ en lecture seule (calculé)
-  - Calcul : `VNC = Montant - Cumulé`
+  - Calcul : `VNC = abs(Montant) - abs(Cumulé)`
   - Recalculer quand Montant ou Cumulé change
-- [ ] Afficher formatage monétaire (2 décimales)
-- [ ] **Créer test visuel dans navigateur**
+- [x] Afficher formatage monétaire (2 décimales)
+- [x] Affichage conditionnel : couleur rouge si VNC < 0, noir sinon
+- [x] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] VNC s'affiche correctement
-- [ ] Calcul automatique fonctionne
-- [ ] Recalcul automatique fonctionne
-- [ ] Formatage correct
+- [x] VNC s'affiche correctement
+- [x] Calcul automatique fonctionne (VNC = abs(Montant) - abs(Cumulé))
+- [x] Recalcul automatique fonctionne (quand Montant ou Cumulé change)
+- [x] Formatage correct (monétaire, 2 décimales)
+- [x] Affichage conditionnel (rouge si négatif)
 
 ---
 
