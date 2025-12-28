@@ -167,17 +167,36 @@ async def delete_amortization_type(
     if not amortization_type:
         raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
     
-    # Vérifier si le type est utilisé dans des amortissements
-    # Note: On utilise le nom du type comme category dans AmortizationResult
-    results_count = db.query(AmortizationResult).filter(
-        AmortizationResult.category == amortization_type.name
-    ).count()
-    
-    if results_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Impossible de supprimer ce type : il est utilisé dans {results_count} résultat(s) d'amortissement"
-        )
+    # Vérifier si le type est réellement utilisé dans des amortissements
+    # Si le type n'a pas de level_1_values configurés, il ne peut pas être utilisé → permettre la suppression
+    if not amortization_type.level_1_values or len(amortization_type.level_1_values) == 0:
+        # Type non configuré (pas de level_1_values) → peut être supprimé même s'il y a des résultats avec ce nom
+        # (car ces résultats ne correspondent pas à ce type spécifique)
+        pass
+    else:
+        # Type configuré → vérifier s'il est réellement utilisé
+        # On vérifie si des transactions correspondent aux critères du type ET ont généré des résultats
+        from backend.database.models import Transaction, EnrichedTransaction
+        
+        # Compter les résultats d'amortissement qui correspondent réellement à ce type
+        # (via les transactions qui matchent level_2_value et level_1_values)
+        results_count = db.query(AmortizationResult).join(
+            Transaction, AmortizationResult.transaction_id == Transaction.id
+        ).join(
+            EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+        ).filter(
+            and_(
+                AmortizationResult.category == amortization_type.name,
+                EnrichedTransaction.level_2 == amortization_type.level_2_value,
+                EnrichedTransaction.level_1.in_(amortization_type.level_1_values)
+            )
+        ).count()
+        
+        if results_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Impossible de supprimer ce type : il est utilisé dans {results_count} résultat(s) d'amortissement"
+            )
     
     db.delete(amortization_type)
     db.commit()

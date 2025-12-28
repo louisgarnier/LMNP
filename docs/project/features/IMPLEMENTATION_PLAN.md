@@ -3314,7 +3314,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.16: Frontend - Recalcul automatique des amortissements
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Améliorer la fluidité en déclenchant automatiquement le recalcul des amortissements après modification des paramètres.
 
 **Objectifs**:
@@ -3329,19 +3329,19 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Ce n'est pas fluide et nécessite des actions manuelles
 
 **Tasks**:
-- [ ] Identifier les champs qui impactent les amortissements :
+- [x] Identifier les champs qui impactent les amortissements :
   - `start_date` (date de début)
   - `duration` (durée d'amortissement)
   - `annual_amount` (annuité d'amortissement)
   - `level_1_values` (valeurs level_1 mappées)
-- [ ] Après sauvegarde de ces champs, déclencher automatiquement :
+- [x] Après sauvegarde de ces champs, déclencher automatiquement :
   - Appel à `amortizationAPI.recalculate()` (recalcul complet)
   - Afficher un indicateur de chargement pendant le recalcul
-- [ ] Après le recalcul, recharger automatiquement :
+- [x] Après le recalcul, recharger automatiquement :
   - `loadCumulatedAmounts()` (montants cumulés)
   - Rafraîchir le tableau d'amortissements (via `onConfigUpdated()`)
-- [ ] Gérer les erreurs potentielles lors du recalcul automatique
-- [ ] **Créer test visuel dans navigateur**
+- [x] Gérer les erreurs potentielles lors du recalcul automatique (silencieux, pas d'alerte)
+- [x] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
@@ -3350,60 +3350,19 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
   - Modifier `handleDurationEditSave()` pour déclencher le recalcul
   - Modifier `handleAnnualAmountEditSave()` pour déclencher le recalcul
   - Modifier `handleLevel1Add()` et `handleLevel1Remove()` pour déclencher le recalcul
-- Ajouter état de chargement pour le recalcul automatique
+- Ajouter état de chargement pour le recalcul automatique (`isAutoRecalculating`)
 - Ajouter fonction utilitaire `triggerAutoRecalculate()` pour centraliser la logique
+- Ajouter indicateur visuel "⏳ Recalcul en cours..." dans le titre de la card
 
 **Acceptance Criteria**:
-- [ ] Modification de `start_date` → recalcul automatique → montant cumulé mis à jour
-- [ ] Modification de `duration` → recalcul automatique → montant cumulé mis à jour
-- [ ] Modification de `annual_amount` → recalcul automatique → montant cumulé mis à jour
-- [ ] Modification de `level_1_values` → recalcul automatique → montant cumulé mis à jour
-- [ ] Indicateur de chargement visible pendant le recalcul
-- [ ] Pas besoin de rafraîchir la page manuellement
-- [ ] Pas besoin de cliquer sur "🔄 Calculer les amortissements" manuellement
-- [ ] Gestion d'erreur si le recalcul échoue
-
----
-
-#### Step 5.7: Frontend - Drill-down transactions détaillées
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Afficher les transactions détaillées lorsqu'on clique sur une cellule du tableau croisé.
-
-**Objectifs**:
-- Au clic sur une cellule (année × catégorie), afficher les transactions correspondantes
-- Même principe que le TCD (PivotDetailsTable)
-
-**Tasks**:
-- [ ] Créer endpoint backend `GET /api/amortization/results/details` :
-  - Paramètres : `year` (optionnel), `category` (optionnel)
-  - Retourne liste des transactions correspondantes
-- [ ] Créer composant `AmortizationDetailsTable.tsx` :
-  - Affiche transactions en dessous du tableau croisé
-  - Colonnes : Date, Nom, Quantité, Solde, Level 1, Level 2, Level 3
-  - Pagination si nécessaire
-  - Style cohérent avec PivotDetailsTable
-- [ ] Intégrer dans `AmortizationTable.tsx` :
-  - Gérer état de la cellule cliquée (year, category)
-  - Afficher `AmortizationDetailsTable` en dessous du tableau
-  - Bouton "Fermer" pour masquer les détails
-- [ ] Gérer cas où aucune transaction (message informatif)
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
-
-**Deliverables**:
-- `backend/api/routes/amortization.py` - Endpoint `/api/amortization/results/details`
-- `frontend/src/components/AmortizationDetailsTable.tsx` - Composant transactions détaillées
-- Mise à jour `frontend/src/components/AmortizationTable.tsx` - Intégration drill-down
-- Mise à jour `frontend/src/api/client.ts` - Méthode API details
-
-**Acceptance Criteria**:
-- [ ] Clic sur cellule affiche transactions correspondantes
-- [ ] Transactions affichées en dessous du tableau croisé
-- [ ] Colonnes complètes affichées
-- [ ] Pagination fonctionne si beaucoup de transactions
-- [ ] Bouton "Fermer" fonctionne
-- [ ] Message si aucune transaction
-- [ ] **Utilisateur confirme que le drill-down fonctionne**
+- [x] Modification de `start_date` → recalcul automatique → montant cumulé mis à jour
+- [x] Modification de `duration` → recalcul automatique → montant cumulé mis à jour
+- [x] Modification de `annual_amount` → recalcul automatique → montant cumulé mis à jour
+- [x] Modification de `level_1_values` → recalcul automatique → montant cumulé mis à jour
+- [x] Indicateur de chargement visible pendant le recalcul ("⏳ Recalcul en cours..." dans le titre)
+- [x] Pas besoin de rafraîchir la page manuellement
+- [x] Pas besoin de cliquer sur "🔄 Calculer les amortissements" manuellement
+- [x] Gestion d'erreur si le recalcul échoue (silencieux, log dans la console)
 
 ---
 

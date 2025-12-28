@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { transactionsAPI, amortizationTypesAPI, AmortizationType } from '@/api/client';
+import { transactionsAPI, amortizationTypesAPI, amortizationAPI, AmortizationType } from '@/api/client';
 
 interface AmortizationConfigCardProps {
   onConfigUpdated?: () => void;
@@ -34,6 +34,7 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const [editingAnnualAmountId, setEditingAnnualAmountId] = useState<number | null>(null);
   const [editingAnnualAmountValue, setEditingAnnualAmountValue] = useState<string>('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; typeId: number } | null>(null);
+  const [isAutoRecalculating, setIsAutoRecalculating] = useState(false);
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
@@ -209,9 +210,9 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await loadAmortizationTypes();
       // Recharger les montants après modification des level_1_values
       await loadAmounts();
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de l\'ajout de la valeur level_1:', err);
       alert(`❌ Erreur lors de l'ajout: ${err.message || 'Erreur inconnue'}`);
@@ -232,9 +233,9 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await loadAmortizationTypes();
       // Recharger les montants après modification des level_1_values
       await loadAmounts();
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression de la valeur level_1:', err);
       alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
@@ -262,9 +263,12 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await loadAmortizationTypes();
       setEditingDateId(null);
       setEditingDateValue('');
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      
+      // Recharger les montants d'immobilisation (la date peut affecter le calcul)
+      await loadAmounts();
+      
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de la date:', err);
       alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -310,9 +314,9 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await loadAmortizationTypes();
       setEditingDurationId(null);
       setEditingDurationValue('');
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de la durée:', err);
       alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -360,9 +364,9 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await loadAmortizationTypes();
       setEditingAnnualAmountId(null);
       setEditingAnnualAmountValue('');
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de l\'annuité:', err);
       alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -441,12 +445,14 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await amortizationTypesAPI.delete(typeId);
       console.log('✅ [AmortizationConfigCard] Type supprimé avec succès');
       
-      // Recharger les types
-      await loadAmortizationTypes();
+      // Recharger les types et récupérer la nouvelle liste
+      const newTypesResponse = await amortizationTypesAPI.getAll();
+      const newTypes = newTypesResponse.types;
+      setAmortizationTypes(newTypes);
       
-      // Recharger les montants
-      await loadAmounts();
-      await loadCumulatedAmounts();
+      // Recharger les montants avec la nouvelle liste de types
+      await loadAmounts(newTypes);
+      await loadCumulatedAmounts(newTypes);
       
       handleCloseContextMenu();
       
@@ -490,6 +496,32 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     }
   }, [contextMenu]);
 
+  // Fonction utilitaire pour déclencher le recalcul automatique des amortissements
+  const triggerAutoRecalculate = async () => {
+    try {
+      setIsAutoRecalculating(true);
+      console.log('🔄 [AmortizationConfigCard] Déclenchement du recalcul automatique des amortissements...');
+      
+      // Appeler l'API de recalcul
+      const response = await amortizationAPI.recalculate();
+      console.log('✅ [AmortizationConfigCard] Recalcul automatique terminé:', response.message);
+      
+      // Recharger les montants cumulés après le recalcul
+      await loadCumulatedAmounts();
+      
+      // Notifier le parent pour rafraîchir le tableau d'amortissements
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors du recalcul automatique:', err);
+      // Ne pas afficher d'alerte pour le recalcul automatique (silencieux)
+      // L'utilisateur peut toujours utiliser le bouton manuel si nécessaire
+    } finally {
+      setIsAutoRecalculating(false);
+    }
+  };
+
   // Calculer l'annuité automatiquement pour un type
   const calculateAnnualAmount = (type: AmortizationType): number | null => {
     const amount = amounts[type.id] || 0;
@@ -522,9 +554,10 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     return null;
   };
 
-  const loadAmounts = async () => {
-    console.log('🔍 [AmortizationConfigCard] loadAmounts appelé', { level2Value, typesCount: amortizationTypes.length });
-    if (!level2Value || amortizationTypes.length === 0) {
+  const loadAmounts = async (typesToLoad?: AmortizationType[]) => {
+    const types = typesToLoad || amortizationTypes;
+    console.log('🔍 [AmortizationConfigCard] loadAmounts appelé', { level2Value, typesCount: types.length });
+    if (!level2Value || types.length === 0) {
       console.log('⚠️ [AmortizationConfigCard] loadAmounts annulé: level2Value ou types manquants');
       return;
     }
@@ -533,15 +566,15 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     const newLoadingAmounts: Record<number, boolean> = {};
     
     // Marquer tous les types comme en cours de chargement
-    amortizationTypes.forEach(type => {
+    types.forEach(type => {
       newLoadingAmounts[type.id] = true;
     });
     setLoadingAmounts(newLoadingAmounts);
     
-    console.log('📊 [AmortizationConfigCard] Calcul des montants pour', amortizationTypes.length, 'types');
+    console.log('📊 [AmortizationConfigCard] Calcul des montants pour', types.length, 'types');
     
     // Charger les montants pour tous les types en parallèle
-    const promises = amortizationTypes.map(async (type) => {
+    const promises = types.map(async (type) => {
       try {
         console.log(`📤 [AmortizationConfigCard] Appel API pour type ${type.id} (${type.name})`);
         const response = await amortizationTypesAPI.getAmount(type.id);
@@ -561,22 +594,23 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     setLoadingAmounts(newLoadingAmounts);
   };
 
-  const loadCumulatedAmounts = async () => {
-    if (!level2Value || amortizationTypes.length === 0) return;
+  const loadCumulatedAmounts = async (typesToLoad?: AmortizationType[]) => {
+    const types = typesToLoad || amortizationTypes;
+    if (!level2Value || types.length === 0) return;
     
     const newCumulatedAmounts: Record<number, number> = {};
     const newLoadingCumulatedAmounts: Record<number, boolean> = {};
     
     // Marquer tous les types comme en cours de chargement
-    amortizationTypes.forEach(type => {
+    types.forEach(type => {
       newLoadingCumulatedAmounts[type.id] = true;
     });
     setLoadingCumulatedAmounts(newLoadingCumulatedAmounts);
     
-    console.log('📊 [AmortizationConfigCard] Calcul des montants cumulés pour', amortizationTypes.length, 'types');
+    console.log('📊 [AmortizationConfigCard] Calcul des montants cumulés pour', types.length, 'types');
     
     // Charger les montants cumulés pour tous les types en parallèle
-    const promises = amortizationTypes.map(async (type) => {
+    const promises = types.map(async (type) => {
       try {
         console.log(`📤 [AmortizationConfigCard] Appel API cumulated pour type ${type.id} (${type.name})`);
         const response = await amortizationTypesAPI.getCumulated(type.id);
@@ -606,8 +640,13 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
         marginBottom: '24px',
       }}
     >
-      <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
+      <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
         Configuration des amortissements
+        {isAutoRecalculating && (
+          <span style={{ fontSize: '14px', color: '#3b82f6', fontStyle: 'italic' }}>
+            ⏳ Recalcul en cours...
+          </span>
+        )}
       </h2>
       
       {/* Champ Level 2 */}
@@ -944,9 +983,12 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                                 await amortizationTypesAPI.update(type.id, updateData);
                                 console.log('✅ [AmortizationConfigCard] Date supprimée avec succès');
                                 await loadAmortizationTypes();
-                                if (onConfigUpdated) {
-                                  onConfigUpdated();
-                                }
+                                
+                                // Recharger les montants d'immobilisation (la date peut affecter le calcul)
+                                await loadAmounts();
+                                
+                                // Déclencher le recalcul automatique des amortissements
+                                await triggerAutoRecalculate();
                               } catch (err: any) {
                                 console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression de la date:', err);
                                 alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
