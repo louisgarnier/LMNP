@@ -2908,6 +2908,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 **Objectifs**:
 - Afficher une card vide au-dessus de `AmortizationTable`
 - Supprimer le panneau latéral actuel
+- **Masquer le tableau quand aucune valeur Level 2 n'est disponible**
 
 **Tasks**:
 - [x] Créer composant `AmortizationConfigCard.tsx` :
@@ -2916,8 +2917,11 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Modifier `frontend/app/dashboard/amortissements/page.tsx` :
   - Afficher `AmortizationConfigCard` au-dessus de `AmortizationTable`
   - Supprimer `AmortizationConfigPanel` (panneau latéral)
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] **Masquer le tableau quand `level2Values.length === 0`** :
+  - Condition `{level2Values.length > 0 && (...)}` autour du tableau
+  - Aucun affichage si "Aucune valeur disponible" est affiché dans le dropdown
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `frontend/src/components/AmortizationConfigCard.tsx` - Card de configuration
@@ -2927,6 +2931,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Card s'affiche au-dessus du tableau
 - [x] Panneau latéral supprimé
 - [x] Layout correct
+- [x] **Tableau masqué quand aucune valeur Level 2 n'est disponible**
 
 ---
 
@@ -2938,15 +2943,21 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Dropdown pour sélectionner la valeur `level_2`
 - Charger les valeurs uniques depuis l'API
 - Sauvegarde automatique
+- **Empêcher la sélection de "-- Sélectionner une valeur --" une fois qu'un Level 2 est sélectionné**
+- **Persistance du Level 2 sélectionné via localStorage**
 
 **Tasks**:
 - [x] Ajouter champ "Level 2" dans `AmortizationConfigCard.tsx` :
   - Dropdown avec valeurs uniques de `level_2`
   - Utiliser `transactionsAPI.getUniqueValues('level_2')`
   - État local pour la valeur sélectionnée
+  - **Option "-- Sélectionner une valeur --" affichée uniquement si aucun Level 2 n'est sélectionné**
+  - **Option masquée une fois qu'un Level 2 est sélectionné**
 - [x] Sauvegarde automatique sur changement (`onChange`)
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] **Persistance dans localStorage** : sauvegarder et restaurer le Level 2 sélectionné
+- [x] **Empêcher la désélection** : ignorer toute tentative de sélectionner une valeur vide si un Level 2 est déjà sélectionné
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
@@ -2954,6 +2965,9 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 **Acceptance Criteria**:
 - [x] Dropdown s'affiche avec les valeurs
 - [x] Sélection fonctionne
+- [x] **Option "-- Sélectionner une valeur --" masquée une fois qu'un Level 2 est sélectionné**
+- [x] **Impossible de revenir à "-- Sélectionner une valeur --" après sélection**
+- [x] **Persistance du Level 2 sélectionné via localStorage**
 - [x] État local géré (sauvegarde dans types d'amortissement à venir)
 
 ---
@@ -2968,11 +2982,12 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 **Tasks**:
 - [x] Ajouter tableau dans `AmortizationConfigCard.tsx` :
-  - En-têtes : Type d'immobilisation, Level 1 (valeurs), Date de début, Montant, Durée, Annuité, Cumulé, VNC
+  - En-têtes : Type d'immobilisation, Level 1 (valeurs), **Nombre de transactions**, Date de début, Montant, Durée, Annuité, Cumulé, VNC
   - Structure `<table>` avec `<thead>` et `<tbody>` vide
 - [x] Style cohérent avec le reste de l'app
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] **Masquer le tableau quand `level2Values.length === 0`** (ajouté dans Step 5.6.3)
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
@@ -2981,6 +2996,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - [x] Tableau s'affiche avec en-têtes
 - [x] Style correct
 - [x] Structure prête pour les données
+- [x] **Tableau masqué quand aucune valeur Level 2 n'est disponible**
 
 ---
 
@@ -3240,6 +3256,54 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+#### Step 5.6.13.1: Frontend - Colonne "Nombre de transactions"
+**Status**: ✅ COMPLÉTÉ  
+**Description**: Ajouter la colonne "Nombre de transactions" pour afficher le nombre de transactions correspondant à chaque type d'immobilisation.
+
+**Objectifs**:
+- Afficher le nombre de transactions qui correspondent à chaque type d'amortissement
+- Basé sur le `level_2` sélectionné et les `level_1_values` mappés
+- Recalcul automatique quand `level_1_values` change
+- **Fusion des résultats au lieu de remplacement pour préserver les compteurs des autres types**
+
+**Tasks**:
+- [x] **Backend - Ajouter modèle `AmortizationTypeTransactionCountResponse`** :
+  - `type_id`, `type_name`, `transaction_count`
+- [x] **Backend - Ajouter endpoint `GET /api/amortization/types/{id}/transaction-count`** :
+  - Compter les transactions où `level_2 == type.level_2_value` ET `level_1 IN type.level_1_values`
+  - Si `start_date` est renseignée, filtrer par année
+  - Retourner 0 si aucune valeur `level_1` mappée
+- [x] **Frontend - Ajouter méthode `getTransactionCount()` dans `amortizationTypesAPI`**
+- [x] Ajouter colonne "Nombre de transactions" dans `AmortizationConfigCard.tsx` :
+  - Position : après "Level 1 (valeurs)" et avant "Date de début"
+  - Champ en lecture seule (calculé)
+  - Appeler API pour compter les transactions
+  - Recalculer quand `level_1_values` ou `level_2_value` change
+  - Indicateur de chargement "⏳..." pendant le calcul
+- [x] **Fusion des résultats** : `loadTransactionCounts()` fusionne les nouveaux résultats avec les existants au lieu de les remplacer
+- [x] **Recharger tous les types** : Dans `recalculateTypeComplete()`, appeler `loadTransactionCounts()` sans paramètre pour recharger tous les types
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/models.py` - Modèle `AmortizationTypeTransactionCountResponse`
+- Mise à jour `backend/api/routes/amortization_types.py` - Endpoint `get_amortization_type_transaction_count`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `getTransactionCount()`
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+  - Ajout état `transactionCounts` et `loadingTransactionCounts`
+  - Ajout fonction `loadTransactionCounts()` avec fusion des résultats
+  - Ajout colonne dans le tableau
+
+**Acceptance Criteria**:
+- [x] Colonne "Nombre de transactions" s'affiche correctement
+- [x] Nombre calculé correctement (basé sur `level_2` et `level_1_values`)
+- [x] Recalcul automatique fonctionne (quand `level_1_values` change)
+- [x] **Fusion des résultats : les compteurs des autres types ne sont pas perdus lors des modifications**
+- [x] Formatage correct (nombre entier)
+- [x] Indicateur de chargement visible pendant le calcul
+
+---
+
 #### Step 5.6.14: Frontend - Bouton "+" Ajouter un type
 **Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter le bouton "+" pour créer un nouveau type d'amortissement.
@@ -3286,6 +3350,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Menu contextuel (clic droit) sur chaque ligne
 - Option "Supprimer" avec confirmation
 - Appeler `DELETE /api/amortization/types/{id}`
+- **Suppression automatique des résultats d'amortissement associés** (backend)
 
 **Tasks**:
 - [x] Ajouter menu contextuel :
@@ -3295,21 +3360,24 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
   - Appeler API `DELETE /api/amortization/types/{id}`
   - Rafraîchir le tableau et les montants
   - Fermer le menu après action ou clic ailleurs
-- [x] Gérer cas d'erreur (type utilisé dans des amortissements)
-  - Message d'erreur spécifique si le type est référencé
-  - Message générique pour les autres erreurs
+- [x] **Backend - Modifier endpoint `DELETE /api/amortization/types/{id}`** :
+  - Supprimer automatiquement tous les `AmortizationResult` associés au type avant de supprimer le type
+  - Filtrer les résultats par `category == type.name`, `level_2 == type.level_2_value`, et `level_1 IN type.level_1_values`
+  - Plus d'erreur de contrainte de clé étrangère
 - [x] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `backend/api/routes/amortization_types.py` - Endpoint `delete_amortization_type`
 - Méthode `delete()` déjà disponible dans `frontend/src/api/client.ts`
 
 **Acceptance Criteria**:
 - [x] Menu contextuel s'affiche à la position du clic
 - [x] Confirmation fonctionne (window.confirm)
 - [x] Suppression fonctionne (appel API DELETE)
-- [x] Gestion d'erreur correcte (message spécifique si type référencé)
+- [x] **Suppression automatique des résultats d'amortissement associés (plus d'erreur de contrainte)**
+- [x] **On peut supprimer un type même s'il est utilisé dans des résultats d'amortissement**
 
 ---
 
@@ -3430,13 +3498,15 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.6.18: Frontend - Réinitialisation des Level 1 lors du changement de Level 2
-**Status**: 🔄 EN COURS  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Réinitialiser (vider) tous les `level_1_values` des types d'amortissement quand l'utilisateur change le Level 2 sélectionné dans le dropdown.
 
 **Objectifs**:
 - S'assurer que chaque Level 2 a ses propres types d'amortissement complètement indépendants
 - Éviter que des mappings Level 1 d'un Level 2 précédent polluent les types d'un nouveau Level 2
 - Garantir que seules les données liées au Level 2 sélectionné sont affichées et sauvegardées
+- **Supprimer tous les types d'amortissement pour TOUS les Level 2 lors du changement**
+- **Créer automatiquement les 7 types par défaut pour le nouveau Level 2 sélectionné**
 
 **Problème actuel**:
 - Quand l'utilisateur change le Level 2 dans le dropdown "Level 2 (Valeur à considérer comme amortissement)" :
@@ -3451,40 +3521,53 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 **Solution**:
 - Quand `level2Value` change dans le dropdown :
-  1. Filtrer les types d'amortissement par le Level 2 sélectionné (déjà fait)
-  2. **NOUVEAU** : Réinitialiser tous les `level_1_values` de ces types (les vider)
-  3. Sauvegarder les types avec `level_1_values = []`
-  4. L'utilisateur peut ensuite ajouter les Level 1 qui correspondent aux transactions du nouveau Level 2
+  1. **Si changement de Level 2 (pas première sélection)** :
+     - Afficher popup de confirmation "Clear previous amortisations?"
+     - Si confirmé :
+       - Supprimer TOUS les résultats d'amortissement (`DELETE /api/amortization/results`)
+       - Supprimer TOUS les types d'amortissement pour TOUS les Level 2
+       - Créer les 7 types par défaut pour le nouveau Level 2 sélectionné
+     - Si annulé : revenir au Level 2 précédent
+  2. **Si première sélection** :
+     - Vérifier si des types existent déjà pour ce Level 2
+     - Si non, créer automatiquement les 7 types par défaut
+  3. Filtrer les types d'amortissement par le Level 2 sélectionné
+  4. Vider les cards (types, montants, montants cumulés)
 
 **Tasks**:
-- [ ] Modifier `handleLevel2Change()` dans `AmortizationConfigCard.tsx` :
-  - Après avoir changé `level2Value`
-  - Charger les types d'amortissement pour le nouveau Level 2
-  - Pour chaque type, vérifier si `level_1_values` n'est pas vide
-  - Si non vide, appeler `amortizationTypesAPI.update()` pour vider `level_1_values = []`
-- [ ] Gérer le cas où plusieurs types doivent être mis à jour (faire les appels en parallèle)
-- [ ] Afficher un indicateur de chargement pendant la réinitialisation
-- [ ] Recharger les montants après la réinitialisation (`loadAmounts()`)
-- [ ] Gérer les erreurs potentielles (silencieux, log dans la console)
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Modifier `handleLevel2Change()` dans `AmortizationConfigCard.tsx` :
+  - Gérer le changement de Level 2 avec popup de confirmation
+  - Supprimer tous les résultats d'amortissement avant de supprimer les types
+  - Supprimer tous les types d'amortissement pour tous les Level 2
+  - Créer les 7 types par défaut pour le nouveau Level 2
+  - Vider les cards (types, montants, montants cumulés)
+- [x] **Backend - Ajouter endpoint `DELETE /api/amortization/results`** :
+  - Supprimer tous les résultats d'amortissement
+  - Utilisé avant la suppression des types pour éviter les erreurs de contrainte
+- [x] Gérer le cas où plusieurs types doivent être créés (faire les appels en parallèle)
+- [x] Recharger les montants après la réinitialisation (`loadAmounts()`)
+- [x] Gérer les erreurs potentielles (alert si erreur critique)
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
-  - Modifier `handleLevel2Change()` pour réinitialiser les `level_1_values`
-  - Ajouter fonction `resetLevel1ValuesForLevel2(level2Value: string)` pour centraliser la logique
-  - Ajouter état de chargement pour la réinitialisation (`isResettingLevel1: boolean`)
-  - Afficher indicateur visuel "🔄 Réinitialisation..." pendant l'opération
+  - Modifier `handleLevel2Change()` pour supprimer tous les types et créer les 7 types par défaut
+  - Ajouter fonction `createInitialTypes()` pour créer les 7 types par défaut
+  - Ajouter fonction `resetTypesForLevel2()` pour réinitialiser les types pour un Level 2 donné
+- Mise à jour `backend/api/routes/amortization.py` - Endpoint `DELETE /api/amortization/results`
+- Mise à jour `frontend/src/api/client.ts` - Méthode `deleteAllResults()`
 
 **Acceptance Criteria**:
-- [ ] Changement de Level 2 = "ammortissements" vers "Produit" → tous les `level_1_values` des types pour "Produit" sont vidés
-- [ ] Changement de Level 2 = "Produit" vers "Charges" → tous les `level_1_values` des types pour "Charges" sont vidés
-- [ ] Les types affichés dans la card ne contiennent que des données liées au Level 2 sélectionné
-- [ ] Après réinitialisation, l'utilisateur peut ajouter de nouveaux Level 1 qui correspondent aux transactions du nouveau Level 2
-- [ ] Les montants d'immobilisation se calculent correctement après réinitialisation et ajout de nouveaux Level 1
-- [ ] Pas de données "fantômes" d'un Level 2 précédent qui polluent l'affichage
-- [ ] Indicateur de chargement visible pendant la réinitialisation
-- [ ] Gestion d'erreur si la réinitialisation échoue (silencieux, log dans la console)
+- [x] Changement de Level 2 = "ammortissements" vers "Produit" → popup de confirmation affiché
+- [x] Si confirmé : tous les types pour tous les Level 2 sont supprimés, 7 types par défaut créés pour "Produit"
+- [x] Si annulé : retour au Level 2 précédent
+- [x] Première sélection d'un Level 2 → création automatique des 7 types par défaut (sans popup)
+- [x] Les types affichés dans la card ne contiennent que des données liées au Level 2 sélectionné
+- [x] Après réinitialisation, l'utilisateur peut ajouter de nouveaux Level 1 qui correspondent aux transactions du nouveau Level 2
+- [x] Les montants d'immobilisation se calculent correctement après réinitialisation et ajout de nouveaux Level 1
+- [x] Pas de données "fantômes" d'un Level 2 précédent qui polluent l'affichage
+- [x] Gestion d'erreur si la réinitialisation échoue (alert avec message d'erreur)
 
 ---
 
