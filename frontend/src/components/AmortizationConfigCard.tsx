@@ -39,6 +39,8 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
   const [loadingAmounts, setLoadingAmounts] = useState<Record<number, boolean>>({});
   const [cumulatedAmounts, setCumulatedAmounts] = useState<Record<number, number>>({});
   const [loadingCumulatedAmounts, setLoadingCumulatedAmounts] = useState<Record<number, boolean>>({});
+  const [transactionCounts, setTransactionCounts] = useState<Record<number, number>>({});
+  const [loadingTransactionCounts, setLoadingTransactionCounts] = useState<Record<number, boolean>>({});
   const [editingDurationId, setEditingDurationId] = useState<number | null>(null);
   const [editingDurationValue, setEditingDurationValue] = useState<string>('');
   const [editingAnnualAmountId, setEditingAnnualAmountId] = useState<number | null>(null);
@@ -90,6 +92,7 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     if (amortizationTypes.length > 0 && level2Value) {
       loadAmounts();
       loadCumulatedAmounts();
+      loadTransactionCounts();
     } else {
       console.log('⚠️ [AmortizationConfigCard] loadAmounts non déclenché:', { 
         typesCount: amortizationTypes.length, 
@@ -247,6 +250,7 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     setAmortizationTypes([]);
     setAmounts({});
     setCumulatedAmounts({});
+    setTransactionCounts({});
     
     // 3. Si un Level 2 est sélectionné, créer les 7 types par défaut
     if (value) {
@@ -338,6 +342,7 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       // 4. Réinitialiser tous les montants AVANT de créer les nouveaux types
       setAmounts({});
       setCumulatedAmounts({});
+      setTransactionCounts({});
       
       // 5. Créer les 7 types initiaux (vides, comme au premier chargement)
       console.log(`➕ [AmortizationConfigCard] Création des 7 types initiaux vides pour Level 2 "${level2Value}"`);
@@ -654,6 +659,7 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       // Recharger les montants
       await loadAmounts();
       await loadCumulatedAmounts();
+      await loadTransactionCounts();
       
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -709,10 +715,12 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       if (filteredTypes.length > 0) {
         await loadAmounts(filteredTypes);
         await loadCumulatedAmounts(filteredTypes);
+        await loadTransactionCounts(filteredTypes);
       } else {
         // Si plus aucun type, réinitialiser les montants
         setAmounts({});
         setCumulatedAmounts({});
+        setTransactionCounts({});
       }
       
       handleCloseContextMenu();
@@ -896,6 +904,43 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     setLoadingCumulatedAmounts(newLoadingCumulatedAmounts);
   };
 
+  const loadTransactionCounts = async (typesToLoad?: AmortizationType[]) => {
+    const types = typesToLoad || amortizationTypes;
+    if (!level2Value || types.length === 0) return;
+    
+    // Fusionner avec les compteurs existants au lieu de les remplacer
+    const newTransactionCounts: Record<number, number> = { ...transactionCounts };
+    const newLoadingTransactionCounts: Record<number, boolean> = { ...loadingTransactionCounts };
+    
+    // Marquer tous les types à charger comme en cours de chargement
+    types.forEach(type => {
+      newLoadingTransactionCounts[type.id] = true;
+    });
+    setLoadingTransactionCounts(newLoadingTransactionCounts);
+    
+    console.log('📊 [AmortizationConfigCard] Calcul des nombres de transactions pour', types.length, 'types');
+    
+    // Charger les nombres de transactions pour tous les types en parallèle
+    const promises = types.map(async (type) => {
+      try {
+        console.log(`📤 [AmortizationConfigCard] Appel API transaction-count pour type ${type.id} (${type.name})`);
+        const response = await amortizationTypesAPI.getTransactionCount(type.id);
+        console.log(`✅ [AmortizationConfigCard] Nombre de transactions reçu pour type ${type.id}:`, response.transaction_count);
+        newTransactionCounts[type.id] = response.transaction_count;
+      } catch (err: any) {
+        console.error(`❌ [AmortizationConfigCard] Erreur lors du calcul du nombre de transactions pour type ${type.id}:`, err);
+        newTransactionCounts[type.id] = 0;
+      } finally {
+        newLoadingTransactionCounts[type.id] = false;
+      }
+    });
+    
+    await Promise.all(promises);
+    console.log('💾 [AmortizationConfigCard] Nombres de transactions calculés:', newTransactionCounts);
+    setTransactionCounts(newTransactionCounts);
+    setLoadingTransactionCounts(newLoadingTransactionCounts);
+  };
+
   // Fonction pour recalculer complètement un type d'amortissement
   // Appelée après modification de Level 1, Durée, ou Date
   // forceRecalculateAnnualAmount: si true, force le recalcul de l'annuité même si elle est manuelle
@@ -976,6 +1021,10 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       
       // 6. Recharger les montants cumulés pour ce type
       await loadCumulatedAmounts([type]);
+      
+      // 6.1. Recharger les nombres de transactions pour TOUS les types (pas seulement celui modifié)
+      // pour éviter de perdre les compteurs des autres types
+      await loadTransactionCounts();
       
       // 7. Déclencher le recalcul des amortissements
       await triggerAutoRecalculate();
@@ -1087,6 +1136,9 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
               <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderRight: '1px solid #e5e7eb', fontSize: '13px' }}>
                 Level 1 (valeurs)
               </th>
+              <th style={{ padding: '6px 8px', textAlign: 'right', fontWeight: '600', color: '#374151', borderRight: '1px solid #e5e7eb', fontSize: '13px' }}>
+                Nombre de transactions
+              </th>
               <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderRight: '1px solid #e5e7eb', fontSize: '13px' }}>
                 Date de début
               </th>
@@ -1110,13 +1162,13 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
           <tbody>
             {loadingTypes ? (
               <tr>
-                <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
+                <td colSpan={9} style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
                   ⏳ Chargement des types d'amortissement...
                 </td>
               </tr>
             ) : amortizationTypes.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }}>
+                <td colSpan={9} style={{ padding: '24px', textAlign: 'center', color: '#6b7280', fontSize: '14px', fontStyle: 'italic' }}>
                   Aucun type d'amortissement configuré
                 </td>
               </tr>
@@ -1284,6 +1336,16 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
                       )}
                     </div>
                   </td>
+                  {/* Colonne Nombre de transactions */}
+                  <td style={{ padding: '6px 8px', textAlign: 'right', borderRight: '1px solid #e5e7eb' }}>
+                    {loadingTransactionCounts[type.id] ? (
+                      <span style={{ color: '#9ca3af', fontSize: '12px' }}>⏳...</span>
+                    ) : (
+                      <span style={{ fontSize: '13px', fontWeight: '500', color: '#374151' }}>
+                        {transactionCounts[type.id] ?? 0}
+                      </span>
+                    )}
+                  </td>
                   {/* Colonne Date de début */}
                   <td style={{ padding: '6px 8px', borderRight: '1px solid #e5e7eb', fontSize: '13px' }}>
                     {editingDateId === type.id ? (
@@ -1369,6 +1431,7 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
                                 
                                 // Recharger les montants d'immobilisation (la date peut affecter le calcul)
                                 await loadAmounts();
+                                await loadTransactionCounts();
                                 
                                 // Déclencher le recalcul automatique des amortissements
                                 await triggerAutoRecalculate();

@@ -20,7 +20,8 @@ from backend.api.models import (
     AmortizationTypeUpdate,
     AmortizationTypeListResponse,
     AmortizationTypeAmountResponse,
-    AmortizationTypeCumulatedResponse
+    AmortizationTypeCumulatedResponse,
+    AmortizationTypeTransactionCountResponse
 )
 
 router = APIRouter()
@@ -167,20 +168,14 @@ async def delete_amortization_type(
     if not amortization_type:
         raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
     
-    # Vérifier si le type est réellement utilisé dans des amortissements
-    # Si le type n'a pas de level_1_values configurés, il ne peut pas être utilisé → permettre la suppression
-    if not amortization_type.level_1_values or len(amortization_type.level_1_values) == 0:
-        # Type non configuré (pas de level_1_values) → peut être supprimé même s'il y a des résultats avec ce nom
-        # (car ces résultats ne correspondent pas à ce type spécifique)
-        pass
-    else:
-        # Type configuré → vérifier s'il est réellement utilisé
-        # On vérifie si des transactions correspondent aux critères du type ET ont généré des résultats
-        from backend.database.models import Transaction, EnrichedTransaction
-        
-        # Compter les résultats d'amortissement qui correspondent réellement à ce type
+    # Supprimer d'abord tous les résultats d'amortissement associés à ce type
+    # pour éviter les erreurs de contrainte de clé étrangère
+    from backend.database.models import Transaction, EnrichedTransaction
+    
+    if amortization_type.level_1_values and len(amortization_type.level_1_values) > 0:
+        # Type configuré → supprimer les résultats qui correspondent à ce type
         # (via les transactions qui matchent level_2_value et level_1_values)
-        results_count = db.query(AmortizationResult).join(
+        results_to_delete = db.query(AmortizationResult).join(
             Transaction, AmortizationResult.transaction_id == Transaction.id
         ).join(
             EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
@@ -190,14 +185,35 @@ async def delete_amortization_type(
                 EnrichedTransaction.level_2 == amortization_type.level_2_value,
                 EnrichedTransaction.level_1.in_(amortization_type.level_1_values)
             )
-        ).count()
+        ).all()
         
-        if results_count > 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Impossible de supprimer ce type : il est utilisé dans {results_count} résultat(s) d'amortissement"
+        # Supprimer tous les résultats associés
+        for result in results_to_delete:
+            db.delete(result)
+        
+        if results_to_delete:
+            print(f"🗑️ [AmortizationType] Suppression de {len(results_to_delete)} résultat(s) d'amortissement associé(s) au type {type_id}")
+    else:
+        # Type non configuré → supprimer tous les résultats avec ce nom et ce level_2
+        # (pour être sûr de tout nettoyer)
+        results_to_delete = db.query(AmortizationResult).join(
+            Transaction, AmortizationResult.transaction_id == Transaction.id
+        ).join(
+            EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+        ).filter(
+            and_(
+                AmortizationResult.category == amortization_type.name,
+                EnrichedTransaction.level_2 == amortization_type.level_2_value
             )
+        ).all()
+        
+        for result in results_to_delete:
+            db.delete(result)
+        
+        if results_to_delete:
+            print(f"🗑️ [AmortizationType] Suppression de {len(results_to_delete)} résultat(s) d'amortissement associé(s) au type {type_id}")
     
+    # Maintenant on peut supprimer le type sans erreur de contrainte
     db.delete(amortization_type)
     db.commit()
     
@@ -343,5 +359,67 @@ async def get_amortization_type_cumulated(
         type_id=amortization_type.id,
         type_name=amortization_type.name,
         cumulated_amount=cumulated_amount
+    )
+
+
+@router.get("/amortization/types/{type_id}/transaction-count", response_model=AmortizationTypeTransactionCountResponse)
+async def get_amortization_type_transaction_count(
+    type_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Compte le nombre de transactions correspondant à un type d'amortissement.
+    
+    Nombre = Nombre de transactions où :
+    - transaction.enriched_transaction.level_2 = level_2_value
+    - transaction.enriched_transaction.level_1 IN level_1_values
+    
+    Args:
+        type_id: ID du type d'amortissement
+        
+    Returns:
+        Nombre de transactions correspondant au type
+        
+    Raises:
+        HTTPException: Si le type n'existe pas
+    """
+    amortization_type = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
+    
+    if not amortization_type:
+        raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
+    
+    # Si aucune valeur level_1 mappée, nombre = 0
+    if not amortization_type.level_1_values or len(amortization_type.level_1_values) == 0:
+        return AmortizationTypeTransactionCountResponse(
+            type_id=amortization_type.id,
+            type_name=amortization_type.name,
+            transaction_count=0
+        )
+    
+    # Compter les transactions correspondantes
+    # Jointure Transaction -> EnrichedTransaction
+    # Filtre : level_2 = level_2_value ET level_1 IN level_1_values
+    query = db.query(func.count(Transaction.id)).join(
+        EnrichedTransaction,
+        Transaction.id == EnrichedTransaction.transaction_id
+    ).filter(
+        and_(
+            EnrichedTransaction.level_2 == amortization_type.level_2_value,
+            EnrichedTransaction.level_1.in_(amortization_type.level_1_values)
+        )
+    )
+    
+    # Si start_date est renseignée, filtrer par année
+    if amortization_type.start_date:
+        start_year = amortization_type.start_date.year
+        query = query.filter(func.extract('year', Transaction.date) == start_year)
+    
+    result = query.scalar()
+    transaction_count = int(result) if result is not None else 0
+    
+    return AmortizationTypeTransactionCountResponse(
+        type_id=amortization_type.id,
+        type_name=amortization_type.name,
+        transaction_count=transaction_count
     )
 

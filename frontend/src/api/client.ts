@@ -1087,6 +1087,13 @@ export const amortizationTypesAPI = {
   getCumulated: async (id: number): Promise<{ type_id: number; type_name: string; cumulated_amount: number }> => {
     return fetchAPI<{ type_id: number; type_name: string; cumulated_amount: number }>(`/api/amortization/types/${id}/cumulated`);
   },
+
+  /**
+   * Compte le nombre de transactions pour un type
+   */
+  getTransactionCount: async (id: number): Promise<{ type_id: number; type_name: string; transaction_count: number }> => {
+    return fetchAPI<{ type_id: number; type_name: string; transaction_count: number }>(`/api/amortization/types/${id}/transaction-count`);
+  },
 };
 
 

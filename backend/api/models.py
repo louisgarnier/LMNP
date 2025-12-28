@@ -378,3 +378,10 @@ class AmortizationTypeCumulatedResponse(BaseModel):
     type_id: int
     type_name: str
     cumulated_amount: float = Field(..., description="Montant cumulé des amortissements")
+
+
+class AmortizationTypeTransactionCountResponse(BaseModel):
+    """Model for transaction count for an amortization type."""
+    type_id: int
+    type_name: str
+    transaction_count: int = Field(..., description="Nombre de transactions correspondant au type")
