@@ -1120,19 +1120,21 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       </div>
 
       {/* Tableau des types d'amortissement */}
-      <div style={{ overflowX: 'auto' }}>
-        <table
-          style={{
-            width: '100%',
-            borderCollapse: 'collapse',
-            fontSize: '14px',
-          }}
-        >
-          <thead>
-            <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
-              <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderRight: '1px solid #e5e7eb', fontSize: '13px' }}>
-                Type d'immobilisation
-              </th>
+      {/* Ne rien afficher si aucune valeur Level 2 n'est disponible */}
+      {level2Values.length > 0 && (
+        <div style={{ overflowX: 'auto' }}>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              fontSize: '14px',
+            }}
+          >
+            <thead>
+              <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
+                <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderRight: '1px solid #e5e7eb', fontSize: '13px' }}>
+                  Type d'immobilisation
+                </th>
               <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: '600', color: '#374151', borderRight: '1px solid #e5e7eb', fontSize: '13px' }}>
                 Level 1 (valeurs)
               </th>
@@ -1665,6 +1667,7 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
           </tbody>
         </table>
       </div>
+      )}
 
       {/* Menu contextuel */}
       {contextMenu && (
