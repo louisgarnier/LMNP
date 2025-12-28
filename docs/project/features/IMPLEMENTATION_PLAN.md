@@ -3366,6 +3366,69 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+#### Step 5.6.17: Frontend - Rafraîchissement automatique des amortissements
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Rafraîchir automatiquement l'affichage des amortissements après modification de transactions ou mappings.
+
+**Objectifs**:
+- Rafraîchissement automatique de l'affichage des amortissements après modification de transactions
+- Rafraîchissement automatique après modification de mappings dans l'onglet "Toutes les transactions"
+- Améliorer l'expérience utilisateur (pas besoin de rafraîchir manuellement la page)
+
+**Problème actuel**:
+- Après modification d'un mapping dans l'onglet "Toutes les transactions" → les amortissements ne se rafraîchissent pas automatiquement
+- Après ajout d'une transaction → les amortissements ne se rafraîchissent pas automatiquement
+- Après suppression d'une transaction → les amortissements ne se rafraîchissent pas automatiquement
+- L'utilisateur doit rafraîchir manuellement la page pour voir les changements
+
+**Approche**:
+1. **D'abord tester** si le rafraîchissement fonctionne déjà
+2. Si ça marche → on saute l'implémentation
+3. Si ça ne marche pas → on code pour corriger
+
+**Tests à effectuer**:
+- [ ] **Test 1** : Modifier un mapping (level_1, level_2, level_3) dans l'onglet "Toutes les transactions"
+  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+  - Vérifier si les montants sont mis à jour
+- [ ] **Test 2** : Créer une nouvelle transaction avec level_2 = "ammortissements"
+  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+  - Vérifier si la nouvelle transaction apparaît dans les calculs
+- [ ] **Test 3** : Supprimer une transaction qui était dans les amortissements
+  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+  - Vérifier si la transaction disparaît des calculs
+- [ ] **Test 4** : Modifier une transaction (level_1, level_2) dans l'onglet "Toutes les transactions"
+  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+  - Vérifier si les montants sont mis à jour
+
+**Si les tests échouent - Tasks**:
+- [ ] Identifier les composants qui doivent être rafraîchis :
+  - `AmortizationTable` (tableau année par année)
+  - `AmortizationConfigCard` (montants cumulés)
+- [ ] Implémenter mécanisme de rafraîchissement :
+  - Option A : Polling périodique (vérifier les changements toutes les X secondes)
+  - Option B : Événements/callbacks entre composants
+  - Option C : Rechargement automatique après actions dans TransactionsTable
+- [ ] Ajouter état de chargement pendant le rafraîchissement
+- [ ] Gérer les erreurs potentielles
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables** (si nécessaire):
+- Mise à jour `frontend/src/components/AmortizationTable.tsx` - Rafraîchissement automatique
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx` - Rafraîchissement automatique
+- Mise à jour `frontend/app/dashboard/amortissements/page.tsx` - Gestion des événements
+- Possiblement : Mise à jour `frontend/src/components/TransactionsTable.tsx` - Émission d'événements
+
+**Acceptance Criteria**:
+- [ ] Modification de mapping → rafraîchissement automatique des amortissements
+- [ ] Création de transaction → rafraîchissement automatique des amortissements
+- [ ] Suppression de transaction → rafraîchissement automatique des amortissements
+- [ ] Modification de transaction → rafraîchissement automatique des amortissements
+- [ ] Pas besoin de rafraîchir manuellement la page
+- [ ] Indicateur de chargement visible pendant le rafraîchissement (si nécessaire)
+
+---
+
 ### Step 5.3 : Backend - Recalcul automatique
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Implémenter recalcul automatique lors des changements de transactions.
