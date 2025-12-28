@@ -3429,6 +3429,65 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 
 ---
 
+#### Step 5.6.18: Frontend - Réinitialisation des Level 1 lors du changement de Level 2
+**Status**: 🔄 EN COURS  
+**Description**: Réinitialiser (vider) tous les `level_1_values` des types d'amortissement quand l'utilisateur change le Level 2 sélectionné dans le dropdown.
+
+**Objectifs**:
+- S'assurer que chaque Level 2 a ses propres types d'amortissement complètement indépendants
+- Éviter que des mappings Level 1 d'un Level 2 précédent polluent les types d'un nouveau Level 2
+- Garantir que seules les données liées au Level 2 sélectionné sont affichées et sauvegardées
+
+**Problème actuel**:
+- Quand l'utilisateur change le Level 2 dans le dropdown "Level 2 (Valeur à considérer comme amortissement)" :
+  - Les types d'amortissement sont bien filtrés par le nouveau Level 2 (déjà corrigé)
+  - MAIS les `level_1_values` de ces types peuvent contenir des valeurs qui ne correspondent pas aux transactions du nouveau Level 2
+  - Ces valeurs Level 1 proviennent d'un mapping précédent fait pour un autre Level 2
+  - Exemple : Level 2 = "ammortissements" → Type "Part terrain" a Level 1 = ["Caution entree"]
+    - L'utilisateur change Level 2 = "Produit"
+    - Le type "Part terrain" pour "Produit" affiche encore Level 1 = ["Caution entree"]
+    - Cette valeur ne correspond pas aux transactions de "Produit"
+    - Le montant d'immobilisation ne se calcule pas correctement
+
+**Solution**:
+- Quand `level2Value` change dans le dropdown :
+  1. Filtrer les types d'amortissement par le Level 2 sélectionné (déjà fait)
+  2. **NOUVEAU** : Réinitialiser tous les `level_1_values` de ces types (les vider)
+  3. Sauvegarder les types avec `level_1_values = []`
+  4. L'utilisateur peut ensuite ajouter les Level 1 qui correspondent aux transactions du nouveau Level 2
+
+**Tasks**:
+- [ ] Modifier `handleLevel2Change()` dans `AmortizationConfigCard.tsx` :
+  - Après avoir changé `level2Value`
+  - Charger les types d'amortissement pour le nouveau Level 2
+  - Pour chaque type, vérifier si `level_1_values` n'est pas vide
+  - Si non vide, appeler `amortizationTypesAPI.update()` pour vider `level_1_values = []`
+- [ ] Gérer le cas où plusieurs types doivent être mis à jour (faire les appels en parallèle)
+- [ ] Afficher un indicateur de chargement pendant la réinitialisation
+- [ ] Recharger les montants après la réinitialisation (`loadAmounts()`)
+- [ ] Gérer les erreurs potentielles (silencieux, log dans la console)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+  - Modifier `handleLevel2Change()` pour réinitialiser les `level_1_values`
+  - Ajouter fonction `resetLevel1ValuesForLevel2(level2Value: string)` pour centraliser la logique
+  - Ajouter état de chargement pour la réinitialisation (`isResettingLevel1: boolean`)
+  - Afficher indicateur visuel "🔄 Réinitialisation..." pendant l'opération
+
+**Acceptance Criteria**:
+- [ ] Changement de Level 2 = "ammortissements" vers "Produit" → tous les `level_1_values` des types pour "Produit" sont vidés
+- [ ] Changement de Level 2 = "Produit" vers "Charges" → tous les `level_1_values` des types pour "Charges" sont vidés
+- [ ] Les types affichés dans la card ne contiennent que des données liées au Level 2 sélectionné
+- [ ] Après réinitialisation, l'utilisateur peut ajouter de nouveaux Level 1 qui correspondent aux transactions du nouveau Level 2
+- [ ] Les montants d'immobilisation se calculent correctement après réinitialisation et ajout de nouveaux Level 1
+- [ ] Pas de données "fantômes" d'un Level 2 précédent qui polluent l'affichage
+- [ ] Indicateur de chargement visible pendant la réinitialisation
+- [ ] Gestion d'erreur si la réinitialisation échoue (silencieux, log dans la console)
+
+---
+
 ### Step 5.3 : Backend - Recalcul automatique
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Implémenter recalcul automatique lors des changements de transactions.

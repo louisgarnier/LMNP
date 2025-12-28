@@ -41,6 +41,73 @@ def calculate_30_360_days(start_date: datetime, end_date: datetime) -> int:
     return (360 * (y2 - y1) + 30 * (m2 - m1) + (d2 - d1))
 
 
+def calculate_yearly_amounts_with_fixed_annual(
+    start_date: datetime,
+    total_amount: float,
+    annual_amount: float,
+    duration_years: float
+) -> Dict[int, float]:
+    """
+    Calculate amortization amounts with a fixed annual amount, taking into account exact dates.
+    
+    Uses 30/360 convention to distribute the annual amount proportionally within each year
+    based on the exact start date.
+    
+    Args:
+        start_date: Start date of amortization
+        total_amount: Total amount to amortize (positive value)
+        annual_amount: Fixed annual amortization amount
+        duration_years: Duration in years
+        
+    Returns:
+        Dictionary mapping year -> amount
+    """
+    yearly_amounts = {}
+    total_days = int(duration_years * 360)  # Total days using 30/360 convention
+    end_date = start_date + timedelta(days=total_days)
+    remaining_amount = total_amount
+    
+    # Process each year
+    current_date = start_date
+    
+    while current_date.year <= end_date.year and remaining_amount > 0:
+        year = current_date.year
+        
+        # Calculate the end of the current year period
+        if year == end_date.year:
+            year_end = end_date
+        else:
+            year_end = datetime(year, 12, 31)
+        
+        # Calculate days in this year using 30/360
+        days_in_year = calculate_30_360_days(current_date, year_end)
+        days_in_full_year = 360  # 30/360 convention: each month = 30 days
+        
+        # Calculate proportional amount for this year
+        # If it's a partial year, distribute the annual_amount proportionally
+        if year == start_date.year and year == end_date.year:
+            # Entire amortization fits in one year
+            amount = min(annual_amount, remaining_amount)
+        elif year == start_date.year:
+            # First year: partial
+            proportion = days_in_year / days_in_full_year
+            amount = min(annual_amount * proportion, remaining_amount)
+        elif year == end_date.year:
+            # Last year: use remaining amount
+            amount = remaining_amount
+        else:
+            # Full year
+            amount = min(annual_amount, remaining_amount)
+        
+        yearly_amounts[year] = amount
+        remaining_amount -= amount
+        
+        # Move to next year
+        current_date = datetime(year + 1, 1, 1)
+    
+    return yearly_amounts
+
+
 def calculate_yearly_amounts(
     start_date: datetime, 
     total_amount: float, 
@@ -237,20 +304,11 @@ def recalculate_transaction_amortization(
     
     # Determine annual amount: use type.annual_amount if set, otherwise calculate
     if matching_type.annual_amount and matching_type.annual_amount > 0:
-        # Use override annual amount
+        # Use override annual amount with exact date calculation
         annual_amount = matching_type.annual_amount
-        # Calculate yearly amounts using fixed annual amount
-        yearly_amounts = {}
-        current_year = start_date.year
-        end_year = current_year + int(matching_type.duration) - 1
-        remaining_amount = total_amount
-        
-        for year in range(current_year, end_year + 1):
-            if remaining_amount <= 0:
-                break
-            amount = min(annual_amount, remaining_amount)
-            yearly_amounts[year] = amount
-            remaining_amount -= amount
+        yearly_amounts = calculate_yearly_amounts_with_fixed_annual(
+            start_date, total_amount, annual_amount, matching_type.duration
+        )
     else:
         # Calculate proportional distribution
         yearly_amounts = calculate_yearly_amounts(start_date, total_amount, matching_type.duration)
@@ -281,12 +339,24 @@ def recalculate_all_amortizations(db: Session) -> int:
     """
     Recalculate amortization for all transactions that match any AmortizationType.
     
+    Logic:
+    - If type has annual_amount: group all transactions of the same type and calculate on total
+    - If type has no annual_amount: calculate each transaction individually
+    - If type has start_date: all transactions use this date
+    - If type has no start_date: use earliest transaction date when grouping, or individual dates when not grouping
+    
     Args:
         db: Database session
         
     Returns:
         Number of transactions processed
     """
+    from collections import defaultdict
+    
+    # Delete ALL existing amortization results first to avoid duplicates
+    db.query(AmortizationResult).delete()
+    db.commit()
+    
     # Get all AmortizationTypes
     amortization_types = db.query(AmortizationType).all()
     if not amortization_types:
@@ -303,11 +373,110 @@ def recalculate_all_amortizations(db: Session) -> int:
         EnrichedTransaction.level_2.in_(level_2_values)
     ).all()
     
-    count = 0
+    # Separate transactions: those with annual_amount (need grouping) and those without
+    transactions_with_annual = defaultdict(list)  # Key: type_id, Value: list of (transaction, enriched, type, start_date)
+    transactions_without_annual = []  # List of (transaction, enriched, type)
+    
     for transaction in transactions:
+        enriched = db.query(EnrichedTransaction).filter(
+            EnrichedTransaction.transaction_id == transaction.id
+        ).first()
+        
+        if not enriched or not enriched.level_2 or not enriched.level_1:
+            continue
+        
+        # Find matching AmortizationType
+        matching_type = None
+        for amort_type in amortization_types:
+            if (amort_type.level_2_value == enriched.level_2 and
+                amort_type.level_1_values and
+                enriched.level_1 in amort_type.level_1_values):
+                matching_type = amort_type
+                break
+        
+        if not matching_type or not matching_type.duration or matching_type.duration <= 0:
+            continue
+        
+        # Determine start date
+        if matching_type.start_date:
+            if isinstance(matching_type.start_date, datetime):
+                start_date = matching_type.start_date
+            else:
+                start_date = datetime.combine(matching_type.start_date, datetime.min.time())
+        else:
+            if isinstance(transaction.date, datetime):
+                start_date = transaction.date
+            else:
+                start_date = datetime.combine(transaction.date, datetime.min.time())
+        
+        # Group by whether annual_amount is set
+        if matching_type.annual_amount and matching_type.annual_amount > 0:
+            transactions_with_annual[matching_type.id].append((transaction, enriched, matching_type, start_date))
+        else:
+            transactions_without_annual.append((transaction, enriched, matching_type))
+    
+    count = 0
+    
+    # Process transactions with annual_amount (grouped)
+    for type_id, group in transactions_with_annual.items():
+        if not group:
+            continue
+        
+        amort_type = group[0][2]
+        
+        # Determine start_date for the group
+        if amort_type.start_date:
+            if isinstance(amort_type.start_date, datetime):
+                group_start_date = amort_type.start_date
+            else:
+                group_start_date = datetime.combine(amort_type.start_date, datetime.min.time())
+        else:
+            # Use earliest transaction date
+            group_start_date = min(t[3] for t in group)
+        
+        # Calculate total amount
+        total_amount = sum(abs(t[0].quantite) for t in group)
+        
+        if total_amount == 0:
+            continue
+        
+        # Calculate yearly amounts for the total
+        annual_amount = amort_type.annual_amount
+        yearly_amounts = calculate_yearly_amounts_with_fixed_annual(
+            group_start_date, total_amount, annual_amount, amort_type.duration
+        )
+        
+        # Delete old results for transactions in this group
+        transaction_ids = [t[0].id for t in group]
+        db.query(AmortizationResult).filter(
+            AmortizationResult.transaction_id.in_(transaction_ids)
+        ).delete()
+        
+        # Create results per transaction/year
+        # Each transaction gets its proportional share of the yearly amounts
+        for transaction, enriched, matching_type, _ in group:
+            transaction_amount = abs(transaction.quantite)
+            transaction_ratio = transaction_amount / total_amount if total_amount > 0 else 0
+            
+            for year, group_amount in yearly_amounts.items():
+                if group_amount > 0:
+                    transaction_year_amount = group_amount * transaction_ratio
+                    result = AmortizationResult(
+                        transaction_id=transaction.id,
+                        year=year,
+                        category=matching_type.name,
+                        amount=-abs(transaction_year_amount)
+                    )
+                    db.add(result)
+        
+        count += len(group)
+    
+    # Process transactions without annual_amount (individual)
+    for transaction, enriched, matching_type in transactions_without_annual:
         results = recalculate_transaction_amortization(transaction.id, db)
         if results:
             count += 1
     
+    db.commit()
     return count
 

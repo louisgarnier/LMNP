@@ -120,14 +120,20 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       setLoadingTypes(true);
       const response = await amortizationTypesAPI.getAll();
       
-      // Si aucun type n'existe, créer les 7 types initiaux
-      if (response.types.length === 0 && level2Value) {
+      // Filtrer les types par le Level 2 sélectionné
+      const filteredTypes = level2Value 
+        ? response.types.filter(t => t.level_2_value === level2Value)
+        : [];
+      
+      // Si aucun type n'existe pour ce Level 2, créer les 7 types initiaux
+      if (filteredTypes.length === 0 && level2Value) {
         await createInitialTypes();
-        // Recharger après création
+        // Recharger après création et filtrer à nouveau
         const newResponse = await amortizationTypesAPI.getAll();
-        setAmortizationTypes(newResponse.types);
+        const newFilteredTypes = newResponse.types.filter(t => t.level_2_value === level2Value);
+        setAmortizationTypes(newFilteredTypes);
       } else {
-        setAmortizationTypes(response.types);
+        setAmortizationTypes(filteredTypes);
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement des types d\'amortissement:', err);
@@ -207,12 +213,9 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await amortizationTypesAPI.update(typeId, {
         level_1_values: updatedValues,
       });
-      await loadAmortizationTypes();
-      // Recharger les montants après modification des level_1_values
-      await loadAmounts();
       
-      // Déclencher le recalcul automatique des amortissements
-      await triggerAutoRecalculate();
+      // Recalculer complètement le type (montant, annuité, cumulé)
+      await recalculateTypeComplete(typeId);
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de l\'ajout de la valeur level_1:', err);
       alert(`❌ Erreur lors de l'ajout: ${err.message || 'Erreur inconnue'}`);
@@ -230,12 +233,9 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await amortizationTypesAPI.update(typeId, {
         level_1_values: updatedValues,
       });
-      await loadAmortizationTypes();
-      // Recharger les montants après modification des level_1_values
-      await loadAmounts();
       
-      // Déclencher le recalcul automatique des amortissements
-      await triggerAutoRecalculate();
+      // Recalculer complètement le type (montant, annuité, cumulé)
+      await recalculateTypeComplete(typeId);
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression de la valeur level_1:', err);
       alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
@@ -260,15 +260,11 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await amortizationTypesAPI.update(typeId, {
         start_date: dateValue,
       });
-      await loadAmortizationTypes();
       setEditingDateId(null);
       setEditingDateValue('');
       
-      // Recharger les montants d'immobilisation (la date peut affecter le calcul)
-      await loadAmounts();
-      
-      // Déclencher le recalcul automatique des amortissements
-      await triggerAutoRecalculate();
+      // Recalculer complètement le type (montant, annuité, cumulé)
+      await recalculateTypeComplete(typeId);
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de la date:', err);
       alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -297,26 +293,15 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       
       console.log('💾 [AmortizationConfigCard] Sauvegarde de durée:', durationValue, 'pour type:', typeId);
       
-      // Recalculer l'annuité si le montant est disponible
-      const type = amortizationTypes.find(t => t.id === typeId);
-      const amount = amounts[typeId] || 0;
-      let annualAmount: number | null = null;
-      
-      if (amount > 0 && durationValue > 0) {
-        annualAmount = amount / durationValue;
-        console.log('💰 [AmortizationConfigCard] Annuité recalculée:', annualAmount, '(Montant:', amount, '/ Durée:', durationValue, ')');
-      }
-      
       await amortizationTypesAPI.update(typeId, {
         duration: durationValue,
-        annual_amount: annualAmount,
       });
-      await loadAmortizationTypes();
       setEditingDurationId(null);
       setEditingDurationValue('');
       
-      // Déclencher le recalcul automatique des amortissements
-      await triggerAutoRecalculate();
+      // Recalculer complètement le type (montant, annuité, cumulé)
+      // Forcer le recalcul de l'annuité car la durée a changé
+      await recalculateTypeComplete(typeId, true);
     } catch (err: any) {
       console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de la durée:', err);
       alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -534,16 +519,21 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       hasManualAmount: type.annual_amount !== null && type.annual_amount !== undefined && type.annual_amount !== 0
     });
     
-    // Si une annuité est déjà définie manuellement (et différente de 0), la retourner
+    // PRIORITÉ 1: Si montant = 0, annuité = 0 (TOUJOURS, même si annuité manuelle était définie)
+    const absAmount = Math.abs(amount);
+    if (absAmount === 0) {
+      console.log(`💰 [AmortizationConfigCard] Montant = 0, annuité = 0 pour type ${type.id} (ignore annuité manuelle: ${type.annual_amount})`);
+      return 0;
+    }
+    
+    // PRIORITÉ 2: Si une annuité est déjà définie manuellement (et différente de 0), la retourner
     // annual_amount = 0 signifie "pas encore défini", on calcule automatiquement
-    if (type.annual_amount !== null && type.annual_amount !== undefined && type.annual_amount !== 0) {
+    if (type.annual_amount !== null && type.annual_amount !== undefined && type.annual_amount > 0) {
       console.log(`✅ [AmortizationConfigCard] Annuité manuelle pour type ${type.id}:`, type.annual_amount);
       return type.annual_amount;
     }
     
-    // Sinon, calculer : Montant / Durée
-    // Utiliser Math.abs() pour gérer les montants négatifs (dépenses)
-    const absAmount = Math.abs(amount);
+    // PRIORITÉ 3: Calculer automatiquement : Montant / Durée
     if (absAmount > 0 && duration > 0) {
       const calculated = absAmount / duration;
       console.log(`💰 [AmortizationConfigCard] Annuité calculée pour type ${type.id}:`, calculated, `(abs(${amount}) / ${duration})`);
@@ -551,7 +541,7 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     }
     
     console.log(`⚠️ [AmortizationConfigCard] Impossible de calculer annuité pour type ${type.id}: amount=${amount}, duration=${duration}`);
-    return null;
+    return 0; // Retourner 0 au lieu de null pour cohérence
   };
 
   const loadAmounts = async (typesToLoad?: AmortizationType[]) => {
@@ -628,6 +618,97 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     console.log('💾 [AmortizationConfigCard] Montants cumulés calculés:', newCumulatedAmounts);
     setCumulatedAmounts(newCumulatedAmounts);
     setLoadingCumulatedAmounts(newLoadingCumulatedAmounts);
+  };
+
+  // Fonction pour recalculer complètement un type d'amortissement
+  // Appelée après modification de Level 1, Durée, ou Date
+  // forceRecalculateAnnualAmount: si true, force le recalcul de l'annuité même si elle est manuelle
+  const recalculateTypeComplete = async (typeId: number, forceRecalculateAnnualAmount: boolean = false) => {
+    try {
+      console.log(`🔄 [AmortizationConfigCard] Recalcul complet pour type ${typeId}`);
+      
+      // 1. Recharger le type depuis le backend pour avoir les dernières valeurs
+      await loadAmortizationTypes();
+      
+      // Attendre un peu pour que le state soit mis à jour
+      await new Promise(resolve => setTimeout(resolve, 50));
+      
+      // Recharger à nouveau pour être sûr d'avoir les dernières valeurs
+      const refreshedTypesResponse = await amortizationTypesAPI.getAll();
+      const type = refreshedTypesResponse.types.find(t => t.id === typeId);
+      if (!type) {
+        console.warn(`⚠️ [AmortizationConfigCard] Type ${typeId} non trouvé après rechargement`);
+        return;
+      }
+      
+      // 2. Charger le montant d'immobilisation directement depuis l'API
+      let amount = 0;
+      try {
+        const amountResponse = await amortizationTypesAPI.getAmount(typeId);
+        amount = amountResponse.amount;
+        console.log(`💰 [AmortizationConfigCard] Montant d'immobilisation chargé pour type ${typeId}:`, amount);
+      } catch (err: any) {
+        console.error(`❌ [AmortizationConfigCard] Erreur lors du chargement du montant pour type ${typeId}:`, err);
+        amount = 0;
+      }
+      
+      // Mettre à jour le state des montants
+      setAmounts(prev => ({ ...prev, [typeId]: amount }));
+      
+      // 3. Recalculer l'annuité de manière cohérente
+      const duration = type.duration || 0;
+      let annualAmount: number | null = null;
+      
+      // Logique cohérente : si montant = 0, alors annuité = 0 (pas de montant = pas d'annuité)
+      if (amount === 0) {
+        annualAmount = 0;
+        console.log(`💰 [AmortizationConfigCard] Montant = 0 → annuité = 0 pour type ${typeId}`);
+      } else if (amount > 0 && duration > 0) {
+        // Si on force le recalcul OU si l'annuité n'est pas définie manuellement, calculer automatiquement
+        if (forceRecalculateAnnualAmount || !type.annual_amount || type.annual_amount === 0) {
+          annualAmount = amount / duration;
+          console.log(`💰 [AmortizationConfigCard] Annuité recalculée automatiquement pour type ${typeId}:`, annualAmount, `(${amount} / ${duration})`);
+        } else {
+          // Conserver l'annuité manuelle si elle est définie et qu'on ne force pas le recalcul
+          annualAmount = type.annual_amount;
+          console.log(`💰 [AmortizationConfigCard] Annuité manuelle conservée pour type ${typeId}:`, annualAmount);
+        }
+      } else {
+        // Montant > 0 mais durée = 0 : annuité = 0 (logique)
+        annualAmount = 0;
+        console.log(`💰 [AmortizationConfigCard] Montant > 0 mais durée = 0 → annuité = 0 pour type ${typeId}`);
+      }
+      
+      // 4. Mettre à jour le type avec la nouvelle annuité dans la base de données
+      const currentAnnualAmount = type.annual_amount ?? 0;
+      const newAnnualAmount = annualAmount ?? 0;
+      
+      // Toujours mettre à jour si la valeur a changé (même si c'est pour mettre à 0)
+      if (Math.abs(currentAnnualAmount - newAnnualAmount) > 0.01) {
+        console.log(`💾 [AmortizationConfigCard] Mise à jour de l'annuité dans la BD pour type ${typeId}:`, currentAnnualAmount, '→', newAnnualAmount);
+        await amortizationTypesAPI.update(typeId, {
+          annual_amount: newAnnualAmount,
+        });
+        // Recharger les types pour avoir la valeur à jour
+        await loadAmortizationTypes();
+      } else {
+        console.log(`ℹ️ [AmortizationConfigCard] Annuité déjà correcte pour type ${typeId}:`, currentAnnualAmount);
+      }
+      
+      // 5. Recharger tous les montants pour garantir la cohérence (pas seulement celui du type modifié)
+      await loadAmounts();
+      
+      // 6. Recharger les montants cumulés pour ce type
+      await loadCumulatedAmounts([type]);
+      
+      // 7. Déclencher le recalcul des amortissements
+      await triggerAutoRecalculate();
+      
+      console.log(`✅ [AmortizationConfigCard] Recalcul complet terminé pour type ${typeId}`);
+    } catch (err: any) {
+      console.error(`❌ [AmortizationConfigCard] Erreur lors du recalcul complet pour type ${typeId}:`, err);
+      // Ne pas afficher d'alerte, juste logger l'erreur
+    }
   };
 
   return (
@@ -1137,7 +1218,8 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
                             duration: type.duration,
                             annual_amount: type.annual_amount
                           });
-                          if (calculatedAmount !== null && calculatedAmount > 0) {
+                          // Afficher la valeur calculée (peut être 0)
+                          if (calculatedAmount !== null) {
                             return new Intl.NumberFormat('fr-FR', {
                               style: 'currency',
                               currency: 'EUR',
