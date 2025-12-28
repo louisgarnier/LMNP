@@ -6,15 +6,25 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { transactionsAPI, amortizationTypesAPI, amortizationAPI, AmortizationType } from '@/api/client';
 
 interface AmortizationConfigCardProps {
   onConfigUpdated?: () => void;
+  onLevel2Change?: (level2Value: string) => void;
 }
 
-export default function AmortizationConfigCard({ onConfigUpdated }: AmortizationConfigCardProps) {
-  const [level2Value, setLevel2Value] = useState<string>('');
+export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change }: AmortizationConfigCardProps) {
+  // Récupérer la valeur sauvegardée depuis localStorage, ou chaîne vide par défaut
+  const getSavedLevel2Value = (): string => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('amortization_level2_value');
+      return saved || '';
+    }
+    return '';
+  };
+
+  const [level2Value, setLevel2Value] = useState<string>(getSavedLevel2Value());
   const [level2Values, setLevel2Values] = useState<string[]>([]);
   const [loadingValues, setLoadingValues] = useState(false);
   const [amortizationTypes, setAmortizationTypes] = useState<AmortizationType[]>([]);
@@ -35,11 +45,27 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
   const [editingAnnualAmountValue, setEditingAnnualAmountValue] = useState<string>('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; typeId: number } | null>(null);
   const [isAutoRecalculating, setIsAutoRecalculating] = useState(false);
+  const [level2ValuesLoaded, setLevel2ValuesLoaded] = useState(false);
+  const hasRestoredLevel2 = useRef(false); // Pour ne charger qu'une fois au montage
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
     loadLevel2Values();
   }, []);
+
+  // Charger les types d'amortissement si un Level 2 est restauré depuis localStorage
+  // (après que loadLevel2Values soit terminé, seulement au montage initial)
+  useEffect(() => {
+    if (level2Value && level2ValuesLoaded && !hasRestoredLevel2.current) {
+      hasRestoredLevel2.current = true; // Marquer comme restauré
+      // Charger les types d'amortissement pour le Level 2 restauré
+      loadAmortizationTypes();
+      // Notifier le parent du Level 2 restauré
+      if (onLevel2Change) {
+        onLevel2Change(level2Value);
+      }
+    }
+  }, [level2Value, level2ValuesLoaded]); // Quand level2Value change ou quand les valeurs sont chargées
 
   // Recharger les valeurs level_1 quand level2Value change
   useEffect(() => {
@@ -50,14 +76,11 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     }
   }, [level2Value]);
 
-  // Charger les types d'amortissement après le chargement de level2Value
-  useEffect(() => {
-    if (level2Value) {
-      loadAmortizationTypes();
-    }
-  }, [level2Value]);
-
-  // Recharger les montants quand les types changent ou quand level2Value change
+  // NOTE: Les chargements automatiques sont désactivés pour éviter de charger les types
+  // quand on change le Level 2. Les types seront chargés uniquement quand l'utilisateur
+  // ajoutera des Level 1 ou fera d'autres actions explicites.
+  
+  // Recharger les montants quand les types changent (mais PAS quand level2Value change)
   useEffect(() => {
     console.log('🔄 [AmortizationConfigCard] useEffect loadAmounts déclenché', { 
       typesCount: amortizationTypes.length, 
@@ -73,22 +96,20 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
         level2Value 
       });
     }
-  }, [amortizationTypes, level2Value]);
+  }, [amortizationTypes]); // Retiré level2Value des dépendances pour éviter le chargement automatique
 
   const loadLevel2Values = async () => {
     try {
       setLoadingValues(true);
       const response = await transactionsAPI.getUniqueValues('level_2');
       setLevel2Values(response.values || []);
+      setLevel2ValuesLoaded(true); // Marquer comme chargé
       
-      // Si une valeur existe déjà, la sélectionner par défaut
-      if (response.values && response.values.length > 0 && !level2Value) {
-        // Chercher "ammortissements" en priorité, sinon prendre la première
-        const defaultValue = response.values.find(v => v === 'ammortissements') || response.values[0];
-        setLevel2Value(defaultValue);
-      }
+      // Ne pas sélectionner automatiquement de valeur par défaut
+      // L'utilisateur doit sélectionner manuellement un Level 2
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_2:', err);
+      setLevel2ValuesLoaded(true); // Marquer comme chargé même en cas d'erreur
     } finally {
       setLoadingValues(false);
     }
@@ -106,12 +127,237 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     }
   };
 
-  const handleLevel2Change = (value: string) => {
+  // Supprimer tous les level_1_values pour TOUS les autres Level 2 (tous sauf celui sélectionné)
+  const resetLevel1ValuesForAllOtherLevel2 = async (selectedLevel2: string) => {
+    if (!selectedLevel2) return;
+    
+    try {
+      console.log(`🔄 [AmortizationConfigCard] Réinitialisation des level_1_values pour TOUS les autres Level 2 que "${selectedLevel2}"`);
+      const response = await amortizationTypesAPI.getAll();
+      
+      // Filtrer les types qui ont un Level 2 DIFFÉRENT de celui sélectionné et qui ont des level_1_values non vides
+      const typesToReset = response.types.filter(
+        t => t.level_2_value && 
+        t.level_2_value !== selectedLevel2 &&
+        t.level_1_values && 
+        Array.isArray(t.level_1_values) && 
+        t.level_1_values.length > 0
+      );
+
+      if (typesToReset.length === 0) {
+        console.log('✅ [AmortizationConfigCard] Aucun type à réinitialiser pour les autres Level 2');
+        return;
+      }
+
+      console.log(`📋 [AmortizationConfigCard] ${typesToReset.length} type(s) à réinitialiser pour les autres Level 2`);
+
+      // Mettre à jour tous les types en parallèle pour SUPPRIMER les level_1_values EN BASE
+      const updatePromises = typesToReset.map(async (type) => {
+        try {
+          console.log(`🔄 [AmortizationConfigCard] Suppression des Level 1 pour type ${type.id} (${type.name}, Level 2: ${type.level_2_value})`);
+          await amortizationTypesAPI.update(type.id, {
+            level_1_values: [],
+          });
+        } catch (err: any) {
+          console.error(`❌ [AmortizationConfigCard] Erreur lors de la suppression du type ${type.id}:`, err);
+          // On continue même si une mise à jour échoue
+        }
+      });
+
+      await Promise.all(updatePromises);
+      console.log('✅ [AmortizationConfigCard] Suppression terminée pour tous les autres Level 2');
+
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression des Level 1 pour les autres Level 2:', err);
+      // Erreur silencieuse, on continue quand même
+    }
+  };
+
+  const handleLevel2Change = async (value: string) => {
+    // Ne pas permettre de désélectionner (value vide) si un Level 2 est déjà sélectionné
+    if (!value && level2Value) {
+      return; // Ignorer la désélection
+    }
+    
+    // Si aucun Level 2 n'était sélectionné avant (première sélection)
+    const isFirstSelection = !level2Value;
+    
+    // Si on change de Level 2 (il y avait déjà un Level 2 sélectionné)
+    const isChanging = level2Value && value && level2Value !== value;
+    
+    // Si c'est un changement, demander confirmation
+    if (isChanging) {
+      const confirmed = window.confirm(
+        'Clear previous amortisations?\n\n' +
+        'Cette action va :\n' +
+        '- Supprimer tous les types d\'amortissement pour TOUS les Level 2\n' +
+        '- Créer les 7 types par défaut pour le nouveau Level 2 sélectionné\n\n' +
+        'Cette action est irréversible.'
+      );
+      
+      // Si l'utilisateur refuse, annuler le changement (rester sur l'ancien Level 2)
+      if (!confirmed) {
+        return; // Ne pas changer le Level 2
+      }
+      
+      // Si confirmé, supprimer TOUS les types d'amortissement pour TOUS les Level 2
+      try {
+        console.log('🗑️ [AmortizationConfigCard] Suppression de tous les types d\'amortissement pour tous les Level 2');
+        
+        // 1. D'abord supprimer tous les résultats d'amortissement (pour éviter les erreurs de contrainte)
+        console.log('🗑️ [AmortizationConfigCard] Suppression de tous les résultats d\'amortissement...');
+        const deleteResultsResponse = await amortizationAPI.deleteAllResults();
+        console.log(`✅ [AmortizationConfigCard] ${deleteResultsResponse.deleted_count} résultat(s) d'amortissement supprimé(s)`);
+        
+        // 2. Ensuite supprimer tous les types d'amortissement
+        const response = await amortizationTypesAPI.getAll();
+        console.log(`🗑️ [AmortizationConfigCard] ${response.types.length} type(s) à supprimer`);
+        
+        // Supprimer tous les types
+        const deletePromises = response.types.map(async (type) => {
+          try {
+            await amortizationTypesAPI.delete(type.id);
+            console.log(`✅ [AmortizationConfigCard] Type ${type.id} (${type.name}) supprimé`);
+          } catch (err: any) {
+            console.error(`❌ [AmortizationConfigCard] Erreur lors de la suppression du type ${type.id} (${type.name}):`, err);
+            throw err; // Propager l'erreur pour arrêter le processus
+          }
+        });
+        await Promise.all(deletePromises);
+        console.log('✅ [AmortizationConfigCard] Tous les types d\'amortissement supprimés');
+      } catch (err: any) {
+        console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression de tous les types:', err);
+        alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
+        return; // Annuler le changement en cas d'erreur
+      }
+    }
+    
+    // 1. Changer le Level 2 sélectionné et sauvegarder dans localStorage
     setLevel2Value(value);
-    // Sauvegarde automatique : on mettra à jour tous les types d'amortissement plus tard
-    // Pour l'instant, on garde juste l'état local
+    // Sauvegarder dans localStorage pour restaurer au prochain chargement
+    if (typeof window !== 'undefined') {
+      if (value) {
+        localStorage.setItem('amortization_level2_value', value);
+      } else {
+        localStorage.removeItem('amortization_level2_value');
+      }
+    }
+    
+    // 2. Vider les cards
+    setAmortizationTypes([]);
+    setAmounts({});
+    setCumulatedAmounts({});
+    
+    // 3. Si un Level 2 est sélectionné, créer les 7 types par défaut
+    if (value) {
+      // Si on vient de changer de Level 2 et de supprimer tous les types, créer FORCÉMENT les 7 types
+      // Sinon, vérifier si des types existent déjà
+      if (isChanging) {
+        // Après suppression de tous les types, créer FORCÉMENT les 7 types par défaut
+        console.log(`➕ [AmortizationConfigCard] Création FORCÉE des 7 types par défaut pour Level 2 "${value}" (après changement)`);
+        await createInitialTypes([], value); // Passer value explicitement
+        // Recharger directement les types depuis l'API
+        const newResponse = await amortizationTypesAPI.getAll();
+        const filteredTypes = newResponse.types.filter(t => t.level_2_value === value);
+        setAmortizationTypes(filteredTypes);
+      } else {
+        // Première sélection : vérifier si des types existent déjà
+        const response = await amortizationTypesAPI.getAll();
+        const existingTypes = response.types.filter(t => t.level_2_value === value);
+        
+        // Si aucun type n'existe, créer les 7 types par défaut
+        if (existingTypes.length === 0) {
+          console.log(`➕ [AmortizationConfigCard] Création des 7 types par défaut pour Level 2 "${value}" (première sélection)`);
+          await createInitialTypes([], value); // Passer value explicitement
+          // Recharger directement les types depuis l'API
+          const newResponse = await amortizationTypesAPI.getAll();
+          const filteredTypes = newResponse.types.filter(t => t.level_2_value === value);
+          setAmortizationTypes(filteredTypes);
+        } else {
+          // Si des types existent déjà, les charger
+          setAmortizationTypes(existingTypes);
+        }
+      }
+    }
+    
+    // 4. Notifier le parent du changement de Level 2
+    if (onLevel2Change) {
+      onLevel2Change(value);
+    }
+    
+    // 5. Notifier le parent pour rafraîchir AmortizationTable
     if (onConfigUpdated) {
       onConfigUpdated();
+    }
+  };
+
+  // Réinitialiser les types d'immobilisation aux 7 valeurs par défaut pour le Level 2 sélectionné
+  const resetTypesForLevel2 = async () => {
+    if (!level2Value) {
+      alert('⚠️ Veuillez d\'abord sélectionner une valeur pour Level 2');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Êtes-vous sûr de vouloir réinitialiser les types d'immobilisation pour "${level2Value}" ?\n\n` +
+      `Cette action va :\n` +
+      `- Supprimer tous les types existants pour ce Level 2\n` +
+      `- Créer les 7 types initiaux par défaut\n\n` +
+      `Cette action est irréversible.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      console.log(`🔄 [AmortizationConfigCard] Réinitialisation complète pour Level 2 "${level2Value}"`);
+      
+      // 1. D'abord supprimer tous les résultats d'amortissement (pour éviter les erreurs de contrainte)
+      console.log('🗑️ [AmortizationConfigCard] Suppression de tous les résultats d\'amortissement...');
+      const deleteResultsResponse = await amortizationAPI.deleteAllResults();
+      console.log(`✅ [AmortizationConfigCard] ${deleteResultsResponse.deleted_count} résultat(s) d'amortissement supprimé(s)`);
+      
+      // 2. Récupérer tous les types existants pour ce Level 2
+      const response = await amortizationTypesAPI.getAll();
+      const typesToDelete = response.types.filter(t => t.level_2_value === level2Value);
+      
+      // 3. Supprimer tous les types existants pour ce Level 2
+      if (typesToDelete.length > 0) {
+        console.log(`🗑️ [AmortizationConfigCard] Suppression de ${typesToDelete.length} type(s) existant(s)`);
+        const deletePromises = typesToDelete.map(async (type) => {
+          try {
+            await amortizationTypesAPI.delete(type.id);
+            console.log(`✅ [AmortizationConfigCard] Type ${type.id} (${type.name}) supprimé`);
+          } catch (err: any) {
+            console.error(`❌ [AmortizationConfigCard] Erreur lors de la suppression du type ${type.id} (${type.name}):`, err);
+            throw err; // Propager l'erreur pour arrêter le processus
+          }
+        });
+        await Promise.all(deletePromises);
+      }
+      
+      // 4. Réinitialiser tous les montants AVANT de créer les nouveaux types
+      setAmounts({});
+      setCumulatedAmounts({});
+      
+      // 5. Créer les 7 types initiaux (vides, comme au premier chargement)
+      console.log(`➕ [AmortizationConfigCard] Création des 7 types initiaux vides pour Level 2 "${level2Value}"`);
+      await createInitialTypes([], level2Value); // Passer level2Value explicitement
+      
+      // 6. Attendre un peu pour que la base de données se synchronise
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // 7. Recharger les types (maintenant vides)
+      await loadAmortizationTypes();
+      
+      // 8. Notifier le parent pour réinitialiser la table (après tout)
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+      
+      console.log(`✅ [AmortizationConfigCard] Réinitialisation complète terminée - tout est à 0`);
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la réinitialisation des types:', err);
+      alert(`❌ Erreur lors de la réinitialisation: ${err.message || 'Erreur inconnue'}`);
     }
   };
 
@@ -126,8 +372,9 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
         : [];
       
       // Si aucun type n'existe pour ce Level 2, créer les 7 types initiaux
+      // IMPORTANT : Ne créer que si on n'est pas en train de charger après une suppression
       if (filteredTypes.length === 0 && level2Value) {
-        await createInitialTypes();
+        await createInitialTypes(response.types, level2Value);
         // Recharger après création et filtrer à nouveau
         const newResponse = await amortizationTypesAPI.getAll();
         const newFilteredTypes = newResponse.types.filter(t => t.level_2_value === level2Value);
@@ -142,7 +389,15 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     }
   };
 
-  const createInitialTypes = async () => {
+  const createInitialTypes = async (existingTypes: AmortizationType[] = [], targetLevel2?: string) => {
+    // Utiliser targetLevel2 si fourni, sinon utiliser level2Value depuis l'état
+    const targetLevel2Value = targetLevel2 !== undefined ? targetLevel2 : level2Value;
+    
+    if (!targetLevel2Value) {
+      console.warn('⚠️ [AmortizationConfigCard] Impossible de créer les types : aucun Level 2 spécifié');
+      return;
+    }
+    
     const initialTypes = [
       'Part terrain',
       'Immobilisation structure/GO',
@@ -154,17 +409,28 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
     ];
 
     for (const name of initialTypes) {
+      // Vérifier si un type avec ce nom et ce level_2_value existe déjà
+      const alreadyExists = existingTypes.some(
+        t => t.name === name && t.level_2_value === targetLevel2Value
+      );
+      
+      if (alreadyExists) {
+        console.log(`ℹ️ [AmortizationConfigCard] Type "${name}" existe déjà pour Level 2 "${targetLevel2Value}", ignoré`);
+        continue;
+      }
+
       try {
         await amortizationTypesAPI.create({
           name,
-          level_2_value: level2Value,
+          level_2_value: targetLevel2Value,
           level_1_values: [],
           start_date: null,
           duration: 0,
           annual_amount: null,
         });
+        console.log(`✅ [AmortizationConfigCard] Type "${name}" créé pour Level 2 "${targetLevel2Value}"`);
       } catch (err: any) {
-        console.error(`Erreur lors de la création du type ${name}:`, err);
+        console.error(`❌ [AmortizationConfigCard] Erreur lors de la création du type ${name}:`, err);
       }
     }
   };
@@ -430,14 +696,24 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
       await amortizationTypesAPI.delete(typeId);
       console.log('✅ [AmortizationConfigCard] Type supprimé avec succès');
       
-      // Recharger les types et récupérer la nouvelle liste
+      // Recharger les types et filtrer par level2Value (comme loadAmortizationTypes)
       const newTypesResponse = await amortizationTypesAPI.getAll();
-      const newTypes = newTypesResponse.types;
-      setAmortizationTypes(newTypes);
+      const filteredTypes = level2Value 
+        ? newTypesResponse.types.filter(t => t.level_2_value === level2Value)
+        : [];
       
-      // Recharger les montants avec la nouvelle liste de types
-      await loadAmounts(newTypes);
-      await loadCumulatedAmounts(newTypes);
+      // Mettre à jour l'état avec les types filtrés (PAS de création automatique après suppression)
+      setAmortizationTypes(filteredTypes);
+      
+      // Recharger les montants avec les types filtrés uniquement
+      if (filteredTypes.length > 0) {
+        await loadAmounts(filteredTypes);
+        await loadCumulatedAmounts(filteredTypes);
+      } else {
+        // Si plus aucun type, réinitialiser les montants
+        setAmounts({});
+        setCumulatedAmounts({});
+      }
       
       handleCloseContextMenu();
       
@@ -735,37 +1011,63 @@ export default function AmortizationConfigCard({ onConfigUpdated }: Amortization
         <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
           Level 2 (Valeur à considérer comme amortissement)
         </label>
-        <select
-          value={level2Value}
-          onChange={(e) => handleLevel2Change(e.target.value)}
-          disabled={loadingValues}
-          style={{
-            width: '100%',
-            maxWidth: '400px',
-            padding: '8px 12px',
-            fontSize: '14px',
-            border: '1px solid #d1d5db',
-            borderRadius: '6px',
-            backgroundColor: loadingValues ? '#f3f4f6' : '#ffffff',
-            color: '#111827',
-            cursor: loadingValues ? 'not-allowed' : 'pointer',
-          }}
-        >
-          {loadingValues ? (
-            <option>Chargement...</option>
-          ) : level2Values.length === 0 ? (
-            <option value="">Aucune valeur disponible</option>
-          ) : (
-            <>
-              <option value="">-- Sélectionner une valeur --</option>
-              {level2Values.map((value) => (
-                <option key={value} value={value}>
-                  {value || '(vide)'}
-                </option>
-              ))}
-            </>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+          <select
+            value={level2Value}
+            onChange={(e) => handleLevel2Change(e.target.value)}
+            disabled={loadingValues}
+            style={{
+              flex: '1',
+              maxWidth: '400px',
+              padding: '8px 12px',
+              fontSize: '14px',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              backgroundColor: loadingValues ? '#f3f4f6' : '#ffffff',
+              color: '#111827',
+              cursor: loadingValues ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {loadingValues ? (
+              <option>Chargement...</option>
+            ) : level2Values.length === 0 ? (
+              <option value="">Aucune valeur disponible</option>
+            ) : (
+              <>
+                {/* Afficher "-- Sélectionner une valeur --" uniquement si aucun Level 2 n'est sélectionné */}
+                {!level2Value && (
+                  <option value="">-- Sélectionner une valeur --</option>
+                )}
+                {level2Values.map((value) => (
+                  <option key={value} value={value}>
+                    {value || '(vide)'}
+                  </option>
+                ))}
+              </>
+            )}
+          </select>
+          {level2Value && (
+            <button
+              onClick={resetTypesForLevel2}
+              disabled={loadingTypes}
+              style={{
+                padding: '8px 16px',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#ffffff',
+                backgroundColor: loadingTypes ? '#9ca3af' : '#10b981',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: loadingTypes ? 'not-allowed' : 'pointer',
+                boxShadow: loadingTypes ? 'none' : '0 2px 4px rgba(0, 0, 0, 0.1)',
+                whiteSpace: 'nowrap',
+              }}
+              title="Réinitialise les types d'immobilisation aux 7 valeurs par défaut pour ce Level 2"
+            >
+              {loadingTypes ? '⏳...' : '🔄 Réinitialiser les types'}
+            </button>
           )}
-        </select>
+        </div>
       </div>
 
       {/* Tableau des types d'amortissement */}

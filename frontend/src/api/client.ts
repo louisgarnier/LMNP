@@ -1016,6 +1016,15 @@ export const amortizationAPI = {
       method: 'POST',
     });
   },
+
+  /**
+   * Supprime tous les résultats d'amortissement
+   */
+  deleteAllResults: async (): Promise<{ message: string; deleted_count: number }> => {
+    return fetchAPI<{ message: string; deleted_count: number }>('/api/amortization/results', {
+      method: 'DELETE',
+    });
+  },
 };
 
 /**

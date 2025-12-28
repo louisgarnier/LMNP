@@ -315,6 +315,27 @@ async def get_amortization_results_details(
     )
 
 
+@router.delete("/amortization/results", status_code=200)
+async def delete_all_amortization_results(
+    db: Session = Depends(get_db)
+):
+    """
+    Supprime tous les résultats d'amortissement.
+    
+    Utile avant de supprimer des types d'amortissement pour éviter les erreurs de contrainte.
+    
+    Returns:
+        Message de confirmation avec nombre de résultats supprimés
+    """
+    count = db.query(AmortizationResult).delete()
+    db.commit()
+    
+    return {
+        "message": f"{count} résultat(s) d'amortissement supprimé(s).",
+        "deleted_count": count
+    }
+
+
 @router.post("/amortization/recalculate", response_model=AmortizationRecalculateResponse)
 async def recalculate_amortizations(
     db: Session = Depends(get_db)

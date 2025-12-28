@@ -12,18 +12,27 @@ import { amortizationAPI, AmortizationAggregatedResponse } from '@/api/client';
 interface AmortizationTableProps {
   onCellClick?: (year: number, category: string) => void;
   refreshKey?: number; // Pour forcer le rechargement
+  level2Value?: string; // Level 2 sélectionné
 }
 
-export default function AmortizationTable({ onCellClick, refreshKey }: AmortizationTableProps) {
+export default function AmortizationTable({ onCellClick, refreshKey, level2Value }: AmortizationTableProps) {
   const [data, setData] = useState<AmortizationAggregatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
-  }, [refreshKey]); // Recharger quand refreshKey change
+  }, [refreshKey, level2Value]); // Recharger quand refreshKey ou level2Value change
 
   const loadData = async () => {
+    // Si aucun Level 2 n'est sélectionné, ne pas charger les données
+    if (!level2Value) {
+      setData(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);

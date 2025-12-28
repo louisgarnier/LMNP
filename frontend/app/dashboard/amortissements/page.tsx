@@ -6,17 +6,41 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AmortizationConfigCard from '@/components/AmortizationConfigCard';
 import AmortizationTable from '@/components/AmortizationTable';
 import { amortizationAPI } from '@/api/client';
 
 export default function AmortissementsPage() {
+  // Récupérer la valeur sauvegardée depuis localStorage
+  const getSavedLevel2Value = (): string => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('amortization_level2_value');
+      return saved || '';
+    }
+    return '';
+  };
+
   const [refreshKey, setRefreshKey] = useState(0);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [level2Value, setLevel2Value] = useState<string>(getSavedLevel2Value());
 
   const handleConfigUpdated = () => {
     // Force refresh du tableau après mise à jour de la config
+    setRefreshKey((prev) => prev + 1);
+  };
+
+  const handleLevel2Change = (value: string) => {
+    setLevel2Value(value);
+    // Sauvegarder dans localStorage
+    if (typeof window !== 'undefined') {
+      if (value) {
+        localStorage.setItem('amortization_level2_value', value);
+      } else {
+        localStorage.removeItem('amortization_level2_value');
+      }
+    }
+    // Force refresh du tableau quand le Level 2 change
     setRefreshKey((prev) => prev + 1);
   };
 
@@ -72,7 +96,7 @@ export default function AmortissementsPage() {
       </div>
 
       {/* Card de configuration */}
-      <AmortizationConfigCard onConfigUpdated={handleConfigUpdated} />
+      <AmortizationConfigCard onConfigUpdated={handleConfigUpdated} onLevel2Change={handleLevel2Change} />
 
       <div
         style={{
@@ -82,7 +106,7 @@ export default function AmortissementsPage() {
           padding: '24px',
         }}
       >
-        <AmortizationTable key={refreshKey} onCellClick={handleCellClick} />
+        <AmortizationTable key={refreshKey} onCellClick={handleCellClick} level2Value={level2Value} />
       </div>
     </div>
   );
