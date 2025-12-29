@@ -114,7 +114,7 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
                 color: '#111827',
               }}
             >
-              Catégorie
+              Type d'immobilisation
             </th>
             {data.years.map((year) => (
               <th
@@ -231,6 +231,53 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
                 textAlign: 'right',
                 backgroundColor: '#d1d5db',
                 border: '1px solid #9ca3af',
+                fontWeight: '700',
+                color: data.grand_total < 0 ? '#dc2626' : '#111827',
+              }}
+            >
+              {formatAmount(data.grand_total)}
+            </td>
+          </tr>
+          {/* Ligne Cumulé */}
+          <tr>
+            <td
+              style={{
+                padding: '12px',
+                backgroundColor: '#f3f4f6',
+                border: '1px solid #e5e7eb',
+                fontWeight: '700',
+                color: '#111827',
+              }}
+            >
+              Cumulé
+            </td>
+            {data.years.map((year, colIndex) => {
+              // Calculer le cumul : somme de toutes les années jusqu'à l'année actuelle (inclusive)
+              const cumulativeAmount = data.column_totals
+                .slice(0, colIndex + 1)
+                .reduce((sum, amount) => sum + amount, 0);
+              return (
+                <td
+                  key={year}
+                  style={{
+                    padding: '12px',
+                    textAlign: 'right',
+                    backgroundColor: '#f3f4f6',
+                    border: '1px solid #e5e7eb',
+                    fontWeight: '700',
+                    color: cumulativeAmount < 0 ? '#dc2626' : '#111827',
+                  }}
+                >
+                  {formatAmount(cumulativeAmount)}
+                </td>
+              );
+            })}
+            <td
+              style={{
+                padding: '12px',
+                textAlign: 'right',
+                backgroundColor: '#e5e7eb',
+                border: '1px solid #d1d5db',
                 fontWeight: '700',
                 color: data.grand_total < 0 ? '#dc2626' : '#111827',
               }}
