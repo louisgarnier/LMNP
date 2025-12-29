@@ -57,33 +57,35 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 ### Step 6.2 : Backend - Table et modèles pour les mensualités
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la structure pour stocker les mensualités de crédit (capital, intérêt, assurance).
 
 **Tasks**:
-- [ ] Créer table `loan_payments` avec colonnes :
+- [x] Créer table `loan_payments` avec colonnes :
   - `id` (PK)
   - `date` (date de la mensualité)
   - `capital` (montant du capital remboursé)
   - `interest` (montant des intérêts)
   - `insurance` (montant de l'assurance crédit)
   - `total` (total de la mensualité)
-  - `loan_name` (nom du prêt, ex: "Prêt construction")
+  - `loan_name` (nom du prêt, ex: "Prêt construction", peut correspondre au `name` d'une configuration de crédit)
   - `created_at`, `updated_at`
-- [ ] Créer modèle SQLAlchemy `LoanPayment` dans `backend/database/models.py`
-- [ ] Créer modèles Pydantic dans `backend/api/models.py`
-- [ ] **Créer test unitaire pour le modèle**
+- [x] Créer modèle SQLAlchemy `LoanPayment` dans `backend/database/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py`
+- [x] **Créer test unitaire pour le modèle**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `backend/database/models.py` - Modèle `LoanPayment`
-- `backend/api/models.py` - Modèles Pydantic pour les mensualités
+- `backend/database/models.py` - Modèle `LoanPayment` ✅
+- `backend/api/models.py` - Modèles Pydantic pour les mensualités ✅
+- `backend/tests/test_loan_payment_model.py` - Test unitaire ✅
+- `backend/database/__init__.py` - Export du modèle ✅
 
 **Acceptance Criteria**:
-- [ ] Table créée en BDD
-- [ ] Modèle SQLAlchemy fonctionnel
-- [ ] Modèles Pydantic créés et validés
-- [ ] Tests unitaires passent
+- [x] Table créée en BDD
+- [x] Modèle SQLAlchemy fonctionnel
+- [x] Modèles Pydantic créés et validés
+- [x] Tests unitaires passent
 
 ---
 
@@ -91,11 +93,50 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Créer les endpoints API pour gérer les mensualités de crédit.
 
+**Clarifications** :
+- **Format d'import** : 1 enregistrement par année (pas de mensualités mensuelles)
+- **Date** : 01/01 de chaque année (ex: 01/01/2021, 01/01/2022, etc.)
+- **Nom du prêt** : "Prêt principal" par défaut (un seul prêt par fichier)
+- **Bouton d'import** : Même style que "Load Trades/Mappings" (bouton + modal de preview)
+- **Structure Excel** : 
+  - Colonne `annee` : types ("capital", "interets", "assurance cred", "total")
+  - Colonnes années : 2021, 2022, 2023, etc.
+  - Chaque ligne = un type de montant pour toutes les années
+- **Gestion des doublons** : 
+  - Un seul tableau d'amortissement par crédit (`loan_name`)
+  - Si on charge un nouveau fichier, supprimer toutes les mensualités existantes pour ce `loan_name` (écraser l'ancien)
+  - **Confirmation** : Les deux - dans le modal de preview (avant l'import) ET dans l'endpoint backend (retourner un warning si données existent)
+- **Nom du prêt** :
+  - Toujours "Prêt principal" par défaut (pas de personnalisation dans le modal)
+  - L'utilisateur sélectionne les fichiers, l'application charge juste les xlsx/csv
+- **Validation des données** :
+  - Vérifier que `capital + interest + insurance = total`
+  - Si erreur, corriger automatiquement (utiliser le total calculé)
+- **Années sans données** :
+  - Si NaN/vides, créer un enregistrement avec des valeurs à 0
+- **Preview** :
+  - Afficher les colonnes détectées (structure du fichier Excel)
+  - Afficher les lignes (aperçu des données parsées)
+  - Afficher les années détectées et montants
+  - **Colonnes invalides** : Avertir dans le preview si une colonne n'est pas une année valide (texte, format incorrect)
+- **Historique** : Pas besoin d'historique des imports, juste supprimer et remplacer à chaque import
+
 **Tasks**:
 - [ ] Créer fichier `backend/api/routes/loan_payments.py`
 - [ ] Créer endpoint `GET /api/loan-payments` : Liste des mensualités (filtrées par date, prêt, etc.)
 - [ ] Créer endpoint `POST /api/loan-payments` : Créer une mensualité
-- [ ] Créer endpoint `POST /api/loan-payments/import` : Importer depuis Excel/CSV
+- [ ] Créer endpoint `POST /api/loan-payments/preview` : Preview du fichier Excel (comme transactions/mappings)
+  - Afficher les colonnes détectées (structure du fichier Excel)
+  - Afficher les lignes (aperçu des données parsées)
+  - Afficher les années détectées et montants extraits
+- [ ] Créer endpoint `POST /api/loan-payments/import` : Importer depuis Excel
+  - Parser le fichier Excel avec structure : colonne `annee` + colonnes années
+  - **Avant import** : Supprimer toutes les mensualités existantes pour le `loan_name` (avec confirmation)
+  - Pour chaque année avec données : créer 1 enregistrement avec date = 01/01/année
+  - Extraire capital, interest, insurance, total depuis les lignes correspondantes
+  - **Validation** : Vérifier que `capital + interest + insurance = total`, corriger automatiquement si erreur
+  - **Années vides** : Si NaN/vides, créer un enregistrement avec valeurs à 0
+  - `loan_name` = "Prêt principal" par défaut
 - [ ] Créer endpoint `PUT /api/loan-payments/{id}` : Mettre à jour une mensualité
 - [ ] Créer endpoint `DELETE /api/loan-payments/{id}` : Supprimer une mensualité
 - [ ] Enregistrer router dans `backend/api/main.py`
@@ -108,32 +149,127 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 **Acceptance Criteria**:
 - [ ] Tous les endpoints fonctionnent correctement
-- [ ] Import depuis Excel/CSV fonctionne
+- [ ] Preview du fichier Excel fonctionne (affiche structure détectée)
+- [ ] Import depuis Excel fonctionne (parse correctement la structure)
+- [ ] Création de 1 enregistrement par année avec date = 01/01/année
+- [ ] Extraction correcte de capital, interest, insurance, total
 - [ ] Gestion d'erreur correcte
 - [ ] Tests manuels passent
 
 ---
 
-### Step 6.4 : Frontend - Import et gestion des mensualités
+### Step 6.4 : Backend - Table et modèles pour les configurations de crédit
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Interface pour importer et gérer les mensualités de crédit.
+**Description**: Créer la structure pour stocker les configurations de crédit (plusieurs lignes de crédit possibles).
 
 **Tasks**:
-- [ ] Créer page `frontend/app/dashboard/loan-payments/page.tsx`
-- [ ] Créer composant d'import Excel/CSV
-- [ ] Créer tableau d'affichage des mensualités
-- [ ] Créer formulaire d'édition/création de mensualité
+- [ ] Créer table `loan_configs` avec colonnes :
+  - `id` (PK)
+  - `name` (nom du crédit, ex: "Prêt principal", "Prêt construction")
+  - `credit_amount` (montant du crédit accordé en euros)
+  - `interest_rate` (taux fixe actuel hors assurance en %)
+  - `duration_years` (durée de l'emprunt en années)
+  - `initial_deferral_months` (décalage initial en mois)
+  - `created_at`, `updated_at`
+- [ ] Créer modèle SQLAlchemy `LoanConfig` dans `backend/database/models.py`
+- [ ] Créer modèles Pydantic dans `backend/api/models.py`
+- [ ] **Créer test unitaire pour le modèle**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/database/models.py` - Modèle `LoanConfig`
+- `backend/api/models.py` - Modèles Pydantic pour les configurations de crédit
+
+**Acceptance Criteria**:
+- [ ] Table créée en BDD
+- [ ] Modèle SQLAlchemy fonctionnel
+- [ ] Modèles Pydantic créés et validés
+- [ ] Tests unitaires passent
+
+---
+
+### Step 6.5 : Backend - Endpoints API pour les configurations de crédit
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer les endpoints API pour gérer les configurations de crédit.
+
+**Tasks**:
+- [ ] Créer fichier `backend/api/routes/loan_configs.py`
+- [ ] Créer endpoint `GET /api/loan-configs` : Liste des configurations de crédit
+- [ ] Créer endpoint `POST /api/loan-configs` : Créer une configuration
+- [ ] Créer endpoint `PUT /api/loan-configs/{id}` : Mettre à jour une configuration
+- [ ] Créer endpoint `DELETE /api/loan-configs/{id}` : Supprimer une configuration
+- [ ] Enregistrer router dans `backend/api/main.py`
+- [ ] **Créer test manuel pour les endpoints**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/routes/loan_configs.py` - Endpoints API
+- Mise à jour `backend/api/main.py` - Enregistrement du router
+
+**Acceptance Criteria**:
+- [ ] Tous les endpoints fonctionnent correctement
+- [ ] Gestion d'erreur correcte
+- [ ] Tests manuels passent
+
+---
+
+### Step 6.6 : Frontend - Card de configuration des crédits
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la card de configuration des crédits dans l'onglet Crédit.
+
+**Tasks**:
+- [ ] Créer composant `LoanConfigCard.tsx` avec :
+  - Card en haut de la page avec plusieurs champs de saisie
+  - Champs à renseigner :
+    - **Crédit accordé** (en euros €)
+    - **Taux fixe actuel (hors assurance)** (en %)
+    - **Durée emprunt** (en années)
+    - **Décalage initial** (en mois)
+  - Possibilité d'ajouter plusieurs lignes de crédit (bouton "Ajouter un crédit")
+  - Possibilité de supprimer une ligne de crédit
+  - Sauvegarde automatique au blur ou bouton "Sauvegarder"
+- [ ] Intégrer le composant dans `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Crédit)
+- [ ] Créer API client dans `frontend/src/api/client.ts` pour les configurations de crédit
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `frontend/app/dashboard/loan-payments/page.tsx` - Page de gestion
-- Composants d'import et d'affichage
+- `frontend/src/components/LoanConfigCard.tsx` - Card de configuration
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration dans onglet Crédit
+- Mise à jour `frontend/src/api/client.ts` - API client
+
+**Acceptance Criteria**:
+- [ ] Card affichée en haut de l'onglet Crédit
+- [ ] Tous les champs sont éditables avec les bonnes unités
+- [ ] Possibilité d'ajouter plusieurs lignes de crédit
+- [ ] Possibilité de supprimer une ligne de crédit
+- [ ] Sauvegarde fonctionne (backend)
+- [ ] Données persistées et rechargées au chargement de la page
+- [ ] Interface intuitive et cohérente avec le reste de l'application
+
+---
+
+### Step 6.7 : Frontend - Import et gestion des mensualités
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Interface pour importer et gérer les mensualités de crédit.
+
+**Tasks**:
+- [ ] Créer composant d'import Excel/CSV pour les mensualités
+- [ ] Créer tableau d'affichage des mensualités dans l'onglet Crédit
+- [ ] Créer formulaire d'édition/création de mensualité
+- [ ] Lier les mensualités aux configurations de crédit (via `loan_name` ou `loan_config_id`)
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Composants d'import et d'affichage des mensualités
+- Intégration dans l'onglet Crédit
 
 **Acceptance Criteria**:
 - [ ] Import Excel/CSV fonctionne
 - [ ] Tableau affiche toutes les mensualités
 - [ ] Édition/création fonctionne
+- [ ] Association avec les configurations de crédit fonctionne
 - [ ] Interface intuitive
 
 ---
