@@ -159,11 +159,11 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 ### Step 6.4 : Backend - Table et modèles pour les configurations de crédit
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la structure pour stocker les configurations de crédit (plusieurs lignes de crédit possibles).
 
 **Tasks**:
-- [ ] Créer table `loan_configs` avec colonnes :
+- [x] Créer table `loan_configs` avec colonnes :
   - `id` (PK)
   - `name` (nom du crédit, ex: "Prêt principal", "Prêt construction")
   - `credit_amount` (montant du crédit accordé en euros)
@@ -171,20 +171,22 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - `duration_years` (durée de l'emprunt en années)
   - `initial_deferral_months` (décalage initial en mois)
   - `created_at`, `updated_at`
-- [ ] Créer modèle SQLAlchemy `LoanConfig` dans `backend/database/models.py`
-- [ ] Créer modèles Pydantic dans `backend/api/models.py`
-- [ ] **Créer test unitaire pour le modèle**
+- [x] Créer modèle SQLAlchemy `LoanConfig` dans `backend/database/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py`
+- [x] **Créer test unitaire pour le modèle**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `backend/database/models.py` - Modèle `LoanConfig`
-- `backend/api/models.py` - Modèles Pydantic pour les configurations de crédit
+- `backend/database/models.py` - Modèle `LoanConfig` ✅
+- `backend/api/models.py` - Modèles Pydantic pour les configurations de crédit ✅
+- `backend/tests/test_loan_config_model.py` - Test unitaire ✅
+- `backend/database/__init__.py` - Export du modèle ✅
 
 **Acceptance Criteria**:
-- [ ] Table créée en BDD
-- [ ] Modèle SQLAlchemy fonctionnel
-- [ ] Modèles Pydantic créés et validés
-- [ ] Tests unitaires passent
+- [x] Table créée en BDD
+- [x] Modèle SQLAlchemy fonctionnel
+- [x] Modèles Pydantic créés et validés
+- [x] Tests unitaires passent
 
 ---
 

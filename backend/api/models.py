@@ -418,3 +418,108 @@ class AmortizationViewListResponse(BaseModel):
     """Model for list of amortization views."""
     views: List[AmortizationViewResponse]
     total: int
+
+
+# Loan Payment models
+
+class LoanPaymentBase(BaseModel):
+    """Base model for loan payment."""
+    date: date
+    capital: float = Field(..., gt=0, description="Montant du capital remboursé")
+    interest: float = Field(..., ge=0, description="Montant des intérêts")
+    insurance: float = Field(..., ge=0, description="Montant de l'assurance crédit")
+    total: float = Field(..., gt=0, description="Total de la mensualité")
+    loan_name: str = Field("Prêt principal", max_length=100, description="Nom du prêt")
+
+
+class LoanPaymentCreate(LoanPaymentBase):
+    """Model for creating a loan payment."""
+    pass
+
+
+class LoanPaymentUpdate(BaseModel):
+    """Model for updating a loan payment."""
+    date: Optional[date] = None
+    capital: Optional[float] = Field(None, gt=0, description="Montant du capital remboursé")
+    interest: Optional[float] = Field(None, ge=0, description="Montant des intérêts")
+    insurance: Optional[float] = Field(None, ge=0, description="Montant de l'assurance crédit")
+    total: Optional[float] = Field(None, gt=0, description="Total de la mensualité")
+    loan_name: Optional[str] = Field(None, max_length=100, description="Nom du prêt")
+
+
+class LoanPaymentResponse(LoanPaymentBase):
+    """Model for loan payment response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoanPaymentListResponse(BaseModel):
+    """Model for list of loan payments response."""
+    payments: List[LoanPaymentResponse]
+    total: int
+
+
+# Loan Payment Import Models
+class LoanPaymentPreviewResponse(BaseModel):
+    """Model for loan payment file preview response."""
+    filename: str
+    total_rows: int
+    detected_years: List[int] = Field(..., description="Années détectées dans les colonnes")
+    preview: List[Dict[str, Any]] = Field(..., description="Aperçu des données parsées")
+    validation_errors: List[str] = Field(default_factory=list, description="Erreurs de validation")
+    warnings: List[str] = Field(default_factory=list, description="Avertissements (colonnes invalides, etc.)")
+    stats: Dict[str, Any] = Field(..., description="Statistiques (années détectées, montants, etc.)")
+    existing_payments_count: int = Field(0, description="Nombre de mensualités existantes pour ce loan_name")
+
+
+class LoanPaymentImportResponse(BaseModel):
+    """Model for loan payment import response."""
+    message: str
+    imported_count: int
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+# Loan Config models
+
+class LoanConfigBase(BaseModel):
+    """Base model for loan configuration."""
+    name: str = Field(..., min_length=1, max_length=100, description="Nom du crédit")
+    credit_amount: float = Field(..., gt=0, description="Montant du crédit accordé en euros")
+    interest_rate: float = Field(..., ge=0, le=100, description="Taux fixe actuel hors assurance en %")
+    duration_years: int = Field(..., gt=0, description="Durée de l'emprunt en années")
+    initial_deferral_months: int = Field(0, ge=0, description="Décalage initial en mois")
+
+
+class LoanConfigCreate(LoanConfigBase):
+    """Model for creating a loan configuration."""
+    pass
+
+
+class LoanConfigUpdate(BaseModel):
+    """Model for updating a loan configuration."""
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Nom du crédit")
+    credit_amount: Optional[float] = Field(None, gt=0, description="Montant du crédit accordé en euros")
+    interest_rate: Optional[float] = Field(None, ge=0, le=100, description="Taux fixe actuel hors assurance en %")
+    duration_years: Optional[int] = Field(None, gt=0, description="Durée de l'emprunt en années")
+    initial_deferral_months: Optional[int] = Field(None, ge=0, description="Décalage initial en mois")
+
+
+class LoanConfigResponse(LoanConfigBase):
+    """Model for loan configuration response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoanConfigListResponse(BaseModel):
+    """Model for list of loan configurations response."""
+    configs: List[LoanConfigResponse]
+    total: int
