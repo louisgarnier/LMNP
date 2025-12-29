@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { transactionsAPI, amortizationTypesAPI, amortizationAPI, AmortizationType } from '@/api/client';
+import { transactionsAPI, amortizationTypesAPI, amortizationAPI, amortizationViewsAPI, AmortizationType } from '@/api/client';
 
 interface AmortizationConfigCardProps {
   onConfigUpdated?: () => void;
@@ -49,6 +49,21 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
   const [isAutoRecalculating, setIsAutoRecalculating] = useState(false);
   const [level2ValuesLoaded, setLevel2ValuesLoaded] = useState(false);
   const hasRestoredLevel2 = useRef(false); // Pour ne charger qu'une fois au montage
+  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
+  const viewMenuRef = useRef<HTMLDivElement>(null);
+  const [showSaveViewPopup, setShowSaveViewPopup] = useState(false);
+  const [saveViewName, setSaveViewName] = useState('');
+  const [savingView, setSavingView] = useState(false);
+  const [showLoadViewPopup, setShowLoadViewPopup] = useState(false);
+  const [availableViews, setAvailableViews] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadingViews, setLoadingViews] = useState(false);
+  const [selectedViewId, setSelectedViewId] = useState<number | null>(null);
+  const [loadingView, setLoadingView] = useState(false);
+  const [showDeleteViewPopup, setShowDeleteViewPopup] = useState(false);
+  const [availableViewsForDelete, setAvailableViewsForDelete] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadingViewsForDelete, setLoadingViewsForDelete] = useState(false);
+  const [selectedViewIdForDelete, setSelectedViewIdForDelete] = useState<number | null>(null);
+  const [deletingView, setDeletingView] = useState(false);
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
@@ -100,6 +115,23 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       });
     }
   }, [amortizationTypes]); // Retiré level2Value des dépendances pour éviter le chargement automatique
+
+  // Fermer le menu View au clic ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (viewMenuRef.current && !viewMenuRef.current.contains(event.target as Node)) {
+        setIsViewMenuOpen(false);
+      }
+    };
+
+    if (isViewMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isViewMenuOpen]);
 
   const loadLevel2Values = async () => {
     try {
@@ -765,6 +797,304 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     }
   }, [contextMenu]);
 
+  // Sauvegarder la vue actuelle
+  const saveCurrentView = async (name: string) => {
+    if (!name || name.trim() === '') {
+      alert('⚠️ Le nom de la vue ne peut pas être vide');
+      return;
+    }
+
+    if (!level2Value) {
+      alert('⚠️ Veuillez sélectionner un Level 2 avant de sauvegarder une vue');
+      return;
+    }
+
+    // Collecter tous les types d'amortissement actuels avec leurs configs
+    // (défini avant le try pour être accessible dans le catch)
+    const viewData = {
+      level_2_value: level2Value,
+      amortization_types: amortizationTypes.map(type => ({
+        name: type.name,
+        level_1_values: type.level_1_values || [],
+        start_date: type.start_date || null,
+        duration: type.duration,
+        annual_amount: type.annual_amount || null,
+      })),
+    };
+
+    try {
+      setSavingView(true);
+      console.log('💾 [AmortizationConfigCard] Sauvegarde de la vue:', name);
+
+      // Vérifier d'abord si une vue avec ce nom existe déjà
+      const viewsResponse = await amortizationViewsAPI.getAll(level2Value);
+      const existingView = viewsResponse.views.find(v => v.name === name.trim());
+
+      if (existingView) {
+        // Une vue avec ce nom existe déjà - proposer de l'écraser
+        const confirmed = window.confirm(
+          `Une vue avec le nom "${name}" existe déjà pour ce Level 2.\n\n` +
+          `Voulez-vous écraser la sauvegarde existante ?`
+        );
+        
+        if (confirmed) {
+              // Mettre à jour la vue existante
+              await amortizationViewsAPI.update(existingView.id, {
+                view_data: viewData,
+              });
+              
+              console.log('✅ [AmortizationConfigCard] Vue écrasée avec succès');
+              
+              // Fermer le popup et réinitialiser
+              setShowSaveViewPopup(false);
+              setSaveViewName('');
+        }
+        // Si l'utilisateur annule, on ne fait rien (le popup reste ouvert)
+      } else {
+        // Aucune vue existante - créer une nouvelle vue
+        await amortizationViewsAPI.create({
+          name: name.trim(),
+          level_2_value: level2Value,
+          view_data: viewData,
+        });
+
+        console.log('✅ [AmortizationConfigCard] Vue sauvegardée avec succès');
+        
+        // Fermer le popup et réinitialiser
+        setShowSaveViewPopup(false);
+        setSaveViewName('');
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de la vue:', err);
+      
+      // Extraire le message d'erreur
+      let errorMessage = 'Erreur inconnue';
+      if (err?.message) {
+        errorMessage = err.message;
+      } else if (typeof err === 'string') {
+        errorMessage = err;
+      }
+      
+      alert(`❌ Erreur lors de la sauvegarde: ${errorMessage}`);
+    } finally {
+      setSavingView(false);
+    }
+  };
+
+  // Ouvrir le popup Save view
+  const handleOpenSaveView = () => {
+    setIsViewMenuOpen(false);
+    setSaveViewName('');
+    setShowSaveViewPopup(true);
+  };
+
+  // Ouvrir le popup Load view
+  const handleOpenLoadView = async () => {
+    setIsViewMenuOpen(false);
+    setSelectedViewId(null);
+    
+    if (!level2Value) {
+      alert('⚠️ Veuillez sélectionner un Level 2 avant de charger une vue');
+      return;
+    }
+
+    try {
+      setLoadingViews(true);
+      const viewsResponse = await amortizationViewsAPI.getAll(level2Value);
+      setAvailableViews(viewsResponse.views.map(v => ({ id: v.id, name: v.name })));
+      setShowLoadViewPopup(true);
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors du chargement des vues:', err);
+      alert(`❌ Erreur lors du chargement des vues: ${err?.message || 'Erreur inconnue'}`);
+    } finally {
+      setLoadingViews(false);
+    }
+  };
+
+  // Charger une vue
+  const loadView = async (viewId: number | null) => {
+    if (viewId === null) {
+      // "(default)" sélectionné - ne rien faire
+      setShowLoadViewPopup(false);
+      setSelectedViewId(null);
+      return;
+    }
+
+    // Confirmation avant chargement
+    const confirmed = window.confirm(
+      'Cette action va remplacer la configuration actuelle. Continuer ?'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoadingView(true);
+      console.log('📥 [AmortizationConfigCard] Chargement de la vue:', viewId);
+
+      // Récupérer la vue depuis l'API
+      const view = await amortizationViewsAPI.getById(viewId);
+      
+      // Récupérer level_2_value et view_data
+      const targetLevel2 = view.level_2_value;
+      const viewData = view.view_data;
+
+      // Changer le Level 2 sélectionné si nécessaire
+      if (targetLevel2 !== level2Value) {
+        if (onLevel2Change) {
+          onLevel2Change(targetLevel2);
+        }
+        setLevel2Value(targetLevel2);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('amortization_level2_value', targetLevel2);
+        }
+      }
+
+      // Supprimer tous les types existants pour ce Level 2
+      const currentTypes = amortizationTypes.filter(t => t.level_2_value === targetLevel2);
+      for (const type of currentTypes) {
+        try {
+          await amortizationTypesAPI.delete(type.id);
+        } catch (err) {
+          console.warn(`⚠️ [AmortizationConfigCard] Erreur lors de la suppression du type ${type.id}:`, err);
+        }
+      }
+
+      // Supprimer tous les résultats d'amortissement
+      try {
+        await amortizationAPI.deleteAllResults();
+      } catch (err) {
+        console.warn('⚠️ [AmortizationConfigCard] Erreur lors de la suppression des résultats:', err);
+      }
+
+      // Créer les types depuis view_data.amortization_types
+      const newTypes: AmortizationType[] = [];
+      for (const typeData of viewData.amortization_types) {
+        try {
+          const createdType = await amortizationTypesAPI.create({
+            name: typeData.name,
+            level_2_value: targetLevel2,
+            level_1_values: typeData.level_1_values || [],
+            start_date: typeData.start_date || null,
+            duration: typeData.duration,
+            annual_amount: typeData.annual_amount || null,
+          });
+          newTypes.push(createdType);
+        } catch (err) {
+          console.error(`❌ [AmortizationConfigCard] Erreur lors de la création du type ${typeData.name}:`, err);
+        }
+      }
+
+      // Recharger les types depuis l'API pour avoir les IDs corrects
+      const reloadedTypesResponse = await amortizationTypesAPI.getAll();
+      const reloadedTypes = reloadedTypesResponse.types.filter(t => t.level_2_value === targetLevel2);
+      setAmortizationTypes(reloadedTypes);
+
+      // Recharger les montants
+      if (reloadedTypes.length > 0) {
+        await loadAmounts(reloadedTypes);
+        await loadCumulatedAmounts(reloadedTypes);
+        await loadTransactionCounts(reloadedTypes);
+      } else {
+        setAmounts({});
+        setCumulatedAmounts({});
+        setTransactionCounts({});
+      }
+
+      // Recalculer les amortissements
+      await triggerAutoRecalculate();
+
+      console.log('✅ [AmortizationConfigCard] Vue chargée avec succès');
+      
+      // Fermer le popup
+      setShowLoadViewPopup(false);
+      setSelectedViewId(null);
+
+      // Notifier le parent
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors du chargement de la vue:', err);
+      alert(`❌ Erreur lors du chargement: ${err?.message || 'Erreur inconnue'}`);
+    } finally {
+      setLoadingView(false);
+    }
+  };
+
+  // Ouvrir le popup Delete view
+  const handleOpenDeleteView = async () => {
+    setIsViewMenuOpen(false);
+    setSelectedViewIdForDelete(null);
+    
+    if (!level2Value) {
+      alert('⚠️ Veuillez sélectionner un Level 2 avant de supprimer une vue');
+      return;
+    }
+
+    try {
+      setLoadingViewsForDelete(true);
+      const viewsResponse = await amortizationViewsAPI.getAll(level2Value);
+      setAvailableViewsForDelete(viewsResponse.views.map(v => ({ id: v.id, name: v.name })));
+      setShowDeleteViewPopup(true);
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors du chargement des vues:', err);
+      alert(`❌ Erreur lors du chargement des vues: ${err?.message || 'Erreur inconnue'}`);
+    } finally {
+      setLoadingViewsForDelete(false);
+    }
+  };
+
+  // Supprimer une vue
+  const deleteView = async (viewId: number | null) => {
+    if (viewId === null) {
+      return;
+    }
+
+    // Trouver le nom de la vue pour la confirmation
+    const viewToDelete = availableViewsForDelete.find(v => v.id === viewId);
+    if (!viewToDelete) {
+      alert('⚠️ Vue introuvable');
+      return;
+    }
+
+    // Confirmation avant suppression
+    const confirmed = window.confirm(
+      `Êtes-vous sûr de vouloir supprimer la vue "${viewToDelete.name}" ?\n\n` +
+      `Cette action est irréversible.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingView(true);
+      console.log('🗑️ [AmortizationConfigCard] Suppression de la vue:', viewId);
+
+      // Appeler l'API pour supprimer la vue
+      await amortizationViewsAPI.delete(viewId);
+
+      console.log('✅ [AmortizationConfigCard] Vue supprimée avec succès');
+      
+      // Retirer la vue de la liste
+      const updatedViews = availableViewsForDelete.filter(v => v.id !== viewId);
+      setAvailableViewsForDelete(updatedViews);
+      setSelectedViewIdForDelete(null);
+
+      // Si la liste est vide, fermer le popup
+      if (updatedViews.length === 0) {
+        setShowDeleteViewPopup(false);
+      }
+    } catch (err: any) {
+      console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression de la vue:', err);
+      alert(`❌ Erreur lors de la suppression: ${err?.message || 'Erreur inconnue'}`);
+    } finally {
+      setDeletingView(false);
+    }
+  };
+
   // Fonction utilitaire pour déclencher le recalcul automatique des amortissements
   const triggerAutoRecalculate = async () => {
     try {
@@ -1044,15 +1374,131 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
         padding: '24px',
         marginBottom: '24px',
+        position: 'relative', // Pour positionner le menu
       }}
     >
-      <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        Configuration des amortissements
-        {isAutoRecalculating && (
-          <span style={{ fontSize: '14px', color: '#3b82f6', fontStyle: 'italic' }}>
-            ⏳ Recalcul en cours...
-          </span>
-        )}
+      <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'space-between' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          Configuration des amortissements
+          {isAutoRecalculating && (
+            <span style={{ fontSize: '14px', color: '#3b82f6', fontStyle: 'italic' }}>
+              ⏳ Recalcul en cours...
+            </span>
+          )}
+        </span>
+        {/* Icône engrenage */}
+        <div style={{ position: 'relative' }} ref={viewMenuRef}>
+          <button
+            onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#6b7280',
+              fontSize: '18px',
+              borderRadius: '4px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f3f4f6';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            title="Options de vue"
+          >
+            ⚙️
+          </button>
+          {/* Menu déroulant */}
+          {isViewMenuOpen && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: '0',
+                marginTop: '4px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                minWidth: '150px',
+                zIndex: 1000,
+              }}
+            >
+              <button
+                onClick={handleOpenLoadView}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  textAlign: 'left',
+                  fontSize: '14px',
+                  color: '#374151',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Load...
+              </button>
+              <button
+                onClick={handleOpenSaveView}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  textAlign: 'left',
+                  fontSize: '14px',
+                  color: '#374151',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Save
+              </button>
+              <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '4px 0' }} />
+              <button
+                onClick={handleOpenDeleteView}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  textAlign: 'left',
+                  fontSize: '14px',
+                  color: '#dc2626',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  borderRadius: '6px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fee2e2';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                Delete...
+              </button>
+            </div>
+          )}
+        </div>
       </h2>
       
       {/* Champ Level 2 */}
@@ -1707,6 +2153,489 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
           >
             🗑️ Supprimer
           </button>
+        </div>
+      )}
+
+      {/* Popup Save view */}
+      {showSaveViewPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            if (!savingView) {
+              setShowSaveViewPopup(false);
+              setSaveViewName('');
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '90%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', margin: 0 }}>
+                Sauvegarder la vue
+              </h2>
+              <button
+                onClick={() => {
+                  if (!savingView) {
+                    setShowSaveViewPopup(false);
+                    setSaveViewName('');
+                  }
+                }}
+                disabled={savingView}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: savingView ? 'not-allowed' : 'pointer',
+                  color: '#666',
+                  padding: '0',
+                  width: '32px',
+                  height: '32px',
+                  opacity: savingView ? 0.5 : 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                htmlFor="save-view-name"
+                style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  marginBottom: '8px',
+                }}
+              >
+                Nom de la vue
+              </label>
+              <input
+                id="save-view-name"
+                type="text"
+                value={saveViewName}
+                onChange={(e) => setSaveViewName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !savingView && saveViewName.trim()) {
+                    saveCurrentView(saveViewName);
+                  } else if (e.key === 'Escape' && !savingView) {
+                    setShowSaveViewPopup(false);
+                    setSaveViewName('');
+                  }
+                }}
+                disabled={savingView}
+                placeholder="Ex: Configuration 2024, Waitlists..."
+                autoFocus
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  outline: 'none',
+                  opacity: savingView ? 0.6 : 1,
+                }}
+              />
+              <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', marginBottom: 0 }}>
+                Format libre. Si une vue avec ce nom existe déjà, vous pourrez choisir de l'écraser.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button
+                onClick={() => {
+                  if (!savingView) {
+                    setShowSaveViewPopup(false);
+                    setSaveViewName('');
+                  }
+                }}
+                disabled={savingView}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  backgroundColor: '#f3f4f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: savingView ? 'not-allowed' : 'pointer',
+                  opacity: savingView ? 0.5 : 1,
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => saveCurrentView(saveViewName)}
+                disabled={savingView || !saveViewName.trim()}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#ffffff',
+                  backgroundColor: (!savingView && saveViewName.trim()) ? '#3b82f6' : '#9ca3af',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: (savingView || !saveViewName.trim()) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {savingView ? 'Sauvegarde...' : 'Sauvegarder'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popup Load view */}
+      {showLoadViewPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            if (!loadingView) {
+              setShowLoadViewPopup(false);
+              setSelectedViewId(null);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '90%',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', margin: 0 }}>
+                Charger une vue
+              </h2>
+              <button
+                onClick={() => {
+                  if (!loadingView) {
+                    setShowLoadViewPopup(false);
+                    setSelectedViewId(null);
+                  }
+                }}
+                disabled={loadingView}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: loadingView ? 'not-allowed' : 'pointer',
+                  color: '#666',
+                  padding: '0',
+                  width: '32px',
+                  height: '32px',
+                  opacity: loadingView ? 0.5 : 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
+              {loadingViews ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                  Chargement des vues...
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {/* Option "(default)" */}
+                  <div
+                    onClick={() => !loadingView && setSelectedViewId(null)}
+                    style={{
+                      padding: '12px 16px',
+                      borderRadius: '6px',
+                      cursor: loadingView ? 'not-allowed' : 'pointer',
+                      backgroundColor: selectedViewId === null ? '#e0f2fe' : 'transparent',
+                      border: selectedViewId === null ? '2px solid #3b82f6' : '2px solid transparent',
+                      opacity: loadingView ? 0.5 : 1,
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!loadingView && selectedViewId !== null) {
+                        e.currentTarget.style.backgroundColor = '#f3f4f6';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!loadingView && selectedViewId !== null) {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                  >
+                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                      (default)
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                      Vue actuelle (non sauvegardée)
+                    </div>
+                  </div>
+
+                  {/* Liste des vues sauvegardées */}
+                  {availableViews.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
+                      Aucune vue sauvegardée pour ce Level 2
+                    </div>
+                  ) : (
+                    availableViews.map((view) => (
+                      <div
+                        key={view.id}
+                        onClick={() => !loadingView && setSelectedViewId(view.id)}
+                        style={{
+                          padding: '12px 16px',
+                          borderRadius: '6px',
+                          cursor: loadingView ? 'not-allowed' : 'pointer',
+                          backgroundColor: selectedViewId === view.id ? '#e0f2fe' : 'transparent',
+                          border: selectedViewId === view.id ? '2px solid #3b82f6' : '2px solid transparent',
+                          opacity: loadingView ? 0.5 : 1,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!loadingView && selectedViewId !== view.id) {
+                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!loadingView && selectedViewId !== view.id) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                          {view.name}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+              <button
+                onClick={() => {
+                  if (!loadingView) {
+                    setShowLoadViewPopup(false);
+                    setSelectedViewId(null);
+                  }
+                }}
+                disabled={loadingView}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  backgroundColor: '#f3f4f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: loadingView ? 'not-allowed' : 'pointer',
+                  opacity: loadingView ? 0.5 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => loadView(selectedViewId)}
+                disabled={loadingView || (selectedViewId === null && availableViews.length > 0)}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#ffffff',
+                  backgroundColor: (loadingView || (selectedViewId === null && availableViews.length > 0)) ? '#9ca3af' : '#3b82f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: (loadingView || (selectedViewId === null && availableViews.length > 0)) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {loadingView ? 'Chargement...' : 'OK'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popup Delete view */}
+      {showDeleteViewPopup && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+          onClick={() => {
+            if (!deletingView) {
+              setShowDeleteViewPopup(false);
+              setSelectedViewIdForDelete(null);
+            }
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: 'white',
+              borderRadius: '8px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '90%',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', margin: 0 }}>
+                Supprimer une vue
+              </h2>
+              <button
+                onClick={() => {
+                  if (!deletingView) {
+                    setShowDeleteViewPopup(false);
+                    setSelectedViewIdForDelete(null);
+                  }
+                }}
+                disabled={deletingView}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  fontSize: '24px',
+                  cursor: deletingView ? 'not-allowed' : 'pointer',
+                  color: '#666',
+                  padding: '0',
+                  width: '32px',
+                  height: '32px',
+                  opacity: deletingView ? 0.5 : 1,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
+              {loadingViewsForDelete ? (
+                <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
+                  Chargement des vues...
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {availableViewsForDelete.length === 0 ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
+                      Aucune vue sauvegardée pour ce Level 2
+                    </div>
+                  ) : (
+                    availableViewsForDelete.map((view) => (
+                      <div
+                        key={view.id}
+                        onClick={() => !deletingView && setSelectedViewIdForDelete(view.id)}
+                        style={{
+                          padding: '12px 16px',
+                          borderRadius: '6px',
+                          cursor: deletingView ? 'not-allowed' : 'pointer',
+                          backgroundColor: selectedViewIdForDelete === view.id ? '#fee2e2' : 'transparent',
+                          border: selectedViewIdForDelete === view.id ? '2px solid #dc2626' : '2px solid transparent',
+                          opacity: deletingView ? 0.5 : 1,
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!deletingView && selectedViewIdForDelete !== view.id) {
+                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!deletingView && selectedViewIdForDelete !== view.id) {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }
+                        }}
+                      >
+                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
+                          {view.name}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+              <button
+                onClick={() => {
+                  if (!deletingView) {
+                    setShowDeleteViewPopup(false);
+                    setSelectedViewIdForDelete(null);
+                  }
+                }}
+                disabled={deletingView}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#374151',
+                  backgroundColor: '#f3f4f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: deletingView ? 'not-allowed' : 'pointer',
+                  opacity: deletingView ? 0.5 : 1,
+                }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => deleteView(selectedViewIdForDelete)}
+                disabled={deletingView || selectedViewIdForDelete === null}
+                style={{
+                  padding: '10px 20px',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  color: '#ffffff',
+                  backgroundColor: (deletingView || selectedViewIdForDelete === null) ? '#9ca3af' : '#dc2626',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: (deletingView || selectedViewIdForDelete === null) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {deletingView ? 'Suppression...' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1096,4 +1096,108 @@ export const amortizationTypesAPI = {
   },
 };
 
+// Amortization Views API
+
+export interface AmortizationView {
+  id: number;
+  name: string;
+  level_2_value: string;
+  view_data: {
+    level_2_value: string;
+    amortization_types: Array<{
+      name: string;
+      level_1_values: string[];
+      start_date: string | null;
+      duration: number;
+      annual_amount: number | null;
+    }>;
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AmortizationViewListResponse {
+  views: AmortizationView[];
+  total: number;
+}
+
+export interface AmortizationViewCreate {
+  name: string;
+  level_2_value: string;
+  view_data: {
+    level_2_value: string;
+    amortization_types: Array<{
+      name: string;
+      level_1_values: string[];
+      start_date: string | null;
+      duration: number;
+      annual_amount: number | null;
+    }>;
+  };
+}
+
+export interface AmortizationViewUpdate {
+  name?: string;
+  view_data?: {
+    level_2_value: string;
+    amortization_types: Array<{
+      name: string;
+      level_1_values: string[];
+      start_date: string | null;
+      duration: number;
+      annual_amount: number | null;
+    }>;
+  };
+}
+
+export const amortizationViewsAPI = {
+  /**
+   * Récupère toutes les vues d'amortissement (optionnellement filtrées par Level 2)
+   */
+  getAll: async (level2Value?: string): Promise<AmortizationViewListResponse> => {
+    const url = level2Value 
+      ? `/api/amortization/views?level_2_value=${encodeURIComponent(level2Value)}`
+      : '/api/amortization/views';
+    return fetchAPI<AmortizationViewListResponse>(url);
+  },
+
+  /**
+   * Récupère une vue d'amortissement par ID
+   */
+  getById: async (id: number): Promise<AmortizationView> => {
+    return fetchAPI<AmortizationView>(`/api/amortization/views/${id}`);
+  },
+
+  /**
+   * Crée une nouvelle vue d'amortissement
+   */
+  create: async (data: AmortizationViewCreate): Promise<AmortizationView> => {
+    return fetchAPI<AmortizationView>('/api/amortization/views', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Met à jour une vue d'amortissement (renommage ou données)
+   */
+  update: async (id: number, data: AmortizationViewUpdate): Promise<AmortizationView> => {
+    return fetchAPI<AmortizationView>(`/api/amortization/views/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Supprime une vue d'amortissement
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/amortization/views/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 

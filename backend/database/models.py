@@ -259,3 +259,21 @@ class AmortizationType(Base):
         Index('idx_amortization_types_level2', 'level_2_value'),
     )
 
+
+class AmortizationView(Base):
+    """Vues sauvegardées de configuration d'amortissement."""
+    __tablename__ = "amortization_views"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)  # Nom de la vue (ex: "Waitlists", "Configuration 2024")
+    level_2_value = Column(String(100), nullable=False, index=True)  # Level 2 associé à cette vue
+    view_data = Column(JSON, nullable=False)  # Données JSON de la vue (types d'amortissement avec leurs configs)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_amortization_views_level2', 'level_2_value'),
+        Index('idx_amortization_views_name_level2', 'name', 'level_2_value'),
+    )
+

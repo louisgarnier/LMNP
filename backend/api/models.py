@@ -385,3 +385,36 @@ class AmortizationTypeTransactionCountResponse(BaseModel):
     type_id: int
     type_name: str
     transaction_count: int = Field(..., description="Nombre de transactions correspondant au type")
+
+
+# Amortization Views Models
+class AmortizationViewResponse(BaseModel):
+    """Model for amortization view response."""
+    id: int
+    name: str
+    level_2_value: str
+    view_data: dict = Field(..., description="Données JSON de la vue (types d'amortissement avec leurs configs)")
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class AmortizationViewCreate(BaseModel):
+    """Model for creating an amortization view."""
+    name: str = Field(..., description="Nom de la vue")
+    level_2_value: str = Field(..., description="Level 2 associé à cette vue")
+    view_data: dict = Field(..., description="Données JSON de la vue (types d'amortissement avec leurs configs)")
+
+
+class AmortizationViewUpdate(BaseModel):
+    """Model for updating an amortization view."""
+    name: Optional[str] = Field(None, description="Nouveau nom de la vue")
+    view_data: Optional[dict] = Field(None, description="Nouvelles données JSON de la vue")
+
+
+class AmortizationViewListResponse(BaseModel):
+    """Model for list of amortization views."""
+    views: List[AmortizationViewResponse]
+    total: int

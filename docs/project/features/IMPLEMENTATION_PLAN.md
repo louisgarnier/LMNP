@@ -3613,21 +3613,19 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 ### Step 5.8 : Backend + Frontend - Système de sauvegarde/chargement de vues
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Permettre à l'utilisateur de sauvegarder, charger, renommer et supprimer des vues de configuration d'amortissement.
 
 **Objectifs**:
 - Sauvegarder l'état complet de `AmortizationConfigCard` (tous les types d'amortissement avec leurs configurations)
 - Charger une vue sauvegardée pour restaurer une configuration précédente
-- Renommer une vue existante (via "Save As...")
 - Supprimer une vue sauvegardée
 - Interface discrète avec icône engrenage et menu déroulant
 
 **Fonctionnalités**:
-- **Save** : Sauvegarder la configuration actuelle avec un nom (popup de saisie)
+- **Save** : Sauvegarder la configuration actuelle avec un nom (popup de saisie). Si le nom existe déjà, propose d'écraser la vue existante
 - **Load** : Charger une vue sauvegardée (popup avec liste : "(default)" + vues sauvegardées)
-- **Save As...** : Sauvegarder la configuration actuelle avec un nouveau nom
-- **Delete...** : Supprimer une vue sauvegardée (popup avec liste)
+- **Delete...** : Supprimer une vue sauvegardée (popup avec liste et confirmation)
 
 **Paramètres sauvegardés**:
 - Level 2 sélectionné
@@ -3646,7 +3644,7 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.8.1: Frontend - Icône engrenage et menu déroulant
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter l'icône engrenage et le menu déroulant avec les options.
 
 **Objectifs**:
@@ -3655,139 +3653,145 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 - Options directement visibles (pas de sous-menu "View")
 
 **Tasks**:
-- [ ] Ajouter icône engrenage (⚙️) dans `AmortizationConfigCard` :
-  - Position : coin supérieur droit de la card OU au-dessus de la card à droite du bouton "🔄 Calculer les amortissements"
+- [x] Ajouter icône engrenage (⚙️) dans `AmortizationConfigCard` :
+  - Position : coin supérieur droit de la card (dans le header)
   - Style discret (petite taille, couleur grise)
   - Curseur pointer au survol
-- [ ] Créer menu déroulant qui s'affiche au clic sur l'engrenage :
+- [x] Créer menu déroulant qui s'affiche au clic sur l'engrenage :
   - **Load...** : Option du menu
-  - **Save** : Option du menu
-  - **Save As...** : Option du menu
-  - **Delete...** : Option du menu
+  - **Save** : Option du menu (permet aussi de créer avec nouveau nom ou écraser)
+  - **Delete...** : Option du menu (en rouge)
   - Séparateur visuel entre les options
-- [ ] Gérer l'affichage/masquage du menu (clic sur engrenage, clic ailleurs pour fermer)
-- [ ] Style cohérent avec le reste de l'application
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Gérer l'affichage/masquage du menu (clic sur engrenage, clic ailleurs pour fermer)
+- [x] Style cohérent avec le reste de l'application
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Icône engrenage visible et discrète
-- [ ] Menu déroulant s'affiche au clic sur l'engrenage
-- [ ] Menu contient les 4 options (Load..., Save, Save As..., Delete...)
-- [ ] Menu se ferme au clic ailleurs
-- [ ] Style cohérent avec l'application
+- [x] Icône engrenage visible et discrète
+- [x] Menu déroulant s'affiche au clic sur l'engrenage
+- [x] Menu contient les 3 options (Load..., Save, Delete...)
+- [x] Menu se ferme au clic ailleurs
+- [x] Style cohérent avec l'application
 
 ---
 
 #### Step 5.8.2: Backend - Table et modèles pour les vues
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la table BDD et les modèles pour stocker les vues d'amortissement.
 
 **Tasks**:
-- [ ] Créer table `amortization_views` avec colonnes :
+- [x] Créer table `amortization_views` avec colonnes :
   - `id` (PK)
   - `name` (nom de la vue, ex: "Waitlists", "Configuration 2024")
   - `level_2_value` (Level 2 associé à cette vue)
   - `view_data` (JSON : tous les types d'amortissement avec leurs configs)
   - `created_at`, `updated_at`
-- [ ] Créer modèle SQLAlchemy `AmortizationView` dans `backend/database/models.py`
-- [ ] Créer modèles Pydantic dans `backend/api/models.py` :
+- [x] Créer modèle SQLAlchemy `AmortizationView` dans `backend/database/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py` :
   - `AmortizationViewResponse`
   - `AmortizationViewCreate`
   - `AmortizationViewUpdate`
   - `AmortizationViewListResponse`
-- [ ] **Créer test unitaire pour le modèle**
-- [ ] **Valider avec l'utilisateur**
+- [x] **Créer test unitaire pour le modèle** (`test_amortization_view_model.py`)
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle `AmortizationView`
 - `backend/api/models.py` - Modèles Pydantic pour les vues
+- `backend/tests/test_amortization_view_model.py` - Test unitaire
 
 **Acceptance Criteria**:
-- [ ] Table créée en BDD
-- [ ] Modèle SQLAlchemy fonctionnel
-- [ ] Modèles Pydantic créés et validés
-- [ ] Tests unitaires passent
+- [x] Table créée en BDD
+- [x] Modèle SQLAlchemy fonctionnel
+- [x] Modèles Pydantic créés et validés
+- [x] Tests unitaires passent (4/4)
 
 ---
 
 #### Step 5.8.3: Backend - Endpoints API pour les vues
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les endpoints API pour gérer les vues d'amortissement.
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/routes/amortization_views.py`
-- [ ] Créer endpoint `GET /api/amortization/views?level_2_value=...` :
+- [x] Créer fichier `backend/api/routes/amortization_views.py`
+- [x] Créer endpoint `GET /api/amortization/views?level_2_value=...` :
   - Liste des vues pour un Level 2 donné
   - Retourne `AmortizationViewListResponse`
-- [ ] Créer endpoint `GET /api/amortization/views/{id}` :
+- [x] Créer endpoint `GET /api/amortization/views/{id}` :
   - Récupérer une vue complète par ID
   - Retourne `AmortizationViewResponse`
-- [ ] Créer endpoint `POST /api/amortization/views` :
+- [x] Créer endpoint `POST /api/amortization/views` :
   - Créer une nouvelle vue
   - Validation : nom non vide, pas de doublon pour le même Level 2
   - Retourne `AmortizationViewResponse`
-- [ ] Créer endpoint `PUT /api/amortization/views/{id}` :
+- [x] Créer endpoint `PUT /api/amortization/views/{id}` :
   - Renommer une vue ou mettre à jour les données
   - Validation : pas de doublon de nom pour le même Level 2
   - Retourne `AmortizationViewResponse`
-- [ ] Créer endpoint `DELETE /api/amortization/views/{id}` :
+- [x] Créer endpoint `DELETE /api/amortization/views/{id}` :
   - Supprimer une vue
   - Retourne 204 No Content
-- [ ] Enregistrer router dans `backend/main.py`
-- [ ] **Créer test manuel pour les endpoints**
-- [ ] **Valider avec l'utilisateur**
+- [x] Enregistrer router dans `backend/api/main.py`
+- [x] **Créer test manuel pour les endpoints** (`test_amortization_views_endpoints_manual.py`)
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/api/routes/amortization_views.py` - Endpoints API (5 endpoints)
-- Mise à jour `backend/main.py` - Enregistrement du router
+- Mise à jour `backend/api/main.py` - Enregistrement du router
+- `backend/tests/test_amortization_views_endpoints_manual.py` - Test manuel
 
 **Acceptance Criteria**:
-- [ ] Tous les endpoints fonctionnent correctement
-- [ ] Validation des données (nom non vide, pas de doublon)
-- [ ] Gestion d'erreur correcte (404, 400)
-- [ ] Tests manuels passent
+- [x] Tous les endpoints fonctionnent correctement
+- [x] Validation des données (nom non vide, pas de doublon)
+- [x] Gestion d'erreur correcte (404, 400)
+- [x] Tests manuels passent (5/5)
 
 ---
 
 #### Step 5.8.4: Frontend - API Client pour les vues
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter les méthodes API dans le client frontend.
 
 **Tasks**:
-- [ ] Ajouter `amortizationViewsAPI` dans `frontend/src/api/client.ts` :
+- [x] Ajouter `amortizationViewsAPI` dans `frontend/src/api/client.ts` :
   - `getAll(level2Value?: string)` : Liste des vues
   - `getById(id: number)` : Récupérer une vue par ID
   - `create(data: AmortizationViewCreate)` : Créer une vue
   - `update(id: number, data: AmortizationViewUpdate)` : Mettre à jour une vue
   - `delete(id: number)` : Supprimer une vue
-- [ ] Ajouter types TypeScript pour les vues
-- [ ] **Créer test manuel dans navigateur (console)**
-- [ ] **Valider avec l'utilisateur**
+- [x] Ajouter types TypeScript pour les vues :
+  - `AmortizationView`
+  - `AmortizationViewListResponse`
+  - `AmortizationViewCreate`
+  - `AmortizationViewUpdate`
+- [x] **Créer test manuel dans navigateur (console)** (`test_amortization_views_api.md`)
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- Mise à jour `frontend/src/api/client.ts`
+- Mise à jour `frontend/src/api/client.ts` - API client complet
+- `frontend/test_amortization_views_api.md` - Guide de test manuel
 
 **Acceptance Criteria**:
-- [ ] Toutes les méthodes API sont disponibles
-- [ ] Types TypeScript corrects
-- [ ] Appels API fonctionnent depuis la console
+- [x] Toutes les méthodes API sont disponibles (5 méthodes)
+- [x] Types TypeScript corrects (4 interfaces)
+- [x] Appels API fonctionnent depuis la console (guide de test créé)
 
 ---
 
 #### Step 5.8.5: Frontend - Popup "Save view"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Implémenter le popup de sauvegarde de vue.
 
 **Tasks**:
-- [ ] Créer popup "Save view" :
+- [x] Créer popup "Save view" :
   - Input pour nom de la vue (format libre)
   - Boutons "Sauvegarder" / "Annuler"
   - Validation : nom non vide
-- [ ] Implémenter fonction `saveCurrentView(name: string)` :
+- [x] Implémenter fonction `saveCurrentView(name: string)` :
   - Collecter tous les types d'amortissement actuels avec leurs configs
   - Créer structure JSON `view_data` :
     ```json
@@ -3806,66 +3810,81 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
     }
     ```
   - Appeler API `POST /api/amortization/views`
-- [ ] Gérer les erreurs (doublon de nom, etc.)
-- [ ] Afficher message de succès après sauvegarde
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Gérer les erreurs (doublon de nom, etc.)
+- [x] Afficher message de succès après sauvegarde
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx` :
+  - Import `amortizationViewsAPI`
+  - États `showSaveViewPopup`, `saveViewName`, `savingView`
+  - Fonction `saveCurrentView(name: string)`
+  - Fonction `handleOpenSaveView()`
+  - Popup modal avec input et boutons
 
 **Acceptance Criteria**:
-- [ ] Popup s'affiche au clic sur "Save"
-- [ ] Saisie du nom fonctionne
-- [ ] Validation nom non vide
-- [ ] Sauvegarde fonctionne (appel API)
-- [ ] Gestion d'erreur correcte (doublon)
-- [ ] Message de succès affiché
+- [x] Popup s'affiche au clic sur "Save"
+- [x] Saisie du nom fonctionne (input avec autoFocus)
+- [x] Validation nom non vide (bouton désactivé si vide)
+- [x] Sauvegarde fonctionne (appel API `amortizationViewsAPI.create`)
+- [x] Gestion d'erreur correcte (doublon, Level 2 non sélectionné)
+- [x] Message de succès affiché (alert)
+- [x] Support clavier (Enter pour sauvegarder, Escape pour annuler)
 
 ---
 
 #### Step 5.8.6: Frontend - Popup "Load view"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Implémenter le popup de chargement de vue.
 
 **Tasks**:
-- [ ] Créer popup "Load view" :
+- [x] Créer popup "Load view" :
   - Liste avec "(default)" en haut (vue actuelle, non cliquable pour chargement)
   - Liste des vues sauvegardées pour le Level 2 actuel (chargées depuis l'API)
   - Sélection d'une vue dans la liste
   - Boutons "OK" (charge la vue sélectionnée) / "Cancel" (ferme sans charger)
-- [ ] Confirmation avant chargement :
+- [x] Confirmation avant chargement :
   - Si vue sélectionnée (pas "(default)") : "Cette action va remplacer la configuration actuelle. Continuer ?"
   - Si annulé : fermer le popup sans charger
-- [ ] Implémenter fonction `loadView(viewId: number)` :
+- [x] Implémenter fonction `loadView(viewId: number | null)` :
   - Appeler API `GET /api/amortization/views/{id}`
   - Récupérer `level_2_value` et `view_data`
-  - Changer le Level 2 sélectionné (via `handleLevel2Change`)
+  - Changer le Level 2 sélectionné (via `handleLevel2Change` et `setLevel2Value`)
   - Supprimer tous les types existants pour ce Level 2
+  - Supprimer tous les résultats d'amortissement
   - Créer les types depuis `view_data.amortization_types`
+  - Recharger les types depuis l'API
   - Recharger les montants (`loadAmounts`, `loadCumulatedAmounts`, `loadTransactionCounts`)
-- [ ] Gérer les erreurs (vue introuvable, etc.)
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Recalculer les amortissements (`triggerAutoRecalculate`)
+- [x] Gérer les erreurs (vue introuvable, Level 2 non sélectionné, etc.)
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx` :
+  - États `showLoadViewPopup`, `availableViews`, `loadingViews`, `selectedViewId`, `loadingView`
+  - Fonction `handleOpenLoadView()` - Charge les vues et ouvre le popup
+  - Fonction `loadView(viewId: number | null)` - Charge une vue et restaure la configuration
+  - Popup modal avec liste des vues et sélection
 
 **Acceptance Criteria**:
-- [ ] Popup s'affiche au clic sur "Load..."
-- [ ] Liste des vues chargée depuis l'API
-- [ ] "(default)" affiché en haut (non sélectionnable)
-- [ ] Sélection d'une vue fonctionne
-- [ ] Confirmation avant chargement
-- [ ] Chargement fonctionne (remplace configuration actuelle)
-- [ ] Level 2 automatiquement défini lors du chargement
-- [ ] Tous les paramètres correctement restaurés
+- [x] Popup s'affiche au clic sur "Load..."
+- [x] Liste des vues chargée depuis l'API (`amortizationViewsAPI.getAll(level2Value)`)
+- [x] "(default)" affiché en haut (sélectionnable mais ne charge rien)
+- [x] Sélection d'une vue fonctionne (highlight visuel)
+- [x] Confirmation avant chargement (window.confirm)
+- [x] Chargement fonctionne (remplace configuration actuelle)
+- [x] Level 2 automatiquement défini lors du chargement (via `onLevel2Change` et localStorage)
+- [x] Tous les paramètres correctement restaurés (types, montants, cumulés, transaction counts)
 
 ---
 
 #### Step 5.8.7: Frontend - Popup "Save As..."
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Implémenter le popup "Save As..." pour sauvegarder avec un nouveau nom.
+**Status**: ❌ ANNULÉ  
+**Description**: ~~Implémenter le popup "Save As..." pour sauvegarder avec un nouveau nom.~~
+
+**Note**: Cette fonctionnalité n'est plus nécessaire car "Save" avec un nouveau nom fait déjà la même chose (création d'une nouvelle vue). L'option "Save As..." a été supprimée du menu.
 
 **Tasks**:
 - [ ] Créer popup "Save As..." :
@@ -3893,36 +3912,41 @@ Transformation des 9 scripts Python en application web moderne avec dashboard in
 ---
 
 #### Step 5.8.8: Frontend - Popup "Delete view"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Implémenter le popup de suppression de vue.
 
 **Tasks**:
-- [ ] Créer popup "Delete view" :
+- [x] Créer popup "Delete view" :
   - Liste des vues sauvegardées pour le Level 2 actuel (chargées depuis l'API)
   - Sélection d'une vue dans la liste
   - Boutons "Supprimer" / "Annuler"
-- [ ] Confirmation avant suppression :
-  - "Êtes-vous sûr de vouloir supprimer la vue '{nom}' ?"
+- [x] Confirmation avant suppression :
+  - "Êtes-vous sûr de vouloir supprimer la vue '{nom}' ? Cette action est irréversible."
   - Si annulé : fermer le popup sans supprimer
-- [ ] Implémenter fonction `deleteView(viewId: number)` :
+- [x] Implémenter fonction `deleteView(viewId: number | null)` :
   - Appeler API `DELETE /api/amortization/views/{id}`
-  - Rafraîchir la liste des vues (si popup Load ouvert)
-- [ ] Gérer les erreurs (vue introuvable, etc.)
-- [ ] Afficher message de succès après suppression
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Retirer la vue de la liste après suppression
+  - Fermer le popup si la liste est vide
+- [x] Gérer les erreurs (vue introuvable, Level 2 non sélectionné, etc.)
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx` :
+  - États `showDeleteViewPopup`, `availableViewsForDelete`, `loadingViewsForDelete`, `selectedViewIdForDelete`, `deletingView`
+  - Fonction `handleOpenDeleteView()` - Charge les vues et ouvre le popup
+  - Fonction `deleteView(viewId: number | null)` - Supprime une vue avec confirmation
+  - Popup modal avec liste des vues et sélection
 
 **Acceptance Criteria**:
-- [ ] Popup s'affiche au clic sur "Delete..."
-- [ ] Liste des vues chargée depuis l'API
-- [ ] Sélection d'une vue fonctionne
-- [ ] Confirmation avant suppression
-- [ ] Suppression fonctionne (appel API)
-- [ ] Gestion d'erreur correcte
-- [ ] Message de succès affiché
+- [x] Popup s'affiche au clic sur "Delete..."
+- [x] Liste des vues chargée depuis l'API (`amortizationViewsAPI.getAll(level2Value)`)
+- [x] Sélection d'une vue fonctionne (highlight visuel en rouge)
+- [x] Confirmation avant suppression (window.confirm avec nom de la vue)
+- [x] Suppression fonctionne (appel API `amortizationViewsAPI.delete(viewId)`)
+- [x] Gestion d'erreur correcte (vue introuvable, Level 2 non sélectionné)
+- [x] Liste mise à jour après suppression (vue retirée de la liste)
+- [x] Popup se ferme automatiquement si la liste est vide
 
 ---
 
