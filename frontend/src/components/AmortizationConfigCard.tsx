@@ -64,6 +64,12 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
   const [loadingViewsForDelete, setLoadingViewsForDelete] = useState(false);
   const [selectedViewIdForDelete, setSelectedViewIdForDelete] = useState<number | null>(null);
   const [deletingView, setDeletingView] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Marquer le composant comme monté après l'hydratation
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Charger les valeurs uniques de level_2 au montage
   useEffect(() => {
@@ -1541,7 +1547,7 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
               </>
             )}
           </select>
-          {level2Value && (
+          {mounted && level2Value && (
             <button
               onClick={resetTypesForLevel2}
               disabled={loadingTypes}
