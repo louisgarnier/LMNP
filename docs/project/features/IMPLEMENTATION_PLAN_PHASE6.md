@@ -950,6 +950,14 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Créer l'interface d'affichage du compte de résultat avec tableau multi-années. Structure identique à `AmortizationTable`.
 
+**⚠️ IMPORTANT : Liaison avec CompteResultatConfigCard**
+- La `CompteResultatTable` est **toujours liée** aux données affichées dans `CompteResultatConfigCard`
+- Les montants affichés dans le tableau sont calculés **uniquement** à partir des mappings configurés dans la card config
+- Les catégories affichées dans le tableau correspondent **exactement** aux catégories configurées dans la card config
+- Les vues d'amortissement et crédits utilisés sont ceux **sélectionnés dans la colonne "Vue"** de la card config (Steps 7.5.11 et 7.5.12)
+- Toute modification dans la card config (ajout/suppression de mapping, changement de vue, changement de crédits) doit **automatiquement** mettre à jour le tableau
+- Le tableau ne doit afficher que les catégories qui ont au moins un mapping configuré dans la card config
+
 **Structure du tableau** :
 - **Colonnes** : Catégories | Année 1 | Année 2 | Année 3 | ... (jusqu'à l'année en cours)
 - **Lignes** :
@@ -973,7 +981,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 **Fonctionnalités** :
 - Calculer automatiquement pour toutes les années jusqu'à l'année en cours
 - Possibilité d'ajouter des années au fur et à mesure
-- Sélecteur de vue d'amortissement (dropdown avec toutes les vues disponibles)
+- Utiliser les vues d'amortissement et crédits sélectionnés dans la card config (Step 7.5.11 et 7.5.12)
 - Formatage des montants (€, séparateurs de milliers, 2 décimales)
 - Mise en évidence des totaux (fond gris, texte en gras)
 - Résultat net en magenta (comme dans l'image)
@@ -1005,43 +1013,34 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-#### Step 7.6.2 : Frontend - Sélecteur de vue d'amortissement
+#### Step 7.6.2 : Backend - Calcul des montants par catégorie et année
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Ajouter sélecteur de vue d'amortissement dans le header de la card.
+**Description**: Implémenter le calcul des montants pour chaque catégorie et chaque année en utilisant **uniquement** les configurations de la card config (`CompteResultatConfigCard`).
 
-**Tasks**:
-- [ ] Ajouter dropdown "Vue d'amortissement" dans le header de la card
-- [ ] Charger toutes les vues d'amortissement disponibles depuis l'API
-- [ ] Permettre la sélection d'une vue
-- [ ] Sauvegarder la sélection (localStorage ou state)
-- [ ] Utiliser cette vue pour récupérer les amortissements dans les calculs
-- [ ] **Tester dans le navigateur**
-
-**Acceptance Criteria**:
-- [ ] Dropdown visible dans le header
-- [ ] Toutes les vues chargées depuis l'API
-- [ ] Sélection fonctionne
-- [ ] Sélection sauvegardée
-- [ ] **Test visuel dans navigateur validé**
-
----
-
-#### Step 7.6.3 : Backend - Calcul des montants par catégorie et année
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Implémenter le calcul des montants pour chaque catégorie et chaque année.
+**⚠️ Principe fondamental** :
+- Les calculs sont basés **exclusivement** sur les mappings configurés dans `CompteResultatConfigCard`
+- Seules les catégories avec au moins un mapping configuré sont calculées et affichées
+- Les vues d'amortissement et crédits utilisés sont ceux sélectionnés dans la card config
 
 **Tasks**:
 - [ ] Mettre à jour `compte_resultat_service.py` pour calculer les montants par catégorie et année
+- [ ] Récupérer tous les mappings configurés depuis `CompteResultatMapping`
 - [ ] Pour chaque catégorie avec mapping level_1/level_2 :
   - Filtrer les transactions par année (date entre 01/01/année et 31/12/année)
   - Filtrer par level_1 OU level_2 selon le mapping (logique OR)
+  - Si plusieurs mappings pour la même catégorie : sommer les résultats de tous les mappings
   - Sommer les montants (`Transaction.quantite`)
 - [ ] Pour "Charges d'amortissements" :
-  - Récupérer le total depuis la vue d'amortissement sélectionnée pour l'année
-- [ ] Pour "Coût du financement" :
-  - Filtrer `loan_payments` par année
-  - Sommer `interest` + `insurance` de tous les crédits
-- [ ] Créer endpoint `GET /api/compte-resultat/calculate` qui retourne les montants par catégorie et année
+  - Récupérer le mapping correspondant et son `amortization_view_id`
+  - Si `amortization_view_id` est défini : récupérer le total depuis cette vue d'amortissement pour l'année
+  - Si `amortization_view_id` est NULL : retourner 0 ou une erreur
+- [ ] Pour "Coût du financement (hors remboursement du capital)" :
+  - Récupérer le mapping correspondant et son `selected_loan_ids`
+  - Si `selected_loan_ids` est défini : filtrer `loan_payments` par année et par les IDs de crédits sélectionnés
+  - Sommer `interest` + `insurance` uniquement pour les crédits sélectionnés
+  - Si `selected_loan_ids` est NULL ou vide : retourner 0
+- [ ] Créer endpoint `GET /api/compte-resultat/calculate?year={year}` qui retourne les montants par catégorie pour une année donnée
+- [ ] Ou créer endpoint `GET /api/compte-resultat/calculate?years={year1,year2,...}` pour plusieurs années
 - [ ] **Créer test unitaire**
 - [ ] **Valider avec l'utilisateur**
 
@@ -1052,23 +1051,31 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 **Acceptance Criteria**:
 - [ ] Calculs corrects pour chaque catégorie avec mapping
-- [ ] Calculs corrects pour catégories spéciales (amortissements, coût financement)
+- [ ] Utilisation de `amortization_view_id` du mapping pour "Charges d'amortissements"
+- [ ] Utilisation de `selected_loan_ids` du mapping pour "Coût du financement"
+- [ ] Gestion des cas où vue/crédits ne sont pas sélectionnés (retourner 0)
 - [ ] Endpoint retourne les montants par catégorie et année
 - [ ] Tests passent
 - [ ] **Utilisateur confirme que les calculs sont corrects**
 
 ---
 
-#### Step 7.6.4 : Frontend - Chargement et affichage des montants
+#### Step 7.6.3 : Frontend - Chargement et affichage des montants
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Charger les montants depuis l'API et les afficher dans le tableau.
+**Description**: Charger les montants depuis l'API et les afficher dans le tableau. **Les montants sont toujours liés aux mappings de la card config.**
+
+**⚠️ Liaison avec CompteResultatConfigCard** :
+- Le tableau doit se mettre à jour automatiquement quand les mappings changent dans la card config
+- Utiliser le callback `onConfigUpdated` de `CompteResultatConfigCard` pour déclencher le rechargement
+- Afficher uniquement les catégories qui ont des mappings configurés dans la card config
 
 **Tasks**:
-- [ ] Appeler l'API pour calculer les montants pour toutes les années
+- [ ] Appeler l'API pour calculer les montants pour toutes les années (jusqu'à l'année en cours)
 - [ ] Afficher les montants dans les cellules correspondantes (catégorie × année)
 - [ ] Gérer l'état de chargement (spinner ou "Chargement...")
 - [ ] Gérer les erreurs (affichage de message d'erreur)
-- [ ] Recharger les données quand la vue d'amortissement change
+- [ ] Recharger les données quand les mappings changent (via callback `onConfigUpdated` de la card config)
+- [ ] Afficher un message si une catégorie spéciale n'a pas de vue/crédits sélectionnés (ex: "Vue non configurée")
 - [ ] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
@@ -1076,12 +1083,70 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - [ ] Montants affichés dans les bonnes cellules
 - [ ] État de chargement géré
 - [ ] Erreurs gérées
-- [ ] Rechargement automatique quand vue d'amortissement change
+- [ ] Rechargement automatique quand les mappings changent dans la card config
+- [ ] Message affiché si vue/crédits non configurés
 - [ ] **Test visuel dans navigateur validé**
 
 ---
 
-#### Step 7.6.5 : Frontend - Calcul et affichage des totaux
+#### Step 7.6.4 : Frontend - Test et validation des charges d'amortissements
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Tester et valider spécifiquement l'affichage correct de la catégorie "Charges d'amortissements".
+
+**Tasks**:
+- [ ] Vérifier que les montants sont récupérés depuis la vue d'amortissement sélectionnée dans la card config (Step 7.5.11)
+- [ ] Tester avec une vue d'amortissement sélectionnée : montants affichés correctement dans le tableau
+- [ ] Tester sans vue sélectionnée : afficher "Vue non configurée" ou 0,00 €
+- [ ] Vérifier que les montants correspondent aux totaux de la vue d'amortissement pour chaque année
+  - Comparer avec les données de `AmortizationResult` pour la vue sélectionnée
+  - Vérifier que la somme par année correspond au total d'amortissement de la vue
+- [ ] Tester le rechargement automatique quand la vue d'amortissement change dans la card config
+- [ ] Tester avec différentes vues d'amortissement : vérifier que les montants changent correctement
+- [ ] Vérifier que les montants sont corrects pour plusieurs années
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Montants corrects depuis la vue sélectionnée dans la card config
+- [ ] Message affiché si vue non configurée
+- [ ] Montants correspondent aux totaux de la vue d'amortissement pour chaque année
+- [ ] Rechargement automatique quand vue change dans card config
+- [ ] Montants corrects pour plusieurs années
+- [ ] **Test visuel dans navigateur validé**
+- [ ] **Utilisateur confirme que les montants sont corrects**
+
+---
+
+#### Step 7.6.5 : Frontend - Test et validation du coût du financement
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Tester et valider spécifiquement l'affichage correct de la catégorie "Coût du financement (hors remboursement du capital)".
+
+**Tasks**:
+- [ ] Vérifier que les montants sont calculés depuis les crédits sélectionnés dans la card config (Step 7.5.12)
+- [ ] Tester avec un crédit sélectionné : montants affichés correctement (interest + insurance)
+- [ ] Tester avec plusieurs crédits sélectionnés : somme des montants de tous les crédits
+- [ ] Tester sans crédit sélectionné : afficher "Crédits non configurés" ou 0,00 €
+- [ ] Vérifier que les montants correspondent à la somme des loan_payments (interest + insurance) pour les crédits sélectionnés, par année
+  - Filtrer `loan_payments` par année et par les IDs de crédits sélectionnés
+  - Sommer `interest + insurance` pour chaque crédit sélectionné
+  - Vérifier que le total correspond au montant affiché
+- [ ] Tester le rechargement automatique quand les crédits sélectionnés changent dans la card config
+- [ ] Tester avec différents crédits sélectionnés : vérifier que les montants changent correctement
+- [ ] Vérifier que les montants sont corrects pour plusieurs années
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Montants corrects depuis les crédits sélectionnés dans la card config
+- [ ] Somme correcte pour plusieurs crédits sélectionnés
+- [ ] Message affiché si crédits non configurés
+- [ ] Montants correspondent à la somme des loan_payments (interest + insurance) pour les crédits sélectionnés
+- [ ] Rechargement automatique quand crédits changent dans card config
+- [ ] Montants corrects pour plusieurs années
+- [ ] **Test visuel dans navigateur validé**
+- [ ] **Utilisateur confirme que les montants sont corrects**
+
+---
+
+#### Step 7.6.6 : Frontend - Calcul et affichage des totaux
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Calculer et afficher les lignes de totaux (comme dans l'image).
 
@@ -1104,7 +1169,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-#### Step 7.6.6 : Frontend - Formatage des montants
+#### Step 7.6.7 : Frontend - Formatage des montants
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Formater les montants (€, séparateurs de milliers, 2 décimales).
 
@@ -1125,7 +1190,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-#### Step 7.6.7 : Frontend - Ajout d'années
+#### Step 7.6.8 : Frontend - Ajout d'années
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Permettre d'ajouter des années au fur et à mesure.
 
@@ -1149,14 +1214,18 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 **Step 7.6 - Acceptance Criteria globaux**:
 - [ ] Tableau affiché dans l'onglet "Compte de résultat" (sous la card de config)
+- [ ] **⚠️ LIAISON AVEC CompteResultatConfigCard** : Le tableau est **toujours lié** aux données de la card config
+- [ ] **Seules les catégories avec mappings configurés dans la card config sont affichées**
 - [ ] Structure : 1 colonne catégories + 1 colonne par année
 - [ ] Années calculées automatiquement (jusqu'à l'année en cours)
-- [ ] Sélecteur de vue d'amortissement fonctionne
-- [ ] Montants calculés et affichés correctement
+- [ ] Utilisation des vues d'amortissement et crédits sélectionnés dans la card config (Steps 7.5.11 et 7.5.12)
+- [ ] Montants calculés et affichés correctement pour toutes les catégories configurées
 - [ ] Totaux calculés et affichés (fond gris, texte en gras)
 - [ ] Résultat net en magenta
 - [ ] Formatage des montants correct (€, séparateurs, 2 décimales)
 - [ ] Ajout d'années fonctionne
+- [ ] **Rechargement automatique quand les mappings changent dans la card config**
+- [ ] **Toute modification dans la card config (ajout/suppression mapping, changement vue/crédits) met à jour le tableau automatiquement**
 - [ ] **Test visuel dans navigateur validé**
 - [ ] **Utilisateur confirme que l'interface correspond à l'image**
 
