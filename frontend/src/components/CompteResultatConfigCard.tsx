@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { compteResultatAPI, CompteResultatMapping, transactionsAPI, compteResultatMappingViewsAPI, CompteResultatMappingView, amortizationViewsAPI } from '@/api/client';
+import { compteResultatAPI, CompteResultatMapping, transactionsAPI, compteResultatMappingViewsAPI, CompteResultatMappingView, amortizationViewsAPI, loanConfigsAPI, LoanConfig } from '@/api/client';
 
 interface CompteResultatConfigCardProps {
   onConfigUpdated?: () => void;
@@ -82,6 +82,10 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   // États pour gérer les vues d'amortissement (Step 7.5.11)
   const [amortizationViews, setAmortizationViews] = useState<Array<{ id: number; name: string; level_2_value: string }>>([]);
   const [loadingAmortizationViews, setLoadingAmortizationViews] = useState(false);
+  // États pour gérer les crédits (Step 7.5.12)
+  const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
+  const [loadingLoanConfigs, setLoadingLoanConfigs] = useState(false);
+  const [showLoanDropdown, setShowLoanDropdown] = useState<number | null>(null); // ID du mapping pour lequel le dropdown est ouvert
 
   // Charger les mappings et les valeurs level_1 et level_2 au montage
   useEffect(() => {
@@ -89,6 +93,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     loadLevel1Values();
     loadLevel2Values();
     loadAmortizationViews();
+    loadLoanConfigs();
   }, []);
 
   // Charger les vues d'amortissement (Step 7.5.11)
@@ -128,6 +133,58 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
   };
 
+  // Charger les crédits configurés (Step 7.5.12)
+  const loadLoanConfigs = async () => {
+    try {
+      setLoadingLoanConfigs(true);
+      const response = await loanConfigsAPI.getAll();
+      setLoanConfigs(response.configs || []);
+      console.log('✅ [CompteResultatConfigCard] Crédits chargés:', response.configs.length);
+    } catch (err: any) {
+      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des crédits:', err);
+      setLoanConfigs([]);
+    } finally {
+      setLoadingLoanConfigs(false);
+    }
+  };
+
+  // Gérer le changement de sélection des crédits (Step 7.5.12)
+  const handleLoanSelectionChange = async (mappingId: number, loanId: number, checked: boolean) => {
+    try {
+      const mapping = mappings.find(m => m.id === mappingId);
+      if (!mapping) return;
+
+      const currentSelectedIds = mapping.selected_loan_ids || [];
+      let newSelectedIds: number[];
+
+      if (checked) {
+        // Ajouter le crédit à la sélection
+        newSelectedIds = [...currentSelectedIds, loanId];
+      } else {
+        // Retirer le crédit de la sélection
+        newSelectedIds = currentSelectedIds.filter(id => id !== loanId);
+      }
+
+      console.log('🔄 [CompteResultatConfigCard] Changement de sélection de crédits:', { mappingId, loanId, checked, newSelectedIds });
+      
+      await compteResultatAPI.updateMapping(mappingId, {
+        selected_loan_ids: newSelectedIds.length > 0 ? newSelectedIds : null,
+      });
+      
+      console.log('✅ [CompteResultatConfigCard] Sélection de crédits mise à jour avec succès');
+      
+      // Recharger les mappings
+      await loadMappings();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [CompteResultatConfigCard] Erreur lors de la mise à jour de la sélection de crédits:', err);
+      alert(`❌ Erreur lors de la mise à jour: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
   // Fermer le menu contextuel au clic ailleurs
   useEffect(() => {
     const handleClickOutside = () => {
@@ -143,6 +200,37 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
       };
     }
   }, [contextMenu]);
+
+  // Fermer le dropdown de crédits au clic ailleurs (Step 7.5.12)
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showLoanDropdown !== null) {
+        const target = event.target as HTMLElement;
+        if (!target.closest('[data-loan-dropdown]')) {
+          setShowLoanDropdown(null);
+        }
+      }
+    };
+
+    if (showLoanDropdown !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [showLoanDropdown]);
+
+  // Recharger les crédits quand onConfigUpdated est appelé (Step 7.5.12)
+  // Cela permet de mettre à jour la liste des crédits si un crédit est ajouté/supprimé ailleurs
+  useEffect(() => {
+    if (onConfigUpdated) {
+      // Recharger les crédits après un court délai pour laisser le temps aux autres composants de se mettre à jour
+      const timeout = setTimeout(() => {
+        loadLoanConfigs();
+      }, 500);
+      return () => clearTimeout(timeout);
+    }
+  }, [onConfigUpdated]);
 
   // Fermer le menu View au clic ailleurs (Step 7.5.10)
   useEffect(() => {
@@ -1396,10 +1484,108 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                           </select>
                         )
                       ) : mapping.category_name === 'Coût du financement (hors remboursement du capital)' ? (
-                        // Pour le coût du financement, on affichera "Aucune valeur" pour l'instant (Step 7.5.12)
-                        <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
-                          Aucune valeur
-                        </span>
+                        // Dropdown avec checkboxes pour sélectionner les crédits (Step 7.5.12)
+                        <div style={{ position: 'relative' }} data-loan-dropdown>
+                          {loadingLoanConfigs ? (
+                            <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                              Chargement...
+                            </span>
+                          ) : loanConfigs.length === 0 ? (
+                            <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                              vue à configurer
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setShowLoanDropdown(showLoanDropdown === mapping.id ? null : mapping.id)}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 8px',
+                                  fontSize: '13px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#ffffff',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <span>
+                                  {(() => {
+                                    const selectedIds = mapping.selected_loan_ids || [];
+                                    if (selectedIds.length === 0) {
+                                      return 'Sélectionner des crédits...';
+                                    } else if (selectedIds.length === 1) {
+                                      const loan = loanConfigs.find(l => l.id === selectedIds[0]);
+                                      return loan ? loan.name : `${selectedIds.length} crédit sélectionné`;
+                                    } else {
+                                      return `${selectedIds.length} crédits sélectionnés`;
+                                    }
+                                  })()}
+                                </span>
+                                <span style={{ fontSize: '10px' }}>{showLoanDropdown === mapping.id ? '▲' : '▼'}</span>
+                              </button>
+                              {showLoanDropdown === mapping.id && (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    marginTop: '4px',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '4px',
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                    zIndex: 1000,
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                  }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {loanConfigs.map((loan) => {
+                                    const selectedIds = mapping.selected_loan_ids || [];
+                                    const isChecked = selectedIds.includes(loan.id);
+                                    return (
+                                      <label
+                                        key={loan.id}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          padding: '8px 12px',
+                                          cursor: 'pointer',
+                                          borderBottom: '1px solid #f3f4f6',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            handleLoanSelectionChange(mapping.id, loan.id, e.target.checked);
+                                          }}
+                                          style={{
+                                            marginRight: '8px',
+                                            cursor: 'pointer',
+                                          }}
+                                        />
+                                        <span style={{ fontSize: '13px', color: '#374151' }}>{loan.name}</span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       ) : (
                         // Pour toutes les autres catégories
                         <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>

@@ -893,35 +893,36 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.5.12 : Frontend - Gestion des coûts du financement
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Gérer la sélection de crédits pour la catégorie "Coût du financement (hors remboursement du capital)" dans la colonne "Vue".
 
 **Tasks**:
-- [ ] Pour la catégorie "Coût du financement (hors remboursement du capital)" :
+- [x] Pour la catégorie "Coût du financement (hors remboursement du capital)" :
   - Dans la colonne "Vue" : Dropdown avec checkboxes (multi-sélection)
   - Récupérer tous les crédits configurés (via `loanConfigsAPI.getAll()`)
   - Afficher la liste des crédits avec checkboxes (nom du crédit)
   - Permettre de sélectionner un ou plusieurs crédits
   - Si aucun crédit configuré : afficher "vue à configurer" (grisé)
-  - Sauvegarder la sélection en base de données (backend : stocker les IDs des crédits sélectionnés, peut-être dans un champ JSON dans `CompteResultatMapping`)
-- [ ] Afficher "Données calculées" dans les colonnes Level 1 (valeurs) et Level 2 (valeurs) pour cette catégorie
-- [ ] Désactiver les colonnes Level 1 et Level 2 pour cette catégorie (read-only, grisées)
-- [ ] Afficher un message explicatif (tooltip ou texte) : "Données récupérées depuis la table loan_payments (somme interest + insurance par année pour les crédits sélectionnés)"
-- [ ] Gérer dynamiquement l'ajout/suppression de crédits (si un crédit est ajouté/supprimé, mettre à jour le dropdown)
-- [ ] **Tester dans le navigateur**
+  - Sauvegarder la sélection en base de données (backend : stocker les IDs des crédits sélectionnés dans `selected_loan_ids` JSON)
+- [x] Afficher "Données calculées" dans les colonnes Level 1 (valeurs) et Level 2 (valeurs) pour cette catégorie
+- [x] Désactiver les colonnes Level 1 et Level 2 pour cette catégorie (read-only, grisées)
+- [x] Afficher un message explicatif (tooltip ou texte) : "Données récupérées depuis la table loan_payments (somme interest + insurance par année pour les crédits sélectionnés)"
+- [x] Gérer dynamiquement l'ajout/suppression de crédits (si un crédit est ajouté/supprimé, mettre à jour le dropdown)
+- [x] Fermeture du dropdown au clic ailleurs
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Catégorie "Coût du financement" détectée automatiquement
-- [ ] Dropdown avec checkboxes fonctionne dans la colonne "Vue"
-- [ ] Liste des crédits configurés affichée avec checkboxes
-- [ ] Multi-sélection fonctionne (un ou plusieurs crédits)
-- [ ] "vue à configurer" affiché si aucun crédit disponible
-- [ ] Sélection des crédits sauvegardée et persistée en BDD
-- [ ] Badge "Données calculées" affiché dans colonnes Level 1 et Level 2
-- [ ] Colonnes Level 1 et Level 2 désactivées (read-only, grisées)
-- [ ] Mise à jour automatique lors de l'ajout/suppression de crédits
-- [ ] Message explicatif affiché (tooltip ou texte)
-- [ ] **Test visuel dans navigateur validé**
+- [x] Catégorie "Coût du financement" détectée automatiquement
+- [x] Dropdown avec checkboxes fonctionne dans la colonne "Vue"
+- [x] Liste des crédits configurés affichée avec checkboxes
+- [x] Multi-sélection fonctionne (un ou plusieurs crédits)
+- [x] "vue à configurer" affiché si aucun crédit disponible
+- [x] Sélection des crédits sauvegardée et persistée en BDD
+- [x] Badge "Données calculées" affiché dans colonnes Level 1 et Level 2
+- [x] Colonnes Level 1 et Level 2 désactivées (read-only, grisées)
+- [x] Mise à jour automatique lors de l'ajout/suppression de crédits
+- [x] Message explicatif affiché (tooltip ou texte)
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
