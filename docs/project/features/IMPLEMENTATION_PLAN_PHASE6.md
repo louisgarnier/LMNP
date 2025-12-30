@@ -857,22 +857,31 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-#### Step 7.5.11 : Frontend - Gestion des catégories spéciales
+#### Step 7.5.11 : Frontend - Colonne "Vue" et gestion des charges d'amortissement
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Finaliser l'affichage et la gestion des catégories spéciales (amortissements, coût financement).
+**Description**: Ajouter une colonne "Vue" au tableau et gérer la sélection de vue d'amortissement pour la catégorie "Charges d'amortissements".
 
 **Tasks**:
-- [ ] Détecter les catégories "Charges d'amortissements" et "Coût du financement (hors remboursement du capital)"
-- [ ] Afficher ces catégories dans le tableau avec un indicateur visuel (badge "Données calculées" dans colonnes Level 1 et Level 2)
-- [ ] Désactiver les colonnes Level 1 et Level 2 pour ces catégories (read-only, grisées)
-- [ ] Afficher un message explicatif (tooltip ou texte) :
-  - "Charges d'amortissements" : "Données récupérées depuis les vues d'amortissement (AmortizationTable) en fonction de l'année"
-  - "Coût du financement" : "Données récupérées depuis la table loan_payments (somme interest + insurance par année)"
-- [ ] Ces catégories n'ont pas de mapping level_1/level_2 (les données viennent d'autres sources)
+- [ ] Ajouter une nouvelle colonne "Vue" au tableau (5 colonnes au total : Type, Catégorie comptable, Level 1, Level 2, Vue)
+- [ ] Pour toutes les catégories sauf "Charges d'amortissements" et "Coût du financement" :
+  - Afficher "Aucune valeur" en grisé (read-only)
+- [ ] Pour la catégorie "Charges d'amortissements" :
+  - Dropdown avec toutes les vues d'amortissement sauvegardées (via `amortizationViewsAPI.getAll()`)
+  - Si aucune vue sauvegardée : afficher "vue à configurer" (grisé)
+  - Permettre de sélectionner une vue d'amortissement
+  - Sauvegarder la sélection en base de données (backend : ajouter champ `amortization_view_id` dans `CompteResultatMapping` ou créer un champ séparé)
+- [ ] Afficher "Données calculées" dans les colonnes Level 1 (valeurs) et Level 2 (valeurs) pour cette catégorie
+- [ ] Désactiver les colonnes Level 1 et Level 2 pour cette catégorie (read-only, grisées)
+- [ ] Afficher un message explicatif (tooltip ou texte) : "Données récupérées depuis les vues d'amortissement (AmortizationTable) en fonction de l'année"
 - [ ] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Catégories spéciales détectées automatiquement
+- [ ] Colonne "Vue" ajoutée au tableau (5 colonnes au total)
+- [ ] "Aucune valeur" affiché en grisé pour les catégories normales
+- [ ] Catégorie "Charges d'amortissements" détectée automatiquement
+- [ ] Dropdown avec vues d'amortissement fonctionne
+- [ ] "vue à configurer" affiché si aucune vue disponible
+- [ ] Sélection de la vue sauvegardée et persistée en BDD
 - [ ] Badge "Données calculées" affiché dans colonnes Level 1 et Level 2
 - [ ] Colonnes Level 1 et Level 2 désactivées (read-only, grisées)
 - [ ] Message explicatif affiché (tooltip ou texte)
@@ -880,9 +889,42 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
+#### Step 7.5.12 : Frontend - Gestion des coûts du financement
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Gérer la sélection de crédits pour la catégorie "Coût du financement (hors remboursement du capital)" dans la colonne "Vue".
+
+**Tasks**:
+- [ ] Pour la catégorie "Coût du financement (hors remboursement du capital)" :
+  - Dans la colonne "Vue" : Dropdown avec checkboxes (multi-sélection)
+  - Récupérer tous les crédits configurés (via `loanConfigsAPI.getAll()`)
+  - Afficher la liste des crédits avec checkboxes (nom du crédit)
+  - Permettre de sélectionner un ou plusieurs crédits
+  - Si aucun crédit configuré : afficher "vue à configurer" (grisé)
+  - Sauvegarder la sélection en base de données (backend : stocker les IDs des crédits sélectionnés, peut-être dans un champ JSON dans `CompteResultatMapping`)
+- [ ] Afficher "Données calculées" dans les colonnes Level 1 (valeurs) et Level 2 (valeurs) pour cette catégorie
+- [ ] Désactiver les colonnes Level 1 et Level 2 pour cette catégorie (read-only, grisées)
+- [ ] Afficher un message explicatif (tooltip ou texte) : "Données récupérées depuis la table loan_payments (somme interest + insurance par année pour les crédits sélectionnés)"
+- [ ] Gérer dynamiquement l'ajout/suppression de crédits (si un crédit est ajouté/supprimé, mettre à jour le dropdown)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Catégorie "Coût du financement" détectée automatiquement
+- [ ] Dropdown avec checkboxes fonctionne dans la colonne "Vue"
+- [ ] Liste des crédits configurés affichée avec checkboxes
+- [ ] Multi-sélection fonctionne (un ou plusieurs crédits)
+- [ ] "vue à configurer" affiché si aucun crédit disponible
+- [ ] Sélection des crédits sauvegardée et persistée en BDD
+- [ ] Badge "Données calculées" affiché dans colonnes Level 1 et Level 2
+- [ ] Colonnes Level 1 et Level 2 désactivées (read-only, grisées)
+- [ ] Mise à jour automatique lors de l'ajout/suppression de crédits
+- [ ] Message explicatif affiché (tooltip ou texte)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
 **Step 7.5 - Acceptance Criteria globaux**:
 - [ ] Tableau affiché dans l'onglet "Compte de résultat" (structure comme AmortizationConfigCard)
-- [ ] 4 colonnes : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs)
+- [ ] 5 colonnes : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs), Vue
 - [ ] Dropdown Type fonctionne et filtre les catégories
 - [ ] Dropdown Catégorie fonctionne avec catégories prédéfinies
 - [ ] Tags bleus pour level_1 avec "+ Ajouter" et "x" pour supprimer
@@ -890,7 +932,9 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - [ ] Bouton "+ Ajouter une catégorie" fonctionne (création directe, pas de modal)
 - [ ] Menu contextuel (clic droit) avec "Supprimer" fonctionne
 - [ ] Bouton "🔄 Réinitialiser les mappings" fonctionne
-- [ ] Catégories spéciales (amortissements, coût financement) gérées correctement
+- [ ] Bouton engrenage (⚙️) avec Save/Load/Delete fonctionne (Step 7.5.10)
+- [ ] Catégorie spéciale "Charges d'amortissements" gérée correctement (Step 7.5.11)
+- [ ] Catégorie spéciale "Coût du financement" gérée correctement (Step 7.5.12)
 - [ ] Sauvegarde automatique fonctionne (comme AmortizationConfigCard)
 - [ ] API client créé et fonctionnel
 - [ ] **Test visuel dans navigateur validé**
