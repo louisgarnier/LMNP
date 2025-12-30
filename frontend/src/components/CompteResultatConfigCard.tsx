@@ -903,6 +903,28 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
   };
 
+  // Fonction pour récupérer toutes les valeurs level_1 déjà utilisées dans tous les mappings
+  const getAllUsedLevel1Values = (): string[] => {
+    const usedValues = new Set<string>();
+    mappings.forEach(mapping => {
+      if (mapping.level_1_values && Array.isArray(mapping.level_1_values)) {
+        mapping.level_1_values.forEach(v => usedValues.add(v));
+      }
+    });
+    return Array.from(usedValues);
+  };
+
+  // Fonction pour récupérer toutes les valeurs level_2 déjà utilisées dans tous les mappings
+  const getAllUsedLevel2Values = (): string[] => {
+    const usedValues = new Set<string>();
+    mappings.forEach(mapping => {
+      if (mapping.level_2_values && Array.isArray(mapping.level_2_values)) {
+        mapping.level_2_values.forEach(v => usedValues.add(v));
+      }
+    });
+    return Array.from(usedValues);
+  };
+
   // Trier les mappings par Type puis par Catégorie comptable
   const sortedMappings = [...mappings].sort((a, b) => {
     // Utiliser le Type stocké dans mappingTypes, ou déduire depuis la catégorie
@@ -1323,7 +1345,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                             >
                               <option value="">Sélectionner...</option>
                               {level1Values
-                                .filter(v => !(mapping.level_1_values && Array.isArray(mapping.level_1_values) && mapping.level_1_values.includes(v)))
+                                .filter(v => !getAllUsedLevel1Values().includes(v))
                                 .map((value) => (
                                   <option key={value} value={value}>
                                     {value}
@@ -1332,8 +1354,8 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                             </select>
                           ) : (
                             (() => {
-                              const currentValues = mapping.level_1_values && Array.isArray(mapping.level_1_values) ? mapping.level_1_values : [];
-                              const availableValues = level1Values.filter(v => !currentValues.includes(v));
+                              const usedValues = getAllUsedLevel1Values();
+                              const availableValues = level1Values.filter(v => !usedValues.includes(v));
                               const isDisabled = level1Values.length === 0 || availableValues.length === 0;
                               
                               return (
@@ -1442,7 +1464,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                             >
                               <option value="">Sélectionner...</option>
                               {level2Values
-                                .filter(v => !(mapping.level_2_values && Array.isArray(mapping.level_2_values) && mapping.level_2_values.includes(v)))
+                                .filter(v => !getAllUsedLevel2Values().includes(v))
                                 .map((value) => (
                                   <option key={value} value={value}>
                                     {value}
@@ -1451,8 +1473,8 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                             </select>
                           ) : (
                             (() => {
-                              const currentValues = mapping.level_2_values && Array.isArray(mapping.level_2_values) ? mapping.level_2_values : [];
-                              const availableValues = level2Values.filter(v => !currentValues.includes(v));
+                              const usedValues = getAllUsedLevel2Values();
+                              const availableValues = level2Values.filter(v => !usedValues.includes(v));
                               const isDisabled = level2Values.length === 0 || availableValues.length === 0;
                               
                               return (
