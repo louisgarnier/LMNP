@@ -346,54 +346,261 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-## Phase 7 : Fonctionnalités 4-6 - États financiers
+## Phase 7 : Compte de résultat
 
-### Step 7.1 : Service compte de résultat backend
+### Step 7.1 : Backend - Table et modèles pour les mappings et comptes de résultat
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Migrer la logique de `compte_de_resultat.py`.
+**Description**: Créer la structure de base de données pour stocker les mappings (level_2 → catégories comptables) et les comptes de résultat générés.
+
+**Catégories comptables à mapper** :
+- **Produits d'exploitation** :
+  - Loyers hors charge encaissés
+  - Charges locatives payées par locataires
+  - Autres revenus
+- **Charges d'exploitation** :
+  - Charges de copropriété hors fonds travaux
+  - Fluides non refacturés
+  - Assurances
+  - Honoraires
+  - Travaux et mobilier
+  - Impôts et taxes
+  - Charges d'amortissements (depuis vues d'amortissement)
+  - Autres charges diverses
+  - Coût du financement (Intérêts et assurance emprunteur depuis loan_payments)
 
 **Tasks**:
-- [ ] Renommer onglet Bilan a "Etats Financiers"
-- [ ] Ajouter card compte de résultat dans l'ongle
-- [ ] Implémenter calcul produits/charges - selectionner les level 3 et 2 qui doivent composer:
-    - Charges d'exploitation
-        - Charges
-        - Impots
-        - ammortissments, il faudra recuperer le montant total des ammortissement pour une année donnée - selectionner la vue d'ammortissment que lon veut utiliser pour synchoniser la bonne valeur
-    - Produits d'exploitation 
-    - Charges d'interet
-- [ ] Implémenter prorata année courante
-- [ ] Créer endpoint POST /api/reports/compte-resultat
+- [ ] Créer table `compte_resultat_mappings` avec colonnes :
+  - `id` (PK)
+  - `category_name` (nom de la catégorie comptable, ex: "Loyers hors charge encaissés")
+  - `level_2_values` (JSON array des level_2 à inclure, ex: ["LOYERS"])
+  - `level_3_values` (JSON array optionnel des level_3 à inclure, NULL par défaut)
+  - `created_at`, `updated_at`
+- [ ] Créer table `compte_resultat_data` avec colonnes :
+  - `id` (PK)
+  - `year` (année du compte de résultat)
+  - `category_name` (nom de la catégorie comptable)
+  - `amount` (montant pour cette catégorie et cette année)
+  - `amortization_view_id` (ID de la vue d'amortissement utilisée, NULL si N/A)
+  - `created_at`, `updated_at`
+- [ ] Créer modèles SQLAlchemy dans `backend/database/models.py`
+- [ ] Créer modèles Pydantic dans `backend/api/models.py`
+- [ ] **Créer test unitaire pour les modèles**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/database/models.py` - Modèles `CompteResultatMapping` et `CompteResultatData`
+- `backend/api/models.py` - Modèles Pydantic
+- `backend/tests/test_compte_resultat_models.py` - Test unitaire
+- `backend/database/__init__.py` - Export des modèles
+
+**Acceptance Criteria**:
+- [x] Tables créées en BDD
+- [x] Modèles SQLAlchemy fonctionnels
+- [x] Modèles Pydantic créés et validés
+- [x] Tests unitaires passent
+
+---
+
+### Step 7.2 : Backend - Service compte de résultat (calculs)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter la logique de calcul du compte de résultat.
+
+**Sources de données** :
+- **Produits/Charges** : Transactions enrichies via `level_2` (filtrer par date pour l'année)
+- **Amortissements** : Depuis les vues d'amortissement (sélectionner le total pour chaque année)
+- **Intérêts/Assurance crédit** : Depuis `loan_payments` (filtrer par année, sommer `interest` + `insurance`)
+
+**Tasks**:
+- [ ] Créer fichier `backend/api/services/compte_resultat_service.py`
+- [ ] Implémenter fonction `get_mappings()` : Charger les mappings depuis la table
+- [ ] Implémenter fonction `calculate_produits_exploitation(year, mappings)` :
+  - Filtrer transactions par année (date entre 01/01/année et 31/12/année)
+  - Grouper par catégorie selon les mappings level_2
+  - Sommer les montants par catégorie
+- [ ] Implémenter fonction `calculate_charges_exploitation(year, mappings)` :
+  - Filtrer transactions par année
+  - Grouper par catégorie selon les mappings level_2
+  - Sommer les montants par catégorie
+- [ ] Implémenter fonction `get_amortissements(year, amortization_view_id)` :
+  - Récupérer le total d'amortissement pour l'année depuis la vue sélectionnée
+- [ ] Implémenter fonction `get_cout_financement(year)` :
+  - Filtrer `loan_payments` par année (date = 01/01/année)
+  - Sommer `interest` + `insurance` de tous les crédits
+- [ ] Implémenter fonction `calculate_compte_resultat(year, mappings, amortization_view_id)` :
+  - Calculer tous les produits d'exploitation
+  - Calculer toutes les charges d'exploitation (incluant amortissements et coût financement)
+  - Calculer Résultat d'exploitation = Produits - Charges
+  - Calculer Résultat net = Résultat d'exploitation
 - [ ] **Créer test complet avec données réelles**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- Mise à jour `backend/api/services/financial_statements_service.py`
-- Mise à jour `backend/api/routes/reports.py`
-- `backend/tests/test_compte_resultat.py` - Tests compte de résultat
+- `backend/api/services/compte_resultat_service.py` - Service de calcul
+- `backend/tests/test_compte_resultat_service.py` - Tests du service
 
 **Tests**:
-- [ ] Test calcul produits d'exploitation
-- [ ] Test calcul charges d'exploitation
-- [ ] Test calcul charges financières
-- [ ] Test prorata année courante
-- [ ] Test résultat net
+- [ ] Test calcul produits d'exploitation (avec mappings)
+- [ ] Test calcul charges d'exploitation (avec mappings)
+- [ ] Test récupération amortissements depuis vue
+- [ ] Test calcul coût du financement depuis loan_payments
+- [ ] Test calcul résultat d'exploitation
+- [ ] Test calcul résultat net
+- [ ] Test avec données réelles (année complète)
 
 **Acceptance Criteria**:
-- [ ] Compte de résultat généré correctement
-- [ ] Produits, charges, résultat calculés
-- [ ] Prorata année courante fonctionne
-- [ ] Stockage en DB
+- [ ] Tous les calculs fonctionnent correctement
+- [ ] Mappings level_2 appliqués correctement
+- [ ] Amortissements récupérés depuis la bonne vue
+- [ ] Coût du financement calculé depuis loan_payments
 - [ ] Test script exécutable et tous les tests passent
 - [ ] **Utilisateur confirme que les calculs sont corrects**
 
-**Impact Frontend**: 
-- [ ] Afficher résultats dans console/logs
-- [ ] Tester génération depuis interface
+---
+
+### Step 7.3 : Backend - Endpoints API pour compte de résultat
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer les endpoints API pour gérer les mappings et générer/récupérer les comptes de résultat.
+
+**Tasks**:
+- [ ] Créer fichier `backend/api/routes/compte_resultat.py`
+- [ ] Créer endpoint `GET /api/compte-resultat/mappings` : Liste des mappings
+- [ ] Créer endpoint `POST /api/compte-resultat/mappings` : Créer un mapping
+- [ ] Créer endpoint `PUT /api/compte-resultat/mappings/{id}` : Mettre à jour un mapping
+- [ ] Créer endpoint `DELETE /api/compte-resultat/mappings/{id}` : Supprimer un mapping
+- [ ] Créer endpoint `POST /api/compte-resultat/generate` : Générer un compte de résultat
+  - Paramètres : `year`, `amortization_view_id`
+  - Retourne : Compte de résultat calculé et stocké en DB
+- [ ] Créer endpoint `GET /api/compte-resultat` : Récupérer les comptes de résultat
+  - Paramètres : `year` (optionnel), `start_year`, `end_year` (pour plusieurs années)
+  - Retourne : Liste des comptes de résultat (plusieurs années possibles)
+- [ ] Créer endpoint `DELETE /api/compte-resultat/{id}` : Supprimer un compte de résultat
+- [ ] Enregistrer router dans `backend/api/main.py`
+- [ ] **Créer test manuel pour les endpoints**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `backend/api/routes/compte_resultat.py` - Endpoints API
+- Mise à jour `backend/api/main.py` - Enregistrement du router
+- `backend/tests/test_compte_resultat_endpoints_manual.py` - Test manuel
+
+**Acceptance Criteria**:
+- [ ] Tous les endpoints fonctionnent correctement
+- [ ] Génération de compte de résultat fonctionne
+- [ ] Récupération de plusieurs années fonctionne
+- [ ] Gestion d'erreur correcte
+- [ ] Tests manuels passent
 
 ---
 
-### Step 7.2 : Service bilans backend
+### Step 7.4 : Backend - Recalcul automatique
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter le recalcul automatique des comptes de résultat quand les données sources changent.
+
+**Déclencheurs de recalcul** :
+- Transactions ajoutées/modifiées/supprimées
+- Données d'amortissement dans les vues changent
+- Crédits ajoutés/modifiés (mensualités loan_payments)
+- Mappings modifiés
+
+**Tasks**:
+- [ ] Créer fonction `invalidate_compte_resultat(year)` : Marquer les comptes de résultat comme obsolètes
+- [ ] Implémenter recalcul automatique dans :
+  - Endpoints de transactions (POST, PUT, DELETE)
+  - Endpoints d'amortissement (quand une vue est modifiée)
+  - Endpoints de loan_payments (POST, PUT, DELETE)
+  - Endpoints de mappings (PUT, DELETE)
+- [ ] Option : Créer table `compte_resultat_cache` avec flag `is_valid` pour gérer le cache
+- [ ] Implémenter recalcul en arrière-plan (optionnel, peut être synchrone pour V1)
+- [ ] **Créer test pour vérifier le recalcul automatique**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/services/compte_resultat_service.py` - Fonctions de recalcul
+- Mise à jour des endpoints concernés (transactions, amortization, loan_payments, mappings)
+- `backend/tests/test_compte_resultat_recalcul.py` - Tests de recalcul
+
+**Acceptance Criteria**:
+- [ ] Recalcul déclenché quand transactions changent
+- [ ] Recalcul déclenché quand amortissements changent
+- [ ] Recalcul déclenché quand loan_payments changent
+- [ ] Recalcul déclenché quand mappings changent
+- [ ] Tests de recalcul passent
+- [ ] **Utilisateur confirme que le recalcul fonctionne**
+
+---
+
+### Step 7.5 : Frontend - Card de configuration (mapping)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer l'interface de configuration pour mapper les level_2 aux catégories comptables.
+
+**Tasks**:
+- [ ] Créer composant `CompteResultatMappingCard.tsx`
+- [ ] Afficher la liste des catégories comptables (prédéfinies)
+- [ ] Pour chaque catégorie, permettre de sélectionner les `level_2` à inclure :
+  - Dropdown multi-sélection avec tous les `level_2` disponibles
+  - Charger les `level_2` depuis les transactions enrichies (valeurs uniques)
+- [ ] Optionnel : Permettre de filtrer aussi par `level_3` (checkbox "Filtrer par level_3")
+- [ ] Sauvegarde automatique au blur ou bouton "Sauvegarder"
+- [ ] Afficher un aperçu du nombre de transactions qui seront incluses
+- [ ] Intégrer dans l'onglet "Compte de résultat"
+- [ ] Créer API client dans `frontend/src/api/client.ts`
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/CompteResultatMappingCard.tsx` - Card de configuration
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
+- Mise à jour `frontend/src/api/client.ts` - API client
+
+**Acceptance Criteria**:
+- [ ] Card affichée dans l'onglet "Compte de résultat"
+- [ ] Liste des catégories affichée
+- [ ] Sélection multi-level_2 fonctionne pour chaque catégorie
+- [ ] Sauvegarde fonctionne (backend)
+- [ ] Aperçu du nombre de transactions affiché
+- [ ] Interface intuitive et cohérente avec le reste de l'application
+
+---
+
+### Step 7.6 : Frontend - Card d'affichage du compte de résultat
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer l'interface d'affichage du compte de résultat avec tableau multi-années.
+
+**Tasks**:
+- [ ] Créer composant `CompteResultatTable.tsx`
+- [ ] Ajouter sélecteur d'années (multi-sélection ou range start_year - end_year)
+- [ ] Ajouter sélecteur de vue d'amortissement (dropdown avec toutes les vues disponibles)
+- [ ] Bouton "Générer compte de résultat" pour chaque année sélectionnée
+- [ ] Afficher le compte de résultat dans un tableau :
+  - Colonnes : Catégories | Année 1 | Année 2 | Année 3 | ...
+  - Lignes : Toutes les catégories comptables + totaux
+- [ ] Formatage des montants (€, séparateurs de milliers)
+- [ ] Mise en évidence des totaux (Résultat d'exploitation, Résultat net)
+- [ ] Intégrer dans l'onglet "Compte de résultat" (sous la card de config)
+- [ ] Créer API client dans `frontend/src/api/client.ts`
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- `frontend/src/components/CompteResultatTable.tsx` - Tableau d'affichage
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
+- Mise à jour `frontend/src/api/client.ts` - API client
+
+**Acceptance Criteria**:
+- [ ] Tableau affiché dans l'onglet "Compte de résultat"
+- [ ] Sélection d'années fonctionne
+- [ ] Sélection de vue d'amortissement fonctionne
+- [ ] Génération de compte de résultat fonctionne
+- [ ] Affichage multi-années côte à côte fonctionne
+- [ ] Formatage des montants correct
+- [ ] Totaux mis en évidence
+- [ ] **Utilisateur confirme que l'interface fonctionne**
+
+---
+
+## Phase 8 : Bilans et autres états financiers
+
+### Step 8.1 : Service bilans backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer les logiques de `bilan_actif.py` et `bilan_passif.py`.
 
@@ -432,7 +639,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 7.3 : Vue bilan frontend
+### Step 8.2 : Vue bilan frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour visualiser les bilans actif et passif.
 
@@ -467,9 +674,9 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-## Phase 8 : Fonctionnalité 7 - Consolidation et autres vues
+## Phase 9 : Consolidation et autres vues
 
-### Step 8.1 : Service consolidation backend
+### Step 9.1 : Service consolidation backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer la logique de `merge_etats_financiers.py`.
 
@@ -505,7 +712,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 8.2 : Vue cashflow frontend
+### Step 9.2 : Vue cashflow frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour suivre le solde bancaire et vérifier la cohérence.
 
@@ -540,9 +747,9 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 
-## Phase 9 : Tests et validation finale
+## Phase 10 : Tests et validation finale
 
-### Step 9.1 : Tests end-to-end
+### Step 10.1 : Tests end-to-end
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Tests complets du workflow depuis upload jusqu'aux états financiers.
 
@@ -574,7 +781,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 9.2 : Documentation et finalisation
+### Step 10.2 : Documentation et finalisation
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Documentation utilisateur et technique, optimisation finale.
 
