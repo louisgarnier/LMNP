@@ -131,6 +131,10 @@ async def create_loan_payment(
     db.commit()
     db.refresh(payment)
     
+    # Invalider le compte de résultat pour l'année de la mensualité
+    from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+    invalidate_compte_resultat_for_year(payment.date.year, db)
+    
     return LoanPaymentResponse.model_validate(payment)
 
 
@@ -185,6 +189,10 @@ async def update_loan_payment(
     db.commit()
     db.refresh(payment)
     
+    # Invalider le compte de résultat pour l'année de la mensualité
+    from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+    invalidate_compte_resultat_for_year(payment.date.year, db)
+    
     return LoanPaymentResponse.model_validate(payment)
 
 
@@ -207,8 +215,15 @@ async def delete_loan_payment(
     if not payment:
         raise HTTPException(status_code=404, detail=f"Mensualité avec ID {payment_id} non trouvée")
     
+    # Sauvegarder l'année avant suppression
+    payment_year = payment.date.year
+    
     db.delete(payment)
     db.commit()
+    
+    # Invalider le compte de résultat pour l'année de la mensualité supprimée
+    from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+    invalidate_compte_resultat_for_year(payment_year, db)
     
     return {"message": f"Mensualité {payment_id} supprimée avec succès"}
 
@@ -505,6 +520,10 @@ async def import_loan_payment_file(
                     
                     db.add(payment)
                     imported_count += 1
+                    
+                    # Invalider le compte de résultat pour cette année
+                    from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+                    invalidate_compte_resultat_for_year(year, db)
                 
             except Exception as e:
                 errors.append(f"Erreur pour l'année {year}: {str(e)}")

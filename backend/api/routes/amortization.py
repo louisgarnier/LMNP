@@ -350,6 +350,10 @@ async def recalculate_amortizations(
     """
     count = recalculate_all_amortizations(db)
     
+    # Invalider tous les comptes de résultat (les amortissements ont changé)
+    from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+    invalidate_all_compte_resultat(db)
+    
     return AmortizationRecalculateResponse(
         message=f"Recalcul effectué avec succès. {count} transaction(s) traitée(s).",
         transactions_processed=count

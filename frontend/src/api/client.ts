@@ -1391,4 +1391,116 @@ export const loanPaymentsAPI = {
   },
 };
 
+// Compte de résultat API
+export interface CompteResultatMapping {
+  id: number;
+  category_name: string;
+  level_1_values: string[] | null;
+  level_2_values: string[];
+  level_3_values: string[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompteResultatMappingListResponse {
+  mappings: CompteResultatMapping[];
+  total: number;
+}
+
+export interface CompteResultatMappingCreate {
+  category_name: string;
+  level_1_values?: string[] | null;
+  level_2_values: string[];
+  level_3_values?: string[] | null;
+}
+
+export interface CompteResultatMappingUpdate {
+  category_name?: string;
+  level_1_values?: string[] | null;
+  level_2_values?: string[] | null;
+  level_3_values?: string[] | null;
+}
+
+export const compteResultatAPI = {
+  getMappings: async (): Promise<CompteResultatMappingListResponse> => {
+    return fetchAPI<CompteResultatMappingListResponse>('/api/compte-resultat/mappings');
+  },
+  getMapping: async (id: number): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>(`/api/compte-resultat/mappings/${id}`);
+  },
+  createMapping: async (data: CompteResultatMappingCreate): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>('/api/compte-resultat/mappings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  updateMapping: async (id: number, data: CompteResultatMappingUpdate): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>(`/api/compte-resultat/mappings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  deleteMapping: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/compte-resultat/mappings/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Compte de résultat mapping views API
+export interface CompteResultatMappingView {
+  id: number;
+  name: string;
+  view_data: {
+    mappings: CompteResultatMapping[];
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompteResultatMappingViewListResponse {
+  views: CompteResultatMappingView[];
+  total: number;
+}
+
+export interface CompteResultatMappingViewCreate {
+  name: string;
+  view_data: {
+    mappings: CompteResultatMapping[];
+  };
+}
+
+export interface CompteResultatMappingViewUpdate {
+  name?: string;
+  view_data?: {
+    mappings: CompteResultatMapping[];
+  };
+}
+
+export const compteResultatMappingViewsAPI = {
+  getAll: async (): Promise<CompteResultatMappingViewListResponse> => {
+    return fetchAPI<CompteResultatMappingViewListResponse>('/api/compte-resultat/mapping-views');
+  },
+  getById: async (id: number): Promise<CompteResultatMappingView> => {
+    return fetchAPI<CompteResultatMappingView>(`/api/compte-resultat/mapping-views/${id}`);
+  },
+  create: async (data: CompteResultatMappingViewCreate): Promise<CompteResultatMappingView> => {
+    return fetchAPI<CompteResultatMappingView>('/api/compte-resultat/mapping-views', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (id: number, data: CompteResultatMappingViewUpdate): Promise<CompteResultatMappingView> => {
+    return fetchAPI<CompteResultatMappingView>(`/api/compte-resultat/mapping-views/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/compte-resultat/mapping-views/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 

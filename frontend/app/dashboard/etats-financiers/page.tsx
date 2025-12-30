@@ -12,6 +12,7 @@ import Link from 'next/link';
 import LoanConfigCard from '@/components/LoanConfigCard';
 import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
+import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 
 export default function EtatsFinanciersPage() {
   const searchParams = useSearchParams();
@@ -131,9 +132,7 @@ export default function EtatsFinanciersPage() {
               <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
                 Compte de résultat
               </h2>
-              <p style={{ color: '#6b7280' }}>
-                Cette section sera implémentée dans Step 7.1
-              </p>
+              <CompteResultatConfigCard />
             </div>
           )}
 

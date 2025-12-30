@@ -360,7 +360,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 ### Step 7.1 : Backend - Table et modèles pour les mappings et comptes de résultat
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer la structure de base de données pour stocker les mappings (level_1/level_2 → catégories comptables) et les comptes de résultat générés.
 
 **Catégories comptables à mapper** :
@@ -380,24 +380,24 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - Coût du financement (Intérêts et assurance emprunteur depuis loan_payments)
 
 **Tasks**:
-- [ ] Créer table `compte_resultat_mappings` avec colonnes :
+- [x] Créer table `compte_resultat_mappings` avec colonnes :
   - `id` (PK)
   - `category_name` (nom de la catégorie comptable, ex: "Loyers hors charge encaissés")
   - `level_1_values` (JSON array optionnel des level_1 à inclure, NULL par défaut)
   - `level_2_values` (JSON array des level_2 à inclure, ex: ["LOYERS"])
   - `level_3_values` (JSON array optionnel des level_3 à inclure, NULL par défaut)
   - `created_at`, `updated_at`
-- [ ] Créer table `compte_resultat_data` avec colonnes :
+- [x] Créer table `compte_resultat_data` avec colonnes :
   - `id` (PK)
-  - `year` (année du compte de résultat)
+  - `annee` (année du compte de résultat)
   - `category_name` (nom de la catégorie comptable)
   - `amount` (montant pour cette catégorie et cette année)
   - `amortization_view_id` (ID de la vue d'amortissement utilisée, NULL si N/A)
   - `created_at`, `updated_at`
-- [ ] Créer modèles SQLAlchemy dans `backend/database/models.py`
-- [ ] Créer modèles Pydantic dans `backend/api/models.py`
-- [ ] **Créer test unitaire pour les modèles**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer modèles SQLAlchemy dans `backend/database/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py`
+- [x] **Créer test unitaire pour les modèles**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/database/models.py` - Modèles `CompteResultatMapping` et `CompteResultatData`
@@ -408,13 +408,15 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 **Acceptance Criteria**:
 - [x] Tables créées en BDD
 - [x] Modèles SQLAlchemy fonctionnels
+- [x] Modèles Pydantic créés
+- [x] Tests unitaires passent
 - [x] Modèles Pydantic créés et validés
 - [x] Tests unitaires passent
 
 ---
 
 ### Step 7.2 : Backend - Service compte de résultat (calculs)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter la logique de calcul du compte de résultat.
 
 **Sources de données** :
@@ -423,72 +425,74 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - **Intérêts/Assurance crédit** : Depuis `loan_payments` (filtrer par année, sommer `interest` + `insurance`)
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/services/compte_resultat_service.py`
-- [ ] Implémenter fonction `get_mappings()` : Charger les mappings depuis la table
-- [ ] Implémenter fonction `calculate_produits_exploitation(year, mappings)` :
+- [x] Créer fichier `backend/api/services/compte_resultat_service.py`
+- [x] Implémenter fonction `get_mappings()` : Charger les mappings depuis la table
+- [x] Implémenter fonction `calculate_produits_exploitation(year, mappings)` :
   - Filtrer transactions par année (date entre 01/01/année et 31/12/année)
   - Grouper par catégorie selon les mappings level_1 OU level_2 (logique OR)
   - Sommer les montants par catégorie
-- [ ] Implémenter fonction `calculate_charges_exploitation(year, mappings)` :
+- [x] Implémenter fonction `calculate_charges_exploitation(year, mappings)` :
   - Filtrer transactions par année
   - Grouper par catégorie selon les mappings level_1 OU level_2 (logique OR)
   - Sommer les montants par catégorie
-- [ ] Implémenter fonction `get_amortissements(year, amortization_view_id)` :
+- [x] Implémenter fonction `get_amortissements(year, amortization_view_id)` :
   - Récupérer le total d'amortissement pour l'année depuis la vue sélectionnée
-- [ ] Implémenter fonction `get_cout_financement(year)` :
-  - Filtrer `loan_payments` par année (date = 01/01/année)
+- [x] Implémenter fonction `get_cout_financement(year)` :
+  - Filtrer `loan_payments` par année (date entre 01/01/année et 31/12/année)
   - Sommer `interest` + `insurance` de tous les crédits
-- [ ] Implémenter fonction `calculate_compte_resultat(year, mappings, amortization_view_id)` :
+- [x] Implémenter fonction `calculate_compte_resultat(year, mappings, amortization_view_id)` :
   - Calculer tous les produits d'exploitation
   - Calculer toutes les charges d'exploitation (incluant amortissements et coût financement)
   - Calculer Résultat d'exploitation = Produits - Charges
   - Calculer Résultat net = Résultat d'exploitation
-- [ ] **Créer test complet avec données réelles**
-- [ ] **Valider avec l'utilisateur**
+- [x] **Créer test complet avec données réelles**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/api/services/compte_resultat_service.py` - Service de calcul
 - `backend/tests/test_compte_resultat_service.py` - Tests du service
 
 **Tests**:
-- [ ] Test calcul produits d'exploitation (avec mappings)
-- [ ] Test calcul charges d'exploitation (avec mappings)
-- [ ] Test récupération amortissements depuis vue
-- [ ] Test calcul coût du financement depuis loan_payments
-- [ ] Test calcul résultat d'exploitation
-- [ ] Test calcul résultat net
-- [ ] Test avec données réelles (année complète)
+- [x] Test calcul produits d'exploitation (avec mappings)
+- [x] Test calcul charges d'exploitation (avec mappings)
+- [x] Test récupération amortissements depuis vue
+- [x] Test calcul coût du financement depuis loan_payments
+- [x] Test calcul résultat d'exploitation
+- [x] Test calcul résultat net
+- [x] Test avec données réelles (année complète)
 
 **Acceptance Criteria**:
-- [ ] Tous les calculs fonctionnent correctement
-- [ ] Mappings level_2 appliqués correctement
-- [ ] Amortissements récupérés depuis la bonne vue
-- [ ] Coût du financement calculé depuis loan_payments
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que les calculs sont corrects**
+- [x] Tous les calculs fonctionnent correctement
+- [x] Mappings level_1 et level_2 appliqués correctement (logique OR)
+- [x] Amortissements récupérés depuis AmortizationResult
+- [x] Coût du financement calculé depuis loan_payments
+- [x] Test script exécutable et tous les tests passent
+- [x] **Utilisateur confirme que les calculs sont corrects**
 
 ---
 
 ### Step 7.3 : Backend - Endpoints API pour compte de résultat
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer les endpoints API pour gérer les mappings et générer/récupérer les comptes de résultat.
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/routes/compte_resultat.py`
-- [ ] Créer endpoint `GET /api/compte-resultat/mappings` : Liste des mappings
-- [ ] Créer endpoint `POST /api/compte-resultat/mappings` : Créer un mapping
-- [ ] Créer endpoint `PUT /api/compte-resultat/mappings/{id}` : Mettre à jour un mapping
-- [ ] Créer endpoint `DELETE /api/compte-resultat/mappings/{id}` : Supprimer un mapping
-- [ ] Créer endpoint `POST /api/compte-resultat/generate` : Générer un compte de résultat
+- [x] Créer fichier `backend/api/routes/compte_resultat.py`
+- [x] Créer endpoint `GET /api/compte-resultat/mappings` : Liste des mappings
+- [x] Créer endpoint `POST /api/compte-resultat/mappings` : Créer un mapping
+- [x] Créer endpoint `PUT /api/compte-resultat/mappings/{id}` : Mettre à jour un mapping
+- [x] Créer endpoint `DELETE /api/compte-resultat/mappings/{id}` : Supprimer un mapping
+- [x] Créer endpoint `POST /api/compte-resultat/generate` : Générer un compte de résultat
   - Paramètres : `year`, `amortization_view_id`
   - Retourne : Compte de résultat calculé et stocké en DB
-- [ ] Créer endpoint `GET /api/compte-resultat` : Récupérer les comptes de résultat
+- [x] Créer endpoint `GET /api/compte-resultat` : Récupérer les comptes de résultat
   - Paramètres : `year` (optionnel), `start_year`, `end_year` (pour plusieurs années)
   - Retourne : Liste des comptes de résultat (plusieurs années possibles)
-- [ ] Créer endpoint `DELETE /api/compte-resultat/{id}` : Supprimer un compte de résultat
-- [ ] Enregistrer router dans `backend/api/main.py`
-- [ ] **Créer test manuel pour les endpoints**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer endpoint `GET /api/compte-resultat/data` : Récupérer les données brutes
+- [x] Créer endpoint `DELETE /api/compte-resultat/data/{id}` : Supprimer une donnée
+- [x] Créer endpoint `DELETE /api/compte-resultat/year/{year}` : Supprimer toutes les données d'une année
+- [x] Enregistrer router dans `backend/api/main.py`
+- [x] **Créer test manuel pour les endpoints**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/api/routes/compte_resultat.py` - Endpoints API
@@ -496,16 +500,16 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - `backend/tests/test_compte_resultat_endpoints_manual.py` - Test manuel
 
 **Acceptance Criteria**:
-- [ ] Tous les endpoints fonctionnent correctement
-- [ ] Génération de compte de résultat fonctionne
-- [ ] Récupération de plusieurs années fonctionne
-- [ ] Gestion d'erreur correcte
-- [ ] Tests manuels passent
+- [x] Tous les endpoints fonctionnent correctement
+- [x] Génération de compte de résultat fonctionne
+- [x] Récupération de plusieurs années fonctionne
+- [x] Gestion d'erreur correcte
+- [x] Tests manuels créés (à exécuter avec serveur backend démarré)
 
 ---
 
 ### Step 7.4 : Backend - Recalcul automatique
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter le recalcul automatique des comptes de résultat quand les données sources changent.
 
 **Déclencheurs de recalcul** :
@@ -515,16 +519,17 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - Mappings modifiés
 
 **Tasks**:
-- [ ] Créer fonction `invalidate_compte_resultat(year)` : Marquer les comptes de résultat comme obsolètes
-- [ ] Implémenter recalcul automatique dans :
-  - Endpoints de transactions (POST, PUT, DELETE)
-  - Endpoints d'amortissement (quand une vue est modifiée)
-  - Endpoints de loan_payments (POST, PUT, DELETE)
-  - Endpoints de mappings (PUT, DELETE)
-- [ ] Option : Créer table `compte_resultat_cache` avec flag `is_valid` pour gérer le cache
-- [ ] Implémenter recalcul en arrière-plan (optionnel, peut être synchrone pour V1)
-- [ ] **Créer test pour vérifier le recalcul automatique**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer fonction `invalidate_compte_resultat_for_year(year)` : Supprimer les comptes de résultat pour une année
+- [x] Créer fonction `invalidate_compte_resultat_for_date_range(start_date, end_date)` : Supprimer pour une plage de dates
+- [x] Créer fonction `invalidate_all_compte_resultat()` : Supprimer tous les comptes de résultat
+- [x] Implémenter recalcul automatique dans :
+  - Endpoints de transactions (POST, PUT, DELETE, import)
+  - Endpoints d'amortissement (recalculate_amortizations)
+  - Endpoints de loan_payments (POST, PUT, DELETE, import)
+  - Endpoints de mappings (POST, PUT, DELETE)
+  - Endpoints d'amortization_views (POST, PUT, DELETE)
+- [x] **Créer test pour vérifier le recalcul automatique**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `backend/api/services/compte_resultat_service.py` - Fonctions de recalcul
@@ -532,12 +537,13 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - `backend/tests/test_compte_resultat_recalcul.py` - Tests de recalcul
 
 **Acceptance Criteria**:
-- [ ] Recalcul déclenché quand transactions changent
-- [ ] Recalcul déclenché quand amortissements changent
-- [ ] Recalcul déclenché quand loan_payments changent
-- [ ] Recalcul déclenché quand mappings changent
-- [ ] Tests de recalcul passent
-- [ ] **Utilisateur confirme que le recalcul fonctionne**
+- [x] Recalcul déclenché quand transactions changent (create, update, delete, import)
+- [x] Recalcul déclenché quand amortissements changent (recalculate_amortizations)
+- [x] Recalcul déclenché quand loan_payments changent (create, update, delete, import)
+- [x] Recalcul déclenché quand mappings changent (create, update, delete)
+- [x] Recalcul déclenché quand amortization_views changent (create, update, delete)
+- [x] Tests de recalcul passent
+- [x] **Utilisateur confirme que le recalcul fonctionne**
 
 ---
 
@@ -547,8 +553,8 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 **Structure du tableau** :
 - **4 colonnes** :
-  1. **Type** : "Produits d'exploitation" ou "Charges d'exploitation" (affiché automatiquement selon la catégorie, pas stocké en backend)
-  2. **Catégorie comptable** : Dropdown avec catégories prédéfinies (selon le type déduit)
+  1. **Type** : Dropdown éditable avec "Produits d'exploitation" ou "Charges d'exploitation" (pas stocké en backend, utilisé uniquement pour filtrer les catégories)
+  2. **Catégorie comptable** : Dropdown avec catégories prédéfinies (filtrées selon le type sélectionné)
   3. **Level 1 (valeurs)** : Tags bleus avec "x" pour supprimer + bouton "+ Ajouter" (optionnel)
   4. **Level 2 (valeurs)** : Tags bleus avec "x" pour supprimer + bouton "+ Ajouter" (optionnel)
 - **Une ligne = une catégorie comptable**
@@ -581,17 +587,17 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.5.1 : Backend - Support level_1 dans les mappings
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter le support de `level_1_values` dans la table et les modèles.
 
 **Tasks**:
-- [ ] Ajouter colonne `level_1_values` (JSON, nullable=True) dans la table `compte_resultat_mappings`
-- [ ] Mettre à jour le modèle SQLAlchemy `CompteResultatMapping` pour inclure `level_1_values`
-- [ ] Mettre à jour les modèles Pydantic pour inclure `level_1_values` dans les requêtes/réponses
-- [ ] Mettre à jour le service `compte_resultat_service.py` pour filtrer aussi par `level_1` si présent
-- [ ] Créer migration script si nécessaire
-- [ ] **Créer test unitaire**
-- [ ] **Valider avec l'utilisateur**
+- [x] Ajouter colonne `level_1_values` (JSON, nullable=True) dans la table `compte_resultat_mappings`
+- [x] Mettre à jour le modèle SQLAlchemy `CompteResultatMapping` pour inclure `level_1_values`
+- [x] Mettre à jour les modèles Pydantic pour inclure `level_1_values` dans les requêtes/réponses
+- [x] Mettre à jour le service `compte_resultat_service.py` pour filtrer aussi par `level_1` si présent
+- [x] Créer migration script si nécessaire
+- [x] **Créer test unitaire**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `backend/database/models.py` - Ajout `level_1_values`
@@ -608,19 +614,19 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.5.2 : Frontend - Structure de base du tableau
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer la structure de base du composant et du tableau (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Créer composant `CompteResultatConfigCard.tsx` (copier structure de base d'`AmortizationConfigCard`)
-- [ ] Créer le tableau avec 4 colonnes (en-têtes) : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs)
-- [ ] Charger les mappings depuis l'API (`compteResultatAPI.getMappings()`)
-- [ ] Afficher les lignes existantes (lecture seule pour l'instant, sans édition)
-- [ ] Déduire le Type automatiquement selon la catégorie (logique frontend)
-- [ ] Trier les lignes par Type puis par Catégorie comptable
-- [ ] Ajuster les largeurs des colonnes (Type: 15%, Catégorie: 25%, Level 1: 30%, Level 2: 30%)
-- [ ] Intégrer dans l'onglet "Compte de résultat"
-- [ ] **Tester dans le navigateur**
+- [x] Créer composant `CompteResultatConfigCard.tsx` (copier structure de base d'`AmortizationConfigCard`)
+- [x] Créer le tableau avec 4 colonnes (en-têtes) : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs)
+- [x] Charger les mappings depuis l'API (`compteResultatAPI.getMappings()`)
+- [x] Afficher les lignes existantes (lecture seule pour l'instant, sans édition)
+- [x] Déduire le Type automatiquement selon la catégorie (logique frontend)
+- [x] Trier les lignes par Type puis par Catégorie comptable
+- [x] Ajuster les largeurs des colonnes (Type: 15%, Catégorie: 25%, Level 1: 30%, Level 2: 30%)
+- [x] Intégrer dans l'onglet "Compte de résultat"
+- [x] **Tester dans le navigateur**
 
 **Deliverables**:
 - `frontend/src/components/CompteResultatConfigCard.tsx` - Structure de base
@@ -628,168 +634,230 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - Mise à jour `frontend/src/api/client.ts` - API client de base
 
 **Acceptance Criteria**:
-- [ ] Tableau affiché avec 4 colonnes
-- [ ] Mappings chargés depuis l'API
-- [ ] Lignes triées par Type puis Catégorie
-- [ ] Largeurs des colonnes ajustées
-- [ ] **Test visuel dans navigateur validé**
+- [x] Tableau affiché avec 4 colonnes
+- [x] Mappings chargés depuis l'API
+- [x] Lignes triées par Type puis Catégorie
+- [x] Largeurs des colonnes ajustées
+- [x] Catégories spéciales affichées avec "Données calculées"
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.5.3 : Frontend - Colonne 1 "Type"
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Afficher le Type en première colonne (lecture seule, déduit automatiquement).
+**Status**: ✅ TERMINÉ  
+**Description**: Afficher le Type en première colonne avec un dropdown éditable pour sélectionner "Produits d'exploitation" ou "Charges d'exploitation".
 
 **Tasks**:
-- [ ] Afficher le Type en première colonne (lecture seule, déduit automatiquement)
-- [ ] Logique : "Loyers hors charge encaissés", "Charges locatives payées par locataires", "Autres revenus" → "Produits d'exploitation"
-- [ ] Toutes les autres catégories → "Charges d'exploitation"
-- [ ] Utiliser le Type pour filtrer les catégories disponibles lors de l'ajout d'une ligne (Step 7.5.7)
-- [ ] **Tester dans le navigateur**
+- [x] Afficher le Type en première colonne avec un dropdown
+- [x] Dropdown avec 2 options : "Produits d'exploitation" et "Charges d'exploitation"
+- [x] Permettre la modification du Type via le dropdown pour chaque ligne
+- [x] Permettre plusieurs lignes avec la même valeur de Type
+- [x] Initialiser le Type selon la catégorie (déduction automatique au chargement)
+- [x] Stocker le Type en frontend uniquement (pas en backend)
+- [x] Utiliser le Type pour filtrer les catégories disponibles lors de l'ajout d'une ligne (Step 7.5.7)
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Type affiché correctement selon la catégorie
-- [ ] Type en lecture seule (pas éditable)
-- [ ] **Test visuel dans navigateur validé**
+- [x] Type affiché avec dropdown éditable pour chaque ligne
+- [x] Modification du Type possible via dropdown
+- [x] Plusieurs lignes peuvent avoir le même Type
+- [x] Type initialisé automatiquement selon la catégorie au chargement
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.5.4 : Frontend - Colonne 2 "Catégorie comptable"
-**Status**: ⏸️ EN ATTENTE  
-**Description**: Ajouter dropdown "Catégorie comptable" en deuxième colonne (visible directement, pas besoin de clic).
+**Status**: ✅ TERMINÉ  
+**Description**: Ajouter dropdown "Catégorie comptable" en deuxième colonne. Le dropdown doit filtrer les catégories disponibles selon le Type sélectionné en colonne 1.
 
 **Tasks**:
-- [ ] Ajouter dropdown "Catégorie comptable" en deuxième colonne (visible directement, pas besoin de clic)
-- [ ] Charger les catégories prédéfinies selon le type
-- [ ] Permettre la sélection d'une catégorie
-- [ ] Gérer les catégories spéciales (amortissements, coût financement) :
-  - Afficher ces catégories dans le tableau
+- [x] Ajouter dropdown "Catégorie comptable" en deuxième colonne
+- [x] Filtrer les catégories disponibles selon le Type sélectionné en colonne 1 :
+  - Si Type = "Produits d'exploitation" → afficher seulement les catégories de `PRODUITS_CATEGORIES`
+  - Si Type = "Charges d'exploitation" → afficher seulement les catégories de `CHARGES_CATEGORIES`
+- [x] Permettre la sélection d'une catégorie dans le dropdown
+- [x] Permettre plusieurs lignes avec la même catégorie comptable
+- [x] Gérer les catégories spéciales (amortissements, coût financement) :
+  - Ces catégories doivent être disponibles dans le dropdown si le Type correspond
   - Afficher "Données calculées" dans les colonnes Level 1 et Level 2 (read-only)
   - Pas de dropdown pour Level 1/Level 2 pour ces catégories
-- [ ] Sauvegarde automatique au changement de catégorie
-- [ ] **Tester dans le navigateur**
+- [x] Sauvegarde automatique au changement de catégorie (mise à jour du mapping via API)
+- [x] Réinitialiser automatiquement la catégorie si elle n'est plus valide après un changement de Type
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Dropdown visible directement (pas besoin de clic pour l'afficher)
-- [ ] Catégories filtrées selon le type
-- [ ] Sauvegarde automatique fonctionne
-- [ ] Catégories spéciales affichées avec "Données calculées"
-- [ ] **Test visuel dans navigateur validé**
+- [x] Dropdown visible et fonctionnel pour chaque ligne
+- [x] Catégories filtrées dynamiquement selon le Type sélectionné en colonne 1
+- [x] Changement de Type en colonne 1 met à jour les options disponibles dans le dropdown de la colonne 2
+- [x] Si la catégorie actuelle n'est plus valide après un changement de Type, elle est réinitialisée automatiquement
+- [x] Sauvegarde automatique fonctionne (mise à jour du mapping en backend)
+- [x] Plusieurs lignes peuvent avoir la même catégorie comptable
+- [x] Catégories spéciales affichées avec "Données calculées" dans Level 1 et Level 2
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.5.5 : Frontend - Colonne 3 "Level 1 (valeurs)"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter l'affichage et la gestion des tags level_1 (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Implémenter l'affichage des tags bleus pour les valeurs level_1 sélectionnées
-- [ ] Ajouter bouton "+ Ajouter" qui ouvre un dropdown avec toutes les valeurs level_1 disponibles
-- [ ] Charger les valeurs level_1 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_1')`)
-- [ ] Implémenter l'ajout d'une valeur (tag bleu avec "x")
-- [ ] Implémenter la suppression d'une valeur (clic sur "x")
-- [ ] Sauvegarde automatique à chaque ajout/suppression
-- [ ] Pour les catégories spéciales, afficher "Données calculées" (read-only, grisé)
-- [ ] **Tester dans le navigateur**
+- [x] Implémenter l'affichage des tags bleus pour les valeurs level_1 sélectionnées
+- [x] Ajouter bouton "+ Ajouter" qui ouvre un dropdown avec toutes les valeurs level_1 disponibles
+- [x] Charger les valeurs level_1 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_1')`)
+- [x] Implémenter l'ajout d'une valeur (tag bleu avec "x")
+- [x] Implémenter la suppression d'une valeur (clic sur "x")
+- [x] Sauvegarde automatique à chaque ajout/suppression
+- [x] Filtrer les valeurs déjà assignées dans le dropdown
+- [x] Désactiver le bouton "+ Ajouter" si toutes les valeurs sont déjà assignées
+- [x] Pour les catégories spéciales, afficher "Données calculées" (read-only, grisé)
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Tags bleus affichés pour les valeurs level_1
-- [ ] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
-- [ ] Ajout/suppression fonctionne
-- [ ] Sauvegarde automatique fonctionne
-- [ ] Catégories spéciales affichent "Données calculées"
-- [ ] **Test visuel dans navigateur validé**
+- [x] Tags bleus affichés pour les valeurs level_1
+- [x] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
+- [x] Ajout/suppression fonctionne
+- [x] Sauvegarde automatique fonctionne (mise à jour du mapping via API)
+- [x] Valeurs déjà assignées filtrées du dropdown
+- [x] Catégories spéciales affichent "Données calculées"
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.5.6 : Frontend - Colonne 4 "Level 2 (valeurs)"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter l'affichage et la gestion des tags level_2 (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Implémenter l'affichage des tags bleus pour les valeurs level_2 sélectionnées
-- [ ] Ajouter bouton "+ Ajouter" qui ouvre un dropdown avec toutes les valeurs level_2 disponibles
-- [ ] Charger les valeurs level_2 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_2')`)
-- [ ] Implémenter l'ajout d'une valeur (tag bleu avec "x")
-- [ ] Implémenter la suppression d'une valeur (clic sur "x")
-- [ ] Sauvegarde automatique à chaque ajout/suppression
-- [ ] Pour les catégories spéciales, afficher "Données calculées" (read-only, grisé)
-- [ ] **Tester dans le navigateur**
+- [x] Implémenter l'affichage des tags bleus pour les valeurs level_2 sélectionnées
+- [x] Ajouter bouton "+ Ajouter" qui ouvre un dropdown avec toutes les valeurs level_2 disponibles
+- [x] Charger les valeurs level_2 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_2')`)
+- [x] Implémenter l'ajout d'une valeur (tag bleu avec "x")
+- [x] Implémenter la suppression d'une valeur (clic sur "x")
+- [x] Sauvegarde automatique à chaque ajout/suppression
+- [x] Filtrer les valeurs déjà assignées dans le dropdown
+- [x] Désactiver le bouton "+ Ajouter" si toutes les valeurs sont déjà assignées
+- [x] Pour les catégories spéciales, afficher "Données calculées" (read-only, grisé)
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Tags bleus affichés pour les valeurs level_2
-- [ ] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
-- [ ] Ajout/suppression fonctionne
-- [ ] Sauvegarde automatique fonctionne
-- [ ] Catégories spéciales affichent "Données calculées"
-- [ ] **Test visuel dans navigateur validé**
+- [x] Tags bleus affichés pour les valeurs level_2
+- [x] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
+- [x] Ajout/suppression fonctionne
+- [x] Sauvegarde automatique fonctionne (mise à jour du mapping via API)
+- [x] Valeurs déjà assignées filtrées du dropdown
+- [x] Catégories spéciales affichent "Données calculées"
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.5.7 : Frontend - Ajout de lignes (catégories)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (comme "+ Ajouter un type" dans AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (dans une ligne spéciale, comme AmortizationConfigCard)
-- [ ] **PAS DE MODAL** - Création directe d'une ligne avec catégorie par défaut (comme AmortizationConfigCard)
-- [ ] Prendre la première catégorie de "Charges d'exploitation" par défaut
-- [ ] Créer une nouvelle ligne avec la catégorie sélectionnée
-- [ ] Sauvegarde automatique à la création
-- [ ] **Tester dans le navigateur**
+- [x] Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (dans une ligne spéciale, comme AmortizationConfigCard)
+- [x] **PAS DE MODAL** - Création directe d'une ligne avec catégorie par défaut (comme AmortizationConfigCard)
+- [x] Prendre la première catégorie de "Charges d'exploitation" par défaut
+- [x] Créer une nouvelle ligne avec la catégorie sélectionnée
+- [x] Sauvegarde automatique à la création
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Bouton "+ Ajouter une catégorie" visible en bas du tableau
-- [ ] Création directe sans modal (comme AmortizationConfigCard)
-- [ ] Nouvelle ligne créée avec catégorie par défaut
-- [ ] Sauvegarde automatique fonctionne
-- [ ] **Test visuel dans navigateur validé**
+- [x] Bouton "+ Ajouter une catégorie" visible en bas du tableau
+- [x] Création directe sans modal (comme AmortizationConfigCard)
+- [x] Nouvelle ligne créée avec catégorie par défaut
+- [x] Sauvegarde automatique fonctionne
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.5.8 : Frontend - Suppression de lignes (catégories)
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter le menu contextuel (clic droit) pour supprimer une ligne (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Implémenter le menu contextuel (clic droit) sur une ligne
-- [ ] Ajouter option "🗑️ Supprimer" dans le menu
-- [ ] Confirmation avant suppression (comme AmortizationConfigCard)
-- [ ] Supprimer le mapping depuis l'API (`compteResultatAPI.deleteMapping(id)`)
-- [ ] Recharger les mappings après suppression
-- [ ] **Tester dans le navigateur**
+- [x] Implémenter le menu contextuel (clic droit) sur une ligne
+- [x] Ajouter option "🗑️ Supprimer" dans le menu
+- [x] Confirmation avant suppression (comme AmortizationConfigCard)
+- [x] Supprimer le mapping depuis l'API (`compteResultatAPI.deleteMapping(id)`)
+- [x] Recharger les mappings après suppression
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Menu contextuel s'affiche au clic droit
-- [ ] Option "🗑️ Supprimer" visible
-- [ ] Confirmation demandée avant suppression
-- [ ] Suppression fonctionne (backend)
-- [ ] Tableau se rafraîchit après suppression
-- [ ] **Test visuel dans navigateur validé**
+- [x] Menu contextuel s'affiche au clic droit
+- [x] Option "🗑️ Supprimer" visible
+- [x] Confirmation demandée avant suppression
+- [x] Suppression fonctionne (backend)
+- [x] Tableau se rafraîchit après suppression
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.5.9 : Frontend - Bouton "Réinitialiser les mappings"
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card
-- [ ] Confirmation avant réinitialisation (comme AmortizationConfigCard)
-- [ ] Supprimer tous les mappings depuis l'API
-- [ ] Recharger les mappings après réinitialisation
-- [ ] **Tester dans le navigateur**
+- [x] Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card
+- [x] Bouton visible uniquement s'il y a des mappings
+- [x] Confirmation avant réinitialisation (comme AmortizationConfigCard)
+- [x] Supprimer tous les mappings depuis l'API (un par un)
+- [x] Afficher le nombre de mappings à supprimer dans la confirmation
+- [x] Recharger les mappings après réinitialisation
+- [x] Message de succès après réinitialisation
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Bouton visible dans le header
-- [ ] Confirmation demandée avant réinitialisation
-- [ ] Tous les mappings supprimés
-- [ ] Tableau se rafraîchit après réinitialisation
-- [ ] **Test visuel dans navigateur validé**
+- [x] Bouton visible dans le header (uniquement si mappings existent)
+- [x] Confirmation demandée avant réinitialisation avec nombre de mappings
+- [x] Tous les mappings supprimés
+- [x] Tableau se rafraîchit après réinitialisation
+- [x] Message de succès affiché
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
-#### Step 7.5.10 : Frontend - Gestion des catégories spéciales
+#### Step 7.5.10 : Frontend - Bouton engrenage (Save/Load/Delete)
+**Status**: ✅ TERMINÉ  
+**Description**: Ajouter un bouton engrenage (⚙️) à droite du bouton "Réinitialiser les mappings" avec les mêmes fonctionnalités que dans AmortizationConfigCard : Save, Load, Delete.
+
+**Tasks**:
+- [x] Ajouter un bouton engrenage (⚙️) dans le header à droite du bouton "Réinitialiser les mappings"
+- [x] Menu déroulant avec 3 options : "Load...", "Save", "Delete..."
+- [x] **Save** : Popup pour sauvegarder la configuration actuelle des mappings sous un nom
+  - Champ texte pour le nom de la vue
+  - Bouton "Sauvegarder" et "Annuler"
+  - Sauvegarder tous les mappings actuels dans une vue (backend)
+  - Gestion de l'écrasement si une vue avec le même nom existe déjà
+- [x] **Load** : Popup pour charger une vue sauvegardée
+  - Liste déroulante avec toutes les vues disponibles
+  - Option "(default)" pour ne rien charger
+  - Confirmation avant chargement (remplace la configuration actuelle)
+  - Charger tous les mappings de la vue sélectionnée
+- [x] **Delete** : Popup pour supprimer une vue sauvegardée
+  - Liste déroulante avec toutes les vues disponibles
+  - Confirmation avant suppression
+  - Supprimer la vue sélectionnée
+- [x] Backend : Créer les tables et modèles pour les vues de mappings (CompteResultatMappingView)
+- [x] Backend : API endpoints pour CRUD des vues (create, get, list, delete)
+- [x] Script de migration pour créer la table
+- [x] Gérer l'état du menu (ouvert/fermé)
+- [x] Fermer le menu au clic ailleurs
+- [x] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [x] Bouton engrenage visible dans le header
+- [x] Menu déroulant fonctionne (ouvre/ferme)
+- [x] Save : Popup fonctionne, sauvegarde la configuration
+- [x] Load : Popup fonctionne, charge une vue sauvegardée
+- [x] Delete : Popup fonctionne, supprime une vue
+- [x] Backend : Tables et API fonctionnelles
+- [x] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.11 : Frontend - Gestion des catégories spéciales
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Finaliser l'affichage et la gestion des catégories spéciales (amortissements, coût financement).
 

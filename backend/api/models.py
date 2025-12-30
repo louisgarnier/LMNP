@@ -523,3 +523,108 @@ class LoanConfigListResponse(BaseModel):
     """Model for list of loan configurations response."""
     configs: List[LoanConfigResponse]
     total: int
+
+
+# Compte de résultat models
+
+class CompteResultatMappingBase(BaseModel):
+    """Base model for compte de résultat mapping."""
+    category_name: str = Field(..., max_length=200, description="Nom de la catégorie comptable")
+    level_1_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_1 à inclure (None = tous)")
+    level_2_values: List[str] = Field(..., description="Liste des level_2 à inclure pour cette catégorie")
+    level_3_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_3 à inclure (None = tous)")
+
+
+class CompteResultatMappingCreate(CompteResultatMappingBase):
+    """Model for creating a compte de résultat mapping."""
+    pass
+
+
+class CompteResultatMappingUpdate(BaseModel):
+    """Model for updating a compte de résultat mapping."""
+    category_name: Optional[str] = Field(None, max_length=200, description="Nom de la catégorie comptable")
+    level_1_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_1 à inclure")
+    level_2_values: Optional[List[str]] = Field(None, description="Liste des level_2 à inclure")
+    level_3_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_3 à inclure")
+
+
+class CompteResultatMappingResponse(CompteResultatMappingBase):
+    """Model for compte de résultat mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatMappingListResponse(BaseModel):
+    """Model for list of compte de résultat mappings response."""
+    mappings: List[CompteResultatMappingResponse]
+    total: int
+
+
+class CompteResultatDataBase(BaseModel):
+    """Base model for compte de résultat data."""
+    annee: int = Field(..., description="Année du compte de résultat")
+    category_name: str = Field(..., max_length=200, description="Nom de la catégorie comptable")
+    amount: float = Field(..., description="Montant pour cette catégorie et cette année")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (NULL si N/A)")
+
+
+class CompteResultatDataResponse(CompteResultatDataBase):
+    """Model for compte de résultat data response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatDataListResponse(BaseModel):
+    """Model for list of compte de résultat data response."""
+    data: List[CompteResultatDataResponse]
+    total: int
+
+
+class CompteResultatGenerateRequest(BaseModel):
+    """Model for generating compte de résultat."""
+    year: int = Field(..., description="Année pour laquelle générer le compte de résultat")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement à utiliser")
+
+
+class CompteResultatResponse(BaseModel):
+    """Model for compte de résultat response (année complète)."""
+    year: int
+
+
+# Compte Resultat Mapping Views Models
+class CompteResultatMappingViewResponse(BaseModel):
+    """Model for compte de résultat mapping view response."""
+    id: int
+    name: str
+    view_data: dict = Field(..., description="Données JSON de la vue (tous les mappings avec leurs configs)")
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatMappingViewCreate(BaseModel):
+    """Model for creating a compte de résultat mapping view."""
+    name: str = Field(..., description="Nom de la vue")
+    view_data: dict = Field(..., description="Données JSON de la vue (tous les mappings avec leurs configs)")
+
+
+class CompteResultatMappingViewUpdate(BaseModel):
+    """Model for updating a compte de résultat mapping view."""
+    name: Optional[str] = Field(None, description="Nouveau nom de la vue")
+    view_data: Optional[dict] = Field(None, description="Nouvelles données JSON de la vue")
+
+
+class CompteResultatMappingViewListResponse(BaseModel):
+    """Model for list of compte de résultat mapping views."""
+    views: List[CompteResultatMappingViewResponse]
+    total: int
