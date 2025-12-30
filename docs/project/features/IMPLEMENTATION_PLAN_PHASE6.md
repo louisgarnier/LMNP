@@ -989,32 +989,34 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.6.1 : Frontend - Structure de base du tableau
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la structure de base du composant et du tableau (comme AmortizationTable).
 
 **Tasks**:
-- [ ] Créer composant `CompteResultatTable.tsx` (copier structure de base d'`AmortizationTable`)
-- [ ] Créer le tableau avec colonnes : Catégories | Années (dynamiques)
-- [ ] Définir la liste des catégories comptables (ordre fixe)
-- [ ] Calculer automatiquement les années à afficher (de la première transaction jusqu'à l'année en cours)
-- [ ] Afficher les en-têtes de colonnes (Catégories + une colonne par année)
-- [ ] Intégrer dans l'onglet "Compte de résultat" (sous la card de config)
-- [ ] **Tester dans le navigateur**
+- [x] Créer composant `CompteResultatTable.tsx` (copier structure de base d'`AmortizationTable`)
+- [x] Créer le tableau avec colonnes : Compte de résultat | Années (dynamiques)
+- [x] Définir la liste des catégories comptables (ordre fixe, groupées par type)
+- [x] Calculer automatiquement les années à afficher (de la première transaction jusqu'à l'année en cours)
+- [x] Afficher les en-têtes de colonnes (Compte de résultat + une colonne par année)
+- [x] Afficher structure hiérarchique : ligne de type (avec totaux) + catégories indentées
+- [x] Intégrer dans l'onglet "Compte de résultat" (sous la card de config)
+- [x] **Tester dans le navigateur**
 
 **Deliverables**:
 - `frontend/src/components/CompteResultatTable.tsx` - Structure de base
 - Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
 
 **Acceptance Criteria**:
-- [ ] Tableau affiché avec colonnes dynamiques (années)
-- [ ] Catégories affichées dans l'ordre fixe
-- [ ] Années calculées automatiquement (jusqu'à l'année en cours)
-- [ ] **Test visuel dans navigateur validé**
+- [x] Tableau affiché avec colonnes dynamiques (années)
+- [x] Catégories affichées dans l'ordre fixe (groupées par type)
+- [x] Structure hiérarchique : types avec totaux, catégories indentées
+- [x] Années calculées automatiquement (jusqu'à l'année en cours)
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.6.2 : Backend - Calcul des montants par catégorie et année
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Implémenter le calcul des montants pour chaque catégorie et chaque année en utilisant **uniquement** les configurations de la card config (`CompteResultatConfigCard`).
 
 **⚠️ Principe fondamental** :
@@ -1022,46 +1024,52 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - Seules les catégories avec au moins un mapping configuré sont calculées et affichées
 - Les vues d'amortissement et crédits utilisés sont ceux sélectionnés dans la card config
 
+**⚠️ Corrections importantes** :
+- **Regroupement des conditions** : Tous les mappings d'une même catégorie sont regroupés avec OR pour éviter de compter plusieurs fois les mêmes transactions
+- **Transactions positives ET négatives** : Pour toutes les catégories, on prend en compte :
+  - **Produits** : revenus (positifs) - remboursements/annulations (négatifs)
+  - **Charges** : dépenses (négatifs) - remboursements/crédits (positifs)
+
 **Tasks**:
-- [ ] Mettre à jour `compte_resultat_service.py` pour calculer les montants par catégorie et année
-- [ ] Récupérer tous les mappings configurés depuis `CompteResultatMapping`
-- [ ] Pour chaque catégorie avec mapping level_1/level_2 :
+- [x] Mettre à jour `compte_resultat_service.py` pour calculer les montants par catégorie et année
+- [x] Récupérer tous les mappings configurés depuis `CompteResultatMapping`
+- [x] Pour chaque catégorie avec mapping level_1/level_2 :
   - Filtrer les transactions par année (date entre 01/01/année et 31/12/année)
   - Filtrer par level_1 OU level_2 selon le mapping (logique OR)
-  - Si plusieurs mappings pour la même catégorie : sommer les résultats de tous les mappings
-  - Sommer les montants (`Transaction.quantite`)
-- [ ] Pour "Charges d'amortissements" :
+  - Regrouper tous les mappings d'une catégorie avec OR pour éviter les doublons
+  - **Prendre en compte transactions positives ET négatives** :
+    - Produits : revenus (positifs) - remboursements (négatifs)
+    - Charges : dépenses (négatifs) - remboursements/crédits (positifs)
+- [x] Pour "Charges d'amortissements" :
   - Récupérer le mapping correspondant et son `amortization_view_id`
   - Si `amortization_view_id` est défini : récupérer le total depuis cette vue d'amortissement pour l'année
-  - Si `amortization_view_id` est NULL : retourner 0 ou une erreur
-- [ ] Pour "Coût du financement (hors remboursement du capital)" :
+  - Si `amortization_view_id` est NULL : retourner 0
+- [x] Pour "Coût du financement (hors remboursement du capital)" :
   - Récupérer le mapping correspondant et son `selected_loan_ids`
   - Si `selected_loan_ids` est défini : filtrer `loan_payments` par année et par les IDs de crédits sélectionnés
   - Sommer `interest` + `insurance` uniquement pour les crédits sélectionnés
   - Si `selected_loan_ids` est NULL ou vide : retourner 0
-- [ ] Créer endpoint `GET /api/compte-resultat/calculate?year={year}` qui retourne les montants par catégorie pour une année donnée
-- [ ] Ou créer endpoint `GET /api/compte-resultat/calculate?years={year1,year2,...}` pour plusieurs années
-- [ ] **Créer test unitaire**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer endpoint `GET /api/compte-resultat/calculate?years={year1,year2,...}` pour plusieurs années
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `backend/api/services/compte_resultat_service.py` - Calculs par catégorie/année
 - Mise à jour `backend/api/routes/compte_resultat.py` - Endpoint de calcul
-- `backend/tests/test_compte_resultat_calculs.py` - Tests de calculs
+- `backend/tests/test_compte_resultat_special_categories.py` - Tests de validation des catégories spéciales
 
 **Acceptance Criteria**:
-- [ ] Calculs corrects pour chaque catégorie avec mapping
-- [ ] Utilisation de `amortization_view_id` du mapping pour "Charges d'amortissements"
-- [ ] Utilisation de `selected_loan_ids` du mapping pour "Coût du financement"
-- [ ] Gestion des cas où vue/crédits ne sont pas sélectionnés (retourner 0)
-- [ ] Endpoint retourne les montants par catégorie et année
-- [ ] Tests passent
-- [ ] **Utilisateur confirme que les calculs sont corrects**
+- [x] Calculs corrects pour chaque catégorie avec mapping
+- [x] Utilisation de `amortization_view_id` du mapping pour "Charges d'amortissements"
+- [x] Utilisation de `selected_loan_ids` du mapping pour "Coût du financement"
+- [x] Gestion des cas où vue/crédits ne sont pas sélectionnés (retourner 0)
+- [x] Endpoint retourne les montants par catégorie et année
+- [x] Transactions positives ET négatives prises en compte pour toutes les catégories
+- [x] **Utilisateur confirme que les calculs sont corrects**
 
 ---
 
 #### Step 7.6.3 : Frontend - Chargement et affichage des montants
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Charger les montants depuis l'API et les afficher dans le tableau. **Les montants sont toujours liés aux mappings de la card config.**
 
 **⚠️ Liaison avec CompteResultatConfigCard** :
@@ -1070,123 +1078,122 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - Afficher uniquement les catégories qui ont des mappings configurés dans la card config
 
 **Tasks**:
-- [ ] Appeler l'API pour calculer les montants pour toutes les années (jusqu'à l'année en cours)
-- [ ] Afficher les montants dans les cellules correspondantes (catégorie × année)
-- [ ] Gérer l'état de chargement (spinner ou "Chargement...")
-- [ ] Gérer les erreurs (affichage de message d'erreur)
-- [ ] Recharger les données quand les mappings changent (via callback `onConfigUpdated` de la card config)
-- [ ] Afficher un message si une catégorie spéciale n'a pas de vue/crédits sélectionnés (ex: "Vue non configurée")
-- [ ] **Tester dans le navigateur**
+- [x] Appeler l'API pour calculer les montants pour toutes les années (jusqu'à l'année en cours)
+- [x] Afficher les montants dans les cellules correspondantes (catégorie × année)
+- [x] Gérer l'état de chargement (spinner ou "Chargement...")
+- [x] Gérer les erreurs (affichage de message d'erreur)
+- [x] Recharger les données quand les mappings changent (via `refreshKey` déclenché par `onConfigUpdated` de la card config)
+- [x] Afficher un message si une catégorie spéciale n'a pas de vue/crédits sélectionnés (ex: "Vue non configurée" / "Crédits non configurés")
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Montants chargés depuis l'API
-- [ ] Montants affichés dans les bonnes cellules
-- [ ] État de chargement géré
-- [ ] Erreurs gérées
-- [ ] Rechargement automatique quand les mappings changent dans la card config
-- [ ] Message affiché si vue/crédits non configurés
-- [ ] **Test visuel dans navigateur validé**
+- [x] Montants chargés depuis l'API
+- [x] Montants affichés dans les bonnes cellules
+- [x] État de chargement géré
+- [x] Erreurs gérées
+- [x] Rechargement automatique quand les mappings changent dans la card config
+- [x] Message affiché si vue/crédits non configurés
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.6.4 : Frontend - Test et validation des charges d'amortissements
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Tester et valider spécifiquement l'affichage correct de la catégorie "Charges d'amortissements".
 
 **Tasks**:
-- [ ] Vérifier que les montants sont récupérés depuis la vue d'amortissement sélectionnée dans la card config (Step 7.5.11)
-- [ ] Tester avec une vue d'amortissement sélectionnée : montants affichés correctement dans le tableau
-- [ ] Tester sans vue sélectionnée : afficher "Vue non configurée" ou 0,00 €
-- [ ] Vérifier que les montants correspondent aux totaux de la vue d'amortissement pour chaque année
+- [x] Vérifier que les montants sont récupérés depuis la vue d'amortissement sélectionnée dans la card config (Step 7.5.11)
+- [x] Tester avec une vue d'amortissement sélectionnée : montants affichés correctement dans le tableau
+- [x] Tester sans vue sélectionnée : afficher "Vue non configurée" (implémenté dans Step 7.6.3)
+- [x] Vérifier que les montants correspondent aux totaux de la vue d'amortissement pour chaque année
   - Comparer avec les données de `AmortizationResult` pour la vue sélectionnée
   - Vérifier que la somme par année correspond au total d'amortissement de la vue
-- [ ] Tester le rechargement automatique quand la vue d'amortissement change dans la card config
-- [ ] Tester avec différentes vues d'amortissement : vérifier que les montants changent correctement
-- [ ] Vérifier que les montants sont corrects pour plusieurs années
-- [ ] **Tester dans le navigateur**
+  - **Tests automatisés créés et validés** : `test_compte_resultat_special_categories.py`
+- [x] Tester le rechargement automatique quand la vue d'amortissement change dans la card config (via `refreshKey`)
+- [x] Vérifier que les montants sont corrects pour plusieurs années (tests validés pour toutes les années)
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Montants corrects depuis la vue sélectionnée dans la card config
-- [ ] Message affiché si vue non configurée
-- [ ] Montants correspondent aux totaux de la vue d'amortissement pour chaque année
-- [ ] Rechargement automatique quand vue change dans card config
-- [ ] Montants corrects pour plusieurs années
-- [ ] **Test visuel dans navigateur validé**
-- [ ] **Utilisateur confirme que les montants sont corrects**
+- [x] Montants corrects depuis la vue sélectionnée dans la card config
+- [x] Message affiché si vue non configurée ("Vue non configurée")
+- [x] Montants correspondent aux totaux de la vue d'amortissement pour chaque année (tests validés)
+- [x] Rechargement automatique quand vue change dans card config (via `refreshKey`)
+- [x] Montants corrects pour plusieurs années (tests validés pour toutes les années disponibles)
+- [x] **Test visuel dans navigateur validé**
+- [x] **Utilisateur confirme que les montants sont corrects**
 
 ---
 
 #### Step 7.6.5 : Frontend - Test et validation du coût du financement
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Tester et valider spécifiquement l'affichage correct de la catégorie "Coût du financement (hors remboursement du capital)".
 
 **Tasks**:
-- [ ] Vérifier que les montants sont calculés depuis les crédits sélectionnés dans la card config (Step 7.5.12)
-- [ ] Tester avec un crédit sélectionné : montants affichés correctement (interest + insurance)
-- [ ] Tester avec plusieurs crédits sélectionnés : somme des montants de tous les crédits
-- [ ] Tester sans crédit sélectionné : afficher "Crédits non configurés" ou 0,00 €
-- [ ] Vérifier que les montants correspondent à la somme des loan_payments (interest + insurance) pour les crédits sélectionnés, par année
+- [x] Vérifier que les montants sont calculés depuis les crédits sélectionnés dans la card config (Step 7.5.12)
+- [x] Tester avec un crédit sélectionné : montants affichés correctement (interest + insurance)
+- [x] Tester avec plusieurs crédits sélectionnés : somme des montants de tous les crédits (logique implémentée)
+- [x] Tester sans crédit sélectionné : afficher "Crédits non configurés" (implémenté dans Step 7.6.3)
+- [x] Vérifier que les montants correspondent à la somme des loan_payments (interest + insurance) pour les crédits sélectionnés, par année
   - Filtrer `loan_payments` par année et par les IDs de crédits sélectionnés
   - Sommer `interest + insurance` pour chaque crédit sélectionné
   - Vérifier que le total correspond au montant affiché
-- [ ] Tester le rechargement automatique quand les crédits sélectionnés changent dans la card config
-- [ ] Tester avec différents crédits sélectionnés : vérifier que les montants changent correctement
-- [ ] Vérifier que les montants sont corrects pour plusieurs années
-- [ ] **Tester dans le navigateur**
+  - **Tests automatisés créés et validés** : `test_compte_resultat_special_categories.py`
+- [x] Tester le rechargement automatique quand les crédits sélectionnés changent dans la card config (via `refreshKey`)
+- [x] Vérifier que les montants sont corrects pour plusieurs années (tests validés pour toutes les années disponibles)
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Montants corrects depuis les crédits sélectionnés dans la card config
-- [ ] Somme correcte pour plusieurs crédits sélectionnés
-- [ ] Message affiché si crédits non configurés
-- [ ] Montants correspondent à la somme des loan_payments (interest + insurance) pour les crédits sélectionnés
-- [ ] Rechargement automatique quand crédits changent dans card config
-- [ ] Montants corrects pour plusieurs années
-- [ ] **Test visuel dans navigateur validé**
-- [ ] **Utilisateur confirme que les montants sont corrects**
+- [x] Montants corrects depuis les crédits sélectionnés dans la card config
+- [x] Somme correcte pour plusieurs crédits sélectionnés (logique implémentée)
+- [x] Message affiché si crédits non configurés ("Crédits non configurés")
+- [x] Montants correspondent à la somme des loan_payments (interest + insurance) pour les crédits sélectionnés (tests validés)
+- [x] Rechargement automatique quand crédits changent dans card config (via `refreshKey`)
+- [x] Montants corrects pour plusieurs années (tests validés pour toutes les années disponibles)
+- [x] **Test visuel dans navigateur validé**
+- [x] **Utilisateur confirme que les montants sont corrects**
 
 ---
 
 #### Step 7.6.6 : Frontend - Calcul et affichage des totaux
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Calculer et afficher les lignes de totaux (comme dans l'image).
 
 **Tasks**:
-- [ ] Calculer "Total des produits d'exploitation" = somme des 3 catégories de produits
-- [ ] Calculer "Total des charges d'exploitation" = somme des 9 catégories de charges
-- [ ] Calculer "Résultat d'exploitation" = Total produits - Total charges
-- [ ] Calculer "Résultat net de l'exercice" = Résultat d'exploitation
-- [ ] Afficher les lignes de totaux avec fond gris (comme dans l'image)
-- [ ] Afficher "Résultat net" en magenta (comme dans l'image)
-- [ ] Mettre en évidence les totaux (texte en gras)
-- [ ] **Tester dans le navigateur**
+- [x] Calculer "Total des produits d'exploitation" = somme des catégories de produits (affiché sur ligne de type)
+- [x] Calculer "Total des charges d'exploitation" = somme des catégories de charges (affiché sur ligne de type)
+- [x] Calculer "Résultat de l'exercice" = Total produits - Total charges
+- [x] Afficher la ligne "Résultat de l'exercice" en bas du tableau avec fond gris
+- [x] Mettre en évidence les totaux (texte en gras, fond gris)
+- [x] Afficher en rouge si résultat négatif
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Totaux calculés correctement
-- [ ] Lignes de totaux affichées avec fond gris
-- [ ] Résultat net en magenta
-- [ ] Totaux mis en évidence (texte en gras)
-- [ ] **Test visuel dans navigateur validé**
+- [x] Totaux calculés correctement (par type et résultat de l'exercice)
+- [x] Lignes de totaux affichées avec fond gris
+- [x] Totaux mis en évidence (texte en gras)
+- [x] Résultat négatif affiché en rouge
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
 #### Step 7.6.7 : Frontend - Formatage des montants
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Formater les montants (€, séparateurs de milliers, 2 décimales).
 
 **Tasks**:
-- [ ] Formater les montants avec séparateurs de milliers (ex: 1 234,56 €)
-- [ ] Afficher 2 décimales
-- [ ] Afficher le symbole €
-- [ ] Gérer les valeurs négatives (affichage en rouge ou avec signe -)
-- [ ] Gérer les valeurs nulles (affichage "0,00 €" ou vide)
-- [ ] **Tester dans le navigateur**
+- [x] Formater les montants avec séparateurs de milliers (ex: 1 234,56 €)
+- [x] Afficher 2 décimales
+- [x] Afficher le symbole €
+- [x] Gérer les valeurs négatives (affichage en rouge)
+- [x] Gérer les valeurs nulles (affichage "0,00 €")
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Montants formatés correctement (1 234,56 €)
-- [ ] 2 décimales affichées
-- [ ] Symbole € visible
-- [ ] Valeurs négatives gérées
-- [ ] **Test visuel dans navigateur validé**
+- [x] Montants formatés correctement (1 234,56 €)
+- [x] 2 décimales affichées
+- [x] Symbole € visible
+- [x] Valeurs négatives gérées (affichage en rouge)
+- [x] **Test visuel dans navigateur validé**
 
 ---
 

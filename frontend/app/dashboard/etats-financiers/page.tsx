@@ -13,6 +13,7 @@ import LoanConfigCard from '@/components/LoanConfigCard';
 import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
 import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
+import CompteResultatTable from '@/components/CompteResultatTable';
 
 export default function EtatsFinanciersPage() {
   const searchParams = useSearchParams();
@@ -24,6 +25,7 @@ export default function EtatsFinanciersPage() {
   const [mounted, setMounted] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [activeLoanName, setActiveLoanName] = useState<string>('Prêt principal');
+  const [compteResultatRefreshKey, setCompteResultatRefreshKey] = useState(0);
 
   // Déterminer l'onglet actif (par défaut: compte-resultat)
   const activeTab = tabParam || 'compte-resultat';
@@ -132,7 +134,17 @@ export default function EtatsFinanciersPage() {
               <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
                 Compte de résultat
               </h2>
-              <CompteResultatConfigCard />
+              <CompteResultatConfigCard 
+                onConfigUpdated={() => {
+                  // Recharger le tableau quand la config change
+                  setCompteResultatRefreshKey(prev => prev + 1);
+                }}
+              />
+              <div style={{ marginTop: '24px' }}>
+                <CompteResultatTable 
+                  refreshKey={compteResultatRefreshKey}
+                />
+              </div>
             </div>
           )}
 

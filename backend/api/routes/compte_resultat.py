@@ -32,7 +32,8 @@ from backend.api.models import (
 )
 from backend.api.services.compte_resultat_service import (
     get_mappings,
-    calculate_compte_resultat
+    calculate_compte_resultat,
+    calculate_amounts_by_category_and_year
 )
 
 router = APIRouter()
@@ -328,6 +329,44 @@ async def get_compte_resultat(
         ).model_dump()
     
     return results
+
+
+@router.get("/compte-resultat/calculate")
+async def calculate_compte_resultat_amounts(
+    years: Optional[str] = Query(None, description="Années séparées par des virgules (ex: 2023,2024)"),
+    year: Optional[int] = Query(None, description="Année unique"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calcule les montants par catégorie et année en utilisant les mappings configurés.
+    
+    Cette fonction utilise exclusivement les mappings configurés dans CompteResultatMapping.
+    Pour chaque catégorie :
+    - Si mapping level_1/level_2 : calcule depuis les transactions
+    - Si "Charges d'amortissements" : utilise amortization_view_id du mapping
+    - Si "Coût du financement" : utilise selected_loan_ids du mapping
+    
+    Args:
+        years: Années séparées par des virgules (ex: "2023,2024")
+        year: Année unique (alternative à years)
+        db: Session de base de données
+        
+    Returns:
+        Dictionnaire {year: {category_name: amount}}
+    """
+    # Déterminer les années à calculer
+    if years:
+        years_list = [int(y.strip()) for y in years.split(',')]
+    elif year:
+        years_list = [year]
+    else:
+        raise HTTPException(status_code=400, detail="Fournir soit 'years' soit 'year'")
+    
+    # Calculer les montants
+    results = calculate_amounts_by_category_and_year(years_list, db)
+    
+    # Convertir les clés int en str pour la sérialisation JSON
+    return {str(k): v for k, v in results.items()}
 
 
 @router.get("/compte-resultat/data", response_model=CompteResultatDataListResponse)

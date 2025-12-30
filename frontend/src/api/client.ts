@@ -1451,6 +1451,10 @@ export const compteResultatAPI = {
       method: 'DELETE',
     });
   },
+  calculateAmounts: async (years: number[]): Promise<Record<string, Record<string, number>>> => {
+    const yearsParam = years.join(',');
+    return fetchAPI<Record<string, Record<string, number>>>(`/api/compte-resultat/calculate?years=${yearsParam}`);
+  },
 };
 
 // Compte de résultat mapping views API
