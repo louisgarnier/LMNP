@@ -348,9 +348,20 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ## Phase 7 : Compte de résultat
 
+**Structure** : Identique aux amortissements
+- **CompteResultatConfigCard** : Card de configuration (mapping level_1/level_2 → catégories comptables)
+- **CompteResultatTable** : Card d'affichage (tableau multi-années avec montants agrégés)
+
+**Ordre d'implémentation** :
+1. Backend (Steps 7.1 à 7.4)
+2. Frontend - Card Config (Step 7.5 avec sous-steps détaillés)
+3. Frontend - Card Table (Step 7.6 avec sous-steps détaillés)
+
+---
+
 ### Step 7.1 : Backend - Table et modèles pour les mappings et comptes de résultat
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Créer la structure de base de données pour stocker les mappings (level_2 → catégories comptables) et les comptes de résultat générés.
+**Description**: Créer la structure de base de données pour stocker les mappings (level_1/level_2 → catégories comptables) et les comptes de résultat générés.
 
 **Catégories comptables à mapper** :
 - **Produits d'exploitation** :
@@ -372,6 +383,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - [ ] Créer table `compte_resultat_mappings` avec colonnes :
   - `id` (PK)
   - `category_name` (nom de la catégorie comptable, ex: "Loyers hors charge encaissés")
+  - `level_1_values` (JSON array optionnel des level_1 à inclure, NULL par défaut)
   - `level_2_values` (JSON array des level_2 à inclure, ex: ["LOYERS"])
   - `level_3_values` (JSON array optionnel des level_3 à inclure, NULL par défaut)
   - `created_at`, `updated_at`
@@ -406,7 +418,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 **Description**: Implémenter la logique de calcul du compte de résultat.
 
 **Sources de données** :
-- **Produits/Charges** : Transactions enrichies via `level_2` (filtrer par date pour l'année)
+- **Produits/Charges** : Transactions enrichies via `level_1` OU `level_2` (logique OR, filtrer par date pour l'année)
 - **Amortissements** : Depuis les vues d'amortissement (sélectionner le total pour chaque année)
 - **Intérêts/Assurance crédit** : Depuis `loan_payments` (filtrer par année, sommer `interest` + `insurance`)
 
@@ -415,11 +427,11 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - [ ] Implémenter fonction `get_mappings()` : Charger les mappings depuis la table
 - [ ] Implémenter fonction `calculate_produits_exploitation(year, mappings)` :
   - Filtrer transactions par année (date entre 01/01/année et 31/12/année)
-  - Grouper par catégorie selon les mappings level_2
+  - Grouper par catégorie selon les mappings level_1 OU level_2 (logique OR)
   - Sommer les montants par catégorie
 - [ ] Implémenter fonction `calculate_charges_exploitation(year, mappings)` :
   - Filtrer transactions par année
-  - Grouper par catégorie selon les mappings level_2
+  - Grouper par catégorie selon les mappings level_1 OU level_2 (logique OR)
   - Sommer les montants par catégorie
 - [ ] Implémenter fonction `get_amortissements(year, amortization_view_id)` :
   - Récupérer le total d'amortissement pour l'année depuis la vue sélectionnée
@@ -529,72 +541,508 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 7.5 : Frontend - Card de configuration (mapping)
+### Step 7.5 : Frontend - Card de configuration (CompteResultatConfigCard)
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Créer l'interface de configuration pour mapper les level_2 aux catégories comptables.
+**Description**: Créer l'interface de configuration pour mapper les level_1 et level_2 aux catégories comptables. Structure identique à `AmortizationConfigCard`.
 
-**Tasks**:
-- [ ] Créer composant `CompteResultatMappingCard.tsx`
-- [ ] Afficher la liste des catégories comptables (prédéfinies)
-- [ ] Pour chaque catégorie, permettre de sélectionner les `level_2` à inclure :
-  - Dropdown multi-sélection avec tous les `level_2` disponibles
-  - Charger les `level_2` depuis les transactions enrichies (valeurs uniques)
-- [ ] Optionnel : Permettre de filtrer aussi par `level_3` (checkbox "Filtrer par level_3")
-- [ ] Sauvegarde automatique au blur ou bouton "Sauvegarder"
-- [ ] Afficher un aperçu du nombre de transactions qui seront incluses
-- [ ] Intégrer dans l'onglet "Compte de résultat"
-- [ ] Créer API client dans `frontend/src/api/client.ts`
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+**Structure du tableau** :
+- **4 colonnes** :
+  1. **Type** : "Produits d'exploitation" ou "Charges d'exploitation" (affiché automatiquement selon la catégorie, pas stocké en backend)
+  2. **Catégorie comptable** : Dropdown avec catégories prédéfinies (selon le type déduit)
+  3. **Level 1 (valeurs)** : Tags bleus avec "x" pour supprimer + bouton "+ Ajouter" (optionnel)
+  4. **Level 2 (valeurs)** : Tags bleus avec "x" pour supprimer + bouton "+ Ajouter" (optionnel)
+- **Une ligne = une catégorie comptable**
+- **Logique de mapping** : Une transaction est mappée à une catégorie si son `level_1` OU son `level_2` est dans les listes (logique OR)
+- **Validation** : Pas d'obligation de level_1 ou level_2. Si une catégorie n'a aucune valeur, elle n'impacte pas le compte de résultat (comme AmortizationConfigCard)
+- **Ordre** : Tri par Type puis par Catégorie comptable
 
-**Deliverables**:
-- `frontend/src/components/CompteResultatMappingCard.tsx` - Card de configuration
-- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
-- Mise à jour `frontend/src/api/client.ts` - API client
+**Catégories prédéfinies** :
+- **Produits d'exploitation** :
+  - Loyers hors charge encaissés
+  - Charges locatives payées par locataires
+  - Autres revenus
+- **Charges d'exploitation** :
+  - Charges de copropriété hors fonds travaux
+  - Fluides non refacturés
+  - Assurances
+  - Honoraires
+  - Travaux et mobilier
+  - Impôts et taxes
+  - Charges d'amortissements ⚠️ (données depuis vues d'amortissement - pas de mapping level_1/level_2)
+  - Autres charges diverses
+  - Coût du financement (hors remboursement du capital) ⚠️ (données depuis loan_payments - pas de mapping level_1/level_2)
 
-**Acceptance Criteria**:
-- [ ] Card affichée dans l'onglet "Compte de résultat"
-- [ ] Liste des catégories affichée
-- [ ] Sélection multi-level_2 fonctionne pour chaque catégorie
-- [ ] Sauvegarde fonctionne (backend)
-- [ ] Aperçu du nombre de transactions affiché
-- [ ] Interface intuitive et cohérente avec le reste de l'application
+**Fonctionnalités** (comme AmortizationConfigCard) :
+- Bouton "🔄 Réinitialiser les mappings" (supprimer tous les mappings)
+- Bouton "+ Ajouter une catégorie" en bas du tableau (création directe, pas de modal)
+- Menu contextuel (clic droit) avec "🗑️ Supprimer" pour supprimer une ligne
+- Sauvegarde automatique à chaque modification
 
 ---
 
-### Step 7.6 : Frontend - Card d'affichage du compte de résultat
+#### Step 7.5.1 : Backend - Support level_1 dans les mappings
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Créer l'interface d'affichage du compte de résultat avec tableau multi-années.
+**Description**: Ajouter le support de `level_1_values` dans la table et les modèles.
 
 **Tasks**:
-- [ ] Créer composant `CompteResultatTable.tsx`
-- [ ] Ajouter sélecteur d'années (multi-sélection ou range start_year - end_year)
-- [ ] Ajouter sélecteur de vue d'amortissement (dropdown avec toutes les vues disponibles)
-- [ ] Bouton "Générer compte de résultat" pour chaque année sélectionnée
-- [ ] Afficher le compte de résultat dans un tableau :
-  - Colonnes : Catégories | Année 1 | Année 2 | Année 3 | ...
-  - Lignes : Toutes les catégories comptables + totaux
-- [ ] Formatage des montants (€, séparateurs de milliers)
-- [ ] Mise en évidence des totaux (Résultat d'exploitation, Résultat net)
-- [ ] Intégrer dans l'onglet "Compte de résultat" (sous la card de config)
-- [ ] Créer API client dans `frontend/src/api/client.ts`
-- [ ] **Créer test visuel dans navigateur**
+- [ ] Ajouter colonne `level_1_values` (JSON, nullable=True) dans la table `compte_resultat_mappings`
+- [ ] Mettre à jour le modèle SQLAlchemy `CompteResultatMapping` pour inclure `level_1_values`
+- [ ] Mettre à jour les modèles Pydantic pour inclure `level_1_values` dans les requêtes/réponses
+- [ ] Mettre à jour le service `compte_resultat_service.py` pour filtrer aussi par `level_1` si présent
+- [ ] Créer migration script si nécessaire
+- [ ] **Créer test unitaire**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `frontend/src/components/CompteResultatTable.tsx` - Tableau d'affichage
-- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
-- Mise à jour `frontend/src/api/client.ts` - API client
+- Mise à jour `backend/database/models.py` - Ajout `level_1_values`
+- Mise à jour `backend/api/models.py` - Ajout `level_1_values` dans Pydantic
+- Mise à jour `backend/api/services/compte_resultat_service.py` - Filtrage par `level_1`
+- `backend/scripts/migrate_add_level1_to_compte_resultat_mapping.py` - Migration (si nécessaire)
 
 **Acceptance Criteria**:
-- [ ] Tableau affiché dans l'onglet "Compte de résultat"
-- [ ] Sélection d'années fonctionne
-- [ ] Sélection de vue d'amortissement fonctionne
-- [ ] Génération de compte de résultat fonctionne
-- [ ] Affichage multi-années côte à côte fonctionne
-- [ ] Formatage des montants correct
-- [ ] Totaux mis en évidence
-- [ ] **Utilisateur confirme que l'interface fonctionne**
+- [ ] Colonne `level_1_values` ajoutée en BDD
+- [ ] Modèles SQLAlchemy et Pydantic mis à jour
+- [ ] Service filtre correctement par `level_1` si présent
+- [ ] Tests passent
+
+---
+
+#### Step 7.5.2 : Frontend - Structure de base du tableau
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la structure de base du composant et du tableau (comme AmortizationConfigCard).
+
+**Tasks**:
+- [ ] Créer composant `CompteResultatConfigCard.tsx` (copier structure de base d'`AmortizationConfigCard`)
+- [ ] Créer le tableau avec 4 colonnes (en-têtes) : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs)
+- [ ] Charger les mappings depuis l'API (`compteResultatAPI.getMappings()`)
+- [ ] Afficher les lignes existantes (lecture seule pour l'instant, sans édition)
+- [ ] Déduire le Type automatiquement selon la catégorie (logique frontend)
+- [ ] Trier les lignes par Type puis par Catégorie comptable
+- [ ] Ajuster les largeurs des colonnes (Type: 15%, Catégorie: 25%, Level 1: 30%, Level 2: 30%)
+- [ ] Intégrer dans l'onglet "Compte de résultat"
+- [ ] **Tester dans le navigateur**
+
+**Deliverables**:
+- `frontend/src/components/CompteResultatConfigCard.tsx` - Structure de base
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
+- Mise à jour `frontend/src/api/client.ts` - API client de base
+
+**Acceptance Criteria**:
+- [ ] Tableau affiché avec 4 colonnes
+- [ ] Mappings chargés depuis l'API
+- [ ] Lignes triées par Type puis Catégorie
+- [ ] Largeurs des colonnes ajustées
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.3 : Frontend - Colonne 1 "Type"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Afficher le Type en première colonne (lecture seule, déduit automatiquement).
+
+**Tasks**:
+- [ ] Afficher le Type en première colonne (lecture seule, déduit automatiquement)
+- [ ] Logique : "Loyers hors charge encaissés", "Charges locatives payées par locataires", "Autres revenus" → "Produits d'exploitation"
+- [ ] Toutes les autres catégories → "Charges d'exploitation"
+- [ ] Utiliser le Type pour filtrer les catégories disponibles lors de l'ajout d'une ligne (Step 7.5.7)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Type affiché correctement selon la catégorie
+- [ ] Type en lecture seule (pas éditable)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.4 : Frontend - Colonne 2 "Catégorie comptable"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter dropdown "Catégorie comptable" en deuxième colonne (visible directement, pas besoin de clic).
+
+**Tasks**:
+- [ ] Ajouter dropdown "Catégorie comptable" en deuxième colonne (visible directement, pas besoin de clic)
+- [ ] Charger les catégories prédéfinies selon le type
+- [ ] Permettre la sélection d'une catégorie
+- [ ] Gérer les catégories spéciales (amortissements, coût financement) :
+  - Afficher ces catégories dans le tableau
+  - Afficher "Données calculées" dans les colonnes Level 1 et Level 2 (read-only)
+  - Pas de dropdown pour Level 1/Level 2 pour ces catégories
+- [ ] Sauvegarde automatique au changement de catégorie
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Dropdown visible directement (pas besoin de clic pour l'afficher)
+- [ ] Catégories filtrées selon le type
+- [ ] Sauvegarde automatique fonctionne
+- [ ] Catégories spéciales affichées avec "Données calculées"
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.5 : Frontend - Colonne 3 "Level 1 (valeurs)"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter l'affichage et la gestion des tags level_1 (comme AmortizationConfigCard).
+
+**Tasks**:
+- [ ] Implémenter l'affichage des tags bleus pour les valeurs level_1 sélectionnées
+- [ ] Ajouter bouton "+ Ajouter" qui ouvre un dropdown avec toutes les valeurs level_1 disponibles
+- [ ] Charger les valeurs level_1 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_1')`)
+- [ ] Implémenter l'ajout d'une valeur (tag bleu avec "x")
+- [ ] Implémenter la suppression d'une valeur (clic sur "x")
+- [ ] Sauvegarde automatique à chaque ajout/suppression
+- [ ] Pour les catégories spéciales, afficher "Données calculées" (read-only, grisé)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Tags bleus affichés pour les valeurs level_1
+- [ ] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
+- [ ] Ajout/suppression fonctionne
+- [ ] Sauvegarde automatique fonctionne
+- [ ] Catégories spéciales affichent "Données calculées"
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.6 : Frontend - Colonne 4 "Level 2 (valeurs)"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter l'affichage et la gestion des tags level_2 (comme AmortizationConfigCard).
+
+**Tasks**:
+- [ ] Implémenter l'affichage des tags bleus pour les valeurs level_2 sélectionnées
+- [ ] Ajouter bouton "+ Ajouter" qui ouvre un dropdown avec toutes les valeurs level_2 disponibles
+- [ ] Charger les valeurs level_2 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_2')`)
+- [ ] Implémenter l'ajout d'une valeur (tag bleu avec "x")
+- [ ] Implémenter la suppression d'une valeur (clic sur "x")
+- [ ] Sauvegarde automatique à chaque ajout/suppression
+- [ ] Pour les catégories spéciales, afficher "Données calculées" (read-only, grisé)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Tags bleus affichés pour les valeurs level_2
+- [ ] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
+- [ ] Ajout/suppression fonctionne
+- [ ] Sauvegarde automatique fonctionne
+- [ ] Catégories spéciales affichent "Données calculées"
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.7 : Frontend - Ajout de lignes (catégories)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (comme "+ Ajouter un type" dans AmortizationConfigCard).
+
+**Tasks**:
+- [ ] Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (dans une ligne spéciale, comme AmortizationConfigCard)
+- [ ] **PAS DE MODAL** - Création directe d'une ligne avec catégorie par défaut (comme AmortizationConfigCard)
+- [ ] Prendre la première catégorie de "Charges d'exploitation" par défaut
+- [ ] Créer une nouvelle ligne avec la catégorie sélectionnée
+- [ ] Sauvegarde automatique à la création
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Bouton "+ Ajouter une catégorie" visible en bas du tableau
+- [ ] Création directe sans modal (comme AmortizationConfigCard)
+- [ ] Nouvelle ligne créée avec catégorie par défaut
+- [ ] Sauvegarde automatique fonctionne
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.8 : Frontend - Suppression de lignes (catégories)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter le menu contextuel (clic droit) pour supprimer une ligne (comme AmortizationConfigCard).
+
+**Tasks**:
+- [ ] Implémenter le menu contextuel (clic droit) sur une ligne
+- [ ] Ajouter option "🗑️ Supprimer" dans le menu
+- [ ] Confirmation avant suppression (comme AmortizationConfigCard)
+- [ ] Supprimer le mapping depuis l'API (`compteResultatAPI.deleteMapping(id)`)
+- [ ] Recharger les mappings après suppression
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Menu contextuel s'affiche au clic droit
+- [ ] Option "🗑️ Supprimer" visible
+- [ ] Confirmation demandée avant suppression
+- [ ] Suppression fonctionne (backend)
+- [ ] Tableau se rafraîchit après suppression
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.9 : Frontend - Bouton "Réinitialiser les mappings"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card (comme AmortizationConfigCard).
+
+**Tasks**:
+- [ ] Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card
+- [ ] Confirmation avant réinitialisation (comme AmortizationConfigCard)
+- [ ] Supprimer tous les mappings depuis l'API
+- [ ] Recharger les mappings après réinitialisation
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Bouton visible dans le header
+- [ ] Confirmation demandée avant réinitialisation
+- [ ] Tous les mappings supprimés
+- [ ] Tableau se rafraîchit après réinitialisation
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.5.10 : Frontend - Gestion des catégories spéciales
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Finaliser l'affichage et la gestion des catégories spéciales (amortissements, coût financement).
+
+**Tasks**:
+- [ ] Détecter les catégories "Charges d'amortissements" et "Coût du financement (hors remboursement du capital)"
+- [ ] Afficher ces catégories dans le tableau avec un indicateur visuel (badge "Données calculées" dans colonnes Level 1 et Level 2)
+- [ ] Désactiver les colonnes Level 1 et Level 2 pour ces catégories (read-only, grisées)
+- [ ] Afficher un message explicatif (tooltip ou texte) :
+  - "Charges d'amortissements" : "Données récupérées depuis les vues d'amortissement (AmortizationTable) en fonction de l'année"
+  - "Coût du financement" : "Données récupérées depuis la table loan_payments (somme interest + insurance par année)"
+- [ ] Ces catégories n'ont pas de mapping level_1/level_2 (les données viennent d'autres sources)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Catégories spéciales détectées automatiquement
+- [ ] Badge "Données calculées" affiché dans colonnes Level 1 et Level 2
+- [ ] Colonnes Level 1 et Level 2 désactivées (read-only, grisées)
+- [ ] Message explicatif affiché (tooltip ou texte)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+**Step 7.5 - Acceptance Criteria globaux**:
+- [ ] Tableau affiché dans l'onglet "Compte de résultat" (structure comme AmortizationConfigCard)
+- [ ] 4 colonnes : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs)
+- [ ] Dropdown Type fonctionne et filtre les catégories
+- [ ] Dropdown Catégorie fonctionne avec catégories prédéfinies
+- [ ] Tags bleus pour level_1 avec "+ Ajouter" et "x" pour supprimer
+- [ ] Tags bleus pour level_2 avec "+ Ajouter" et "x" pour supprimer
+- [ ] Bouton "+ Ajouter une catégorie" fonctionne (création directe, pas de modal)
+- [ ] Menu contextuel (clic droit) avec "Supprimer" fonctionne
+- [ ] Bouton "🔄 Réinitialiser les mappings" fonctionne
+- [ ] Catégories spéciales (amortissements, coût financement) gérées correctement
+- [ ] Sauvegarde automatique fonctionne (comme AmortizationConfigCard)
+- [ ] API client créé et fonctionnel
+- [ ] **Test visuel dans navigateur validé**
+- [ ] **Utilisateur confirme que l'interface correspond à ses attentes**
+
+---
+
+### Step 7.6 : Frontend - Card d'affichage (CompteResultatTable)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer l'interface d'affichage du compte de résultat avec tableau multi-années. Structure identique à `AmortizationTable`.
+
+**Structure du tableau** :
+- **Colonnes** : Catégories | Année 1 | Année 2 | Année 3 | ... (jusqu'à l'année en cours)
+- **Lignes** :
+  - **Total des produits d'exploitation** (ligne de total, fond gris)
+  - Loyers hors charge encaissés
+  - Charges locatives payées par locataires
+  - Autres revenus
+  - **Total des charges d'exploitation** (ligne de total, fond gris)
+  - Charges de copropriété hors fonds travaux
+  - Fluides non refacturés
+  - Assurances
+  - Honoraires
+  - Travaux et mobilier
+  - Impôts et taxes
+  - Charges d'amortissements
+  - Autres charges diverses
+  - Coût du financement (hors remboursement du capital)
+  - **Résultat d'exploitation** (ligne de total, fond gris) = Produits - Charges
+  - **Résultat net de l'exercice** (ligne de total, fond gris, texte magenta) = Résultat d'exploitation
+
+**Fonctionnalités** :
+- Calculer automatiquement pour toutes les années jusqu'à l'année en cours
+- Possibilité d'ajouter des années au fur et à mesure
+- Sélecteur de vue d'amortissement (dropdown avec toutes les vues disponibles)
+- Formatage des montants (€, séparateurs de milliers, 2 décimales)
+- Mise en évidence des totaux (fond gris, texte en gras)
+- Résultat net en magenta (comme dans l'image)
+
+---
+
+#### Step 7.6.1 : Frontend - Structure de base du tableau
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la structure de base du composant et du tableau (comme AmortizationTable).
+
+**Tasks**:
+- [ ] Créer composant `CompteResultatTable.tsx` (copier structure de base d'`AmortizationTable`)
+- [ ] Créer le tableau avec colonnes : Catégories | Années (dynamiques)
+- [ ] Définir la liste des catégories comptables (ordre fixe)
+- [ ] Calculer automatiquement les années à afficher (de la première transaction jusqu'à l'année en cours)
+- [ ] Afficher les en-têtes de colonnes (Catégories + une colonne par année)
+- [ ] Intégrer dans l'onglet "Compte de résultat" (sous la card de config)
+- [ ] **Tester dans le navigateur**
+
+**Deliverables**:
+- `frontend/src/components/CompteResultatTable.tsx` - Structure de base
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
+
+**Acceptance Criteria**:
+- [ ] Tableau affiché avec colonnes dynamiques (années)
+- [ ] Catégories affichées dans l'ordre fixe
+- [ ] Années calculées automatiquement (jusqu'à l'année en cours)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.2 : Frontend - Sélecteur de vue d'amortissement
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter sélecteur de vue d'amortissement dans le header de la card.
+
+**Tasks**:
+- [ ] Ajouter dropdown "Vue d'amortissement" dans le header de la card
+- [ ] Charger toutes les vues d'amortissement disponibles depuis l'API
+- [ ] Permettre la sélection d'une vue
+- [ ] Sauvegarder la sélection (localStorage ou state)
+- [ ] Utiliser cette vue pour récupérer les amortissements dans les calculs
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Dropdown visible dans le header
+- [ ] Toutes les vues chargées depuis l'API
+- [ ] Sélection fonctionne
+- [ ] Sélection sauvegardée
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.3 : Backend - Calcul des montants par catégorie et année
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Implémenter le calcul des montants pour chaque catégorie et chaque année.
+
+**Tasks**:
+- [ ] Mettre à jour `compte_resultat_service.py` pour calculer les montants par catégorie et année
+- [ ] Pour chaque catégorie avec mapping level_1/level_2 :
+  - Filtrer les transactions par année (date entre 01/01/année et 31/12/année)
+  - Filtrer par level_1 OU level_2 selon le mapping (logique OR)
+  - Sommer les montants (`Transaction.quantite`)
+- [ ] Pour "Charges d'amortissements" :
+  - Récupérer le total depuis la vue d'amortissement sélectionnée pour l'année
+- [ ] Pour "Coût du financement" :
+  - Filtrer `loan_payments` par année
+  - Sommer `interest` + `insurance` de tous les crédits
+- [ ] Créer endpoint `GET /api/compte-resultat/calculate` qui retourne les montants par catégorie et année
+- [ ] **Créer test unitaire**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `backend/api/services/compte_resultat_service.py` - Calculs par catégorie/année
+- Mise à jour `backend/api/routes/compte_resultat.py` - Endpoint de calcul
+- `backend/tests/test_compte_resultat_calculs.py` - Tests de calculs
+
+**Acceptance Criteria**:
+- [ ] Calculs corrects pour chaque catégorie avec mapping
+- [ ] Calculs corrects pour catégories spéciales (amortissements, coût financement)
+- [ ] Endpoint retourne les montants par catégorie et année
+- [ ] Tests passent
+- [ ] **Utilisateur confirme que les calculs sont corrects**
+
+---
+
+#### Step 7.6.4 : Frontend - Chargement et affichage des montants
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Charger les montants depuis l'API et les afficher dans le tableau.
+
+**Tasks**:
+- [ ] Appeler l'API pour calculer les montants pour toutes les années
+- [ ] Afficher les montants dans les cellules correspondantes (catégorie × année)
+- [ ] Gérer l'état de chargement (spinner ou "Chargement...")
+- [ ] Gérer les erreurs (affichage de message d'erreur)
+- [ ] Recharger les données quand la vue d'amortissement change
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Montants chargés depuis l'API
+- [ ] Montants affichés dans les bonnes cellules
+- [ ] État de chargement géré
+- [ ] Erreurs gérées
+- [ ] Rechargement automatique quand vue d'amortissement change
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.5 : Frontend - Calcul et affichage des totaux
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Calculer et afficher les lignes de totaux (comme dans l'image).
+
+**Tasks**:
+- [ ] Calculer "Total des produits d'exploitation" = somme des 3 catégories de produits
+- [ ] Calculer "Total des charges d'exploitation" = somme des 9 catégories de charges
+- [ ] Calculer "Résultat d'exploitation" = Total produits - Total charges
+- [ ] Calculer "Résultat net de l'exercice" = Résultat d'exploitation
+- [ ] Afficher les lignes de totaux avec fond gris (comme dans l'image)
+- [ ] Afficher "Résultat net" en magenta (comme dans l'image)
+- [ ] Mettre en évidence les totaux (texte en gras)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Totaux calculés correctement
+- [ ] Lignes de totaux affichées avec fond gris
+- [ ] Résultat net en magenta
+- [ ] Totaux mis en évidence (texte en gras)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.6 : Frontend - Formatage des montants
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Formater les montants (€, séparateurs de milliers, 2 décimales).
+
+**Tasks**:
+- [ ] Formater les montants avec séparateurs de milliers (ex: 1 234,56 €)
+- [ ] Afficher 2 décimales
+- [ ] Afficher le symbole €
+- [ ] Gérer les valeurs négatives (affichage en rouge ou avec signe -)
+- [ ] Gérer les valeurs nulles (affichage "0,00 €" ou vide)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Montants formatés correctement (1 234,56 €)
+- [ ] 2 décimales affichées
+- [ ] Symbole € visible
+- [ ] Valeurs négatives gérées
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.7 : Frontend - Ajout d'années
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Permettre d'ajouter des années au fur et à mesure.
+
+**Tasks**:
+- [ ] Ajouter bouton "+ Ajouter une année" dans le header
+- [ ] Ouvrir un input ou dropdown pour sélectionner une année
+- [ ] Calculer et afficher les montants pour la nouvelle année
+- [ ] Ajouter la colonne correspondante dans le tableau
+- [ ] Sauvegarder la liste des années ajoutées (localStorage ou state)
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Bouton "+ Ajouter une année" visible
+- [ ] Sélection d'année fonctionne
+- [ ] Nouvelle colonne ajoutée au tableau
+- [ ] Montants calculés pour la nouvelle année
+- [ ] Liste des années sauvegardée
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+**Step 7.6 - Acceptance Criteria globaux**:
+- [ ] Tableau affiché dans l'onglet "Compte de résultat" (sous la card de config)
+- [ ] Structure : 1 colonne catégories + 1 colonne par année
+- [ ] Années calculées automatiquement (jusqu'à l'année en cours)
+- [ ] Sélecteur de vue d'amortissement fonctionne
+- [ ] Montants calculés et affichés correctement
+- [ ] Totaux calculés et affichés (fond gris, texte en gras)
+- [ ] Résultat net en magenta
+- [ ] Formatage des montants correct (€, séparateurs, 2 décimales)
+- [ ] Ajout d'années fonctionne
+- [ ] **Test visuel dans navigateur validé**
+- [ ] **Utilisateur confirme que l'interface correspond à l'image**
 
 ---
 
