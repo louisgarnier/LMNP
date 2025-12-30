@@ -858,34 +858,37 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.5.11 : Frontend - Colonne "Vue" et gestion des charges d'amortissement
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter une colonne "Vue" au tableau et gérer la sélection de vue d'amortissement pour la catégorie "Charges d'amortissements".
 
 **Tasks**:
-- [ ] Ajouter une nouvelle colonne "Vue" au tableau (5 colonnes au total : Type, Catégorie comptable, Level 1, Level 2, Vue)
-- [ ] Pour toutes les catégories sauf "Charges d'amortissements" et "Coût du financement" :
+- [x] Ajouter une nouvelle colonne "Vue" au tableau (5 colonnes au total : Type, Catégorie comptable, Level 1, Level 2, Vue)
+- [x] Pour toutes les catégories sauf "Charges d'amortissements" et "Coût du financement" :
   - Afficher "Aucune valeur" en grisé (read-only)
-- [ ] Pour la catégorie "Charges d'amortissements" :
+- [x] Pour la catégorie "Charges d'amortissements" :
   - Dropdown avec toutes les vues d'amortissement sauvegardées (via `amortizationViewsAPI.getAll()`)
   - Si aucune vue sauvegardée : afficher "vue à configurer" (grisé)
   - Permettre de sélectionner une vue d'amortissement
-  - Sauvegarder la sélection en base de données (backend : ajouter champ `amortization_view_id` dans `CompteResultatMapping` ou créer un champ séparé)
-- [ ] Afficher "Données calculées" dans les colonnes Level 1 (valeurs) et Level 2 (valeurs) pour cette catégorie
-- [ ] Désactiver les colonnes Level 1 et Level 2 pour cette catégorie (read-only, grisées)
-- [ ] Afficher un message explicatif (tooltip ou texte) : "Données récupérées depuis les vues d'amortissement (AmortizationTable) en fonction de l'année"
-- [ ] **Tester dans le navigateur**
+  - Sauvegarder la sélection en base de données (backend : ajouter champ `amortization_view_id` dans `CompteResultatMapping`)
+- [x] Afficher "Données calculées" dans les colonnes Level 1 (valeurs) et Level 2 (valeurs) pour cette catégorie
+- [x] Désactiver les colonnes Level 1 et Level 2 pour cette catégorie (read-only, grisées)
+- [x] Afficher un message explicatif (tooltip ou texte) : "Données récupérées depuis les vues d'amortissement (AmortizationTable) en fonction de l'année"
+- [x] Backend : Ajouter champ `amortization_view_id` dans `CompteResultatMapping`
+- [x] Backend : Script de migration pour ajouter la colonne
+- [x] Backend : Mettre à jour les modèles Pydantic et l'API
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Colonne "Vue" ajoutée au tableau (5 colonnes au total)
-- [ ] "Aucune valeur" affiché en grisé pour les catégories normales
-- [ ] Catégorie "Charges d'amortissements" détectée automatiquement
-- [ ] Dropdown avec vues d'amortissement fonctionne
-- [ ] "vue à configurer" affiché si aucune vue disponible
-- [ ] Sélection de la vue sauvegardée et persistée en BDD
-- [ ] Badge "Données calculées" affiché dans colonnes Level 1 et Level 2
-- [ ] Colonnes Level 1 et Level 2 désactivées (read-only, grisées)
-- [ ] Message explicatif affiché (tooltip ou texte)
-- [ ] **Test visuel dans navigateur validé**
+- [x] Colonne "Vue" ajoutée au tableau (5 colonnes au total)
+- [x] "Aucune valeur" affiché en grisé pour les catégories normales
+- [x] Catégorie "Charges d'amortissements" détectée automatiquement
+- [x] Dropdown avec vues d'amortissement fonctionne
+- [x] "vue à configurer" affiché si aucune vue disponible
+- [x] Sélection de la vue sauvegardée et persistée en BDD
+- [x] Badge "Données calculées" affiché dans colonnes Level 1 et Level 2
+- [x] Colonnes Level 1 et Level 2 désactivées (read-only, grisées)
+- [x] Message explicatif affiché (tooltip ou texte)
+- [x] **Test visuel dans navigateur validé**
 
 ---
 

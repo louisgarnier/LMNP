@@ -327,6 +327,8 @@ class CompteResultatMapping(Base):
     level_1_values = Column(JSON, nullable=True)  # Liste optionnelle des level_1 à inclure (NULL = tous les level_1)
     level_2_values = Column(JSON, nullable=False)  # Liste des level_2 à inclure (ex: ["LOYERS"])
     level_3_values = Column(JSON, nullable=True)  # Liste optionnelle des level_3 à inclure (NULL = tous les level_3)
+    amortization_view_id = Column(Integer, ForeignKey("amortization_views.id"), nullable=True)  # ID de la vue d'amortissement utilisée (pour catégorie "Charges d'amortissements")
+    selected_loan_ids = Column(JSON, nullable=True)  # Liste des IDs de crédits sélectionnés (pour catégorie "Coût du financement")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

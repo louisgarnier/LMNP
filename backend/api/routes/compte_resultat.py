@@ -103,7 +103,9 @@ async def create_compte_resultat_mapping(
         category_name=mapping_data.category_name,
         level_1_values=mapping_data.level_1_values,
         level_2_values=mapping_data.level_2_values,
-        level_3_values=mapping_data.level_3_values
+        level_3_values=mapping_data.level_3_values,
+        amortization_view_id=mapping_data.amortization_view_id if hasattr(mapping_data, 'amortization_view_id') else None,
+        selected_loan_ids=mapping_data.selected_loan_ids if hasattr(mapping_data, 'selected_loan_ids') else None
     )
     
     db.add(mapping)
@@ -156,6 +158,10 @@ async def update_compte_resultat_mapping(
         mapping.level_2_values = update_data['level_2_values']
     if 'level_3_values' in update_data:
         mapping.level_3_values = update_data['level_3_values']
+    if 'amortization_view_id' in update_data:
+        mapping.amortization_view_id = update_data['amortization_view_id']
+    if 'selected_loan_ids' in update_data:
+        mapping.selected_loan_ids = update_data['selected_loan_ids']
     
     db.commit()
     db.refresh(mapping)

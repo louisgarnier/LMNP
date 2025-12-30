@@ -533,6 +533,8 @@ class CompteResultatMappingBase(BaseModel):
     level_1_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_1 à inclure (None = tous)")
     level_2_values: List[str] = Field(..., description="Liste des level_2 à inclure pour cette catégorie")
     level_3_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_3 à inclure (None = tous)")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (pour catégorie 'Charges d'amortissements')")
+    selected_loan_ids: Optional[List[int]] = Field(None, description="Liste des IDs de crédits sélectionnés (pour catégorie 'Coût du financement')")
 
 
 class CompteResultatMappingCreate(CompteResultatMappingBase):
@@ -546,6 +548,8 @@ class CompteResultatMappingUpdate(BaseModel):
     level_1_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_1 à inclure")
     level_2_values: Optional[List[str]] = Field(None, description="Liste des level_2 à inclure")
     level_3_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_3 à inclure")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (pour catégorie 'Charges d'amortissements')")
+    selected_loan_ids: Optional[List[int]] = Field(None, description="Liste des IDs de crédits sélectionnés (pour catégorie 'Coût du financement')")
 
 
 class CompteResultatMappingResponse(CompteResultatMappingBase):

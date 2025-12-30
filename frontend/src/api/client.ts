@@ -1398,6 +1398,8 @@ export interface CompteResultatMapping {
   level_1_values: string[] | null;
   level_2_values: string[];
   level_3_values: string[] | null;
+  amortization_view_id: number | null;
+  selected_loan_ids: number[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -1412,6 +1414,8 @@ export interface CompteResultatMappingCreate {
   level_1_values?: string[] | null;
   level_2_values: string[];
   level_3_values?: string[] | null;
+  amortization_view_id?: number | null;
+  selected_loan_ids?: number[] | null;
 }
 
 export interface CompteResultatMappingUpdate {
@@ -1419,6 +1423,8 @@ export interface CompteResultatMappingUpdate {
   level_1_values?: string[] | null;
   level_2_values?: string[] | null;
   level_3_values?: string[] | null;
+  amortization_view_id?: number | null;
+  selected_loan_ids?: number[] | null;
 }
 
 export const compteResultatAPI = {

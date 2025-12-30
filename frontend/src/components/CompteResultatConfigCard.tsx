@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { compteResultatAPI, CompteResultatMapping, transactionsAPI, compteResultatMappingViewsAPI, CompteResultatMappingView } from '@/api/client';
+import { compteResultatAPI, CompteResultatMapping, transactionsAPI, compteResultatMappingViewsAPI, CompteResultatMappingView, amortizationViewsAPI } from '@/api/client';
 
 interface CompteResultatConfigCardProps {
   onConfigUpdated?: () => void;
@@ -79,13 +79,54 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   const [loadingViewsForDelete, setLoadingViewsForDelete] = useState(false);
   const [selectedViewIdForDelete, setSelectedViewIdForDelete] = useState<number | null>(null);
   const viewMenuRef = useRef<HTMLDivElement>(null);
+  // États pour gérer les vues d'amortissement (Step 7.5.11)
+  const [amortizationViews, setAmortizationViews] = useState<Array<{ id: number; name: string; level_2_value: string }>>([]);
+  const [loadingAmortizationViews, setLoadingAmortizationViews] = useState(false);
 
   // Charger les mappings et les valeurs level_1 et level_2 au montage
   useEffect(() => {
     loadMappings();
     loadLevel1Values();
     loadLevel2Values();
+    loadAmortizationViews();
   }, []);
+
+  // Charger les vues d'amortissement (Step 7.5.11)
+  const loadAmortizationViews = async () => {
+    try {
+      setLoadingAmortizationViews(true);
+      // Récupérer toutes les vues d'amortissement (sans filtre level_2)
+      // Note: On récupère toutes les vues, puis on les regroupe par level_2_value si nécessaire
+      const allViews: Array<{ id: number; name: string; level_2_value: string }> = [];
+      
+      // Récupérer tous les level_2_values uniques depuis les transactions
+      const level2Response = await transactionsAPI.getUniqueValues('level_2');
+      const level2Values = level2Response.values || [];
+      
+      // Pour chaque level_2, récupérer les vues
+      for (const level2 of level2Values) {
+        try {
+          const viewsResponse = await amortizationViewsAPI.getAll(level2);
+          viewsResponse.views.forEach(view => {
+            allViews.push({
+              id: view.id,
+              name: view.name,
+              level_2_value: view.level_2_value
+            });
+          });
+        } catch (err) {
+          console.warn(`⚠️ [CompteResultatConfigCard] Erreur lors du chargement des vues pour ${level2}:`, err);
+        }
+      }
+      
+      setAmortizationViews(allViews);
+      console.log('✅ [CompteResultatConfigCard] Vues d\'amortissement chargées:', allViews.length);
+    } catch (err: any) {
+      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des vues d\'amortissement:', err);
+    } finally {
+      setLoadingAmortizationViews(false);
+    }
+  };
 
   // Fermer le menu contextuel au clic ailleurs
   useEffect(() => {
@@ -685,6 +726,27 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
   };
 
+  // Gérer le changement de vue d'amortissement (Step 7.5.11)
+  const handleAmortizationViewChange = async (mappingId: number, viewId: number | null) => {
+    try {
+      console.log('🔄 [CompteResultatConfigCard] Changement de vue d\'amortissement:', { mappingId, viewId });
+      await compteResultatAPI.updateMapping(mappingId, {
+        amortization_view_id: viewId,
+      });
+      console.log('✅ [CompteResultatConfigCard] Vue d\'amortissement mise à jour avec succès');
+      
+      // Recharger les mappings
+      await loadMappings();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [CompteResultatConfigCard] Erreur lors de la mise à jour de la vue d\'amortissement:', err);
+      alert(`❌ Erreur lors de la mise à jour: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
   // Réinitialiser tous les mappings (Step 7.5.9)
   const handleResetMappings = async () => {
     const confirmed = window.confirm(
@@ -947,7 +1009,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '15%'
+                  width: '12%'
                 }}>
                   Type
                 </th>
@@ -956,7 +1018,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '25%'
+                  width: '20%'
                 }}>
                   Catégorie comptable
                 </th>
@@ -965,7 +1027,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '30%'
+                  width: '24%'
                 }}>
                   Level 1 (valeurs)
                 </th>
@@ -974,9 +1036,18 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '30%'
+                  width: '24%'
                 }}>
                   Level 2 (valeurs)
+                </th>
+                <th style={{ 
+                  padding: '12px', 
+                  textAlign: 'left', 
+                  fontWeight: '600', 
+                  color: '#374151',
+                  width: '20%'
+                }}>
+                  Vue
                 </th>
               </tr>
             </thead>
@@ -1286,12 +1357,62 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                         </div>
                       )}
                     </td>
+                    {/* Colonne Vue (Step 7.5.11) */}
+                    <td style={{ padding: '12px' }}>
+                      {mapping.category_name === 'Charges d\'amortissements' ? (
+                        // Dropdown pour sélectionner une vue d'amortissement
+                        loadingAmortizationViews ? (
+                          <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                            Chargement...
+                          </span>
+                        ) : amortizationViews.length === 0 ? (
+                          <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                            vue à configurer
+                          </span>
+                        ) : (
+                          <select
+                            value={mapping.amortization_view_id || ''}
+                            onChange={(e) => {
+                              const viewId = e.target.value ? parseInt(e.target.value) : null;
+                              handleAmortizationViewChange(mapping.id, viewId);
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '6px 8px',
+                              fontSize: '13px',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '4px',
+                              backgroundColor: '#ffffff',
+                              color: '#374151',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <option value="">Sélectionner une vue...</option>
+                            {amortizationViews.map((view) => (
+                              <option key={view.id} value={view.id}>
+                                {view.name} ({view.level_2_value})
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      ) : mapping.category_name === 'Coût du financement (hors remboursement du capital)' ? (
+                        // Pour le coût du financement, on affichera "Aucune valeur" pour l'instant (Step 7.5.12)
+                        <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                          Aucune valeur
+                        </span>
+                      ) : (
+                        // Pour toutes les autres catégories
+                        <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                          Aucune valeur
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
               {/* Ligne pour ajouter une nouvelle catégorie (Step 7.5.7) */}
               <tr style={{ backgroundColor: '#f9fafb', borderTop: '2px solid #e5e7eb' }}>
-                <td colSpan={4} style={{ padding: '12px', textAlign: 'center' }}>
+                <td colSpan={5} style={{ padding: '12px', textAlign: 'center' }}>
                   <button
                     onClick={handleAddCategory}
                     disabled={loading}
