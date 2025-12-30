@@ -425,10 +425,10 @@ class AmortizationViewListResponse(BaseModel):
 class LoanPaymentBase(BaseModel):
     """Base model for loan payment."""
     date: date
-    capital: float = Field(..., gt=0, description="Montant du capital remboursé")
+    capital: float = Field(..., ge=0, description="Montant du capital remboursé")
     interest: float = Field(..., ge=0, description="Montant des intérêts")
     insurance: float = Field(..., ge=0, description="Montant de l'assurance crédit")
-    total: float = Field(..., gt=0, description="Total de la mensualité")
+    total: float = Field(..., ge=0, description="Total de la mensualité")
     loan_name: str = Field("Prêt principal", max_length=100, description="Nom du prêt")
 
 
@@ -440,10 +440,10 @@ class LoanPaymentCreate(LoanPaymentBase):
 class LoanPaymentUpdate(BaseModel):
     """Model for updating a loan payment."""
     date: Optional[date] = None
-    capital: Optional[float] = Field(None, gt=0, description="Montant du capital remboursé")
+    capital: Optional[float] = Field(None, ge=0, description="Montant du capital remboursé")
     interest: Optional[float] = Field(None, ge=0, description="Montant des intérêts")
     insurance: Optional[float] = Field(None, ge=0, description="Montant de l'assurance crédit")
-    total: Optional[float] = Field(None, gt=0, description="Total de la mensualité")
+    total: Optional[float] = Field(None, ge=0, description="Total de la mensualité")
     loan_name: Optional[str] = Field(None, max_length=100, description="Nom du prêt")
 
 

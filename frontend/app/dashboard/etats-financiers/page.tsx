@@ -9,6 +9,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import LoanConfigCard from '@/components/LoanConfigCard';
+import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
+import LoanPaymentTable from '@/components/LoanPaymentTable';
 
 export default function EtatsFinanciersPage() {
   const searchParams = useSearchParams();
@@ -18,6 +21,7 @@ export default function EtatsFinanciersPage() {
   // État pour la checkbox "J'ai un crédit" (persisté dans localStorage)
   const [hasCredit, setHasCredit] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Déterminer l'onglet actif (par défaut: compte-resultat)
   const activeTab = tabParam || 'compte-resultat';
@@ -156,12 +160,19 @@ export default function EtatsFinanciersPage() {
 
           {activeTab === 'credit' && mounted && hasCredit && (
             <div>
-              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
-                Crédit
-              </h2>
-              <p style={{ color: '#6b7280' }}>
-                Cette section sera implémentée dans Step 6.4
-              </p>
+              <LoanConfigCard />
+              <div style={{ marginTop: '24px' }}>
+                <LoanPaymentFileUpload
+                  loanName="Prêt principal"
+                  onImportComplete={() => {
+                    // Le tableau se rafraîchira automatiquement via refreshKey
+                    setRefreshKey(prev => prev + 1);
+                  }}
+                />
+              </div>
+              <div style={{ marginTop: '24px' }}>
+                <LoanPaymentTable loanName="Prêt principal" refreshKey={refreshKey} />
+              </div>
             </div>
           )}
         </div>

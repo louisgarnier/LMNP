@@ -191,88 +191,148 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 ### Step 6.5 : Backend - Endpoints API pour les configurations de crédit
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les endpoints API pour gérer les configurations de crédit.
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/routes/loan_configs.py`
-- [ ] Créer endpoint `GET /api/loan-configs` : Liste des configurations de crédit
-- [ ] Créer endpoint `POST /api/loan-configs` : Créer une configuration
-- [ ] Créer endpoint `PUT /api/loan-configs/{id}` : Mettre à jour une configuration
-- [ ] Créer endpoint `DELETE /api/loan-configs/{id}` : Supprimer une configuration
-- [ ] Enregistrer router dans `backend/api/main.py`
-- [ ] **Créer test manuel pour les endpoints**
+- [x] Créer fichier `backend/api/routes/loan_configs.py`
+- [x] Créer endpoint `GET /api/loan-configs` : Liste des configurations de crédit
+- [x] Créer endpoint `GET /api/loan-configs/{id}` : Récupérer une configuration par ID
+- [x] Créer endpoint `POST /api/loan-configs` : Créer une configuration
+- [x] Créer endpoint `PUT /api/loan-configs/{id}` : Mettre à jour une configuration
+- [x] Créer endpoint `DELETE /api/loan-configs/{id}` : Supprimer une configuration
+- [x] Enregistrer router dans `backend/api/main.py`
+- [x] **Créer test manuel pour les endpoints**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `backend/api/routes/loan_configs.py` - Endpoints API
-- Mise à jour `backend/api/main.py` - Enregistrement du router
+- `backend/api/routes/loan_configs.py` - Endpoints API ✅
+- Mise à jour `backend/api/main.py` - Enregistrement du router ✅
+- `backend/tests/test_loan_configs_endpoints_manual.py` - Test manuel ✅
 
 **Acceptance Criteria**:
-- [ ] Tous les endpoints fonctionnent correctement
-- [ ] Gestion d'erreur correcte
-- [ ] Tests manuels passent
+- [x] Tous les endpoints fonctionnent correctement
+- [x] Gestion d'erreur correcte
+- [x] Tests manuels passent (5/5 tests réussis)
 
 ---
 
 ### Step 6.6 : Frontend - Card de configuration des crédits
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la card de configuration des crédits dans l'onglet Crédit.
 
 **Tasks**:
-- [ ] Créer composant `LoanConfigCard.tsx` avec :
+- [x] Créer composant `LoanConfigCard.tsx` avec :
   - Card en haut de la page avec plusieurs champs de saisie
   - Champs à renseigner :
+    - **Nom du crédit** (éditable)
     - **Crédit accordé** (en euros €)
     - **Taux fixe actuel (hors assurance)** (en %)
     - **Durée emprunt** (en années)
     - **Décalage initial** (en mois)
   - Possibilité d'ajouter plusieurs lignes de crédit (bouton "Ajouter un crédit")
   - Possibilité de supprimer une ligne de crédit
-  - Sauvegarde automatique au blur ou bouton "Sauvegarder"
-- [ ] Intégrer le composant dans `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Crédit)
-- [ ] Créer API client dans `frontend/src/api/client.ts` pour les configurations de crédit
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+  - Sauvegarde automatique au blur (tous les champs)
+- [x] Intégrer le composant dans `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Crédit)
+- [x] Créer API client dans `frontend/src/api/client.ts` pour les configurations de crédit
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- `frontend/src/components/LoanConfigCard.tsx` - Card de configuration
-- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration dans onglet Crédit
-- Mise à jour `frontend/src/api/client.ts` - API client
+- `frontend/src/components/LoanConfigCard.tsx` - Card de configuration ✅
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration dans onglet Crédit ✅
+- Mise à jour `frontend/src/api/client.ts` - API client ✅
 
 **Acceptance Criteria**:
-- [ ] Card affichée en haut de l'onglet Crédit
-- [ ] Tous les champs sont éditables avec les bonnes unités
-- [ ] Possibilité d'ajouter plusieurs lignes de crédit
-- [ ] Possibilité de supprimer une ligne de crédit
-- [ ] Sauvegarde fonctionne (backend)
-- [ ] Données persistées et rechargées au chargement de la page
-- [ ] Interface intuitive et cohérente avec le reste de l'application
+- [x] Card affichée en haut de l'onglet Crédit
+- [x] Tous les champs sont éditables avec les bonnes unités (€, %, ans, mois)
+- [x] Possibilité d'ajouter plusieurs lignes de crédit
+- [x] Possibilité de supprimer une ligne de crédit
+- [x] Sauvegarde fonctionne (backend) - sauvegarde automatique au blur
+- [x] Données persistées et rechargées au chargement de la page
+- [x] Interface intuitive et cohérente avec le reste de l'application
 
 ---
 
 ### Step 6.7 : Frontend - Import et gestion des mensualités
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Interface pour importer et gérer les mensualités de crédit.
 
 **Tasks**:
-- [ ] Créer composant d'import Excel/CSV pour les mensualités
-- [ ] Créer tableau d'affichage des mensualités dans l'onglet Crédit
-- [ ] Créer formulaire d'édition/création de mensualité
-- [ ] Lier les mensualités aux configurations de crédit (via `loan_name` ou `loan_config_id`)
+- [x] Créer composant d'import Excel/CSV pour les mensualités (`LoanPaymentFileUpload.tsx`)
+- [x] Créer modal de prévisualisation (`LoanPaymentPreviewModal.tsx`)
+- [x] Créer tableau d'affichage des mensualités (`LoanPaymentTable.tsx`)
+- [x] Créer formulaire d'édition inline dans le tableau
+- [x] Lier les mensualités aux configurations de crédit (via `loan_name`)
+- [x] Créer API client dans `frontend/src/api/client.ts` pour les mensualités
+- [x] Intégrer dans l'onglet Crédit
 - [ ] **Créer test visuel dans navigateur**
 - [ ] **Valider avec l'utilisateur**
 
 **Deliverables**:
-- Composants d'import et d'affichage des mensualités
-- Intégration dans l'onglet Crédit
+- `frontend/src/components/LoanPaymentFileUpload.tsx` - Composant d'import ✅
+- `frontend/src/components/LoanPaymentPreviewModal.tsx` - Modal de prévisualisation ✅
+- `frontend/src/components/LoanPaymentTable.tsx` - Tableau d'affichage ✅
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration ✅
+- Mise à jour `frontend/src/api/client.ts` - API client ✅
 
 **Acceptance Criteria**:
-- [ ] Import Excel/CSV fonctionne
-- [ ] Tableau affiche toutes les mensualités
-- [ ] Édition/création fonctionne
-- [ ] Association avec les configurations de crédit fonctionne
-- [ ] Interface intuitive
+- [x] Import Excel fonctionne (format attendu : colonne 'annee' + colonnes années)
+- [x] Preview affiche les données parsées avec avertissements
+- [x] Tableau affiche toutes les mensualités (triées par date)
+- [x] Édition inline fonctionne (modification des champs capital, intérêts, assurance, total auto-calculé)
+- [x] Suppression fonctionne avec confirmation
+- [x] Association avec les configurations de crédit via `loan_name` ("Prêt principal" par défaut)
+- [x] Interface intuitive et cohérente avec le reste de l'application
+
+---
+
+### Step 6.8 : Frontend - Multi-crédits avec sous-onglets dans LoanPaymentTable
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Transformer LoanPaymentTable pour supporter plusieurs crédits avec sous-onglets, synchronisation avec LoanConfigCard.
+
+**Tasks**:
+- [ ] Modifier `LoanPaymentTable` pour :
+  - Charger la liste des crédits depuis `LoanConfigCard` (via API `loanConfigsAPI.getAll()`)
+  - Afficher des sous-onglets horizontaux (un par crédit)
+  - Chaque onglet affiche les mensualités du crédit correspondant
+  - Le titre affiche le nom du crédit (pas "Prêt principal" en dur)
+  - Ordre des onglets : par ordre de création (selon `created_at`)
+- [ ] Synchronisation avec `LoanConfigCard` :
+  - Quand un nouveau crédit est créé dans `LoanConfigCard` → nouvel onglet apparaît automatiquement (vide)
+  - Quand un crédit est supprimé dans `LoanConfigCard` → confirmation → suppression de toutes les mensualités associées + suppression de l'onglet
+  - Utiliser `useEffect` pour recharger la liste des crédits quand nécessaire
+- [ ] Modifier `LoanPaymentFileUpload` :
+  - Le bouton "Load Mensualités" charge pour le crédit de l'onglet actif
+  - Le `loan_name` passé à l'API = `name` du `LoanConfig` sélectionné
+- [ ] Gestion de la suppression :
+  - Si un crédit a des mensualités et qu'on le supprime → confirmation avec message clair
+  - Supprimer toutes les mensualités associées (via `loan_name`)
+  - Supprimer l'onglet associé
+- [ ] **Créer test visuel dans navigateur**
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/LoanPaymentTable.tsx` - Sous-onglets par crédit
+- Mise à jour `frontend/src/components/LoanPaymentFileUpload.tsx` - Association au crédit actif
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Synchronisation avec LoanConfigCard
+
+**Acceptance Criteria**:
+- [ ] Sous-onglets affichés (un par crédit créé dans LoanConfigCard)
+- [ ] Titre affiche le nom du crédit (pas "Prêt principal" en dur)
+- [ ] Chaque onglet affiche les mensualités du crédit correspondant
+- [ ] Création d'un crédit → nouvel onglet apparaît automatiquement
+- [ ] Suppression d'un crédit → confirmation → suppression des mensualités + onglet
+- [ ] Bouton "Load Mensualités" charge pour le crédit de l'onglet actif
+- [ ] Ordre des onglets : par ordre de création
+- [ ] Synchronisation correcte entre LoanConfigCard et LoanPaymentTable
+
+**Détails techniques**:
+- Utiliser `loanConfigsAPI.getAll()` pour charger la liste des crédits
+- Filtrer les mensualités par `loan_name` = `name` du `LoanConfig`
+- Gérer l'état de l'onglet actif avec `useState`
+- Utiliser `useEffect` pour recharger la liste des crédits quand LoanConfigCard change
+- Implémenter la confirmation de suppression avec message détaillé
 
 ---
 
