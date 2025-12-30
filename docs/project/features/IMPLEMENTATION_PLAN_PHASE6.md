@@ -90,7 +90,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 ### Step 6.3 : Backend - Endpoints API pour les mensualités
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les endpoints API pour gérer les mensualités de crédit.
 
 **Clarifications** :
@@ -122,14 +122,14 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - **Historique** : Pas besoin d'historique des imports, juste supprimer et remplacer à chaque import
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/routes/loan_payments.py`
-- [ ] Créer endpoint `GET /api/loan-payments` : Liste des mensualités (filtrées par date, prêt, etc.)
-- [ ] Créer endpoint `POST /api/loan-payments` : Créer une mensualité
-- [ ] Créer endpoint `POST /api/loan-payments/preview` : Preview du fichier Excel (comme transactions/mappings)
+- [x] Créer fichier `backend/api/routes/loan_payments.py`
+- [x] Créer endpoint `GET /api/loan-payments` : Liste des mensualités (filtrées par date, prêt, etc.)
+- [x] Créer endpoint `POST /api/loan-payments` : Créer une mensualité
+- [x] Créer endpoint `POST /api/loan-payments/preview` : Preview du fichier Excel (comme transactions/mappings)
   - Afficher les colonnes détectées (structure du fichier Excel)
   - Afficher les lignes (aperçu des données parsées)
   - Afficher les années détectées et montants extraits
-- [ ] Créer endpoint `POST /api/loan-payments/import` : Importer depuis Excel
+- [x] Créer endpoint `POST /api/loan-payments/import` : Importer depuis Excel
   - Parser le fichier Excel avec structure : colonne `annee` + colonnes années
   - **Avant import** : Supprimer toutes les mensualités existantes pour le `loan_name` (avec confirmation)
   - Pour chaque année avec données : créer 1 enregistrement avec date = 01/01/année
@@ -137,24 +137,24 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - **Validation** : Vérifier que `capital + interest + insurance = total`, corriger automatiquement si erreur
   - **Années vides** : Si NaN/vides, créer un enregistrement avec valeurs à 0
   - `loan_name` = "Prêt principal" par défaut
-- [ ] Créer endpoint `PUT /api/loan-payments/{id}` : Mettre à jour une mensualité
-- [ ] Créer endpoint `DELETE /api/loan-payments/{id}` : Supprimer une mensualité
-- [ ] Enregistrer router dans `backend/api/main.py`
-- [ ] **Créer test manuel pour les endpoints**
-- [ ] **Valider avec l'utilisateur**
+- [x] Créer endpoint `PUT /api/loan-payments/{id}` : Mettre à jour une mensualité
+- [x] Créer endpoint `DELETE /api/loan-payments/{id}` : Supprimer une mensualité
+- [x] Enregistrer router dans `backend/api/main.py`
+- [x] **Créer test manuel pour les endpoints**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - `backend/api/routes/loan_payments.py` - Endpoints API
 - Mise à jour `backend/api/main.py` - Enregistrement du router
 
 **Acceptance Criteria**:
-- [ ] Tous les endpoints fonctionnent correctement
-- [ ] Preview du fichier Excel fonctionne (affiche structure détectée)
-- [ ] Import depuis Excel fonctionne (parse correctement la structure)
-- [ ] Création de 1 enregistrement par année avec date = 01/01/année
-- [ ] Extraction correcte de capital, interest, insurance, total
-- [ ] Gestion d'erreur correcte
-- [ ] Tests manuels passent
+- [x] Tous les endpoints fonctionnent correctement
+- [x] Preview du fichier Excel fonctionne (affiche structure détectée)
+- [x] Import depuis Excel fonctionne (parse correctement la structure)
+- [x] Création de 1 enregistrement par année avec date = 01/01/année
+- [x] Extraction correcte de capital, interest, insurance, total
+- [x] Gestion d'erreur correcte
+- [x] Tests manuels passent
 
 ---
 
@@ -288,29 +288,34 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 ### Step 6.8 : Frontend - Multi-crédits avec sous-onglets dans LoanPaymentTable
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Transformer LoanPaymentTable pour supporter plusieurs crédits avec sous-onglets, synchronisation avec LoanConfigCard.
 
 **Tasks**:
-- [ ] Modifier `LoanPaymentTable` pour :
+- [x] Modifier `LoanPaymentTable` pour :
   - Charger la liste des crédits depuis `LoanConfigCard` (via API `loanConfigsAPI.getAll()`)
   - Afficher des sous-onglets horizontaux (un par crédit)
   - Chaque onglet affiche les mensualités du crédit correspondant
   - Le titre affiche le nom du crédit (pas "Prêt principal" en dur)
   - Ordre des onglets : par ordre de création (selon `created_at`)
-- [ ] Synchronisation avec `LoanConfigCard` :
+- [x] Synchronisation avec `LoanConfigCard` :
   - Quand un nouveau crédit est créé dans `LoanConfigCard` → nouvel onglet apparaît automatiquement (vide)
   - Quand un crédit est supprimé dans `LoanConfigCard` → confirmation → suppression de toutes les mensualités associées + suppression de l'onglet
   - Utiliser `useEffect` pour recharger la liste des crédits quand nécessaire
-- [ ] Modifier `LoanPaymentFileUpload` :
+- [x] Modifier `LoanPaymentFileUpload` :
   - Le bouton "Load Mensualités" charge pour le crédit de l'onglet actif
   - Le `loan_name` passé à l'API = `name` du `LoanConfig` sélectionné
-- [ ] Gestion de la suppression :
+- [x] Gestion de la suppression :
   - Si un crédit a des mensualités et qu'on le supprime → confirmation avec message clair
   - Supprimer toutes les mensualités associées (via `loan_name`)
   - Supprimer l'onglet associé
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [x] Filtrage strict des mensualités par crédit (isolation complète)
+- [x] Ne pas créer d'enregistrements avec toutes les valeurs à 0 (éviter lignes vides)
+- [x] Rafraîchissement automatique après import
+- [x] Correction de l'édition des mensualités (gestion de la date et recalcul du total)
+- [x] Ajout d'une ligne de totaux en bas du tableau
+- [x] **Créer test visuel dans navigateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/LoanPaymentTable.tsx` - Sous-onglets par crédit
@@ -318,14 +323,19 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Synchronisation avec LoanConfigCard
 
 **Acceptance Criteria**:
-- [ ] Sous-onglets affichés (un par crédit créé dans LoanConfigCard)
-- [ ] Titre affiche le nom du crédit (pas "Prêt principal" en dur)
-- [ ] Chaque onglet affiche les mensualités du crédit correspondant
-- [ ] Création d'un crédit → nouvel onglet apparaît automatiquement
-- [ ] Suppression d'un crédit → confirmation → suppression des mensualités + onglet
-- [ ] Bouton "Load Mensualités" charge pour le crédit de l'onglet actif
-- [ ] Ordre des onglets : par ordre de création
-- [ ] Synchronisation correcte entre LoanConfigCard et LoanPaymentTable
+- [x] Sous-onglets affichés (un par crédit créé dans LoanConfigCard)
+- [x] Titre affiche le nom du crédit (pas "Prêt principal" en dur)
+- [x] Chaque onglet affiche les mensualités du crédit correspondant
+- [x] Création d'un crédit → nouvel onglet apparaît automatiquement
+- [x] Suppression d'un crédit → confirmation → suppression des mensualités + onglet
+- [x] Bouton "Load Mensualités" charge pour le crédit de l'onglet actif
+- [x] Ordre des onglets : par ordre de création
+- [x] Synchronisation correcte entre LoanConfigCard et LoanPaymentTable
+- [x] Isolation complète des crédits (pas de mélange de données entre crédits)
+- [x] Pas de lignes vides affichées (années avec toutes valeurs à 0)
+- [x] Rafraîchissement automatique du tableau après import
+- [x] Édition des mensualités fonctionne correctement (date et recalcul du total)
+- [x] Ligne de totaux affichée en bas du tableau
 
 **Détails techniques**:
 - Utiliser `loanConfigsAPI.getAll()` pour charger la liste des crédits

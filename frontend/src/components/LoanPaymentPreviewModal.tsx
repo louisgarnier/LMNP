@@ -55,11 +55,10 @@ export default function LoanPaymentPreviewModal({
       console.log('✅ [LoanPaymentPreviewModal] Import réussi!', result);
       setImportResult(result);
       
+      // Appeler le callback immédiatement pour rafraîchir le tableau
       if (onImportComplete) {
-        // Attendre un peu avant de fermer pour que l'utilisateur voie le résultat
-        setTimeout(() => {
-          onImportComplete();
-        }, 1500);
+        console.log('🔄 [LoanPaymentPreviewModal] Appel de onImportComplete pour rafraîchir...');
+        onImportComplete();
       }
     } catch (error) {
       console.error('❌ [LoanPaymentPreviewModal] Erreur lors de l\'import:', error);

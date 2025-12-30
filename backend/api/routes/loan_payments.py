@@ -160,7 +160,15 @@ async def update_loan_payment(
     
     # Mettre à jour les champs fournis
     if payment_data.date is not None:
-        payment.date = payment_data.date
+        # Convertir la date string en date object si nécessaire
+        if isinstance(payment_data.date, str):
+            try:
+                from datetime import datetime as dt
+                payment.date = dt.strptime(payment_data.date, '%Y-%m-%d').date()
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Format de date invalide (attendu: YYYY-MM-DD)")
+        else:
+            payment.date = payment_data.date
     if payment_data.capital is not None:
         payment.capital = payment_data.capital
     if payment_data.interest is not None:
@@ -170,17 +178,9 @@ async def update_loan_payment(
     if payment_data.loan_name is not None:
         payment.loan_name = payment_data.loan_name
     
-    # Recalculer le total si nécessaire
-    if payment_data.total is not None:
-        payment.total = payment_data.total
-    else:
-        # Recalculer automatiquement si capital, interest ou insurance ont changé
-        payment.total = payment.capital + payment.interest + payment.insurance
-    
-    # Valider que capital + interest + insurance = total
-    calculated_total = payment.capital + payment.interest + payment.insurance
-    if abs(calculated_total - payment.total) > 0.01:
-        payment.total = calculated_total
+    # TOUJOURS recalculer le total à partir de capital + interest + insurance
+    # pour garantir la cohérence, même si un total est fourni
+    payment.total = payment.capital + payment.interest + payment.insurance
     
     db.commit()
     db.refresh(payment)
@@ -484,7 +484,6 @@ async def import_loan_payment_file(
                         elif 'total' in annee_val:
                             total = value
                 
-                # Si toutes les valeurs sont à 0, créer quand même l'enregistrement (année sans données)
                 # Valider que capital + interest + insurance = total
                 calculated_total = capital + interest + insurance
                 if abs(calculated_total - total) > 0.01:
@@ -492,18 +491,20 @@ async def import_loan_payment_file(
                     total = calculated_total
                     warnings.append(f"Année {year}: Total corrigé automatiquement ({calculated_total:.2f})")
                 
-                # Créer l'enregistrement
-                payment = LoanPayment(
-                    date=date(year, 1, 1),  # 01/01/année
-                    capital=capital,
-                    interest=interest,
-                    insurance=insurance,
-                    total=total,
-                    loan_name=loan_name
-                )
-                
-                db.add(payment)
-                imported_count += 1
+                # Ne créer l'enregistrement QUE si au moins une valeur est non-nulle
+                # (éviter les lignes vides pour les années sans données)
+                if capital > 0 or interest > 0 or insurance > 0 or total > 0:
+                    payment = LoanPayment(
+                        date=date(year, 1, 1),  # 01/01/année
+                        capital=capital,
+                        interest=interest,
+                        insurance=insurance,
+                        total=total,
+                        loan_name=loan_name
+                    )
+                    
+                    db.add(payment)
+                    imported_count += 1
                 
             except Exception as e:
                 errors.append(f"Erreur pour l'année {year}: {str(e)}")

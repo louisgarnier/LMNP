@@ -22,6 +22,7 @@ export default function EtatsFinanciersPage() {
   const [hasCredit, setHasCredit] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [activeLoanName, setActiveLoanName] = useState<string>('Prêt principal');
 
   // Déterminer l'onglet actif (par défaut: compte-resultat)
   const activeTab = tabParam || 'compte-resultat';
@@ -160,10 +161,15 @@ export default function EtatsFinanciersPage() {
 
           {activeTab === 'credit' && mounted && hasCredit && (
             <div>
-              <LoanConfigCard />
+              <LoanConfigCard 
+                onConfigsChange={() => {
+                  // Recharger LoanPaymentTable quand les configurations changent
+                  setRefreshKey(prev => prev + 1);
+                }}
+              />
               <div style={{ marginTop: '24px' }}>
                 <LoanPaymentFileUpload
-                  loanName="Prêt principal"
+                  loanName={activeLoanName}
                   onImportComplete={() => {
                     // Le tableau se rafraîchira automatiquement via refreshKey
                     setRefreshKey(prev => prev + 1);
@@ -171,7 +177,12 @@ export default function EtatsFinanciersPage() {
                 />
               </div>
               <div style={{ marginTop: '24px' }}>
-                <LoanPaymentTable loanName="Prêt principal" refreshKey={refreshKey} />
+                <LoanPaymentTable 
+                  refreshKey={refreshKey}
+                  onActiveLoanNameChange={(loanName) => {
+                    setActiveLoanName(loanName);
+                  }}
+                />
               </div>
             </div>
           )}

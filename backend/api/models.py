@@ -439,7 +439,7 @@ class LoanPaymentCreate(LoanPaymentBase):
 
 class LoanPaymentUpdate(BaseModel):
     """Model for updating a loan payment."""
-    date: Optional[date] = None
+    date: Optional[str] = None  # Accept string, will be converted to date in route
     capital: Optional[float] = Field(None, ge=0, description="Montant du capital remboursé")
     interest: Optional[float] = Field(None, ge=0, description="Montant des intérêts")
     insurance: Optional[float] = Field(None, ge=0, description="Montant de l'assurance crédit")

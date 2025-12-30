@@ -7,9 +7,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { loanConfigsAPI, LoanConfig } from '@/api/client';
+import { loanConfigsAPI, loanPaymentsAPI, LoanConfig } from '@/api/client';
 
-export default function LoanConfigCard() {
+interface LoanConfigCardProps {
+  onConfigsChange?: () => void;
+}
+
+export default function LoanConfigCard({ onConfigsChange }: LoanConfigCardProps) {
   const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<Record<number, boolean>>({});
@@ -54,6 +58,9 @@ export default function LoanConfigCard() {
         initial_deferral_months: config.initial_deferral_months,
       });
       await loadLoanConfigs();
+      if (onConfigsChange) {
+        onConfigsChange();
+      }
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error);
       alert('❌ Erreur lors de la sauvegarde');
@@ -75,6 +82,9 @@ export default function LoanConfigCard() {
       // Mettre en mode édition pour le nom
       setEditingNameId(newConfig.id);
       setEditingNameValue(newConfig.name);
+      if (onConfigsChange) {
+        onConfigsChange();
+      }
     } catch (error) {
       console.error('Erreur lors de la création:', error);
       alert('❌ Erreur lors de la création');
@@ -82,12 +92,36 @@ export default function LoanConfigCard() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette configuration de crédit ?')) {
-      return;
-    }
+    const configToDelete = loanConfigs.find(c => c.id === id);
+    if (!configToDelete) return;
+
+    // Vérifier s'il y a des mensualités associées
     try {
+      const paymentsResponse = await loanPaymentsAPI.getAll({ loan_name: configToDelete.name });
+      const hasPayments = paymentsResponse.payments.length > 0;
+
+      let confirmMessage = 'Êtes-vous sûr de vouloir supprimer cette configuration de crédit ?';
+      if (hasPayments) {
+        confirmMessage = `⚠️ Cette configuration de crédit a ${paymentsResponse.payments.length} mensualité(s) associée(s).\n\nToutes les mensualités seront également supprimées.\n\nÊtes-vous sûr de vouloir continuer ?`;
+      }
+
+      if (!confirm(confirmMessage)) {
+        return;
+      }
+
+      // Supprimer toutes les mensualités associées
+      if (hasPayments) {
+        const deletePromises = paymentsResponse.payments.map(p => loanPaymentsAPI.delete(p.id));
+        await Promise.all(deletePromises);
+      }
+
+      // Supprimer la configuration
       await loanConfigsAPI.delete(id);
       await loadLoanConfigs();
+      
+      if (onConfigsChange) {
+        onConfigsChange();
+      }
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
       alert('❌ Erreur lors de la suppression');
