@@ -1197,7 +1197,30 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-#### Step 7.6.8 : Frontend - Ajout d'années
+#### Step 7.6.8 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter un bouton pin/unpin à côté du titre "Configuration du compte de résultat" pour replier/déplier la card.
+
+**Tasks**:
+- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+- [ ] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
+- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
+- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
+- [ ] Charger l'état depuis localStorage au montage du composant
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Bouton pin/unpin visible à côté du titre
+- [ ] Clic sur le bouton replie/déplie la card
+- [ ] Le contenu (tableau, boutons) est masqué quand la card est repliée
+- [ ] Seul le titre et le bouton pin restent visibles quand replié
+- [ ] L'état est sauvegardé dans localStorage
+- [ ] L'état est restauré au rechargement de la page
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.9 : Frontend - Ajout d'années
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Permettre d'ajouter des années au fur et à mesure.
 

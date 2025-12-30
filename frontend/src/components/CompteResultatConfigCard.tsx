@@ -86,6 +86,23 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
   const [loadingLoanConfigs, setLoadingLoanConfigs] = useState(false);
   const [showLoanDropdown, setShowLoanDropdown] = useState<number | null>(null); // ID du mapping pour lequel le dropdown est ouvert
+  const loanDropdownRef = useRef<HTMLDivElement>(null);
+  // État pour gérer le repli/dépli de la card (Step 7.6.8)
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    // Charger l'état depuis localStorage au montage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('compteResultatConfigCard_collapsed');
+      return saved === 'true';
+    }
+    return false;
+  });
+
+  // Sauvegarder l'état dans localStorage quand il change (Step 7.6.8)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('compteResultatConfigCard_collapsed', String(isCollapsed));
+    }
+  }, [isCollapsed]);
 
   // Charger les mappings et les valeurs level_1 et level_2 au montage
   useEffect(() => {
@@ -917,9 +934,37 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
       padding: '24px'
     }}>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: 0 }}>
-          Configuration du compte de résultat
-        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: 0 }}>
+            Configuration du compte de résultat
+          </h3>
+          {/* Bouton pin/unpin (Step 7.6.8) */}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#6b7280',
+              fontSize: '16px',
+              borderRadius: '4px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f3f4f6';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+            title={isCollapsed ? 'Déplier la configuration' : 'Replier la configuration'}
+          >
+            {isCollapsed ? '📌' : '📍'}
+          </button>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {mappings.length > 0 && (
             <button
@@ -1061,7 +1106,10 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         </div>
       </div>
 
-      {sortedMappings.length === 0 ? (
+      {/* Contenu de la card (masqué si repliée) (Step 7.6.8) */}
+      {!isCollapsed && (
+        <>
+          {sortedMappings.length === 0 ? (
         <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
           <p style={{ marginBottom: '16px' }}>Aucun mapping configuré. Cliquez sur "+ Ajouter une catégorie" pour en créer un.</p>
           <button
@@ -1667,6 +1715,8 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
             🗑️ Supprimer
           </button>
         </div>
+      )}
+        </>
       )}
 
       {/* Popup Save view (Step 7.5.10) */}
