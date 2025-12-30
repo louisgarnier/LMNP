@@ -862,7 +862,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 **Description**: Ajouter une colonne "Vue" au tableau et gérer la sélection de vue d'amortissement pour la catégorie "Charges d'amortissements".
 
 **Tasks**:
-- [x] Ajouter une nouvelle colonne "Vue" au tableau (5 colonnes au total : Type, Catégorie comptable, Level 1, Level 2, Vue)
+- [x] Ajouter une nouvelle colonne "Vue" au tableau (6 colonnes au total : Type, Catégorie comptable, Level 1, Level 2, Level 3, Vue)
 - [x] Pour toutes les catégories sauf "Charges d'amortissements" et "Coût du financement" :
   - Afficher "Aucune valeur" en grisé (read-only)
 - [x] Pour la catégorie "Charges d'amortissements" :
@@ -879,7 +879,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [x] Colonne "Vue" ajoutée au tableau (5 colonnes au total)
+- [x] Colonne "Vue" ajoutée au tableau (6 colonnes au total après Step 7.6.9)
 - [x] "Aucune valeur" affiché en grisé pour les catégories normales
 - [x] Catégorie "Charges d'amortissements" détectée automatiquement
 - [x] Dropdown avec vues d'amortissement fonctionne
@@ -928,7 +928,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 **Step 7.5 - Acceptance Criteria globaux**:
 - [ ] Tableau affiché dans l'onglet "Compte de résultat" (structure comme AmortizationConfigCard)
-- [ ] 5 colonnes : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs), Vue
+- [ ] 6 colonnes : Type, Catégorie comptable, Level 1 (valeurs), Level 2 (valeurs), Level 3 (valeurs), Vue (après Step 7.6.9)
 - [ ] Dropdown Type fonctionne et filtre les catégories
 - [ ] Dropdown Catégorie fonctionne avec catégories prédéfinies
 - [ ] Tags bleus pour level_1 avec "+ Ajouter" et "x" pour supprimer
@@ -1198,29 +1198,114 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.6.8 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter un bouton pin/unpin à côté du titre "Configuration du compte de résultat" pour replier/déplier la card.
 
 **Tasks**:
-- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
-- [ ] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
-- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
-- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
-- [ ] Charger l'état depuis localStorage au montage du composant
+- [x] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+- [x] Ajouter un bouton pin/unpin (📍/📌) à côté du titre "Configuration du compte de résultat"
+- [x] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
+- [x] Sauvegarder l'état dans localStorage pour persister entre les sessions
+- [x] Charger l'état depuis localStorage au montage du composant
+- [x] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [x] Bouton pin/unpin visible à côté du titre
+- [x] Clic sur le bouton replie/déplie la card
+- [x] Le contenu (tableau, boutons) est masqué quand la card est repliée
+- [x] Seul le titre et le bouton pin restent visibles quand replié
+- [x] L'état est sauvegardé dans localStorage
+- [x] L'état est restauré au rechargement de la page
+- [x] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.9 : Frontend - Ajout colonne Level 3 (valeurs)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter une colonne "Level 3 (valeurs)" dans la card de configuration pour sélectionner les valeurs de level_3.
+
+**Comportement spécifique** :
+- Les valeurs level_3 sélectionnées RESTENT dans le dropdown (contrairement à level_1 et level_2)
+- Car plusieurs level_2 peuvent avoir le même level_3
+- Permet la sélection multiple de level_3 pour un même mapping
+
+**Tasks**:
+- [ ] Ajouter une colonne "Level 3 (valeurs)" dans le tableau (après "Level 2 (valeurs)")
+- [ ] Charger les valeurs level_3 disponibles depuis l'API (transactionsAPI.getUniqueValues('level_3'))
+- [ ] Afficher les valeurs level_3 sélectionnées comme des tags (comme level_1 et level_2)
+- [ ] Ajouter un bouton "+ Ajouter" pour ouvrir un dropdown avec toutes les valeurs level_3 disponibles
+- [ ] Implémenter la logique d'ajout : ajouter la valeur sélectionnée à `level_3_values` du mapping
+- [ ] Implémenter la logique de suppression : retirer la valeur de `level_3_values` du mapping
+- [ ] **Les valeurs level_3 sélectionnées RESTENT dans le dropdown** (pas de filtrage global)
+- [ ] Sauvegarder automatiquement les changements via l'API
 - [ ] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Bouton pin/unpin visible à côté du titre
-- [ ] Clic sur le bouton replie/déplie la card
-- [ ] Le contenu (tableau, boutons) est masqué quand la card est repliée
-- [ ] Seul le titre et le bouton pin restent visibles quand replié
-- [ ] L'état est sauvegardé dans localStorage
-- [ ] L'état est restauré au rechargement de la page
+- [ ] Colonne "Level 3 (valeurs)" visible dans le tableau
+- [ ] Valeurs level_3 chargées depuis l'API
+- [ ] Tags affichés pour les valeurs sélectionnées
+- [ ] Bouton "+ Ajouter" ouvre un dropdown avec toutes les valeurs level_3
+- [ ] Les valeurs level_3 sélectionnées RESTENT dans le dropdown (contrairement à level_1/level_2)
+- [ ] Ajout et suppression de valeurs fonctionnent
+- [ ] Changements sauvegardés automatiquement
 - [ ] **Test visuel dans navigateur validé**
 
 ---
 
-#### Step 7.6.9 : Frontend - Ajout d'années
+#### Step 7.6.10 : Frontend - Filtrage Level 2 selon Level 3
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Modifier le dropdown de "Level 2 (valeurs)" pour n'afficher que les valeurs level_2 qui ont un level_3 associé dans les transactions enrichies.
+
+**Comportement** :
+- Le dropdown Level 2 doit filtrer les valeurs disponibles selon les level_3 existants dans les données
+- Seules les valeurs level_2 qui ont au moins un level_3 associé doivent être disponibles
+
+**Tasks**:
+- [ ] Créer une fonction pour récupérer les couples (level_2, level_3) existants dans les transactions enrichies
+- [ ] Modifier le filtre du dropdown Level 2 pour n'afficher que les level_2 qui ont un level_3 associé
+- [ ] Utiliser l'API transactionsAPI pour récupérer les données nécessaires
+- [ ] Tester que seules les valeurs level_2 avec level_3 sont disponibles
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Le dropdown Level 2 n'affiche que les valeurs qui ont un level_3 associé
+- [ ] Les valeurs level_2 sans level_3 ne sont pas disponibles
+- [ ] Le filtre fonctionne correctement
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.11 : Frontend - Filtrage Level 1 selon couple Level 2/Level 3
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Modifier le dropdown de "Level 1 (valeurs)" pour n'afficher que les valeurs level_1 qui existent pour le couple (level_2, level_3) sélectionné dans les autres colonnes du mapping.
+
+**Comportement** :
+- Le dropdown Level 1 doit filtrer selon :
+  1. Le couple (level_2, level_3) sélectionné dans les colonnes Level 2 et Level 3 de ce mapping
+  2. Les valeurs level_1 déjà sélectionnées pour ce mapping (ne pas les réafficher)
+- Si aucun level_2 ou level_3 n'est sélectionné, le dropdown doit être vide ou désactivé
+
+**Tasks**:
+- [ ] Créer une fonction pour récupérer les valeurs level_1 disponibles pour un couple (level_2, level_3) donné
+- [ ] Modifier le filtre du dropdown Level 1 pour tenir compte :
+  - Des level_2 sélectionnés dans ce mapping
+  - Des level_3 sélectionnés dans ce mapping
+  - Des valeurs level_1 déjà sélectionnées dans ce mapping
+- [ ] Si aucun level_2 ou level_3 n'est sélectionné, désactiver le dropdown ou l'afficher vide
+- [ ] Utiliser l'API transactionsAPI pour récupérer les données nécessaires
+- [ ] Tester que seules les valeurs level_1 correspondant au couple (level_2, level_3) sont disponibles
+- [ ] **Tester dans le navigateur**
+
+**Acceptance Criteria**:
+- [ ] Le dropdown Level 1 filtre selon le couple (level_2, level_3) sélectionné
+- [ ] Les valeurs level_1 déjà sélectionnées ne sont pas réaffichées
+- [ ] Si aucun level_2 ou level_3 n'est sélectionné, le dropdown est vide/désactivé
+- [ ] Le filtre fonctionne correctement quand level_2 ou level_3 change
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 7.6.12 : Frontend - Ajout d'années
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Permettre d'ajouter des années au fur et à mesure.
 
