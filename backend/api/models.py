@@ -418,3 +418,217 @@ class AmortizationViewListResponse(BaseModel):
     """Model for list of amortization views."""
     views: List[AmortizationViewResponse]
     total: int
+
+
+# Loan Payment models
+
+class LoanPaymentBase(BaseModel):
+    """Base model for loan payment."""
+    date: date
+    capital: float = Field(..., ge=0, description="Montant du capital remboursé")
+    interest: float = Field(..., ge=0, description="Montant des intérêts")
+    insurance: float = Field(..., ge=0, description="Montant de l'assurance crédit")
+    total: float = Field(..., ge=0, description="Total de la mensualité")
+    loan_name: str = Field("Prêt principal", max_length=100, description="Nom du prêt")
+
+
+class LoanPaymentCreate(LoanPaymentBase):
+    """Model for creating a loan payment."""
+    pass
+
+
+class LoanPaymentUpdate(BaseModel):
+    """Model for updating a loan payment."""
+    date: Optional[str] = None  # Accept string, will be converted to date in route
+    capital: Optional[float] = Field(None, ge=0, description="Montant du capital remboursé")
+    interest: Optional[float] = Field(None, ge=0, description="Montant des intérêts")
+    insurance: Optional[float] = Field(None, ge=0, description="Montant de l'assurance crédit")
+    total: Optional[float] = Field(None, ge=0, description="Total de la mensualité")
+    loan_name: Optional[str] = Field(None, max_length=100, description="Nom du prêt")
+
+
+class LoanPaymentResponse(LoanPaymentBase):
+    """Model for loan payment response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoanPaymentListResponse(BaseModel):
+    """Model for list of loan payments response."""
+    payments: List[LoanPaymentResponse]
+    total: int
+
+
+# Loan Payment Import Models
+class LoanPaymentPreviewResponse(BaseModel):
+    """Model for loan payment file preview response."""
+    filename: str
+    total_rows: int
+    detected_years: List[int] = Field(..., description="Années détectées dans les colonnes")
+    preview: List[Dict[str, Any]] = Field(..., description="Aperçu des données parsées")
+    validation_errors: List[str] = Field(default_factory=list, description="Erreurs de validation")
+    warnings: List[str] = Field(default_factory=list, description="Avertissements (colonnes invalides, etc.)")
+    stats: Dict[str, Any] = Field(..., description="Statistiques (années détectées, montants, etc.)")
+    existing_payments_count: int = Field(0, description="Nombre de mensualités existantes pour ce loan_name")
+
+
+class LoanPaymentImportResponse(BaseModel):
+    """Model for loan payment import response."""
+    message: str
+    imported_count: int
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+
+
+# Loan Config models
+
+class LoanConfigBase(BaseModel):
+    """Base model for loan configuration."""
+    name: str = Field(..., min_length=1, max_length=100, description="Nom du crédit")
+    credit_amount: float = Field(..., gt=0, description="Montant du crédit accordé en euros")
+    interest_rate: float = Field(..., ge=0, le=100, description="Taux fixe actuel hors assurance en %")
+    duration_years: int = Field(..., gt=0, description="Durée de l'emprunt en années")
+    initial_deferral_months: int = Field(0, ge=0, description="Décalage initial en mois")
+
+
+class LoanConfigCreate(LoanConfigBase):
+    """Model for creating a loan configuration."""
+    pass
+
+
+class LoanConfigUpdate(BaseModel):
+    """Model for updating a loan configuration."""
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="Nom du crédit")
+    credit_amount: Optional[float] = Field(None, gt=0, description="Montant du crédit accordé en euros")
+    interest_rate: Optional[float] = Field(None, ge=0, le=100, description="Taux fixe actuel hors assurance en %")
+    duration_years: Optional[int] = Field(None, gt=0, description="Durée de l'emprunt en années")
+    initial_deferral_months: Optional[int] = Field(None, ge=0, description="Décalage initial en mois")
+
+
+class LoanConfigResponse(LoanConfigBase):
+    """Model for loan configuration response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoanConfigListResponse(BaseModel):
+    """Model for list of loan configurations response."""
+    configs: List[LoanConfigResponse]
+    total: int
+
+
+# Compte de résultat models
+
+class CompteResultatMappingBase(BaseModel):
+    """Base model for compte de résultat mapping."""
+    category_name: str = Field(..., max_length=200, description="Nom de la catégorie comptable")
+    level_1_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_1 à inclure (None = tous)")
+    level_2_values: List[str] = Field(..., description="Liste des level_2 à inclure pour cette catégorie")
+    level_3_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_3 à inclure (None = tous)")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (pour catégorie 'Charges d'amortissements')")
+    selected_loan_ids: Optional[List[int]] = Field(None, description="Liste des IDs de crédits sélectionnés (pour catégorie 'Coût du financement')")
+
+
+class CompteResultatMappingCreate(CompteResultatMappingBase):
+    """Model for creating a compte de résultat mapping."""
+    pass
+
+
+class CompteResultatMappingUpdate(BaseModel):
+    """Model for updating a compte de résultat mapping."""
+    category_name: Optional[str] = Field(None, max_length=200, description="Nom de la catégorie comptable")
+    level_1_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_1 à inclure")
+    level_2_values: Optional[List[str]] = Field(None, description="Liste des level_2 à inclure")
+    level_3_values: Optional[List[str]] = Field(None, description="Liste optionnelle des level_3 à inclure")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (pour catégorie 'Charges d'amortissements')")
+    selected_loan_ids: Optional[List[int]] = Field(None, description="Liste des IDs de crédits sélectionnés (pour catégorie 'Coût du financement')")
+
+
+class CompteResultatMappingResponse(CompteResultatMappingBase):
+    """Model for compte de résultat mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatMappingListResponse(BaseModel):
+    """Model for list of compte de résultat mappings response."""
+    mappings: List[CompteResultatMappingResponse]
+    total: int
+
+
+class CompteResultatDataBase(BaseModel):
+    """Base model for compte de résultat data."""
+    annee: int = Field(..., description="Année du compte de résultat")
+    category_name: str = Field(..., max_length=200, description="Nom de la catégorie comptable")
+    amount: float = Field(..., description="Montant pour cette catégorie et cette année")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (NULL si N/A)")
+
+
+class CompteResultatDataResponse(CompteResultatDataBase):
+    """Model for compte de résultat data response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatDataListResponse(BaseModel):
+    """Model for list of compte de résultat data response."""
+    data: List[CompteResultatDataResponse]
+    total: int
+
+
+class CompteResultatGenerateRequest(BaseModel):
+    """Model for generating compte de résultat."""
+    year: int = Field(..., description="Année pour laquelle générer le compte de résultat")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement à utiliser")
+
+
+class CompteResultatResponse(BaseModel):
+    """Model for compte de résultat response (année complète)."""
+    year: int
+
+
+# Compte Resultat Mapping Views Models
+class CompteResultatMappingViewResponse(BaseModel):
+    """Model for compte de résultat mapping view response."""
+    id: int
+    name: str
+    view_data: dict = Field(..., description="Données JSON de la vue (tous les mappings avec leurs configs)")
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatMappingViewCreate(BaseModel):
+    """Model for creating a compte de résultat mapping view."""
+    name: str = Field(..., description="Nom de la vue")
+    view_data: dict = Field(..., description="Données JSON de la vue (tous les mappings avec leurs configs)")
+
+
+class CompteResultatMappingViewUpdate(BaseModel):
+    """Model for updating a compte de résultat mapping view."""
+    name: Optional[str] = Field(None, description="Nouveau nom de la vue")
+    view_data: Optional[dict] = Field(None, description="Nouvelles données JSON de la vue")
+
+
+class CompteResultatMappingViewListResponse(BaseModel):
+    """Model for list of compte de résultat mapping views."""
+    views: List[CompteResultatMappingViewResponse]
+    total: int

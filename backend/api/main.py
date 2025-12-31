@@ -17,7 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.database.connection import init_database
 
 # Import routes
-from backend.api.routes import transactions, mappings, enrichment, analytics, pivot_configs, amortization, amortization_types, amortization_views
+from backend.api.routes import transactions, mappings, enrichment, analytics, pivot_configs, amortization, amortization_types, amortization_views, loan_payments, loan_configs, compte_resultat
 
 # Create FastAPI app
 app = FastAPI(
@@ -44,6 +44,9 @@ app.include_router(pivot_configs.router, prefix="/api", tags=["pivot-configs"])
 app.include_router(amortization.router, prefix="/api", tags=["amortization"])
 app.include_router(amortization_types.router, prefix="/api", tags=["amortization-types"])
 app.include_router(amortization_views.router, prefix="/api", tags=["amortization-views"])
+app.include_router(loan_payments.router, prefix="/api", tags=["loan-payments"])
+app.include_router(loan_configs.router, prefix="/api", tags=["loan-configs"])
+app.include_router(compte_resultat.router, prefix="/api", tags=["compte-resultat"])
 
 
 @app.on_event("startup")

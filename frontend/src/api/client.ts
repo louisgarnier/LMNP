@@ -21,12 +21,18 @@ async function fetchAPI<T>(
   try {
     console.log(`📤 [API] Appel ${options?.method || 'GET'} ${url}`);
     
+    // Ne pas ajouter Content-Type si c'est FormData (le navigateur le fera automatiquement)
+    const isFormData = options?.body instanceof FormData;
+    const headers: HeadersInit = isFormData
+      ? { ...options?.headers }
+      : {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        };
+    
     const response = await fetch(url, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      headers,
     });
 
     console.log(`📥 [API] Réponse ${response.status} pour ${endpoint}`);
@@ -1195,6 +1201,313 @@ export const amortizationViewsAPI = {
    */
   delete: async (id: number): Promise<void> => {
     return fetchAPI<void>(`/api/amortization/views/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Loan Config API Types
+export interface LoanConfig {
+  id: number;
+  name: string;
+  credit_amount: number;
+  interest_rate: number;
+  duration_years: number;
+  initial_deferral_months: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanConfigCreate {
+  name: string;
+  credit_amount: number;
+  interest_rate: number;
+  duration_years: number;
+  initial_deferral_months: number;
+}
+
+export interface LoanConfigUpdate {
+  name?: string;
+  credit_amount?: number;
+  interest_rate?: number;
+  duration_years?: number;
+  initial_deferral_months?: number;
+}
+
+export interface LoanConfigListResponse {
+  configs: LoanConfig[];
+  total: number;
+}
+
+export const loanConfigsAPI = {
+  getAll: async (): Promise<LoanConfigListResponse> => {
+    return fetchAPI<LoanConfigListResponse>('/api/loan-configs');
+  },
+  getById: async (id: number): Promise<LoanConfig> => {
+    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}`);
+  },
+  create: async (data: LoanConfigCreate): Promise<LoanConfig> => {
+    return fetchAPI<LoanConfig>('/api/loan-configs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (id: number, data: LoanConfigUpdate): Promise<LoanConfig> => {
+    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/loan-configs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
+// Loan Payment API Types
+export interface LoanPayment {
+  id: number;
+  date: string;
+  capital: number;
+  interest: number;
+  insurance: number;
+  total: number;
+  loan_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanPaymentCreate {
+  date: string;
+  capital: number;
+  interest: number;
+  insurance: number;
+  total: number;
+  loan_name?: string;
+}
+
+export interface LoanPaymentUpdate {
+  date?: string;
+  capital?: number;
+  interest?: number;
+  insurance?: number;
+  total?: number;
+  loan_name?: string;
+}
+
+export interface LoanPaymentListResponse {
+  payments: LoanPayment[];
+  total: number;
+}
+
+export interface LoanPaymentPreviewResponse {
+  filename: string;
+  total_rows: number;
+  detected_years: number[];
+  preview: Array<{
+    year: number;
+    date: string;
+    capital: number;
+    interest: number;
+    insurance: number;
+    total: number;
+  }>;
+  validation_errors: string[];
+  warnings: string[];
+  stats: Record<string, any>;
+  existing_payments_count: number;
+}
+
+export interface LoanPaymentImportResponse {
+  message: string;
+  imported_count: number;
+  errors: string[];
+  warnings: string[];
+}
+
+export const loanPaymentsAPI = {
+  getAll: async (params?: {
+    skip?: number;
+    limit?: number;
+    loan_name?: string;
+    start_date?: string;
+    end_date?: string;
+  }): Promise<LoanPaymentListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.skip !== undefined) queryParams.append('skip', params.skip.toString());
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params?.loan_name) queryParams.append('loan_name', params.loan_name);
+    if (params?.start_date) queryParams.append('start_date', params.start_date);
+    if (params?.end_date) queryParams.append('end_date', params.end_date);
+    
+    const query = queryParams.toString();
+    return fetchAPI<LoanPaymentListResponse>(`/api/loan-payments${query ? `?${query}` : ''}`);
+  },
+  getById: async (id: number): Promise<LoanPayment> => {
+    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}`);
+  },
+  create: async (data: LoanPaymentCreate): Promise<LoanPayment> => {
+    return fetchAPI<LoanPayment>('/api/loan-payments', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (id: number, data: LoanPaymentUpdate): Promise<LoanPayment> => {
+    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/loan-payments/${id}`, {
+      method: 'DELETE',
+    });
+  },
+  preview: async (file: File, loan_name: string = 'Prêt principal'): Promise<LoanPaymentPreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return fetchAPI<LoanPaymentPreviewResponse>(`/api/loan-payments/preview?loan_name=${encodeURIComponent(loan_name)}`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+  import: async (file: File, loan_name: string = 'Prêt principal', confirm_replace: boolean = false): Promise<LoanPaymentImportResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Le backend attend confirm_replace comme query param
+    const queryParams = new URLSearchParams();
+    queryParams.append('loan_name', loan_name);
+    if (confirm_replace) {
+      queryParams.append('confirm_replace', 'true');
+    }
+    
+    return fetchAPI<LoanPaymentImportResponse>(`/api/loan-payments/import?${queryParams.toString()}`, {
+      method: 'POST',
+      body: formData,
+    });
+  },
+};
+
+// Compte de résultat API
+export interface CompteResultatMapping {
+  id: number;
+  category_name: string;
+  level_1_values: string[] | null;
+  level_2_values: string[];
+  level_3_values: string[] | null;
+  amortization_view_id: number | null;
+  selected_loan_ids: number[] | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompteResultatMappingListResponse {
+  mappings: CompteResultatMapping[];
+  total: number;
+}
+
+export interface CompteResultatMappingCreate {
+  category_name: string;
+  level_1_values?: string[] | null;
+  level_2_values: string[];
+  level_3_values?: string[] | null;
+  amortization_view_id?: number | null;
+  selected_loan_ids?: number[] | null;
+}
+
+export interface CompteResultatMappingUpdate {
+  category_name?: string;
+  level_1_values?: string[] | null;
+  level_2_values?: string[] | null;
+  level_3_values?: string[] | null;
+  amortization_view_id?: number | null;
+  selected_loan_ids?: number[] | null;
+}
+
+export const compteResultatAPI = {
+  getMappings: async (): Promise<CompteResultatMappingListResponse> => {
+    return fetchAPI<CompteResultatMappingListResponse>('/api/compte-resultat/mappings');
+  },
+  getMapping: async (id: number): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>(`/api/compte-resultat/mappings/${id}`);
+  },
+  createMapping: async (data: CompteResultatMappingCreate): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>('/api/compte-resultat/mappings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  updateMapping: async (id: number, data: CompteResultatMappingUpdate): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>(`/api/compte-resultat/mappings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  deleteMapping: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/compte-resultat/mappings/${id}`, {
+      method: 'DELETE',
+    });
+  },
+  calculateAmounts: async (years: number[]): Promise<Record<string, Record<string, number>>> => {
+    const yearsParam = years.join(',');
+    return fetchAPI<Record<string, Record<string, number>>>(`/api/compte-resultat/calculate?years=${yearsParam}`);
+  },
+};
+
+// Compte de résultat mapping views API
+export interface CompteResultatMappingView {
+  id: number;
+  name: string;
+  view_data: {
+    mappings: CompteResultatMapping[];
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompteResultatMappingViewListResponse {
+  views: CompteResultatMappingView[];
+  total: number;
+}
+
+export interface CompteResultatMappingViewCreate {
+  name: string;
+  view_data: {
+    mappings: CompteResultatMapping[];
+  };
+}
+
+export interface CompteResultatMappingViewUpdate {
+  name?: string;
+  view_data?: {
+    mappings: CompteResultatMapping[];
+  };
+}
+
+export const compteResultatMappingViewsAPI = {
+  getAll: async (): Promise<CompteResultatMappingViewListResponse> => {
+    return fetchAPI<CompteResultatMappingViewListResponse>('/api/compte-resultat/mapping-views');
+  },
+  getById: async (id: number): Promise<CompteResultatMappingView> => {
+    return fetchAPI<CompteResultatMappingView>(`/api/compte-resultat/mapping-views/${id}`);
+  },
+  create: async (data: CompteResultatMappingViewCreate): Promise<CompteResultatMappingView> => {
+    return fetchAPI<CompteResultatMappingView>('/api/compte-resultat/mapping-views', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (id: number, data: CompteResultatMappingViewUpdate): Promise<CompteResultatMappingView> => {
+    return fetchAPI<CompteResultatMappingView>(`/api/compte-resultat/mapping-views/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/compte-resultat/mapping-views/${id}`, {
       method: 'DELETE',
     });
   },

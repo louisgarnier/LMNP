@@ -14,7 +14,12 @@ from .models import (
     Amortization,
     FinancialStatement,
     ConsolidatedFinancialStatement,
-    PivotConfig
+    PivotConfig,
+    LoanPayment,
+    LoanConfig,
+    CompteResultatMapping,
+    CompteResultatData,
+    CompteResultatMappingView
 )
 
 __all__ = [
@@ -31,6 +36,11 @@ __all__ = [
     "FinancialStatement",
     "ConsolidatedFinancialStatement",
     "PivotConfig",
+    "LoanPayment",
+    "LoanConfig",
+    "CompteResultatMapping",
+    "CompteResultatData",
+    "CompteResultatMappingView",
 ]
 
 

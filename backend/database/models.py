@@ -277,3 +277,97 @@ class AmortizationView(Base):
         Index('idx_amortization_views_name_level2', 'name', 'level_2_value'),
     )
 
+
+class LoanPayment(Base):
+    """Represents a single loan payment (mensualité) with capital, interest, and insurance breakdown."""
+    __tablename__ = "loan_payments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False, index=True)  # Date de la mensualité
+    capital = Column(Float, nullable=False)  # Montant du capital remboursé
+    interest = Column(Float, nullable=False)  # Montant des intérêts
+    insurance = Column(Float, nullable=False)  # Montant de l'assurance crédit
+    total = Column(Float, nullable=False)  # Total de la mensualité (capital + interest + insurance)
+    loan_name = Column(String(100), nullable=False, default="Prêt principal", index=True)  # Nom du prêt (ex: "Prêt construction", "Prêt mobilier")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_loan_payments_date', 'date'),
+        Index('idx_loan_payments_loan_name', 'loan_name'),
+    )
+
+
+class LoanConfig(Base):
+    """Configuration d'un crédit immobilier (paramètres du prêt)."""
+    __tablename__ = "loan_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False, index=True)  # Nom du crédit (ex: "Prêt principal", "Prêt construction")
+    credit_amount = Column(Float, nullable=False)  # Montant du crédit accordé en euros
+    interest_rate = Column(Float, nullable=False)  # Taux fixe actuel hors assurance en %
+    duration_years = Column(Integer, nullable=False)  # Durée de l'emprunt en années
+    initial_deferral_months = Column(Integer, nullable=False, default=0)  # Décalage initial en mois
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_loan_configs_name', 'name'),
+    )
+
+
+class CompteResultatMapping(Base):
+    """Mapping des level_1, level_2 et level_3 vers les catégories comptables du compte de résultat."""
+    __tablename__ = "compte_resultat_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category_name = Column(String(200), nullable=False, index=True)  # Nom de la catégorie comptable (ex: "Loyers hors charge encaissés")
+    level_1_values = Column(JSON, nullable=True)  # Liste optionnelle des level_1 à inclure (NULL = tous les level_1)
+    level_2_values = Column(JSON, nullable=False)  # Liste des level_2 à inclure (ex: ["LOYERS"])
+    level_3_values = Column(JSON, nullable=True)  # Liste optionnelle des level_3 à inclure (NULL = tous les level_3)
+    amortization_view_id = Column(Integer, ForeignKey("amortization_views.id"), nullable=True)  # ID de la vue d'amortissement utilisée (pour catégorie "Charges d'amortissements")
+    selected_loan_ids = Column(JSON, nullable=True)  # Liste des IDs de crédits sélectionnés (pour catégorie "Coût du financement")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_crm_category_name', 'category_name'),
+    )
+
+
+class CompteResultatData(Base):
+    """Données générées du compte de résultat par année et catégorie."""
+    __tablename__ = "compte_resultat_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    annee = Column(Integer, nullable=False, index=True)  # Année du compte de résultat
+    category_name = Column(String(200), nullable=False, index=True)  # Nom de la catégorie comptable
+    amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
+    amortization_view_id = Column(Integer, ForeignKey("amortization_views.id"), nullable=True)  # ID de la vue d'amortissement utilisée (NULL si N/A)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_crd_year_category', 'annee', 'category_name'),
+    )
+
+
+class CompteResultatMappingView(Base):
+    """Vues sauvegardées de configuration des mappings de compte de résultat."""
+    __tablename__ = "compte_resultat_mapping_views"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)  # Nom de la vue (ex: "Configuration 2024")
+    view_data = Column(JSON, nullable=False)  # Données JSON de la vue (tous les mappings avec leurs configs)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_crmv_name', 'name'),
+    )
+
