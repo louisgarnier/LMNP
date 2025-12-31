@@ -1198,25 +1198,25 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.6.8 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
-**Status**: ✅ COMPLÉTÉ  
+**Status**: ⏸️ EN ATTENTE  
 **Description**: Ajouter un bouton pin/unpin à côté du titre "Configuration du compte de résultat" pour replier/déplier la card.
 
 **Tasks**:
-- [x] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
-- [x] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
-- [x] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
-- [x] Sauvegarder l'état dans localStorage pour persister entre les sessions
-- [x] Charger l'état depuis localStorage au montage du composant
-- [x] **Tester dans le navigateur**
+- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+- [ ] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
+- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
+- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
+- [ ] Charger l'état depuis localStorage au montage du composant
+- [ ] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [x] Bouton pin/unpin visible à côté du titre
-- [x] Clic sur le bouton replie/déplie la card
-- [x] Le contenu (tableau, boutons) est masqué quand la card est repliée
-- [x] Seul le titre et le bouton pin restent visibles quand replié
-- [x] L'état est sauvegardé dans localStorage
-- [x] L'état est restauré au rechargement de la page
-- [x] **Test visuel dans navigateur validé**
+- [ ] Bouton pin/unpin visible à côté du titre
+- [ ] Clic sur le bouton replie/déplie la card
+- [ ] Le contenu (tableau, boutons) est masqué quand la card est repliée
+- [ ] Seul le titre et le bouton pin restent visibles quand replié
+- [ ] L'état est sauvegardé dans localStorage
+- [ ] L'état est restauré au rechargement de la page
+- [ ] **Test visuel dans navigateur validé**
 
 ---
 
@@ -1261,9 +1261,274 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-## Phase 8 : Bilans et autres états financiers
+## Phase 8 : Nouveau système de mapping avec valeurs prédéfinies
 
-### Step 8.1 : Service bilans backend
+### Vue d'ensemble
+**Objectif** : Refondre le système de mapping pour imposer des valeurs prédéfinies (level_1, level_2, level_3) au lieu de permettre des valeurs libres.
+
+**Changements principaux** :
+- Fichier de référence `scripts/mapping_default.xlsx` contenant toutes les valeurs autorisées
+- Validation des mappings importés contre ce fichier de référence
+- Dropdowns filtrés hiérarchiquement (level_1 → level_2 → level_3) dans l'onglet Transactions
+- Dropdowns filtrés dans l'onglet Mapping
+- Héritage automatique : quand une transaction est mappée, toutes les transactions avec le même nom sont mises à jour immédiatement
+- Recalcul automatique des modules dépendants (compte de résultat, amortissements, etc.)
+
+---
+
+### Step 8.1 : Backend - Création de la table de mappings autorisés
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer une table en BDD pour stocker tous les mappings autorisés (combinaisons valides de level_1, level_2, level_3).
+
+**Tasks**:
+- [ ] Créer un nouveau modèle SQLAlchemy `AllowedMapping` dans `backend/database/models.py` :
+  - Colonnes : `id`, `level_1` (String, not null), `level_2` (String, not null), `level_3` (String, nullable)
+  - Contrainte unique sur (level_1, level_2, level_3) pour éviter les doublons
+  - Index sur level_1, level_2, level_3 pour performance
+- [ ] Créer script de migration `backend/scripts/create_allowed_mappings_table.py` pour créer la table
+- [ ] Créer `backend/api/services/mapping_default_service.py` :
+  - Fonction `get_allowed_level1_values(db: Session)` : retourne toutes les valeurs level_1 autorisées (distinct)
+  - Fonction `get_allowed_level2_values(db: Session, level_1: str)` : retourne les valeurs level_2 autorisées pour un level_1 donné (distinct)
+  - Fonction `get_allowed_level3_values(db: Session, level_1: str, level_2: str)` : retourne les valeurs level_3 autorisées pour un couple (level_1, level_2) (distinct)
+  - Fonction `validate_mapping(db: Session, level_1: str, level_2: str, level_3: Optional[str])` : valide qu'une combinaison existe dans la table
+- [ ] Créer Pydantic models dans `backend/api/models.py` :
+  - `AllowedMappingBase`, `AllowedMappingCreate`, `AllowedMappingResponse`, `AllowedMappingListResponse`
+- [ ] Endpoint `GET /api/mappings/allowed-level1` pour récupérer toutes les valeurs level_1 autorisées
+- [ ] Endpoint `GET /api/mappings/allowed-level2?level_1={value}` pour récupérer les level_2 autorisés pour un level_1
+- [ ] Endpoint `GET /api/mappings/allowed-level3?level_1={value}&level_2={value}` pour récupérer les level_3 autorisés pour un couple (level_1, level_2)
+- [ ] **Tester les endpoints et la validation**
+
+**Deliverables**:
+- Nouveau modèle `AllowedMapping` dans `backend/database/models.py`
+- Script de migration `backend/scripts/create_allowed_mappings_table.py`
+- `backend/api/services/mapping_default_service.py` - Service de gestion des mappings autorisés
+- Mise à jour `backend/api/routes/mappings.py` - Nouveaux endpoints
+- Mise à jour `backend/api/models.py` - Modèles Pydantic
+
+**Acceptance Criteria**:
+- [ ] Table `allowed_mappings` créée en BDD avec structure correcte
+- [ ] Service charge correctement les valeurs depuis la BDD
+- [ ] Fonctions de validation fonctionnent correctement
+- [ ] Endpoints API retournent les bonnes valeurs filtrées
+- [ ] **Test script exécutable et tous les tests passent**
+
+**Note** : Le fichier `scripts/mapping_default.xlsx` sera géré plus tard dans Step 8.7 pour permettre d'ajouter de nouvelles valeurs.
+
+---
+
+### Step 8.2 : Backend - Validation des mappings importés
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Modifier l'endpoint d'import de mappings pour valider les valeurs contre la table `allowed_mappings`. Le bouton "Load mapping" reste exactement le même, seule la validation change.
+
+**Tasks**:
+- [ ] Modifier `POST /api/mappings/import` dans `backend/api/routes/mappings.py` :
+  - **Le workflow reste identique** : détection de colonnes, preview, import
+  - Pour chaque ligne du fichier importé, valider que les valeurs level_1, level_2, level_3 sont autorisées
+  - Utiliser `validate_mapping()` du service créé en Step 8.1 (validation contre la table `allowed_mappings`)
+  - Si une ligne contient des valeurs invalides :
+    - Incrémenter `errors_count`
+    - Ajouter un message "erreur - mapping inconnu" dans `errors_list`
+    - **Ignorer la ligne** (ne pas créer le mapping)
+  - Si toutes les valeurs sont valides, créer le mapping comme avant (pas de changement ici)
+- [ ] Mettre à jour le modèle de réponse `MappingImportResponse` pour inclure les détails des erreurs
+- [ ] Logger les erreurs de validation dans les logs backend avec "erreur - mapping inconnu"
+- [ ] **Tester avec un fichier contenant des valeurs valides et invalides**
+
+**Deliverables**:
+- Mise à jour `backend/api/routes/mappings.py` - Validation lors de l'import (workflow identique, validation ajoutée)
+- Mise à jour `backend/api/models.py` - Modèle de réponse enrichi
+
+**Acceptance Criteria**:
+- [ ] Le bouton "Load mapping" fonctionne exactement comme avant (même interface, même workflow)
+- [ ] Les lignes avec valeurs invalides sont ignorées (pas de mapping créé)
+- [ ] Les erreurs sont loggées avec "erreur - mapping inconnu"
+- [ ] Les statistiques d'import incluent le nombre d'erreurs
+- [ ] Les lignes valides sont importées normalement
+- [ ] **Test avec fichier mixte (valides + invalides) validé**
+
+---
+
+### Step 8.3 : Backend - Vérification et test de la mise à jour automatique
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier que la mise à jour automatique de toutes les transactions avec le même nom fonctionne correctement (cette fonctionnalité devrait déjà exister).
+
+**Tasks**:
+- [ ] Vérifier le code actuel de `update_transaction_classification()` dans `backend/api/services/enrichment_service.py`
+- [ ] Vérifier le code actuel de `create_or_update_mapping_from_classification()`
+- [ ] Tester que quand on modifie le mapping d'une transaction :
+  - Toutes les transactions existantes avec le même nom sont mises à jour
+  - Le mapping dans la table `mappings` est créé/mis à jour
+  - Les futures transactions avec le même nom héritent du mapping
+- [ ] Si la fonctionnalité n'existe pas ou ne fonctionne pas correctement, l'implémenter/corriger
+- [ ] **Tester la mise à jour en cascade avec plusieurs transactions du même nom**
+
+**Deliverables**:
+- Vérification/correction de `backend/api/services/enrichment_service.py` si nécessaire
+- Script de test pour valider la mise à jour en cascade
+
+**Acceptance Criteria**:
+- [ ] Quand on modifie le mapping d'une transaction, toutes les transactions avec le même nom sont mises à jour
+- [ ] Le mapping dans la table `mappings` est créé/mis à jour
+- [ ] Les futures transactions avec le même nom héritent automatiquement du mapping
+- [ ] **Test avec plusieurs transactions du même nom validé**
+
+---
+
+### Step 8.4 : Frontend - Dropdowns filtrés hiérarchiquement dans l'onglet Transactions
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Modifier l'interface de mapping manuel dans l'onglet Transactions pour utiliser des dropdowns filtrés hiérarchiquement. **Garder l'option "✏️" (bouton d'édition)** - voir Step 8.8 pour les détails.
+
+**Tasks**:
+- [ ] Modifier `frontend/src/components/TransactionsTable.tsx` :
+  - Remplacer les inputs texte par des dropdowns pour level_1, level_2, level_3
+  - Charger les valeurs prédéfinies depuis `GET /api/mappings/allowed-level1` au montage
+  - Implémenter le filtrage hiérarchique :
+    - Dropdown level_1 : affiche toutes les valeurs level_1 autorisées (depuis `GET /api/mappings/allowed-level1`)
+    - Dropdown level_2 : affiche uniquement les valeurs level_2 autorisées pour le level_1 sélectionné (appel à `GET /api/mappings/allowed-level2?level_1={value}`)
+    - Dropdown level_3 : affiche uniquement les valeurs level_3 autorisées pour le couple (level_1, level_2) sélectionné (appel à `GET /api/mappings/allowed-level3?level_1={value}&level_2={value}`)
+  - Réinitialiser level_2 et level_3 quand level_1 change
+  - Réinitialiser level_3 quand level_2 change
+  - Désactiver level_2 si aucun level_1 n'est sélectionné
+  - Désactiver level_3 si aucun level_2 n'est sélectionné
+  - **Garder le bouton "✏️" (édition)** - voir Step 8.8 pour les détails
+- [ ] Ajouter option "Unassigned" dans chaque dropdown pour permettre de retirer le mapping
+- [ ] **Tester le filtrage hiérarchique dans le navigateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Dropdowns filtrés
+- Mise à jour `frontend/src/api/client.ts` - Nouveaux appels API
+
+**Acceptance Criteria**:
+- [ ] Dropdowns remplacent les inputs texte (level_1, level_2, level_3 ne sont plus éditables en texte libre)
+- [ ] Filtrage hiérarchique fonctionne (level_1 → level_2 → level_3)
+- [ ] Les dropdowns sont désactivés si les niveaux précédents ne sont pas sélectionnés
+- [ ] Option "Unassigned" permet de retirer le mapping
+- [ ] Bouton "✏️" conservé (fonctionnalité détaillée dans Step 8.8)
+- [ ] Mise à jour en cascade fonctionne (toutes les transactions avec le même nom sont mises à jour)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+### Step 8.5 : Frontend - Dropdowns filtrés dans l'onglet Mapping
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Modifier l'onglet Mapping pour utiliser des dropdowns filtrés au lieu d'inputs texte libres.
+
+**Tasks**:
+- [ ] Identifier l'onglet/composant Mapping dans le frontend
+- [ ] Remplacer les inputs texte level_1, level_2, level_3 par des dropdowns
+- [ ] Implémenter le même filtrage hiérarchique que Step 8.4
+- [ ] Charger les valeurs prédéfinies depuis l'API
+- [ ] Permettre la modification des mappings existants (avec validation)
+- [ ] Permettre la suppression des mappings (comme actuellement)
+- [ ] **Tester la modification et suppression de mappings**
+
+**Deliverables**:
+- Mise à jour du composant Mapping frontend - Dropdowns filtrés
+
+**Acceptance Criteria**:
+- [ ] Les inputs texte sont remplacés par des dropdowns
+- [ ] Filtrage hiérarchique fonctionne
+- [ ] Modification de mapping fonctionne avec validation
+- [ ] Suppression de mapping fonctionne (transactions retournent à "unassigned")
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+### Step 8.6 : Backend - Vérification et test du recalcul automatique
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier que le recalcul automatique des modules dépendants fonctionne correctement après une mise à jour de mapping (cette fonctionnalité devrait déjà exister).
+
+**Tasks**:
+- [ ] Vérifier le code actuel de `update_transaction_classification()` dans `backend/api/services/enrichment_service.py`
+- [ ] Vérifier que l'invalidation des données calculées est déclenchée :
+  - `CompteResultatData` (via fonction existante)
+  - `AmortizationResult` (via fonction existante)
+  - Tous les autres modules qui dépendent des transactions enrichies
+- [ ] Tester que le recalcul est déclenché automatiquement après mise à jour de mapping
+- [ ] Si la fonctionnalité n'existe pas ou ne fonctionne pas correctement, l'implémenter/corriger
+- [ ] **Tester le recalcul automatique**
+
+**Deliverables**:
+- Vérification/correction de `backend/api/services/enrichment_service.py` si nécessaire
+- Script de test pour valider le recalcul automatique
+
+**Acceptance Criteria**:
+- [ ] Après mise à jour de mapping, les données calculées sont invalidées
+- [ ] Le recalcul est déclenché automatiquement
+- [ ] Tous les modules dépendants sont mis à jour (compte de résultat, amortissements, etc.)
+- [ ] **Test de recalcul automatique validé**
+
+---
+
+### Step 8.7 : Frontend - Gestion de la table allowed_mappings (optionnel, dernier step)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Permettre d'ajouter de nouvelles valeurs à la table `allowed_mappings` depuis l'interface (optionnel, peut être fait plus tard).
+
+**Tasks**:
+- [ ] Créer interface pour visualiser les mappings autorisés actuels (table `allowed_mappings`)
+- [ ] Créer interface pour ajouter de nouvelles combinaisons (level_1, level_2, level_3)
+- [ ] Valider que les nouvelles valeurs respectent la hiérarchie
+- [ ] Permettre la suppression de mappings autorisés (avec confirmation)
+- [ ] **Tester l'ajout et la suppression de mappings autorisés**
+
+**Deliverables**:
+- Nouveau composant frontend pour gestion des mappings autorisés
+- Endpoints backend CRUD pour la table `allowed_mappings` :
+  - `GET /api/mappings/allowed` - Liste tous les mappings autorisés
+  - `POST /api/mappings/allowed` - Ajouter un nouveau mapping autorisé
+  - `DELETE /api/mappings/allowed/{id}` - Supprimer un mapping autorisé
+
+**Acceptance Criteria**:
+- [ ] Interface pour visualiser les mappings autorisés
+- [ ] Interface pour ajouter de nouvelles combinaisons (level_1, level_2, level_3)
+- [ ] Validation de la hiérarchie
+- [ ] Suppression de mappings autorisés fonctionne (avec confirmation)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+### Step 8.8 : Frontend - Fonctionnalité du bouton "✏️" dans l'onglet Transactions
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Définir et implémenter la fonctionnalité du bouton "✏️" (édition) dans l'onglet Transactions, maintenant que les level_1, level_2, level_3 ne sont plus éditables en texte libre mais seulement sélectionnables via dropdowns.
+
+**Tasks**:
+- [ ] Définir la fonctionnalité du bouton "✏️" :
+  - Option A : Ouvrir un modal avec les dropdowns filtrés pour modifier le mapping
+  - Option B : Permettre l'édition inline avec les dropdowns
+  - Option C : Autre fonctionnalité (à définir avec l'utilisateur)
+- [ ] Implémenter la fonctionnalité choisie
+- [ ] S'assurer que la validation contre `allowed_mappings` est respectée
+- [ ] **Tester la fonctionnalité dans le navigateur**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Fonctionnalité du bouton "✏️"
+
+**Acceptance Criteria**:
+- [ ] Fonctionnalité du bouton "✏️" définie et implémentée
+- [ ] Validation contre `allowed_mappings` respectée
+- [ ] Mise à jour en cascade fonctionne (toutes les transactions avec le même nom sont mises à jour)
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+**Phase 8 - Acceptance Criteria globaux**:
+- [ ] Table `allowed_mappings` créée en BDD et peuplée avec les mappings autorisés
+- [ ] Tous les mappings (importés ou manuels) sont validés contre la table `allowed_mappings`
+- [ ] Les lignes invalides sont ignorées avec message "erreur - mapping inconnu"
+- [ ] Le bouton "Load mapping" fonctionne exactement comme avant (même interface, même workflow)
+- [ ] Dropdowns filtrés hiérarchiquement dans l'onglet Transactions (level_1, level_2, level_3 ne sont plus éditables en texte libre)
+- [ ] Dropdowns filtrés hiérarchiquement dans l'onglet Mapping
+- [ ] Bouton "✏️" conservé avec fonctionnalité définie (Step 8.8)
+- [ ] Mise à jour en cascade : toutes les transactions avec le même nom sont mises à jour (vérifiée et testée)
+- [ ] Recalcul automatique des modules dépendants (vérifié et testé)
+- [ ] **Test complet de bout en bout validé**
+- [ ] **Utilisateur confirme que le nouveau système fonctionne correctement**
+
+---
+
+## Phase 9 : Bilans et autres états financiers
+
+### Step 9.1 : Service bilans backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer les logiques de `bilan_actif.py` et `bilan_passif.py`.
 
@@ -1302,7 +1567,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 8.2 : Vue bilan frontend
+### Step 9.2 : Vue bilan frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour visualiser les bilans actif et passif.
 
@@ -1337,9 +1602,9 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-## Phase 9 : Consolidation et autres vues
+## Phase 10 : Consolidation et autres vues
 
-### Step 9.1 : Service consolidation backend
+### Step 10.1 : Service consolidation backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer la logique de `merge_etats_financiers.py`.
 
@@ -1375,7 +1640,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 9.2 : Vue cashflow frontend
+### Step 10.2 : Vue cashflow frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour suivre le solde bancaire et vérifier la cohérence.
 
@@ -1410,9 +1675,9 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 
-## Phase 10 : Tests et validation finale
+## Phase 11 : Tests et validation finale
 
-### Step 10.1 : Tests end-to-end
+### Step 11.1 : Tests end-to-end
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Tests complets du workflow depuis upload jusqu'aux états financiers.
 
@@ -1444,7 +1709,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 10.2 : Documentation et finalisation
+### Step 11.2 : Documentation et finalisation
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Documentation utilisateur et technique, optimisation finale.
 
