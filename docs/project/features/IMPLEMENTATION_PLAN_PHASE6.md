@@ -1198,25 +1198,25 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 ---
 
 #### Step 7.6.8 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter un bouton pin/unpin à côté du titre "Configuration du compte de résultat" pour replier/déplier la card.
 
 **Tasks**:
-- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
-- [ ] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
-- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
-- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
-- [ ] Charger l'état depuis localStorage au montage du composant
-- [ ] **Tester dans le navigateur**
+- [x] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+- [x] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
+- [x] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
+- [x] Sauvegarder l'état dans localStorage pour persister entre les sessions
+- [x] Charger l'état depuis localStorage au montage du composant
+- [x] **Tester dans le navigateur**
 
 **Acceptance Criteria**:
-- [ ] Bouton pin/unpin visible à côté du titre
-- [ ] Clic sur le bouton replie/déplie la card
-- [ ] Le contenu (tableau, boutons) est masqué quand la card est repliée
-- [ ] Seul le titre et le bouton pin restent visibles quand replié
-- [ ] L'état est sauvegardé dans localStorage
-- [ ] L'état est restauré au rechargement de la page
-- [ ] **Test visuel dans navigateur validé**
+- [x] Bouton pin/unpin visible à côté du titre
+- [x] Clic sur le bouton replie/déplie la card
+- [x] Le contenu (tableau, boutons) est masqué quand la card est repliée
+- [x] Seul le titre et le bouton pin restent visibles quand replié
+- [x] L'état est sauvegardé dans localStorage
+- [x] L'état est restauré au rechargement de la page
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
