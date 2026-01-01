@@ -1602,9 +1602,144 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-## Phase 9 : Bilans et autres états financiers
+## Phase 9 : Amélioration du compte de résultat - Filtrage par Level 3
 
-### Step 9.1 : Service bilans backend
+### Step 9.1 : Frontend - Suppression des colonnes Level 2 et Level 3
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Supprimer les colonnes "Level 2 (valeurs)" et "Level 3 (valeurs)" de `CompteResultatConfigCard`.
+
+**Tasks**:
+- [ ] Supprimer la colonne "Level 2 (valeurs)" du tableau
+- [ ] Supprimer la colonne "Level 3 (valeurs)" du tableau
+- [ ] Conserver uniquement : Type, Catégorie comptable, Level 1 (valeurs), Vue
+- [ ] Supprimer les états et logiques liés à `level_2_values` et `level_3_values` dans les mappings
+- [ ] Mettre à jour les interfaces TypeScript si nécessaire
+- [ ] **Tester que le tableau s'affiche correctement avec 4 colonnes**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/CompteResultatConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Colonnes "Level 2 (valeurs)" et "Level 3 (valeurs)" supprimées
+- [ ] Tableau affiche uniquement 4 colonnes : Type, Catégorie comptable, Level 1 (valeurs), Vue
+- [ ] Les catégories spéciales conservent "Données calculées" dans la colonne Level 1
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+### Step 9.2 : Frontend - Ajout du dropdown "Level 3 valeurs à inclure"
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter un dropdown multi-select sous "Configuration du compte de résultat" pour sélectionner les `level_3` à inclure dans le compte de résultat.
+
+**Tasks**:
+- [ ] Ajouter un dropdown avec checkboxes sous le titre "Configuration du compte de résultat"
+- [ ] Label : "Level 3 valeurs à inclure dans le compte de résultat"
+- [ ] Charger toutes les valeurs `level_3` disponibles (depuis `allowed_mappings` ou transactions enrichies)
+- [ ] Permettre la sélection multiple avec checkboxes
+- [ ] Sauvegarder la sélection dans `view_data.selected_level_3_values` lors de la sauvegarde d'une vue
+- [ ] Charger la sélection depuis `view_data.selected_level_3_values` lors du chargement d'une vue
+- [ ] **Tester la sauvegarde et le chargement de la sélection**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/CompteResultatConfigCard.tsx`
+- Mise à jour de la structure `view_data` pour inclure `selected_level_3_values`
+
+**Acceptance Criteria**:
+- [ ] Dropdown multi-select visible sous "Configuration du compte de résultat"
+- [ ] Toutes les valeurs `level_3` disponibles sont affichées
+- [ ] Sélection multiple fonctionne avec checkboxes
+- [ ] Sélection sauvegardée dans les vues
+- [ ] Sélection chargée depuis les vues
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+### Step 9.3 : Frontend - Filtrage du dropdown Level 1 par Level 3 sélectionnés
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Filtrer le dropdown "Level 1 (valeurs)" pour n'afficher que les `level_1` associés aux `level_3` sélectionnés.
+
+**Tasks**:
+- [ ] Modifier la fonction qui charge les valeurs `level_1` disponibles dans le dropdown
+- [ ] Filtrer les `level_1` pour ne garder que ceux associés aux `level_3` sélectionnés
+- [ ] Si aucun `level_3` n'est sélectionné, afficher message "Sélectionnez d'abord des Level 3"
+- [ ] Utiliser l'API `allowedMappingsAPI.getAllowedLevel1ForLevel2AndLevel3` ou créer une nouvelle fonction si nécessaire
+- [ ] Mettre à jour le dropdown quand la sélection de `level_3` change
+- [ ] **Tester le filtrage dynamique**
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/CompteResultatConfigCard.tsx`
+- Possible nouvelle fonction API si nécessaire
+
+**Acceptance Criteria**:
+- [ ] Dropdown Level 1 affiche uniquement les `level_1` associés aux `level_3` sélectionnés
+- [ ] Si aucun `level_3` sélectionné, message "Sélectionnez d'abord des Level 3" affiché
+- [ ] Filtrage mis à jour dynamiquement quand la sélection de `level_3` change
+- [ ] Les catégories spéciales ne sont pas affectées (conservent "Données calculées")
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+### Step 9.4 : Backend - Mise à jour de la structure view_data (si nécessaire)
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier et mettre à jour la structure `view_data` pour supporter `selected_level_3_values`.
+
+**Tasks**:
+- [ ] Vérifier que `view_data` peut stocker `selected_level_3_values` (JSON)
+- [ ] Mettre à jour les modèles Pydantic si nécessaire
+- [ ] Vérifier que la sauvegarde/chargement fonctionne correctement
+- [ ] **Tester la sauvegarde et le chargement d'une vue avec selected_level_3_values**
+
+**Deliverables**:
+- Mise à jour `backend/api/models.py` si nécessaire
+- Vérification de la compatibilité avec la base de données
+
+**Acceptance Criteria**:
+- [ ] `view_data` peut stocker `selected_level_3_values` comme liste de strings
+- [ ] Sauvegarde fonctionne correctement
+- [ ] Chargement fonctionne correctement
+- [ ] Compatibilité avec les vues existantes (valeur par défaut si `selected_level_3_values` absent)
+- [ ] **Test de sauvegarde/chargement validé**
+
+---
+
+### Step 9.5 : Test et validation
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Tester l'ensemble des modifications et valider que le compte de résultat calcule correctement avec le filtre Level 3.
+
+**Tasks**:
+- [ ] Tester la suppression des colonnes Level 2 et Level 3
+- [ ] Tester le dropdown multi-select Level 3
+- [ ] Tester le filtrage du dropdown Level 1
+- [ ] Tester la sauvegarde/chargement des vues avec `selected_level_3_values`
+- [ ] Tester que le calcul du compte de résultat ne prend que les transactions avec les `level_3` sélectionnés
+- [ ] Vérifier que les catégories spéciales fonctionnent toujours correctement
+- [ ] **Test complet de bout en bout validé**
+
+**Deliverables**:
+- Tests manuels dans le navigateur
+- Validation que les calculs sont corrects
+
+**Acceptance Criteria**:
+- [ ] Toutes les fonctionnalités fonctionnent correctement
+- [ ] Le calcul du compte de résultat respecte le filtre Level 3
+- [ ] Les vues sauvegardent et chargent correctement la sélection Level 3
+- [ ] **Utilisateur confirme que tout fonctionne correctement**
+
+---
+
+**Phase 9 - Acceptance Criteria globaux**:
+- [ ] Colonnes Level 2 et Level 3 supprimées
+- [ ] Dropdown multi-select Level 3 fonctionne
+- [ ] Dropdown Level 1 filtré par Level 3 sélectionnés
+- [ ] Sélection Level 3 sauvegardée dans les vues
+- [ ] Calcul du compte de résultat respecte le filtre Level 3
+- [ ] **Test complet de bout en bout validé**
+
+---
+
+## Phase 10 : Bilans et autres états financiers
+
+### Step 10.1 : Service bilans backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer les logiques de `bilan_actif.py` et `bilan_passif.py`.
 
@@ -1643,7 +1778,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 9.2 : Vue bilan frontend
+### Step 10.2 : Vue bilan frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour visualiser les bilans actif et passif.
 
@@ -1678,9 +1813,9 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-## Phase 10 : Consolidation et autres vues
+## Phase 11 : Consolidation et autres vues
 
-### Step 10.1 : Service consolidation backend
+### Step 11.1 : Service consolidation backend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Migrer la logique de `merge_etats_financiers.py`.
 
@@ -1716,7 +1851,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-### Step 10.2 : Vue cashflow frontend
+### Step 11.2 : Vue cashflow frontend
 **Status**: ⏸️ EN ATTENTE  
 **Description**: Interface pour suivre le solde bancaire et vérifier la cohérence.
 
