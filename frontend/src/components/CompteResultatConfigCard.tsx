@@ -65,6 +65,9 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   // États pour gérer les valeurs level_2 (Step 7.5.6)
   const [level2Values, setLevel2Values] = useState<string[]>([]);
   const [editingLevel2Id, setEditingLevel2Id] = useState<number | null>(null);
+  // États pour gérer les valeurs level_3 (Step 7.6.9)
+  const [level3Values, setLevel3Values] = useState<string[]>([]);
+  const [editingLevel3Id, setEditingLevel3Id] = useState<number | null>(null);
   // États pour gérer les vues (Save/Load/Delete) (Step 7.5.10)
   const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const [showSaveViewPopup, setShowSaveViewPopup] = useState(false);
@@ -104,11 +107,12 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
   }, [isCollapsed]);
 
-  // Charger les mappings et les valeurs level_1 et level_2 au montage
+  // Charger les mappings et les valeurs level_1, level_2 et level_3 au montage
   useEffect(() => {
     loadMappings();
     loadLevel1Values();
     loadLevel2Values();
+    loadLevel3Values();
     loadAmortizationViews();
     loadLoanConfigs();
   }, []);
@@ -352,6 +356,22 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
   };
 
+  // Charger les valeurs level_3 disponibles depuis les transactions enrichies (Step 7.6.9)
+  const loadLevel3Values = async () => {
+    try {
+      console.log('🔍 [CompteResultatConfigCard] Chargement des valeurs level_3...');
+      const response = await transactionsAPI.getUniqueValues('level_3');
+      console.log('✅ [CompteResultatConfigCard] Valeurs level_3 reçues:', response.values);
+      const values = response.values || [];
+      setLevel3Values(values);
+      console.log('✅ [CompteResultatConfigCard] Nombre de valeurs level_3 chargées:', values.length);
+    } catch (err: any) {
+      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des valeurs level_3:', err);
+      // Ne pas afficher d'alerte, juste logger l'erreur pour ne pas bloquer l'interface
+      setLevel3Values([]);
+    }
+  };
+
   // Gérer le changement de catégorie comptable (Step 7.5.4)
   const handleCategoryChange = async (mappingId: number, newCategory: string) => {
     const mapping = mappings.find(m => m.id === mappingId);
@@ -521,6 +541,73 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
       }
     } catch (err: any) {
       console.error('❌ [CompteResultatConfigCard] Erreur lors de la suppression de la valeur level_2:', err);
+      alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Ajouter une valeur level_3 (Step 7.6.9)
+  const handleLevel3Add = async (mappingId: number, value: string) => {
+    if (!value) return;
+    
+    const mapping = mappings.find(m => m.id === mappingId);
+    if (!mapping) return;
+    
+    // Vérifier que la valeur n'est pas déjà présente
+    const currentValues = mapping.level_3_values && Array.isArray(mapping.level_3_values) ? mapping.level_3_values : [];
+    if (currentValues.includes(value)) return;
+    
+    try {
+      const updatedValues = [...currentValues, value];
+      console.log('💾 [CompteResultatConfigCard] Ajout de valeur level_3:', value, 'pour mapping:', mappingId, '→', updatedValues);
+      
+      await compteResultatAPI.updateMapping(mappingId, {
+        category_name: mapping.category_name,
+        level_1_values: mapping.level_1_values,
+        level_2_values: mapping.level_2_values,
+        level_3_values: updatedValues,
+      });
+      
+      console.log('✅ [CompteResultatConfigCard] Valeur level_3 ajoutée avec succès');
+      
+      // Recharger les mappings
+      await loadMappings();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [CompteResultatConfigCard] Erreur lors de l\'ajout de la valeur level_3:', err);
+      alert(`❌ Erreur lors de l'ajout: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Supprimer une valeur level_3 (Step 7.6.9)
+  const handleLevel3Remove = async (mappingId: number, value: string) => {
+    const mapping = mappings.find(m => m.id === mappingId);
+    if (!mapping) return;
+    
+    try {
+      const currentValues = mapping.level_3_values && Array.isArray(mapping.level_3_values) ? mapping.level_3_values : [];
+      const updatedValues = currentValues.filter(v => v !== value);
+      console.log('🗑️ [CompteResultatConfigCard] Suppression de valeur level_3:', value, 'pour mapping:', mappingId, '→', updatedValues);
+      
+      await compteResultatAPI.updateMapping(mappingId, {
+        category_name: mapping.category_name,
+        level_1_values: mapping.level_1_values,
+        level_2_values: mapping.level_2_values,
+        level_3_values: updatedValues.length > 0 ? updatedValues : null,
+      });
+      
+      console.log('✅ [CompteResultatConfigCard] Valeur level_3 supprimée avec succès');
+      
+      // Recharger les mappings
+      await loadMappings();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [CompteResultatConfigCard] Erreur lors de la suppression de la valeur level_3:', err);
       alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -1167,7 +1254,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '12%'
+                  width: '10%'
                 }}>
                   Type
                 </th>
@@ -1176,7 +1263,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '20%'
+                  width: '18%'
                 }}>
                   Catégorie comptable
                 </th>
@@ -1185,7 +1272,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '24%'
+                  width: '18%'
                 }}>
                   Level 1 (valeurs)
                 </th>
@@ -1194,7 +1281,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '24%'
+                  width: '18%'
                 }}>
                   Level 2 (valeurs)
                 </th>
@@ -1203,7 +1290,16 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
-                  width: '20%'
+                  width: '18%'
+                }}>
+                  Level 3 (valeurs)
+                </th>
+                <th style={{ 
+                  padding: '12px', 
+                  textAlign: 'left', 
+                  fontWeight: '600', 
+                  color: '#374151',
+                  width: '18%'
                 }}>
                   Vue
                 </th>
@@ -1506,6 +1602,128 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                                     : availableValues.length === 0
                                     ? "Toutes les valeurs sont déjà assignées"
                                     : "Ajouter une valeur"}
+                                >
+                                  + Ajouter
+                                </button>
+                              );
+                            })()
+                          )}
+                        </div>
+                      )}
+                    </td>
+                    {/* Colonne Level 3 (valeurs) (Step 7.6.9) */}
+                    <td style={{ padding: '12px' }}>
+                      {isSpecial ? (
+                        <span style={{ fontStyle: 'italic', color: '#9ca3af' }}>Données calculées</span>
+                      ) : (
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
+                          {/* Tags des valeurs level_3 sélectionnées */}
+                          {mapping.level_3_values && Array.isArray(mapping.level_3_values) && mapping.level_3_values.length > 0 ? (
+                            mapping.level_3_values.map((value) => (
+                              <span
+                                key={value}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '2px 6px',
+                                  backgroundColor: '#3b82f6',
+                                  color: '#ffffff',
+                                  borderRadius: '4px',
+                                  fontSize: '11px',
+                                  gap: '4px',
+                                }}
+                              >
+                                {value}
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleLevel3Remove(mapping.id, value);
+                                  }}
+                                  style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    color: '#ffffff',
+                                    cursor: 'pointer',
+                                    padding: '0',
+                                    marginLeft: '4px',
+                                    fontSize: '12px',
+                                    fontWeight: 'bold',
+                                    lineHeight: '1',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                  title="Supprimer"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))
+                          ) : (
+                            <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                              Aucune valeur
+                            </span>
+                          )}
+                          {/* Dropdown pour ajouter une valeur */}
+                          {editingLevel3Id === mapping.id ? (
+                            <select
+                              onChange={(e) => {
+                                if (e.target.value) {
+                                  handleLevel3Add(mapping.id, e.target.value);
+                                  setEditingLevel3Id(null);
+                                }
+                              }}
+                              onBlur={() => setEditingLevel3Id(null)}
+                              autoFocus
+                              style={{
+                                padding: '2px 6px',
+                                fontSize: '12px',
+                                border: '1px solid #3b82f6',
+                                borderRadius: '4px',
+                                backgroundColor: '#ffffff',
+                                minWidth: '120px',
+                              }}
+                            >
+                              <option value="">Sélectionner...</option>
+                              {/* Les valeurs level_3 RESTENT dans le dropdown (pas de filtrage global) */}
+                              {level3Values.map((value) => (
+                                <option key={value} value={value}>
+                                  {value}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            (() => {
+                              const hasValues = level3Values.length > 0;
+                              
+                              return (
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('🔍 [CompteResultatConfigCard] Clic sur "+ Ajouter" pour level_3, mapping:', mapping.id);
+                                    console.log('🔍 [CompteResultatConfigCard] level3Values:', level3Values);
+                                    console.log('🔍 [CompteResultatConfigCard] level3Values.length:', level3Values.length);
+                                    if (hasValues) {
+                                      setEditingLevel3Id(mapping.id);
+                                    } else {
+                                      alert('⚠️ Aucune valeur level_3 n\'est disponible dans les transactions enrichies.\n\nVérifiez que vous avez bien importé des transactions avec des valeurs level_3.');
+                                    }
+                                  }}
+                                  style={{
+                                    padding: '2px 6px',
+                                    fontSize: '11px',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '4px',
+                                    backgroundColor: hasValues ? '#f9fafb' : '#f3f4f6',
+                                    color: hasValues ? '#374151' : '#9ca3af',
+                                    cursor: 'pointer',
+                                    opacity: hasValues ? 1 : 0.7,
+                                  }}
+                                  title={hasValues 
+                                    ? "Ajouter une valeur level_3" 
+                                    : "Aucune valeur level_3 disponible dans les transactions enrichies"}
                                 >
                                   + Ajouter
                                 </button>

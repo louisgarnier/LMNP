@@ -420,6 +420,175 @@ export interface MappingImportHistory {
 }
 
 // Mapping API
+// Allowed mappings API (Step 8.1)
+export interface AllowedLevel1Response {
+  values: string[];
+}
+
+export interface AllowedLevel2Response {
+  values: string[];
+}
+
+export interface AllowedLevel3Response {
+  values: string[];
+}
+
+// AllowedMapping interfaces (Step 8.7)
+export interface AllowedMapping {
+  id: number;
+  level_1: string;
+  level_2: string;
+  level_3: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AllowedMappingCreate {
+  level_1: string;
+  level_2: string;
+  level_3?: string | null;
+}
+
+export interface AllowedMappingListResponse {
+  mappings: AllowedMapping[];
+  total: number;
+}
+
+export const allowedMappingsAPI = {
+  /**
+   * Récupère toutes les valeurs level_1 autorisées
+   */
+  async getAllowedLevel1(): Promise<string[]> {
+    const response = await fetchAPI<AllowedLevel1Response>('/api/mappings/allowed-level1');
+    return response.values;
+  },
+
+  /**
+   * Récupère les valeurs level_2 autorisées.
+   * Si level_1 est fourni, retourne uniquement les level_2 pour ce level_1.
+   * Sinon, retourne toutes les valeurs level_2 disponibles.
+   */
+  async getAllowedLevel2(level_1?: string): Promise<string[]> {
+    const url = level_1 
+      ? `/api/mappings/allowed-level2?level_1=${encodeURIComponent(level_1)}`
+      : `/api/mappings/allowed-level2`;
+    const response = await fetchAPI<AllowedLevel2Response>(url);
+    return response.values;
+  },
+
+  /**
+   * Récupère les valeurs level_3 autorisées.
+   * Si level_1 et level_2 sont fournis, retourne uniquement les level_3 pour ce couple.
+   * Sinon, retourne toutes les valeurs level_3 disponibles.
+   */
+  async getAllowedLevel3(level_1?: string, level_2?: string): Promise<string[]> {
+    const url = (level_1 && level_2)
+      ? `/api/mappings/allowed-level3?level_1=${encodeURIComponent(level_1)}&level_2=${encodeURIComponent(level_2)}`
+      : `/api/mappings/allowed-level3`;
+    const response = await fetchAPI<AllowedLevel3Response>(url);
+    return response.values;
+  },
+
+  /**
+   * Récupère les valeurs level_2 autorisées pour un level_3 donné (filtrage ascendant)
+   */
+  async getAllowedLevel2ForLevel3(level_3: string): Promise<string[]> {
+    const response = await fetchAPI<AllowedLevel2Response>(`/api/mappings/allowed-level2-for-level3?level_3=${encodeURIComponent(level_3)}`);
+    return response.values;
+  },
+
+  /**
+   * Récupère les valeurs level_1 autorisées pour un level_2 donné (filtrage ascendant)
+   */
+  async getAllowedLevel1ForLevel2(level_2: string): Promise<string[]> {
+    const response = await fetchAPI<AllowedLevel1Response>(`/api/mappings/allowed-level1-for-level2?level_2=${encodeURIComponent(level_2)}`);
+    return response.values;
+  },
+
+  /**
+   * Récupère les valeurs level_1 autorisées pour un couple (level_2, level_3) donné (filtrage ascendant)
+   */
+  async getAllowedLevel1ForLevel2AndLevel3(level_2: string, level_3: string): Promise<string[]> {
+    const response = await fetchAPI<AllowedLevel1Response>(`/api/mappings/allowed-level1-for-level2-and-level3?level_2=${encodeURIComponent(level_2)}&level_3=${encodeURIComponent(level_3)}`);
+    return response.values;
+  },
+
+  /**
+   * Récupère la combinaison unique (level_2, level_3) pour un level_1 donné
+   */
+  async getUniqueCombinationForLevel1(level_1: string): Promise<{ level_2: string | null; level_3: string | null }> {
+    return fetchAPI<{ level_2: string | null; level_3: string | null }>(`/api/mappings/unique-combination-for-level1?level_1=${encodeURIComponent(level_1)}`);
+  },
+
+  /**
+   * Récupère la combinaison unique (level_1, level_3) pour un level_2 donné
+   */
+  async getUniqueCombinationForLevel2(level_2: string): Promise<{ level_1: string | null; level_3: string | null }> {
+    return fetchAPI<{ level_1: string | null; level_3: string | null }>(`/api/mappings/unique-combination-for-level2?level_2=${encodeURIComponent(level_2)}`);
+  },
+  
+  /**
+   * Récupère tous les mappings autorisés (Step 8.7)
+   */
+  async getAllowedMappings(skip: number = 0, limit: number = 100, filters?: {
+    level_1?: string;
+    level_2?: string;
+    level_3?: string;
+  }): Promise<{ mappings: AllowedMapping[]; total: number }> {
+    const params = new URLSearchParams();
+    params.append('skip', skip.toString());
+    params.append('limit', limit.toString());
+    if (filters?.level_1) params.append('level_1', filters.level_1);
+    if (filters?.level_2) params.append('level_2', filters.level_2);
+    if (filters?.level_3) params.append('level_3', filters.level_3);
+    return fetchAPI<{ mappings: AllowedMapping[]; total: number }>(`/api/mappings/allowed?${params.toString()}`);
+  },
+  
+  /**
+   * Crée un nouveau mapping autorisé (Step 8.7)
+   */
+  async createAllowedMapping(mapping: AllowedMappingCreate): Promise<AllowedMapping> {
+    return fetchAPI<AllowedMapping>('/api/mappings/allowed', {
+      method: 'POST',
+      body: JSON.stringify(mapping),
+    });
+  },
+  
+  /**
+   * Supprime un mapping autorisé (Step 8.7)
+   */
+  async deleteAllowedMapping(mappingId: number): Promise<void> {
+    return fetchAPI<void>(`/api/mappings/allowed/${mappingId}`, {
+      method: 'DELETE',
+    });
+  },
+  
+  /**
+   * Réinitialise les mappings autorisés depuis le fichier Excel par défaut (Step 8.7)
+   */
+  async resetAllowedMappings(): Promise<{
+    deleted_count: number;
+    inserted_count: number;
+    error_count: number;
+    total_count: number;
+    invalid_mappings_deleted: number;
+    transactions_reset: number;
+    message: string;
+  }> {
+    return fetchAPI<{
+      deleted_count: number;
+      inserted_count: number;
+      error_count: number;
+      total_count: number;
+      invalid_mappings_deleted: number;
+      transactions_reset: number;
+      message: string;
+    }>('/api/mappings/allowed/reset', {
+      method: 'POST',
+    });
+  },
+};
+
 export const mappingsAPI = {
   /**
    * Récupérer tous les mappings (sans pagination)

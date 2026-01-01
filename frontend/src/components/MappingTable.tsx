@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
-import { mappingsAPI, enrichmentAPI, Mapping, MappingCreate, MappingUpdate } from '../api/client';
+import { mappingsAPI, enrichmentAPI, Mapping, MappingCreate, MappingUpdate, allowedMappingsAPI } from '../api/client';
 import { exportAndDownloadMappings, generateDefaultFilename } from '../utils/excelExport';
 
 type SortColumn = 'id' | 'nom' | 'level_1' | 'level_2' | 'level_3';
@@ -60,6 +60,21 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     is_prefix_match: true,
     priority: 0,
   });
+  
+  // États pour les dropdowns filtrés dans le modal de création
+  const [availableLevel1ForCreate, setAvailableLevel1ForCreate] = useState<string[]>([]);
+  const [availableLevel2ForCreate, setAvailableLevel2ForCreate] = useState<string[]>([]);
+  const [availableLevel3ForCreate, setAvailableLevel3ForCreate] = useState<string[]>([]);
+  
+  // États pour les dropdowns filtrés dans l'édition inline
+  const [editingMappingValues, setEditingMappingValues] = useState<{
+    level_1?: string;
+    level_2?: string;
+    level_3?: string;
+  }>({});
+  const [availableLevel1ForEdit, setAvailableLevel1ForEdit] = useState<string[]>([]);
+  const [availableLevel2ForEdit, setAvailableLevel2ForEdit] = useState<string[]>([]);
+  const [availableLevel3ForEdit, setAvailableLevel3ForEdit] = useState<string[]>([]);
 
   const loadMappings = async (resetPage: boolean = false) => {
     // Si resetPage est true, réinitialiser la page à 1
@@ -233,10 +248,137 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
         is_prefix_match: true,
         priority: 0,
       });
+      // Réinitialiser les dropdowns
+      setAvailableLevel1ForCreate([]);
+      setAvailableLevel2ForCreate([]);
+      setAvailableLevel3ForCreate([]);
       loadMappings();
       onMappingChange?.();
     } catch (err: any) {
       alert(`Erreur lors de la création: ${err.message}`);
+    }
+  };
+  
+  // Charger les valeurs autorisées quand le modal de création s'ouvre
+  useEffect(() => {
+    if (showCreateModal) {
+      const loadAllowedValues = async () => {
+        try {
+          const level1List = await allowedMappingsAPI.getAllowedLevel1();
+          setAvailableLevel1ForCreate(level1List);
+          
+          const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+          setAvailableLevel2ForCreate(allLevel2List);
+          
+          const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+          setAvailableLevel3ForCreate(allLevel3List);
+        } catch (err) {
+          console.error('❌ Erreur lors du chargement des valeurs autorisées:', err);
+        }
+      };
+      loadAllowedValues();
+    }
+  }, [showCreateModal]);
+  
+  // Handlers pour le filtrage hiérarchique dans le modal de création
+  const handleCreateLevel1Change = async (value: string) => {
+    if (!value) {
+      setNewMapping({ ...newMapping, level_1: '', level_2: '', level_3: '' });
+      const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+      setAvailableLevel2ForCreate(allLevel2List);
+      const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+      setAvailableLevel3ForCreate(allLevel3List);
+      return;
+    }
+    
+    try {
+      // Scénario 1 : level_1 → level_2 et level_3 sélectionnés automatiquement
+      const combination = await allowedMappingsAPI.getUniqueCombinationForLevel1(value);
+      if (combination) {
+        setNewMapping({
+          ...newMapping,
+          level_1: value,
+          level_2: combination.level_2 || '',
+          level_3: combination.level_3 || '',
+        });
+        // Garder toutes les valeurs disponibles pour permettre le changement
+        const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+        setAvailableLevel2ForCreate(allLevel2List);
+        const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+        setAvailableLevel3ForCreate(allLevel3List);
+      } else {
+        setNewMapping({ ...newMapping, level_1: value });
+      }
+    } catch (err) {
+      console.error('❌ Erreur lors de la sélection de level_1:', err);
+      setNewMapping({ ...newMapping, level_1: value });
+    }
+  };
+  
+  const handleCreateLevel2Change = async (value: string) => {
+    if (!value) {
+      setNewMapping({ ...newMapping, level_2: '', level_3: '' });
+      const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+      setAvailableLevel3ForCreate(allLevel3List);
+      return;
+    }
+    
+    try {
+      // Scénario 2 : level_2 → level_3 sélectionné automatiquement, level_1 filtré
+      const combination = await allowedMappingsAPI.getUniqueCombinationForLevel2(value);
+      if (combination && combination.level_3) {
+        setNewMapping({
+          ...newMapping,
+          level_2: value,
+          level_3: combination.level_3,
+        });
+      } else {
+        setNewMapping({ ...newMapping, level_2: value, level_3: '' });
+      }
+      
+      // Filtrer level_1 par level_2
+      const level1List = await allowedMappingsAPI.getAllowedLevel1ForLevel2(value);
+      setAvailableLevel1ForCreate(level1List);
+      
+      // Garder toutes les valeurs level_3 disponibles
+      const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+      setAvailableLevel3ForCreate(allLevel3List);
+    } catch (err) {
+      console.error('❌ Erreur lors de la sélection de level_2:', err);
+      setNewMapping({ ...newMapping, level_2: value });
+    }
+  };
+  
+  const handleCreateLevel3Change = async (value: string) => {
+    if (!value) {
+      setNewMapping({ ...newMapping, level_3: '' });
+      const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+      setAvailableLevel2ForCreate(allLevel2List);
+      const allLevel1List = await allowedMappingsAPI.getAllowedLevel1();
+      setAvailableLevel1ForCreate(allLevel1List);
+      return;
+    }
+    
+    try {
+      // Scénario 3 : level_3 → level_2 filtré, level_1 filtré
+      setNewMapping({ ...newMapping, level_3: value });
+      
+      // Filtrer level_2 par level_3
+      const level2List = await allowedMappingsAPI.getAllowedLevel2ForLevel3(value);
+      setAvailableLevel2ForCreate(level2List);
+      
+      // Si level_2 existe déjà, filtrer level_1 par le couple (level_2, level_3)
+      if (newMapping.level_2) {
+        const level1List = await allowedMappingsAPI.getAllowedLevel1ForLevel2AndLevel3(newMapping.level_2, value);
+        setAvailableLevel1ForCreate(level1List);
+      } else {
+        // Garder toutes les valeurs level_1 disponibles
+        const allLevel1List = await allowedMappingsAPI.getAllowedLevel1();
+        setAvailableLevel1ForCreate(allLevel1List);
+      }
+    } catch (err) {
+      console.error('❌ Erreur lors de la sélection de level_3:', err);
+      setNewMapping({ ...newMapping, level_3: value });
     }
   };
 
@@ -300,14 +442,36 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     }
   };
 
-  const handleEdit = (mapping: Mapping) => {
+  const handleEdit = async (mapping: Mapping) => {
     setEditingId(mapping.id);
+    
+    // Initialiser les valeurs d'édition
+    setEditingMappingValues({
+      level_1: mapping.level_1 || undefined,
+      level_2: mapping.level_2 || undefined,
+      level_3: mapping.level_3 || undefined,
+    });
+    
+    // Charger les valeurs autorisées pour les dropdowns
+    try {
+      const level1List = await allowedMappingsAPI.getAllowedLevel1();
+      setAvailableLevel1ForEdit(level1List);
+      
+      const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+      setAvailableLevel2ForEdit(allLevel2List);
+      
+      const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+      setAvailableLevel3ForEdit(allLevel3List);
+    } catch (err) {
+      console.error('❌ Erreur lors du chargement des valeurs autorisées:', err);
+    }
   };
 
   const handleSaveEdit = async (mapping: Mapping, updates: MappingUpdate) => {
     try {
       await mappingsAPI.update(mapping.id, updates);
       setEditingId(null);
+      setEditingMappingValues({});
       loadMappings();
       onMappingChange?.();
     } catch (err: any) {
@@ -316,10 +480,131 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
         console.warn(`Mapping avec ID ${mapping.id} non trouvé, rafraîchissement de la liste...`);
         loadMappings();
         setEditingId(null);
+        setEditingMappingValues({});
         alert(`Le mapping n'existe plus. La liste a été rafraîchie.`);
       } else {
         alert(`Erreur lors de la modification: ${err.message}`);
       }
+    }
+  };
+  
+  // Handlers pour le filtrage hiérarchique dans l'édition inline (sans sauvegarde immédiate)
+  const handleEditLevel1Change = async (value: string) => {
+    if (!value) {
+      setEditingMappingValues({ ...editingMappingValues, level_1: undefined, level_2: undefined, level_3: undefined });
+      const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+      setAvailableLevel2ForEdit(allLevel2List);
+      const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+      setAvailableLevel3ForEdit(allLevel3List);
+      return;
+    }
+    
+    try {
+      // Scénario 1 : level_1 → level_2 et level_3 sélectionnés automatiquement
+      const combination = await allowedMappingsAPI.getUniqueCombinationForLevel1(value);
+      if (combination) {
+        setEditingMappingValues({
+          ...editingMappingValues,
+          level_1: value,
+          level_2: combination.level_2 || undefined,
+          level_3: combination.level_3 || undefined,
+        });
+        // Garder toutes les valeurs disponibles pour permettre le changement
+        const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+        setAvailableLevel2ForEdit(allLevel2List);
+        const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+        setAvailableLevel3ForEdit(allLevel3List);
+      } else {
+        setEditingMappingValues({ ...editingMappingValues, level_1: value });
+      }
+    } catch (err) {
+      console.error('❌ Erreur lors de la sélection de level_1:', err);
+      setEditingMappingValues({ ...editingMappingValues, level_1: value });
+    }
+  };
+  
+  const handleEditLevel2Change = async (value: string) => {
+    if (!value) {
+      setEditingMappingValues({ ...editingMappingValues, level_2: undefined, level_3: undefined });
+      const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+      setAvailableLevel3ForEdit(allLevel3List);
+      return;
+    }
+    
+    try {
+      // Scénario 2 : level_2 → level_3 sélectionné automatiquement, level_1 filtré
+      const combination = await allowedMappingsAPI.getUniqueCombinationForLevel2(value);
+      if (combination && combination.level_3) {
+        setEditingMappingValues({ ...editingMappingValues, level_2: value, level_3: combination.level_3 });
+      } else {
+        setEditingMappingValues({ ...editingMappingValues, level_2: value, level_3: undefined });
+      }
+      
+      // Filtrer level_1 par level_2
+      const level1List = await allowedMappingsAPI.getAllowedLevel1ForLevel2(value);
+      setAvailableLevel1ForEdit(level1List);
+      
+      // Garder toutes les valeurs level_3 disponibles
+      const allLevel3List = await allowedMappingsAPI.getAllowedLevel3();
+      setAvailableLevel3ForEdit(allLevel3List);
+    } catch (err) {
+      console.error('❌ Erreur lors de la sélection de level_2:', err);
+      setEditingMappingValues({ ...editingMappingValues, level_2: value });
+    }
+  };
+  
+  const handleEditLevel3Change = async (value: string) => {
+    if (!value) {
+      setEditingMappingValues({ ...editingMappingValues, level_3: undefined });
+      const allLevel2List = await allowedMappingsAPI.getAllowedLevel2();
+      setAvailableLevel2ForEdit(allLevel2List);
+      const allLevel1List = await allowedMappingsAPI.getAllowedLevel1();
+      setAvailableLevel1ForEdit(allLevel1List);
+      return;
+    }
+    
+    try {
+      // Scénario 3 : level_3 → level_2 filtré, level_1 filtré
+      setEditingMappingValues({ ...editingMappingValues, level_3: value });
+      
+      // Filtrer level_2 par level_3
+      const level2List = await allowedMappingsAPI.getAllowedLevel2ForLevel3(value);
+      setAvailableLevel2ForEdit(level2List);
+      
+      // Si level_2 existe déjà, filtrer level_1 par le couple (level_2, level_3)
+      if (editingMappingValues.level_2) {
+        const level1List = await allowedMappingsAPI.getAllowedLevel1ForLevel2AndLevel3(editingMappingValues.level_2, value);
+        setAvailableLevel1ForEdit(level1List);
+      } else {
+        // Garder toutes les valeurs level_1 disponibles
+        const allLevel1List = await allowedMappingsAPI.getAllowedLevel1();
+        setAvailableLevel1ForEdit(allLevel1List);
+      }
+    } catch (err) {
+      console.error('❌ Erreur lors de la sélection de level_3:', err);
+      setEditingMappingValues({ ...editingMappingValues, level_3: value });
+    }
+  };
+  
+  // Handler pour sauvegarder les modifications (appelé par le bouton ✓)
+  const handleSaveEditClick = async (mapping: Mapping) => {
+    const updates: MappingUpdate = {};
+    if (editingMappingValues.level_1 !== undefined) {
+      updates.level_1 = editingMappingValues.level_1 || undefined;
+    }
+    if (editingMappingValues.level_2 !== undefined) {
+      updates.level_2 = editingMappingValues.level_2 || undefined;
+    }
+    if (editingMappingValues.level_3 !== undefined) {
+      updates.level_3 = editingMappingValues.level_3 || undefined;
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      await handleSaveEdit(mapping, updates);
+    } else {
+      // Aucun changement, juste fermer l'édition
+      setEditingId(null);
+      setEditingMappingValues({});
     }
   };
 
@@ -845,48 +1130,48 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
                 </td>
                 <td style={{ padding: '12px' }}>
                   {editingId === mapping.id ? (
-                    <input
-                      type="text"
-                      defaultValue={mapping.level_1}
-                      onBlur={(e) => {
-                        if (e.target.value !== mapping.level_1) {
-                          handleSaveEdit(mapping, { level_1: e.target.value });
-                        }
-                      }}
+                    <select
+                      value={editingMappingValues.level_1 || ''}
+                      onChange={(e) => handleEditLevel1Change(e.target.value)}
                       style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                    />
+                    >
+                      <option value="">Unassigned</option>
+                      {availableLevel1ForEdit.map((val) => (
+                        <option key={val} value={val}>{val}</option>
+                      ))}
+                    </select>
                   ) : (
                     mapping.level_1
                   )}
                 </td>
                 <td style={{ padding: '12px' }}>
                   {editingId === mapping.id ? (
-                    <input
-                      type="text"
-                      defaultValue={mapping.level_2}
-                      onBlur={(e) => {
-                        if (e.target.value !== mapping.level_2) {
-                          handleSaveEdit(mapping, { level_2: e.target.value });
-                        }
-                      }}
+                    <select
+                      value={editingMappingValues.level_2 || ''}
+                      onChange={(e) => handleEditLevel2Change(e.target.value)}
                       style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                    />
+                    >
+                      <option value="">Unassigned</option>
+                      {availableLevel2ForEdit.map((val) => (
+                        <option key={val} value={val}>{val}</option>
+                      ))}
+                    </select>
                   ) : (
                     mapping.level_2
                   )}
                 </td>
                 <td style={{ padding: '12px' }}>
                   {editingId === mapping.id ? (
-                    <input
-                      type="text"
-                      defaultValue={mapping.level_3 || ''}
-                      onBlur={(e) => {
-                        if (e.target.value !== (mapping.level_3 || '')) {
-                          handleSaveEdit(mapping, { level_3: e.target.value || undefined });
-                        }
-                      }}
+                    <select
+                      value={editingMappingValues.level_3 || ''}
+                      onChange={(e) => handleEditLevel3Change(e.target.value)}
                       style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                    />
+                    >
+                      <option value="">Unassigned</option>
+                      {availableLevel3ForEdit.map((val) => (
+                        <option key={val} value={val}>{val}</option>
+                      ))}
+                    </select>
                   ) : (
                     mapping.level_3 || '-'
                   )}
@@ -896,20 +1181,39 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
                 </td>
                 <td style={{ padding: '12px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
                   {editingId === mapping.id ? (
-                    <button
-                      onClick={() => setEditingId(null)}
-                      style={{
-                        padding: '4px 8px',
-                        fontSize: '12px',
-                        backgroundColor: '#28a745',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      ✓
-                    </button>
+                    <>
+                      <button
+                        onClick={() => handleSaveEditClick(mapping)}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          backgroundColor: '#28a745',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✓
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditingMappingValues({});
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: '12px',
+                          backgroundColor: '#6c757d',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        ✗
+                      </button>
+                    </>
                   ) : (
                     <>
                       <button
@@ -1059,30 +1363,42 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 1 *</label>
-                <input
-                  type="text"
+                <select
                   value={newMapping.level_1}
-                  onChange={(e) => setNewMapping({ ...newMapping, level_1: e.target.value })}
+                  onChange={(e) => handleCreateLevel1Change(e.target.value)}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                />
+                >
+                  <option value="">Unassigned</option>
+                  {availableLevel1ForCreate.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 2 *</label>
-                <input
-                  type="text"
+                <select
                   value={newMapping.level_2}
-                  onChange={(e) => setNewMapping({ ...newMapping, level_2: e.target.value })}
+                  onChange={(e) => handleCreateLevel2Change(e.target.value)}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                />
+                >
+                  <option value="">Unassigned</option>
+                  {availableLevel2ForCreate.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 3</label>
-                <input
-                  type="text"
+                <select
                   value={newMapping.level_3 || ''}
-                  onChange={(e) => setNewMapping({ ...newMapping, level_3: e.target.value })}
+                  onChange={(e) => handleCreateLevel3Change(e.target.value)}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                />
+                >
+                  <option value="">Unassigned</option>
+                  {availableLevel3ForCreate.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                </select>
               </div>
               <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
                 <button

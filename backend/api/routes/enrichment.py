@@ -86,14 +86,24 @@ async def update_transaction_classifications(
         )
         
         # Après avoir mis à jour le mapping, re-enrichir TOUTES les transactions
-        # avec le même nom pour qu'elles utilisent le nouveau mapping
-        all_transactions = db.query(Transaction).all()
+        # avec le même nom (correspondance exacte) pour qu'elles utilisent le nouveau mapping
+        # Step 8.3: Mise à jour automatique de toutes les transactions avec le même nom
+        all_transactions = db.query(Transaction).filter(
+            Transaction.nom == transaction.nom,
+            Transaction.id != transaction.id  # Ne pas re-enrichir la transaction qu'on vient de modifier
+        ).all()
         for other_transaction in all_transactions:
-            if other_transaction.id != transaction.id:  # Ne pas re-enrichir la transaction qu'on vient de modifier
-                if transaction_matches_mapping_name(other_transaction.nom, transaction.nom):
-                    enrich_transaction(other_transaction, db)
+            enrich_transaction(other_transaction, db)
         
         db.commit()
+        
+        # Step 8.6: Invalider les données calculées qui dépendent des transactions enrichies
+        from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+        invalidate_all_compte_resultat(db)
+        
+        # Recalculer les amortissements car les classifications ont changé
+        from backend.api.services.amortization_service import recalculate_all_amortizations
+        recalculate_all_amortizations(db)
     
     # Recharger la transaction avec les données enrichies
     db.refresh(transaction)

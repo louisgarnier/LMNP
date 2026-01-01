@@ -73,6 +73,23 @@ class Mapping(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 
+class AllowedMapping(Base):
+    """Allowed combinations of level_1, level_2, level_3 for transaction mappings."""
+    __tablename__ = "allowed_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    level_1 = Column(String(100), nullable=False, index=True)
+    level_2 = Column(String(100), nullable=False, index=True)
+    level_3 = Column(String(100), nullable=True, index=True)  # Optionnel
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Contrainte unique sur (level_1, level_2, level_3) pour éviter les doublons
+    __table_args__ = (
+        Index('idx_allowed_mapping_unique', 'level_1', 'level_2', 'level_3', unique=True),
+    )
+
+
 class Parameter(Base):
     """Configuration parameters for calculations."""
     __tablename__ = "parameters"

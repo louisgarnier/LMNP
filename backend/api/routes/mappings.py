@@ -15,7 +15,7 @@ from pathlib import Path
 from datetime import datetime
 
 from backend.database import get_db
-from backend.database.models import Mapping, Transaction, EnrichedTransaction, MappingImport
+from backend.database.models import Mapping, Transaction, EnrichedTransaction, MappingImport, AllowedMapping
 from backend.api.models import (
     MappingCreate,
     MappingUpdate,
@@ -26,9 +26,29 @@ from backend.api.models import (
     MappingImportHistory,
     ColumnMapping,
     MappingError,
-    DuplicateMapping
+    DuplicateMapping,
+    AllowedLevel1Response,
+    AllowedLevel2Response,
+    AllowedLevel3Response,
+    AllowedMappingCreate,
+    AllowedMappingUpdate,
+    AllowedMappingResponse,
+    AllowedMappingListResponse
 )
 from backend.api.services.enrichment_service import enrich_transaction, transaction_matches_mapping_name
+from backend.api.services.mapping_default_service import (
+    get_allowed_level1_values,
+    get_allowed_level2_values,
+    get_all_allowed_level2_values,
+    get_allowed_level3_values,
+    get_all_allowed_level3_values,
+    validate_mapping,
+    get_allowed_level2_for_level3,
+    get_allowed_level1_for_level2,
+    get_allowed_level1_for_level2_and_level3,
+    get_unique_combination_for_level1,
+    get_unique_combination_for_level2
+)
 
 router = APIRouter()
 
@@ -319,6 +339,20 @@ async def import_mapping_file(
                         level_2=None,
                         level_3=level_3_value if level_3_value else None,
                         error_message="Le champ 'level_2' est obligatoire et ne peut pas être vide"
+                    ))
+                    continue
+                
+                # Validation contre allowed_mappings (Step 8.2)
+                level_3_for_validation = level_3_value if level_3_value else None
+                if not validate_mapping(db, level_1_value, level_2_value, level_3_for_validation):
+                    errors_count += 1
+                    errors_list.append(MappingError(
+                        line_number=line_number,
+                        nom=nom_value,
+                        level_1=level_1_value,
+                        level_2=level_2_value,
+                        level_3=level_3_for_validation,
+                        error_message="erreur - mapping inconnu"
                     ))
                     continue
                 
@@ -723,6 +757,14 @@ async def create_mapping(
     db.commit()
     db.refresh(db_mapping)
     
+    # Step 8.6: Invalider les données calculées car un nouveau mapping peut affecter les transactions
+    from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+    invalidate_all_compte_resultat(db)
+    
+    # Recalculer les amortissements car un nouveau mapping peut affecter les classifications
+    from backend.api.services.amortization_service import recalculate_all_amortizations
+    recalculate_all_amortizations(db)
+    
     return MappingResponse.model_validate(db_mapping)
 
 
@@ -793,6 +835,14 @@ async def update_mapping(
         enrich_transaction(transaction, db)
     
     db.commit()
+    
+    # Step 8.6: Invalider les données calculées qui dépendent des transactions enrichies
+    from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+    invalidate_all_compte_resultat(db)
+    
+    # Recalculer les amortissements car les classifications ont changé
+    from backend.api.services.amortization_service import recalculate_all_amortizations
+    recalculate_all_amortizations(db)
     
     return MappingResponse.model_validate(mapping)
 
@@ -867,6 +917,14 @@ async def delete_mapping(
     
     db.commit()
     
+    # Step 8.6: Invalider les données calculées qui dépendent des transactions enrichies
+    from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+    invalidate_all_compte_resultat(db)
+    
+    # Recalculer les amortissements car les classifications ont changé
+    from backend.api.services.amortization_service import recalculate_all_amortizations
+    recalculate_all_amortizations(db)
+    
     return None
 
 
@@ -936,6 +994,437 @@ async def get_mapping_combinations(
         result["level_1"] = [v[0] for v in level_1_values if v[0] is not None]
     
     return result
+
+
+# ============================================================================
+# Allowed Mappings Endpoints
+# IMPORTANT: Ces routes doivent être déclarées AVANT /mappings/{mapping_id}
+# pour éviter que FastAPI interprète "allowed-level1" comme un mapping_id
+# ============================================================================
+
+@router.get("/mappings/allowed-level1", response_model=AllowedLevel1Response, tags=["mappings"])
+def get_allowed_level1(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère toutes les valeurs level_1 autorisées.
+    
+    Returns:
+        Liste des valeurs level_1 distinctes, triées par ordre alphabétique
+    """
+    values = get_allowed_level1_values(db)
+    return AllowedLevel1Response(values=values)
+
+
+@router.get("/mappings/allowed-level2", response_model=AllowedLevel2Response, tags=["mappings"])
+def get_allowed_level2(
+    level_1: str = Query(None, description="Valeur de level_1 pour filtrer (optionnel)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère les valeurs level_2 autorisées.
+    Si level_1 est fourni, retourne uniquement les level_2 pour ce level_1.
+    Sinon, retourne toutes les valeurs level_2 disponibles.
+    
+    Args:
+        level_1: Valeur de level_1 pour filtrer (optionnel)
+        
+    Returns:
+        Liste des valeurs level_2 distinctes, triées par ordre alphabétique
+    """
+    if level_1:
+        values = get_allowed_level2_values(db, level_1)
+    else:
+        values = get_all_allowed_level2_values(db)
+    return AllowedLevel2Response(values=values)
+
+
+@router.get("/mappings/allowed-level3", response_model=AllowedLevel3Response, tags=["mappings"])
+def get_allowed_level3(
+    level_1: str = Query(None, description="Valeur de level_1 pour filtrer (optionnel)"),
+    level_2: str = Query(None, description="Valeur de level_2 pour filtrer (optionnel)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère les valeurs level_3 autorisées.
+    Si level_1 et level_2 sont fournis, retourne uniquement les level_3 pour ce couple.
+    Sinon, retourne toutes les valeurs level_3 disponibles.
+    
+    Args:
+        level_1: Valeur de level_1 pour filtrer (optionnel)
+        level_2: Valeur de level_2 pour filtrer (optionnel)
+        
+    Returns:
+        Liste des valeurs level_3 distinctes, triées par ordre alphabétique
+    """
+    if level_1 and level_2:
+        values = get_allowed_level3_values(db, level_1, level_2)
+    else:
+        values = get_all_allowed_level3_values(db)
+    return AllowedLevel3Response(values=values)
+
+
+@router.get("/mappings/allowed-level2-for-level3", response_model=AllowedLevel2Response, tags=["mappings"])
+def get_allowed_level2_for_level3_endpoint(
+    level_3: str = Query(..., description="Valeur de level_3 pour filtrer"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère les valeurs level_2 autorisées pour un level_3 donné (filtrage ascendant).
+    
+    Args:
+        level_3: Valeur de level_3 pour filtrer
+        
+    Returns:
+        Liste des valeurs level_2 distinctes pour ce level_3, triées par ordre alphabétique
+    """
+    values = get_allowed_level2_for_level3(db, level_3)
+    return AllowedLevel2Response(values=values)
+
+
+@router.get("/mappings/allowed-level1-for-level2", response_model=AllowedLevel1Response, tags=["mappings"])
+def get_allowed_level1_for_level2_endpoint(
+    level_2: str = Query(..., description="Valeur de level_2 pour filtrer"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère les valeurs level_1 autorisées pour un level_2 donné (filtrage ascendant).
+    
+    Args:
+        level_2: Valeur de level_2 pour filtrer
+        
+    Returns:
+        Liste des valeurs level_1 distinctes pour ce level_2, triées par ordre alphabétique
+    """
+    values = get_allowed_level1_for_level2(db, level_2)
+    return AllowedLevel1Response(values=values)
+
+
+@router.get("/mappings/allowed-level1-for-level2-and-level3", response_model=AllowedLevel1Response, tags=["mappings"])
+def get_allowed_level1_for_level2_and_level3_endpoint(
+    level_2: str = Query(..., description="Valeur de level_2 pour filtrer"),
+    level_3: str = Query(..., description="Valeur de level_3 pour filtrer"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère les valeurs level_1 autorisées pour un couple (level_2, level_3) donné (filtrage ascendant).
+    
+    Args:
+        level_2: Valeur de level_2 pour filtrer
+        level_3: Valeur de level_3 pour filtrer
+        
+    Returns:
+        Liste des valeurs level_1 distinctes pour ce couple (level_2, level_3), triées par ordre alphabétique
+    """
+    values = get_allowed_level1_for_level2_and_level3(db, level_2, level_3)
+    return AllowedLevel1Response(values=values)
+
+
+@router.get("/mappings/unique-combination-for-level1", tags=["mappings"])
+def get_unique_combination_for_level1_endpoint(
+    level_1: str = Query(..., description="Valeur de level_1"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère la combinaison unique (level_2, level_3) pour un level_1 donné.
+    
+    Comme chaque level_1 a une combinaison unique level_2/level_3, cette fonction
+    retourne cette combinaison unique.
+    
+    Args:
+        level_1: Valeur de level_1
+        
+    Returns:
+        Objet avec level_2 et level_3, ou null si aucune combinaison trouvée
+    """
+    combination = get_unique_combination_for_level1(db, level_1)
+    if combination:
+        return {"level_2": combination[0], "level_3": combination[1]}
+    return {"level_2": None, "level_3": None}
+
+
+@router.get("/mappings/unique-combination-for-level2", tags=["mappings"])
+def get_unique_combination_for_level2_endpoint(
+    level_2: str = Query(..., description="Valeur de level_2"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère la combinaison unique (level_1, level_3) pour un level_2 donné.
+    
+    Comme chaque level_2 a une combinaison unique level_1/level_3, cette fonction
+    retourne cette combinaison unique.
+    
+    Args:
+        level_2: Valeur de level_2
+        
+    Returns:
+        Objet avec level_1 et level_3, ou null si aucune combinaison trouvée
+    """
+    combination = get_unique_combination_for_level2(db, level_2)
+    if combination:
+        return {"level_1": combination[0], "level_3": combination[1]}
+    return {"level_1": None, "level_3": None}
+
+
+# ============================================================================
+# Endpoints CRUD pour allowed_mappings (Step 8.7)
+# ============================================================================
+
+@router.get("/mappings/allowed", response_model=AllowedMappingListResponse, tags=["mappings"])
+async def get_allowed_mappings(
+    skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
+    limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
+    level_1: Optional[str] = Query(None, description="Filtrer par level_1"),
+    level_2: Optional[str] = Query(None, description="Filtrer par level_2"),
+    level_3: Optional[str] = Query(None, description="Filtrer par level_3"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère tous les mappings autorisés avec pagination et filtres optionnels.
+    
+    Args:
+        skip: Nombre d'éléments à sauter (pagination)
+        limit: Nombre d'éléments à retourner (pagination)
+        level_1: Filtrer par level_1 (optionnel)
+        level_2: Filtrer par level_2 (optionnel)
+        level_3: Filtrer par level_3 (optionnel)
+        db: Session de base de données
+        
+    Returns:
+        Liste des mappings autorisés avec le total
+    """
+    query = db.query(AllowedMapping)
+    
+    # Appliquer les filtres
+    if level_1:
+        query = query.filter(AllowedMapping.level_1 == level_1)
+    if level_2:
+        query = query.filter(AllowedMapping.level_2 == level_2)
+    if level_3:
+        query = query.filter(AllowedMapping.level_3 == level_3)
+    
+    # Compter le total
+    total = query.count()
+    
+    # Pagination et tri
+    mappings = query.order_by(
+        AllowedMapping.level_1,
+        AllowedMapping.level_2,
+        AllowedMapping.level_3
+    ).offset(skip).limit(limit).all()
+    
+    return AllowedMappingListResponse(
+        mappings=[AllowedMappingResponse.model_validate(m) for m in mappings],
+        total=total
+    )
+
+
+@router.post("/mappings/allowed", response_model=AllowedMappingResponse, status_code=201, tags=["mappings"])
+async def create_allowed_mapping(
+    mapping: AllowedMappingCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Ajoute un nouveau mapping autorisé.
+    
+    Args:
+        mapping: Données du mapping autorisé à créer
+        db: Session de base de données
+        
+    Returns:
+        Mapping autorisé créé
+        
+    Raises:
+        HTTPException: Si le mapping existe déjà (contrainte unique)
+    """
+    # Vérifier si le mapping existe déjà
+    existing = db.query(AllowedMapping).filter(
+        AllowedMapping.level_1 == mapping.level_1,
+        AllowedMapping.level_2 == mapping.level_2,
+        AllowedMapping.level_3 == mapping.level_3
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Un mapping autorisé avec cette combinaison existe déjà (ID: {existing.id})"
+        )
+    
+    # Créer le nouveau mapping
+    db_mapping = AllowedMapping(
+        level_1=mapping.level_1,
+        level_2=mapping.level_2,
+        level_3=mapping.level_3
+    )
+    
+    db.add(db_mapping)
+    db.commit()
+    db.refresh(db_mapping)
+    
+    return AllowedMappingResponse.model_validate(db_mapping)
+
+
+@router.delete("/mappings/allowed/{mapping_id}", status_code=204, tags=["mappings"])
+async def delete_allowed_mapping(
+    mapping_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Supprime un mapping autorisé.
+    
+    Args:
+        mapping_id: ID du mapping autorisé à supprimer
+        db: Session de base de données
+        
+    Raises:
+        HTTPException: Si le mapping n'existe pas
+    """
+    mapping = db.query(AllowedMapping).filter(AllowedMapping.id == mapping_id).first()
+    if not mapping:
+        raise HTTPException(status_code=404, detail=f"Mapping autorisé avec ID {mapping_id} non trouvé")
+    
+    db.delete(mapping)
+    db.commit()
+    
+    return None
+
+
+@router.post("/mappings/allowed/reset", tags=["mappings"])
+async def reset_allowed_mappings(
+    db: Session = Depends(get_db)
+):
+    """
+    Réinitialise les mappings autorisés en supprimant tous les mappings existants
+    et en rechargeant depuis le fichier Excel mappings_default.xlsx.
+    
+    Args:
+        db: Session de base de données
+        
+    Returns:
+        Dict avec le nombre de mappings chargés et le total en BDD
+    """
+    try:
+        # Chemin vers le fichier Excel
+        project_root = Path(__file__).parent.parent.parent.parent
+        excel_path = project_root / "scripts" / "mappings_default.xlsx"
+        
+        if not excel_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Fichier Excel non trouvé: {excel_path}. Veuillez créer le fichier mappings_default.xlsx avec les colonnes: level_1, level_2, level_3"
+            )
+        
+        # Supprimer TOUS les mappings existants
+        deleted_count = db.query(AllowedMapping).delete()
+        db.commit()
+        
+        # Lire le fichier Excel
+        df = pd.read_excel(excel_path)
+        
+        # Normaliser les noms de colonnes
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        
+        # Vérifier les colonnes requises
+        required_columns = ['level_1', 'level_2']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Colonnes manquantes dans le fichier Excel: {missing_columns}. Colonnes trouvées: {list(df.columns)}"
+            )
+        
+        has_level3 = 'level_3' in df.columns
+        
+        # Insérer les nouveaux mappings
+        inserted_count = 0
+        error_count = 0
+        
+        for index, row in df.iterrows():
+            level_1 = str(row['level_1']).strip() if pd.notna(row['level_1']) else None
+            level_2 = str(row['level_2']).strip() if pd.notna(row['level_2']) else None
+            level_3 = str(row['level_3']).strip() if has_level3 and pd.notna(row['level_3']) else None
+            
+            if level_3 == '':
+                level_3 = None
+            
+            # Validation
+            if not level_1 or not level_2:
+                error_count += 1
+                continue
+            
+            # Créer le mapping
+            new_mapping = AllowedMapping(
+                level_1=level_1,
+                level_2=level_2,
+                level_3=level_3
+            )
+            db.add(new_mapping)
+            inserted_count += 1
+        
+        db.commit()
+        
+        total_count = db.query(AllowedMapping).count()
+        
+        # Vérifier tous les mappings existants et supprimer ceux qui ne sont plus valides
+        all_existing_mappings = db.query(Mapping).all()
+        invalid_mappings_deleted = 0
+        transactions_reset = 0
+        
+        for mapping in all_existing_mappings:
+            # Vérifier si la combinaison (level_1, level_2, level_3) est toujours valide
+            is_valid = validate_mapping(
+                db,
+                mapping.level_1,
+                mapping.level_2,
+                mapping.level_3 if mapping.level_3 else None
+            )
+            
+            if not is_valid:
+                # Trouver toutes les transactions qui utilisent ce mapping
+                # (transactions avec le même nom que le mapping)
+                transactions_to_reset = db.query(Transaction).filter(
+                    Transaction.nom == mapping.nom
+                ).all()
+                
+                # Supprimer les EnrichedTransaction de ces transactions
+                for transaction in transactions_to_reset:
+                    db.query(EnrichedTransaction).filter(
+                        EnrichedTransaction.transaction_id == transaction.id
+                    ).delete()
+                    transactions_reset += 1
+                
+                # Supprimer le mapping
+                db.delete(mapping)
+                invalid_mappings_deleted += 1
+        
+        db.commit()
+        
+        # Invalider les données calculées
+        from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+        invalidate_all_compte_resultat(db)
+        
+        # Recalculer les amortissements
+        from backend.api.services.amortization_service import recalculate_all_amortizations
+        recalculate_all_amortizations(db)
+        
+        return {
+            "deleted_count": deleted_count,
+            "inserted_count": inserted_count,
+            "error_count": error_count,
+            "total_count": total_count,
+            "invalid_mappings_deleted": invalid_mappings_deleted,
+            "transactions_reset": transactions_reset,
+            "message": f"Reset réussi: {deleted_count} mapping(s) autorisé(s) supprimé(s), {inserted_count} mapping(s) chargé(s) depuis Excel, {invalid_mappings_deleted} mapping(s) invalide(s) supprimé(s), {transactions_reset} transaction(s) réinitialisée(s)"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erreur lors du reset des mappings autorisés: {str(e)}"
+        )
 
 
 @router.get("/mappings/{mapping_id}", response_model=MappingResponse)

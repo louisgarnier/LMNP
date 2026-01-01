@@ -232,6 +232,58 @@ class MappingImportHistory(BaseModel):
         from_attributes = True
 
 
+# AllowedMapping models
+
+class AllowedMappingBase(BaseModel):
+    """Base model for allowed mapping."""
+    level_1: str = Field(..., max_length=100, description="Valeur de level_1")
+    level_2: str = Field(..., max_length=100, description="Valeur de level_2")
+    level_3: Optional[str] = Field(None, max_length=100, description="Valeur de level_3 (optionnel)")
+
+
+class AllowedMappingCreate(AllowedMappingBase):
+    """Model for creating an allowed mapping."""
+    pass
+
+
+class AllowedMappingUpdate(BaseModel):
+    """Model for updating an allowed mapping."""
+    level_1: Optional[str] = Field(None, max_length=100)
+    level_2: Optional[str] = Field(None, max_length=100)
+    level_3: Optional[str] = Field(None, max_length=100)
+
+
+class AllowedMappingResponse(AllowedMappingBase):
+    """Model for allowed mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AllowedMappingListResponse(BaseModel):
+    """Model for list of allowed mappings response."""
+    mappings: List[AllowedMappingResponse]
+    total: int
+
+
+class AllowedLevel1Response(BaseModel):
+    """Model for allowed level_1 values response."""
+    values: List[str] = Field(..., description="Liste des valeurs level_1 autorisées")
+
+
+class AllowedLevel2Response(BaseModel):
+    """Model for allowed level_2 values response."""
+    values: List[str] = Field(..., description="Liste des valeurs level_2 autorisées pour le level_1 donné")
+
+
+class AllowedLevel3Response(BaseModel):
+    """Model for allowed level_3 values response."""
+    values: List[str] = Field(..., description="Liste des valeurs level_3 autorisées pour le couple (level_1, level_2) donné")
+
+
 # Pivot Config models
 
 class PivotConfigBase(BaseModel):
