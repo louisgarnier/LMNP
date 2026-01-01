@@ -660,7 +660,7 @@ class CompteResultatMappingViewResponse(BaseModel):
     """Model for compte de résultat mapping view response."""
     id: int
     name: str
-    view_data: dict = Field(..., description="Données JSON de la vue (tous les mappings avec leurs configs)")
+    view_data: dict = Field(..., description="Données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}. selected_level_3_values est optionnel pour compatibilité avec les vues existantes.")
     created_at: datetime
     updated_at: datetime
     
@@ -671,13 +671,13 @@ class CompteResultatMappingViewResponse(BaseModel):
 class CompteResultatMappingViewCreate(BaseModel):
     """Model for creating a compte de résultat mapping view."""
     name: str = Field(..., description="Nom de la vue")
-    view_data: dict = Field(..., description="Données JSON de la vue (tous les mappings avec leurs configs)")
+    view_data: dict = Field(..., description="Données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}. selected_level_3_values est optionnel pour compatibilité avec les vues existantes.")
 
 
 class CompteResultatMappingViewUpdate(BaseModel):
     """Model for updating a compte de résultat mapping view."""
     name: Optional[str] = Field(None, description="Nouveau nom de la vue")
-    view_data: Optional[dict] = Field(None, description="Nouvelles données JSON de la vue")
+    view_data: Optional[dict] = Field(None, description="Nouvelles données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}. selected_level_3_values est optionnel pour compatibilité avec les vues existantes.")
 
 
 class CompteResultatMappingViewListResponse(BaseModel):

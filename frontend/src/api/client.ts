@@ -526,6 +526,18 @@ export const allowedMappingsAPI = {
   async getUniqueCombinationForLevel2(level_2: string): Promise<{ level_1: string | null; level_3: string | null }> {
     return fetchAPI<{ level_1: string | null; level_3: string | null }>(`/api/mappings/unique-combination-for-level2?level_2=${encodeURIComponent(level_2)}`);
   },
+
+  /**
+   * Récupère toutes les valeurs level_1 autorisées associées à au moins un des level_3 de la liste (Step 9.3)
+   */
+  async getAllowedLevel1ForLevel3List(level_3_list: string[]): Promise<string[]> {
+    if (level_3_list.length === 0) {
+      return [];
+    }
+    const level_3_list_str = level_3_list.join(',');
+    const response = await fetchAPI<AllowedLevel1Response>(`/api/mappings/allowed-level1-for-level3-list?level_3_list=${encodeURIComponent(level_3_list_str)}`);
+    return response.values;
+  },
   
   /**
    * Récupère tous les mappings autorisés (Step 8.7)

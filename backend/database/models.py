@@ -379,7 +379,7 @@ class CompteResultatMappingView(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False, unique=True)  # Nom de la vue (ex: "Configuration 2024")
-    view_data = Column(JSON, nullable=False)  # Données JSON de la vue (tous les mappings avec leurs configs)
+    view_data = Column(JSON, nullable=False)  # Données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}. selected_level_3_values est optionnel pour compatibilité avec les vues existantes (Step 9.2, 9.4).
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

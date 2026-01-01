@@ -171,6 +171,43 @@ def get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3:
     return [row[0] for row in results if row[0] is not None]
 
 
+def get_allowed_level1_for_level3(db: Session, level_3: str) -> List[str]:
+    """
+    Retourne les valeurs level_1 autorisées pour un level_3 donné (distinct), peu importe le level_2.
+    
+    Args:
+        db: Session de base de données
+        level_3: Valeur de level_3 pour filtrer
+        
+    Returns:
+        Liste des valeurs level_1 distinctes pour ce level_3, triées par ordre alphabétique
+    """
+    results = db.query(distinct(AllowedMapping.level_1)).filter(
+        AllowedMapping.level_3 == level_3
+    ).order_by(AllowedMapping.level_1).all()
+    return [row[0] for row in results if row[0] is not None]
+
+
+def get_allowed_level1_for_level3_list(db: Session, level_3_list: List[str]) -> List[str]:
+    """
+    Retourne toutes les valeurs level_1 autorisées associées à au moins un des level_3 de la liste (distinct).
+    
+    Args:
+        db: Session de base de données
+        level_3_list: Liste des valeurs level_3 pour filtrer
+        
+    Returns:
+        Liste des valeurs level_1 distinctes associées à au moins un level_3 de la liste, triées par ordre alphabétique
+    """
+    if not level_3_list:
+        return []
+    
+    results = db.query(distinct(AllowedMapping.level_1)).filter(
+        AllowedMapping.level_3.in_(level_3_list)
+    ).order_by(AllowedMapping.level_1).all()
+    return [row[0] for row in results if row[0] is not None]
+
+
 def get_unique_combination_for_level1(db: Session, level_1: str) -> Optional[tuple]:
     """
     Retourne la combinaison unique (level_2, level_3) pour un level_1 donné.

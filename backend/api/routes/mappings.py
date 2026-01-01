@@ -46,6 +46,7 @@ from backend.api.services.mapping_default_service import (
     get_allowed_level2_for_level3,
     get_allowed_level1_for_level2,
     get_allowed_level1_for_level2_and_level3,
+    get_allowed_level1_for_level3_list,
     get_unique_combination_for_level1,
     get_unique_combination_for_level2
 )
@@ -1117,6 +1118,25 @@ def get_allowed_level1_for_level2_and_level3_endpoint(
         Liste des valeurs level_1 distinctes pour ce couple (level_2, level_3), triées par ordre alphabétique
     """
     values = get_allowed_level1_for_level2_and_level3(db, level_2, level_3)
+    return AllowedLevel1Response(values=values)
+
+
+@router.get("/mappings/allowed-level1-for-level3-list", response_model=AllowedLevel1Response, tags=["mappings"])
+def get_allowed_level1_for_level3_list_endpoint(
+    level_3_list: str = Query(..., description="Liste des valeurs level_3 séparées par des virgules (ex: 'value1,value2,value3')"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupère toutes les valeurs level_1 autorisées associées à au moins un des level_3 de la liste (Step 9.3).
+    
+    Args:
+        level_3_list: Liste des valeurs level_3 séparées par des virgules
+        
+    Returns:
+        Liste des valeurs level_1 distinctes associées à au moins un level_3 de la liste, triées par ordre alphabétique
+    """
+    level_3_values = [v.strip() for v in level_3_list.split(',') if v.strip()]
+    values = get_allowed_level1_for_level3_list(db, level_3_values)
     return AllowedLevel1Response(values=values)
 
 
