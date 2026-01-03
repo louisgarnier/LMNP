@@ -2210,40 +2210,151 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 **Status**: ⏸️ EN ATTENTE  
 **Description**: S'assurer que les catégories spéciales sont affichées correctement avec leurs calculs spécifiques.
 
+---
+
+#### Step 10.8.4.1 : Frontend - Catégorie spéciale "Amortissements cumulés"
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier et valider l'affichage de la catégorie spéciale "Amortissements cumulés".
+
 **Tasks**:
-- [ ] Vérifier l'affichage de **Amortissements cumulés** :
-  - Montant négatif (en rouge)
-  - Affiché sous "Immobilisations"
-  - Contribue à diminuer "Actif immobilisé" (Immobilisations - Amortissements cumulés)
-- [ ] Vérifier l'affichage de **Compte bancaire** :
-  - Montant positif
-  - Solde final de l'année (dernière transaction de l'année)
-  - Affiché dans "Actif circulant"
-- [ ] Vérifier l'affichage de **Résultat de l'exercice** :
-  - Montant positif (bénéfice) ou négatif (perte)
-  - Récupéré depuis le compte de résultat pour l'année en cours (utilise `resultat_net`)
-  - Affiché dans "Capitaux propres"
-- [ ] Vérifier l'affichage de **Report à nouveau** :
-  - Montant cumulé des années précédentes
+- [ ] Vérifier que le montant est affiché en négatif (en rouge)
+- [ ] Vérifier que la catégorie est affichée sous "Immobilisations"
+- [ ] Vérifier que la catégorie contribue correctement à diminuer "Actif immobilisé" :
+  - Actif immobilisé = Immobilisations - Amortissements cumulés
+- [ ] Vérifier que le calcul backend est correct (cumul des amortissements jusqu'à l'année)
+- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+
+**Deliverables**:
+- Validation de l'affichage "Amortissements cumulés" dans `BilanTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Montant affiché en négatif et en rouge
+- [ ] Position correcte (sous "Immobilisations")
+- [ ] Contribue correctement au calcul "Actif immobilisé"
+- [ ] Montant calculé correctement par le backend
+
+---
+
+#### Step 10.8.4.2 : Frontend - Catégorie spéciale "Compte bancaire"
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier et valider l'affichage de la catégorie spéciale "Compte bancaire".
+
+**Tasks**:
+- [ ] Vérifier que le montant est affiché en positif
+- [ ] Vérifier que la catégorie est affichée dans "Actif circulant"
+- [ ] Vérifier que le montant correspond au solde final de l'année :
+  - Solde de la dernière transaction de l'année (au 31/12)
+- [ ] Vérifier que le calcul backend est correct (dernière transaction de l'année)
+- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+
+**Deliverables**:
+- Validation de l'affichage "Compte bancaire" dans `BilanTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Montant affiché en positif
+- [ ] Position correcte (dans "Actif circulant")
+- [ ] Montant correspond au solde final de l'année
+- [ ] Montant calculé correctement par le backend
+
+---
+
+#### Step 10.8.4.3 : Frontend - Catégorie spéciale "Résultat de l'exercice (bénéfice / perte)"
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier et valider l'affichage de la catégorie spéciale "Résultat de l'exercice".
+
+**Tasks**:
+- [ ] Vérifier que le montant peut être positif (bénéfice) ou négatif (perte)
+- [ ] Vérifier que la catégorie est affichée dans "Capitaux propres"
+- [ ] Vérifier que le montant est récupéré depuis le compte de résultat :
+  - Utilise `resultat_net` du compte de résultat pour l'année en cours
+- [ ] Vérifier que le calcul backend est correct (récupération depuis `compte_resultat_data` ou calcul via `CompteResultatService`)
+- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [ ] Vérifier l'affichage en rouge si perte (montant négatif)
+
+**Deliverables**:
+- Validation de l'affichage "Résultat de l'exercice" dans `BilanTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Montant récupéré depuis le compte de résultat (année en cours)
+- [ ] Position correcte (dans "Capitaux propres")
+- [ ] Affichage en rouge si perte (montant négatif)
+- [ ] Montant calculé correctement par le backend
+
+---
+
+#### Step 10.8.4.4 : Frontend - Catégorie spéciale "Report à nouveau / report du déficit"
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier et valider l'affichage de la catégorie spéciale "Report à nouveau".
+
+**Tasks**:
+- [ ] Vérifier que le montant est affiché correctement
+- [ ] Vérifier que la catégorie est affichée dans "Capitaux propres"
+- [ ] Vérifier que le calcul est correct :
+  - Cumul des résultats des années précédentes (N-1, N-2, etc.)
   - Première année : 0 (pas de report)
-  - Affiché dans "Capitaux propres"
-- [ ] Vérifier l'affichage de **Emprunt bancaire** :
-  - Montant positif (dette)
-  - Calculé : Crédit accordé - Cumulé des remboursements de capital
-  - Affiché dans "Dettes financières"
-- [ ] Ajouter des indicateurs visuels si nécessaire (icônes, badges) pour identifier les catégories spéciales
+- [ ] Vérifier que le calcul backend est correct (cumul depuis `compte_resultat_data` ou calcul via `CompteResultatService`)
+- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [ ] Tester avec plusieurs années pour vérifier le cumul
+
+**Deliverables**:
+- Validation de l'affichage "Report à nouveau" dans `BilanTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Première année affiche 0
+- [ ] Années suivantes affichent le cumul des résultats précédents
+- [ ] Position correcte (dans "Capitaux propres")
+- [ ] Montant calculé correctement par le backend
+
+---
+
+#### Step 10.8.4.5 : Frontend - Catégorie spéciale "Emprunt bancaire (capital restant dû)"
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Vérifier et valider l'affichage de la catégorie spéciale "Emprunt bancaire".
+
+**Tasks**:
+- [ ] Vérifier que le montant est affiché en positif (dette)
+- [ ] Vérifier que la catégorie est affichée dans "Dettes financières"
+- [ ] Vérifier que le calcul est correct :
+  - Capital restant dû = Crédit accordé - Cumulé des remboursements de capital
+  - Calculé au 31/12 de chaque année
+- [ ] Vérifier que le calcul backend est correct (depuis `loan_payments` et `loan_configs`)
+- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [ ] Tester avec plusieurs années pour vérifier la diminution progressive
+
+**Deliverables**:
+- Validation de l'affichage "Emprunt bancaire" dans `BilanTable.tsx`
+
+**Acceptance Criteria**:
+- [ ] Montant affiché en positif (dette)
+- [ ] Position correcte (dans "Dettes financières")
+- [ ] Montant diminue progressivement avec les remboursements
+- [ ] Montant calculé correctement par le backend
+
+---
+
+#### Step 10.8.4.6 : Frontend - Indicateurs visuels pour catégories spéciales
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter des indicateurs visuels pour identifier les catégories spéciales.
+
+**Tasks**:
+- [ ] Ajouter un indicateur visuel (icône ou badge) pour identifier les catégories spéciales
+- [ ] Style distinct pour les catégories spéciales (ex: icône ⚙️ ou badge "Calculé")
+- [ ] Optionnel : Tooltip expliquant la source de calcul pour chaque catégorie spéciale
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/BilanTable.tsx`
-- Validation de l'affichage des catégories spéciales
+- Indicateurs visuels pour catégories spéciales
 
 **Acceptance Criteria**:
-- [ ] Amortissements cumulés affichés en négatif et en rouge
-- [ ] Compte bancaire affiche le solde final de l'année
-- [ ] Résultat de l'exercice récupéré depuis le compte de résultat
-- [ ] Report à nouveau calculé correctement (cumul des années précédentes)
-- [ ] Emprunt bancaire affiche le capital restant dû correctement
-- [ ] Toutes les catégories spéciales contribuent correctement aux totaux
+- [ ] Catégories spéciales identifiables visuellement
+- [ ] Style cohérent avec le reste de l'interface
+- [ ] Optionnel : Tooltip informatif
 
 ---
 
