@@ -2174,21 +2174,21 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ### Step 10.8.3 : Frontend - Affichage niveau A (ACTIF/PASSIF) avec totaux
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter l'affichage des niveaux A (ACTIF et PASSIF) avec leurs totaux calculés.
 
 **Tasks**:
-- [ ] Ajouter les lignes de niveau A :
+- [x] Ajouter les lignes de niveau A :
   - **ACTIF** (en haut)
   - **PASSIF** (en bas)
-- [ ] Affichage sans indentation, en gras, style titre (fond gris)
-- [ ] Calculer les totaux par niveau A et par année :
+- [x] Affichage sans indentation, en gras, style titre (fond gris)
+- [x] Calculer les totaux par niveau A et par année :
   - **TOTAL ACTIF** = Actif immobilisé + Actif circulant
   - **TOTAL PASSIF** = Capitaux propres + Tresorerie passive + Dettes financières
-- [ ] Afficher les lignes de niveau A :
+- [x] Afficher les lignes de niveau A :
   - Ligne "ACTIF" juste avant "Actif immobilisé"
   - Ligne "PASSIF" juste avant "Capitaux propres"
-- [ ] Style des lignes de niveau A :
+- [x] Style des lignes de niveau A :
   - Fond légèrement gris (#e5e7eb)
   - Texte en gras (fontWeight: '700')
   - Bordure supérieure et inférieure
@@ -2198,10 +2198,10 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - Affichage des niveaux A avec totaux
 
 **Acceptance Criteria**:
-- [ ] Lignes ACTIF et PASSIF affichées correctement
-- [ ] Totaux ACTIF et PASSIF calculés correctement
-- [ ] Style visuel distinct pour les niveaux A (fond gris, texte en gras)
-- [ ] Ordre hiérarchique respecté (ACTIF en haut, PASSIF en bas)
+- [x] Lignes ACTIF et PASSIF affichées correctement
+- [x] Totaux ACTIF et PASSIF calculés correctement
+- [x] Style visuel distinct pour les niveaux A (fond gris, texte en gras)
+- [x] Ordre hiérarchique respecté (ACTIF en haut, PASSIF en bas)
 
 ---
 

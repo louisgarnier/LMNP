@@ -248,6 +248,130 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     return categoryName === 'Amortissements cumulés';
   };
 
+  // STEP 10.8.2 - Calculer les totaux par sous-catégorie
+  const calculateSubCategoryTotal = (subCategory: string, year: number): number => {
+    // Trouver toutes les catégories qui appartiennent à cette sous-catégorie
+    const categoriesInSubCategory = mappings
+      .filter(m => m.sub_category === subCategory)
+      .map(m => m.category_name)
+      .filter(catName => categories.includes(catName));
+
+    let total = 0;
+
+    // Logique de calcul spécifique selon la sous-catégorie
+    if (subCategory === 'Actif immobilisé') {
+      // Actif immobilisé = Immobilisations - Amortissements cumulés
+      // Note: Les montants sont maintenant en valeur absolue (positifs) depuis le backend
+      // Mais pour le calcul, on soustrait toujours les amortissements
+      const immobilisations = getCategoryAmount('Immobilisations', year);
+      const amortissements = getCategoryAmount('Amortissements cumulés', year);
+      // Les deux sont positifs, donc on soustrait simplement
+      total = immobilisations - amortissements;
+    } else if (subCategory === 'Actif circulant') {
+      // Actif circulant = Compte bancaire + Créances locataires + Charges payées d'avance
+      categoriesInSubCategory.forEach(catName => {
+        total += getCategoryAmount(catName, year);
+      });
+    } else if (subCategory === 'Capitaux propres') {
+      // Capitaux propres = somme de toutes les catégories
+      categoriesInSubCategory.forEach(catName => {
+        total += getCategoryAmount(catName, year);
+      });
+    } else if (subCategory === 'Trésorerie passive') {
+      // Tresorerie passive = Cautions
+      categoriesInSubCategory.forEach(catName => {
+        total += getCategoryAmount(catName, year);
+      });
+    } else if (subCategory === 'Dettes financières') {
+      // Dettes financières = Emprunt bancaire + Autres dettes
+      categoriesInSubCategory.forEach(catName => {
+        total += getCategoryAmount(catName, year);
+      });
+    } else {
+      // Par défaut, sommer toutes les catégories de la sous-catégorie
+      categoriesInSubCategory.forEach(catName => {
+        total += getCategoryAmount(catName, year);
+      });
+    }
+
+    return total;
+  };
+
+  // Grouper les catégories par sous-catégorie pour l'affichage
+  const getGroupedCategories = () => {
+    const grouped: Array<{
+      type: string;
+      subCategory: string;
+      categories: Array<{ name: string; mapping: BilanMapping }>;
+    }> = [];
+
+    const ACTIF_SUB_CATEGORY_ORDER = ['Actif immobilisé', 'Actif circulant'];
+    const PASSIF_SUB_CATEGORY_ORDER = ['Capitaux propres', 'Trésorerie passive', 'Dettes financières'];
+
+    // Grouper par type puis par sous-catégorie
+    const actifGroups: Record<string, Array<{ name: string; mapping: BilanMapping }>> = {};
+    const passifGroups: Record<string, Array<{ name: string; mapping: BilanMapping }>> = {};
+
+    categories.forEach(categoryName => {
+      const mapping = mappings.find(m => m.category_name === categoryName);
+      if (!mapping) return;
+
+      const group = mapping.type === 'ACTIF' ? actifGroups : passifGroups;
+      const subCat = mapping.sub_category || 'Autres';
+
+      if (!group[subCat]) {
+        group[subCat] = [];
+      }
+      group[subCat].push({ name: categoryName, mapping });
+    });
+
+    // Ajouter les groupes ACTIF dans l'ordre
+    ACTIF_SUB_CATEGORY_ORDER.forEach(subCat => {
+      if (actifGroups[subCat] && actifGroups[subCat].length > 0) {
+        grouped.push({
+          type: 'ACTIF',
+          subCategory: subCat,
+          categories: actifGroups[subCat].sort((a, b) => a.name.localeCompare(b.name))
+        });
+      }
+    });
+
+    // Ajouter les autres sous-catégories ACTIF non listées
+    Object.keys(actifGroups).forEach(subCat => {
+      if (!ACTIF_SUB_CATEGORY_ORDER.includes(subCat) && actifGroups[subCat].length > 0) {
+        grouped.push({
+          type: 'ACTIF',
+          subCategory: subCat,
+          categories: actifGroups[subCat].sort((a, b) => a.name.localeCompare(b.name))
+        });
+      }
+    });
+
+    // Ajouter les groupes PASSIF dans l'ordre
+    PASSIF_SUB_CATEGORY_ORDER.forEach(subCat => {
+      if (passifGroups[subCat] && passifGroups[subCat].length > 0) {
+        grouped.push({
+          type: 'PASSIF',
+          subCategory: subCat,
+          categories: passifGroups[subCat].sort((a, b) => a.name.localeCompare(b.name))
+        });
+      }
+    });
+
+    // Ajouter les autres sous-catégories PASSIF non listées
+    Object.keys(passifGroups).forEach(subCat => {
+      if (!PASSIF_SUB_CATEGORY_ORDER.includes(subCat) && passifGroups[subCat].length > 0) {
+        grouped.push({
+          type: 'PASSIF',
+          subCategory: subCat,
+          categories: passifGroups[subCat].sort((a, b) => a.name.localeCompare(b.name))
+        });
+      }
+    });
+
+    return grouped;
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
@@ -318,9 +442,32 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     );
   }
 
-  // STEP 10.8.1 - Afficher uniquement les catégories configurées dans BilanConfigCard
-  console.log('📊 [BilanTable] RENDU - Catégories depuis mappings:', categories.length);
-  console.log('📊 [BilanTable] Catégories:', categories);
+  // STEP 10.8.3 - Calculer les totaux par niveau A (ACTIF et PASSIF)
+  const calculateTypeTotal = (type: 'ACTIF' | 'PASSIF', year: number): number => {
+    const groupedCategories = getGroupedCategories();
+    let total = 0;
+
+    if (type === 'ACTIF') {
+      // TOTAL ACTIF = Actif immobilisé + Actif circulant
+      const actifGroups = groupedCategories.filter(g => g.type === 'ACTIF');
+      actifGroups.forEach(group => {
+        total += calculateSubCategoryTotal(group.subCategory, year);
+      });
+    } else {
+      // TOTAL PASSIF = Capitaux propres + Trésorerie passive + Dettes financières
+      const passifGroups = groupedCategories.filter(g => g.type === 'PASSIF');
+      passifGroups.forEach(group => {
+        total += calculateSubCategoryTotal(group.subCategory, year);
+      });
+    }
+
+    return total;
+  };
+
+  // STEP 10.8.2 & 10.8.3 - Afficher les catégories groupées par sous-catégorie avec totaux et niveaux A
+  const groupedCategories = getGroupedCategories();
+  console.log('📊 [BilanTable] RENDU - Groupes:', groupedCategories.length);
+  console.log('📊 [BilanTable] Groupes:', groupedCategories);
 
   return (
     <div style={{ 
@@ -356,41 +503,133 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
           </tr>
         </thead>
         <tbody>
-          {categories.map((category, index) => {
-            const isNegativeCategory = isNegativeAmountCategory(category);
-            return (
-              <tr 
-                key={category} 
-                style={{ 
-                  borderBottom: index < categories.length - 1 ? '1px solid #e5e7eb' : 'none'
-                }}
-              >
-                <td style={{ 
-                  padding: '12px',
-                  color: '#111827'
-                }}>
-                  &nbsp;&nbsp;&nbsp;&nbsp;{category}
-                </td>
-                {years.map(year => {
-                  const amount = getCategoryAmount(category, year);
-                  const isNegative = isNegativeCategory && amount < 0;
-                  return (
-                    <td 
-                      key={year} 
-                      style={{ 
-                        padding: '12px',
-                        textAlign: 'right',
-                        color: isNegative ? '#dc2626' : '#111827',
-                        fontWeight: isNegative ? '600' : 'normal'
-                      }}
-                    >
-                      {formatAmount(amount)}
+          {(() => {
+            const rows: React.ReactNode[] = [];
+            let currentType: 'ACTIF' | 'PASSIF' | null = null;
+
+            groupedCategories.forEach((group, groupIndex) => {
+              // STEP 10.8.3 - Ajouter la ligne de niveau A (ACTIF ou PASSIF) si changement de type
+              if (currentType !== group.type) {
+                currentType = group.type as 'ACTIF' | 'PASSIF';
+                const typeTotal = years.map(year => calculateTypeTotal(currentType!, year));
+                
+                rows.push(
+                  <tr 
+                    key={`type-${currentType}`}
+                    style={{ 
+                      borderTop: '2px solid #d1d5db',
+                      borderBottom: '2px solid #d1d5db',
+                      backgroundColor: '#e5e7eb'
+                    }}
+                  >
+                    <td style={{ 
+                      padding: '14px 12px',
+                      color: '#111827',
+                      fontWeight: '700',
+                      fontSize: '15px'
+                    }}>
+                      {currentType}
                     </td>
-                  );
-                })}
-              </tr>
-            );
-          })}
+                    {years.map((year, yearIndex) => {
+                      const total = typeTotal[yearIndex];
+                      return (
+                        <td 
+                          key={year} 
+                          style={{ 
+                            padding: '14px 12px',
+                            textAlign: 'right',
+                            color: '#111827',
+                            fontWeight: '700',
+                            fontSize: '15px'
+                          }}
+                        >
+                          {formatAmount(total)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              }
+              
+              // Ligne de sous-catégorie (niveau B) avec total
+              const subCategoryTotal = years.map(year => calculateSubCategoryTotal(group.subCategory, year));
+              rows.push(
+                <tr 
+                  key={`subcategory-${group.subCategory}`}
+                  style={{ 
+                    borderBottom: '1px solid #e5e7eb',
+                    backgroundColor: '#f9fafb'
+                  }}
+                >
+                  <td style={{ 
+                    padding: '12px',
+                    color: '#111827',
+                    fontWeight: '600'
+                  }}>
+                    &nbsp;&nbsp;{group.subCategory}
+                  </td>
+                  {years.map((year, yearIndex) => {
+                    const total = subCategoryTotal[yearIndex];
+                    return (
+                      <td 
+                        key={year} 
+                        style={{ 
+                          padding: '12px',
+                          textAlign: 'right',
+                          color: '#111827',
+                          fontWeight: '600'
+                        }}
+                      >
+                        {formatAmount(total)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+
+              // Lignes des catégories (niveau C) de cette sous-catégorie
+              group.categories.forEach((categoryItem, catIndex) => {
+                const isNegativeCategory = isNegativeAmountCategory(categoryItem.name);
+                const isLastInGroup = catIndex === group.categories.length - 1;
+                const isLastGroup = groupIndex === groupedCategories.length - 1;
+                
+                rows.push(
+                  <tr 
+                    key={categoryItem.name}
+                    style={{ 
+                      borderBottom: (isLastInGroup && isLastGroup) ? 'none' : '1px solid #e5e7eb'
+                    }}
+                  >
+                    <td style={{ 
+                      padding: '12px',
+                      color: '#111827'
+                    }}>
+                      &nbsp;&nbsp;&nbsp;&nbsp;{categoryItem.name}
+                    </td>
+                    {years.map(year => {
+                      const amount = getCategoryAmount(categoryItem.name, year);
+                      const isNegative = isNegativeCategory && amount < 0;
+                      return (
+                        <td 
+                          key={year} 
+                          style={{ 
+                            padding: '12px',
+                            textAlign: 'right',
+                            color: isNegative ? '#dc2626' : '#111827',
+                            fontWeight: isNegative ? '600' : 'normal'
+                          }}
+                        >
+                          {formatAmount(amount)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              });
+            });
+
+            return <>{rows}</>;
+          })()}
         </tbody>
       </table>
     </div>
