@@ -2214,25 +2214,27 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 #### Step 10.8.4.1 : Frontend - Catégorie spéciale "Amortissements cumulés"
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Vérifier et valider l'affichage de la catégorie spéciale "Amortissements cumulés".
 
 **Tasks**:
-- [ ] Vérifier que le montant est affiché en négatif (en rouge)
-- [ ] Vérifier que la catégorie est affichée sous "Immobilisations"
-- [ ] Vérifier que la catégorie contribue correctement à diminuer "Actif immobilisé" :
+- [x] Vérifier que le montant est affiché en négatif (en rouge)
+- [x] Vérifier que la catégorie est affichée sous "Immobilisations"
+- [x] Vérifier que la catégorie contribue correctement à diminuer "Actif immobilisé" :
   - Actif immobilisé = Immobilisations - Amortissements cumulés
-- [ ] Vérifier que le calcul backend est correct (cumul des amortissements jusqu'à l'année)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [x] Vérifier que le calcul backend est correct (cumul des amortissements jusqu'à l'année)
+- [x] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
 
 **Deliverables**:
 - Validation de l'affichage "Amortissements cumulés" dans `BilanTable.tsx`
+- Fonction `getDisplayAmount()` pour afficher en négatif même si backend retourne positif
+- Test script: `backend/tests/test_bilan_amortissements_cumules_step10_8_4_1.py`
 
 **Acceptance Criteria**:
-- [ ] Montant affiché en négatif et en rouge
-- [ ] Position correcte (sous "Immobilisations")
-- [ ] Contribue correctement au calcul "Actif immobilisé"
-- [ ] Montant calculé correctement par le backend
+- [x] Montant affiché en négatif et en rouge
+- [x] Position correcte (sous "Immobilisations")
+- [x] Contribue correctement au calcul "Actif immobilisé"
+- [x] Montant calculé correctement par le backend
 
 ---
 

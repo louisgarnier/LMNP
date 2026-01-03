@@ -243,6 +243,16 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     return 0;
   };
 
+  // Fonction pour obtenir le montant d'affichage (peut être modifié pour certaines catégories)
+  const getDisplayAmount = (category: string, year: number): number => {
+    const amount = getCategoryAmount(category, year);
+    // STEP 10.8.4.1: "Amortissements cumulés" doit être affiché en négatif même si le backend retourne un montant positif
+    if (category === 'Amortissements cumulés') {
+      return -Math.abs(amount); // Toujours négatif pour l'affichage
+    }
+    return amount;
+  };
+
   // Fonction pour vérifier si une catégorie doit avoir un montant négatif en rouge
   const isNegativeAmountCategory = (categoryName: string): boolean => {
     return categoryName === 'Amortissements cumulés';
@@ -261,11 +271,10 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     // Logique de calcul spécifique selon la sous-catégorie
     if (subCategory === 'Actif immobilisé') {
       // Actif immobilisé = Immobilisations - Amortissements cumulés
-      // Note: Les montants sont maintenant en valeur absolue (positifs) depuis le backend
-      // Mais pour le calcul, on soustrait toujours les amortissements
+      // STEP 10.8.4.1: Les amortissements doivent être soustraits (valeur négative)
       const immobilisations = getCategoryAmount('Immobilisations', year);
       const amortissements = getCategoryAmount('Amortissements cumulés', year);
-      // Les deux sont positifs, donc on soustrait simplement
+      // Les montants du backend sont positifs, mais pour le calcul on soustrait les amortissements
       total = immobilisations - amortissements;
     } else if (subCategory === 'Actif circulant') {
       // Actif circulant = Compte bancaire + Créances locataires + Charges payées d'avance
@@ -607,8 +616,9 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
                       &nbsp;&nbsp;&nbsp;&nbsp;{categoryItem.name}
                     </td>
                     {years.map(year => {
-                      const amount = getCategoryAmount(categoryItem.name, year);
-                      const isNegative = isNegativeCategory && amount < 0;
+                      // STEP 10.8.4.1: Utiliser getDisplayAmount pour "Amortissements cumulés" (affichage en négatif)
+                      const displayAmount = getDisplayAmount(categoryItem.name, year);
+                      const isNegative = isNegativeCategory; // Pour "Amortissements cumulés", toujours afficher en rouge
                       return (
                         <td 
                           key={year} 
@@ -619,7 +629,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
                             fontWeight: isNegative ? '600' : 'normal'
                           }}
                         >
-                          {formatAmount(amount)}
+                          {formatAmount(displayAmount)}
                         </td>
                       );
                     })}
