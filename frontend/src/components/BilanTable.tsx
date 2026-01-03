@@ -244,18 +244,28 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
   };
 
   // Fonction pour obtenir le montant d'affichage (peut être modifié pour certaines catégories)
-  const getDisplayAmount = (category: string, year: number): number => {
-    const amount = getCategoryAmount(category, year);
+  const getDisplayAmount = (category: string, amount: number): number => {
     // STEP 10.8.4.1: "Amortissements cumulés" doit être affiché en négatif même si le backend retourne un montant positif
     if (category === 'Amortissements cumulés') {
       return -Math.abs(amount); // Toujours négatif pour l'affichage
+    }
+    // Step 10.8.4.3: Pour "Résultat de l'exercice", préserver le signe (positif = bénéfice, négatif = perte)
+    if (category === 'Résultat de l\'exercice (bénéfice / perte)') {
+      return amount; // Retourner tel quel (peut être positif ou négatif)
     }
     return amount;
   };
 
   // Fonction pour vérifier si une catégorie doit avoir un montant négatif en rouge
-  const isNegativeAmountCategory = (categoryName: string): boolean => {
-    return categoryName === 'Amortissements cumulés';
+  const isNegativeAmountCategory = (categoryName: string, amount?: number): boolean => {
+    if (categoryName === 'Amortissements cumulés') {
+      return true; // Toujours négatif
+    }
+    // Step 10.8.4.3: Pour "Résultat de l'exercice", vérifier si le montant est négatif (perte)
+    if (categoryName === 'Résultat de l\'exercice (bénéfice / perte)') {
+      return amount !== undefined && amount < 0; // Négatif si perte
+    }
+    return false;
   };
 
   // STEP 10.8.2 - Calculer les totaux par sous-catégorie
@@ -598,7 +608,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
 
               // Lignes des catégories (niveau C) de cette sous-catégorie
               group.categories.forEach((categoryItem, catIndex) => {
-                const isNegativeCategory = isNegativeAmountCategory(categoryItem.name);
+                // On calculera le montant dans le map des années ci-dessous
                 const isLastInGroup = catIndex === group.categories.length - 1;
                 const isLastGroup = groupIndex === groupedCategories.length - 1;
                 
@@ -616,9 +626,10 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
                       &nbsp;&nbsp;&nbsp;&nbsp;{categoryItem.name}
                     </td>
                     {years.map(year => {
-                      // STEP 10.8.4.1: Utiliser getDisplayAmount pour "Amortissements cumulés" (affichage en négatif)
-                      const displayAmount = getDisplayAmount(categoryItem.name, year);
-                      const isNegative = isNegativeCategory; // Pour "Amortissements cumulés", toujours afficher en rouge
+                      // STEP 10.8.4.1 & 10.8.4.3: Utiliser getDisplayAmount pour "Amortissements cumulés" et "Résultat de l'exercice"
+                      const amount = getCategoryAmount(categoryItem.name, year);
+                      const displayAmount = getDisplayAmount(categoryItem.name, amount);
+                      const isNegative = isNegativeAmountCategory(categoryItem.name, displayAmount); // Vérifier le signe pour "Résultat de l'exercice"
                       return (
                         <td 
                           key={year} 

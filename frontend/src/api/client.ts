@@ -1705,6 +1705,7 @@ export interface BilanMapping {
   is_special: boolean;
   special_source: string | null;
   amortization_view_id: number | null;
+  compte_resultat_view_id: number | null; // Step 10.8.4.3
   created_at: string;
   updated_at: string;
 }
@@ -1722,6 +1723,7 @@ export interface BilanMappingCreate {
   is_special?: boolean;
   special_source?: string | null;
   amortization_view_id?: number | null;
+  compte_resultat_view_id?: number | null; // Step 10.8.4.3
 }
 
 export interface BilanMappingUpdate {
@@ -1732,6 +1734,7 @@ export interface BilanMappingUpdate {
   is_special?: boolean;
   special_source?: string | null;
   amortization_view_id?: number | null;
+  compte_resultat_view_id?: number | null; // Step 10.8.4.3
 }
 
 export interface BilanData {

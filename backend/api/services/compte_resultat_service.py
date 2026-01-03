@@ -224,10 +224,10 @@ def calculate_charges_exploitation(
         # Combiner toutes les conditions pour cette catégorie avec OR
         combined_condition = or_(*conditions_list) if len(conditions_list) > 1 else conditions_list[0]
         
-        # Requête : transactions enrichies avec date dans l'année et correspondant aux conditions
-        # Pour les charges, on prend la valeur absolue car les montants sont négatifs
-        query = db.query(
-            func.sum(func.abs(Transaction.quantite)).label('total')
+        # Pour les charges : dépenses (négatifs) - remboursements/crédits (positifs)
+        # Dépenses (négatifs) : somme des valeurs absolues
+        query_negatifs = db.query(
+            func.sum(func.abs(Transaction.quantite)).label('total_negatifs')
         ).join(
             EnrichedTransaction,
             Transaction.id == EnrichedTransaction.transaction_id
@@ -235,12 +235,30 @@ def calculate_charges_exploitation(
             and_(
                 Transaction.date >= start_date,
                 Transaction.date <= end_date,
-                Transaction.quantite < 0,  # Charges = montants négatifs
+                Transaction.quantite < 0,
                 combined_condition
             )
         )
+        total_negatifs = query_negatifs.scalar() or 0.0
         
-        result = query.scalar()
+        # Remboursements/crédits (positifs) : somme
+        query_positifs = db.query(
+            func.sum(Transaction.quantite).label('total_positifs')
+        ).join(
+            EnrichedTransaction,
+            Transaction.id == EnrichedTransaction.transaction_id
+        ).filter(
+            and_(
+                Transaction.date >= start_date,
+                Transaction.date <= end_date,
+                Transaction.quantite > 0,
+                combined_condition
+            )
+        )
+        total_positifs = query_positifs.scalar() or 0.0
+        
+        # Total : dépenses - remboursements (cohérent avec calculate_amounts_by_category_and_year)
+        result = total_negatifs - total_positifs
         results[category_name] = result if result else 0.0
     
     return results
@@ -398,14 +416,19 @@ def calculate_compte_resultat(
         cout_financement = get_cout_financement(year, None, db)
     charges["Coût du financement (hors remboursement du capital)"] = cout_financement
     
-    # Calculer les totaux
+    # Calculer les totaux (AVANT d'ajouter le résultat dans categories_dict)
     total_produits = sum(produits.values())
     total_charges = sum(charges.values())
     resultat_exploitation = total_produits - total_charges
     resultat_net = resultat_exploitation  # Pour l'instant, résultat net = résultat d'exploitation
     
+    # Construire le dictionnaire des catégories (produits + charges + résultat)
+    # IMPORTANT: Le résultat n'est PAS dans charges, il est calculé séparément (Step 10.8.4.3)
+    categories_dict = {**produits, **charges}
+    categories_dict["Résultat de l'exercice"] = resultat_net
+    
     return {
-        "categories": {**produits, **charges},
+        "categories": categories_dict,
         "total_produits": total_produits,
         "total_charges": total_charges,
         "resultat_exploitation": resultat_exploitation,

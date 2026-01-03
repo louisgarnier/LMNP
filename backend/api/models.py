@@ -626,6 +626,7 @@ class CompteResultatDataBase(BaseModel):
     category_name: str = Field(..., max_length=200, description="Nom de la catégorie comptable")
     amount: float = Field(..., description="Montant pour cette catégorie et cette année")
     amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (NULL si N/A)")
+    compte_resultat_view_id: Optional[int] = Field(None, description="ID de la vue de mapping de compte de résultat utilisée (Step 10.8.4.3)")
 
 
 class CompteResultatDataResponse(CompteResultatDataBase):
@@ -648,6 +649,7 @@ class CompteResultatGenerateRequest(BaseModel):
     """Model for generating compte de résultat."""
     year: int = Field(..., description="Année pour laquelle générer le compte de résultat")
     amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement à utiliser")
+    compte_resultat_view_id: Optional[int] = Field(None, description="ID de la vue de mapping de compte de résultat à utiliser (Step 10.8.4.3)")
 
 
 class CompteResultatResponse(BaseModel):
@@ -697,6 +699,7 @@ class BilanMappingBase(BaseModel):
     is_special: bool = Field(False, description="Indique si c'est une catégorie spéciale")
     special_source: Optional[str] = Field(None, description="Source pour les catégories spéciales ('amortizations', 'transactions', 'compte_resultat', 'compte_resultat_cumul', 'loan_payments')")
     amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (pour catégorie 'Amortissements cumulés')")
+    compte_resultat_view_id: Optional[int] = Field(None, description="ID de la vue de mapping de compte de résultat utilisée (pour catégorie 'Résultat de l'exercice') (Step 10.8.4.3)")
 
 
 class BilanMappingCreate(BilanMappingBase):
@@ -713,6 +716,7 @@ class BilanMappingUpdate(BaseModel):
     is_special: Optional[bool] = Field(None, description="Indique si c'est une catégorie spéciale")
     special_source: Optional[str] = Field(None, description="Source pour les catégories spéciales")
     amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée")
+    compte_resultat_view_id: Optional[int] = Field(None, description="ID de la vue de mapping de compte de résultat utilisée (Step 10.8.4.3)")
 
 
 class BilanMappingResponse(BilanMappingBase):

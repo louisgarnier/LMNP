@@ -214,12 +214,15 @@ async def generate_compte_resultat(
     Génère un compte de résultat pour une année donnée et le stocke en base de données.
     
     Args:
-        request: Requête avec year et amortization_view_id
+        request: Requête avec year, amortization_view_id et compte_resultat_view_id (Step 10.8.4.3)
         
     Returns:
         Compte de résultat calculé
+        
+    Note: Le calcul utilise toujours les mappings actifs. Le compte_resultat_view_id
+    est stocké uniquement pour référence/filtrage ultérieur.
     """
-    # Récupérer les mappings
+    # Utiliser les mappings actifs pour le calcul (comme l'interface)
     mappings = get_mappings(db)
     
     # Calculer le compte de résultat
@@ -241,7 +244,8 @@ async def generate_compte_resultat(
             annee=request.year,
             category_name=category_name,
             amount=amount,
-            amortization_view_id=request.amortization_view_id
+            amortization_view_id=request.amortization_view_id,
+            compte_resultat_view_id=request.compte_resultat_view_id  # Step 10.8.4.3
         )
         db.add(data)
     
@@ -463,7 +467,7 @@ async def get_compte_resultat_mapping_views(
     Récupère toutes les vues de mappings de compte de résultat.
     
     Returns:
-        Liste de toutes les vues de mappings
+        Liste de toutes les vues de mappings de compte de résultat
     """
     views = db.query(CompteResultatMappingView).order_by(
         CompteResultatMappingView.created_at.desc()

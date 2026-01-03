@@ -183,6 +183,7 @@ def calculate_compte_bancaire(
 
 def calculate_resultat_exercice(
     year: int,
+    compte_resultat_view_id: Optional[int],
     db: Session
 ) -> float:
     """
@@ -190,29 +191,37 @@ def calculate_resultat_exercice(
     
     Args:
         year: Année pour laquelle récupérer
+        compte_resultat_view_id: ID de la vue de mapping de compte de résultat à utiliser (Step 10.8.4.3)
         db: Session de base de données
         
     Returns:
         Résultat de l'exercice (bénéfice positif, perte négative)
     """
+    # Construire les filtres de base
+    filters = [
+        CompteResultatData.annee == year,
+        CompteResultatData.category_name == "Résultat de l'exercice"
+    ]
+    
+    # Ajouter le filtre par vue si fourni (Step 10.8.4.3)
+    if compte_resultat_view_id is not None:
+        filters.append(CompteResultatData.compte_resultat_view_id == compte_resultat_view_id)
+    
     # Chercher dans CompteResultatData pour la catégorie "Résultat de l'exercice"
-    result = db.query(CompteResultatData).filter(
-        and_(
-            CompteResultatData.annee == year,
-            CompteResultatData.category_name == "Résultat de l'exercice"
-        )
-    ).first()
+    result = db.query(CompteResultatData).filter(and_(*filters)).first()
     
     if result:
         return result.amount
     
-    # Sinon, chercher "Résultat net" ou calculer depuis les totaux
-    result_net = db.query(CompteResultatData).filter(
-        and_(
-            CompteResultatData.annee == year,
-            CompteResultatData.category_name == "Résultat net"
-        )
-    ).first()
+    # Sinon, chercher "Résultat net" avec le même filtre de vue
+    filters_net = [
+        CompteResultatData.annee == year,
+        CompteResultatData.category_name == "Résultat net"
+    ]
+    if compte_resultat_view_id is not None:
+        filters_net.append(CompteResultatData.compte_resultat_view_id == compte_resultat_view_id)
+    
+    result_net = db.query(CompteResultatData).filter(and_(*filters_net)).first()
     
     if result_net:
         return result_net.amount
@@ -244,9 +253,10 @@ def calculate_report_a_nouveau(
         return 0.0
     
     # Calculer le cumul des résultats jusqu'à l'année précédente
+    # Note: Pour le report à nouveau, on ne filtre pas par vue (on prend toutes les vues)
     total = 0.0
     for y in range(start_year, year):
-        resultat = calculate_resultat_exercice(y, db)
+        resultat = calculate_resultat_exercice(y, None, db)  # None = pas de filtre par vue
         total += resultat
     
     return total
@@ -332,7 +342,8 @@ def calculate_bilan(
             elif mapping.special_source == "transactions":
                 amount = calculate_compte_bancaire(year, db)
             elif mapping.special_source == "compte_resultat":
-                amount = calculate_resultat_exercice(year, db)
+                # Step 10.8.4.3: Passer compte_resultat_view_id et préserver le signe
+                amount = calculate_resultat_exercice(year, mapping.compte_resultat_view_id, db)
             elif mapping.special_source == "compte_resultat_cumul":
                 amount = calculate_report_a_nouveau(year, db)
             elif mapping.special_source == "loan_payments":
@@ -344,8 +355,13 @@ def calculate_bilan(
             amount = calculate_normal_category(year, mapping, selected_level_3_values, db)
         
         # IMPORTANT: Dans un bilan, toutes les valeurs doivent être positives (valeur comptable)
-        # Appliquer la valeur absolue pour toutes les catégories
-        categories[mapping.category_name] = abs(amount) if amount is not None else 0.0
+        # SAUF pour "Résultat de l'exercice" qui peut être négatif (perte) (Step 10.8.4.3)
+        if mapping.category_name == "Résultat de l'exercice (bénéfice / perte)":
+            # Préserver le signe (positif = bénéfice, négatif = perte)
+            categories[mapping.category_name] = amount if amount is not None else 0.0
+        else:
+            # Appliquer la valeur absolue pour toutes les autres catégories
+            categories[mapping.category_name] = abs(amount) if amount is not None else 0.0
     
     # Calculer les totaux par sous-catégorie (niveau B)
     sub_category_totals = {}

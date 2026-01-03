@@ -113,7 +113,8 @@ async def create_bilan_mapping(
         sub_category=mapping_data.sub_category,
         is_special=mapping_data.is_special,
         special_source=mapping_data.special_source,
-        amortization_view_id=mapping_data.amortization_view_id
+        amortization_view_id=mapping_data.amortization_view_id,
+        compte_resultat_view_id=mapping_data.compte_resultat_view_id
     )
     
     db.add(mapping)
@@ -169,6 +170,8 @@ async def update_bilan_mapping(
         mapping.special_source = update_data['special_source']
     if 'amortization_view_id' in update_data:
         mapping.amortization_view_id = update_data['amortization_view_id']
+    if 'compte_resultat_view_id' in update_data:
+        mapping.compte_resultat_view_id = update_data['compte_resultat_view_id']
     
     db.commit()
     db.refresh(mapping)

@@ -63,25 +63,13 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   const [level1Values, setLevel1Values] = useState<string[]>([]);
   const [editingLevel1Id, setEditingLevel1Id] = useState<number | null>(null);
   // États pour gérer la sélection des level_3 à inclure (Step 9.2)
-  const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>(() => {
-    // Charger l'état depuis localStorage au montage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('compteResultatConfigCard_selectedLevel3Values');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.warn('⚠️ [CompteResultatConfigCard] Erreur lors du chargement de selectedLevel3Values depuis localStorage:', e);
-          return [];
-        }
-      }
-    }
-    return [];
-  });
+  const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>([]); // Initialiser avec [] pour éviter l'erreur d'hydratation
   const [availableLevel3Values, setAvailableLevel3Values] = useState<string[]>([]);
   const [loadingLevel3Values, setLoadingLevel3Values] = useState(false);
   const [showLevel3Dropdown, setShowLevel3Dropdown] = useState(false);
   const level3DropdownRef = useRef<HTMLDivElement>(null);
+  // Flag pour éviter de sauvegarder lors du chargement initial depuis localStorage
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
   // États pour gérer les vues (Save/Load/Delete) (Step 7.5.10)
   const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const [showSaveViewPopup, setShowSaveViewPopup] = useState(false);
@@ -105,28 +93,54 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   const [showLoanDropdown, setShowLoanDropdown] = useState<number | null>(null); // ID du mapping pour lequel le dropdown est ouvert
   const loanDropdownRef = useRef<HTMLDivElement>(null);
   // État pour gérer le repli/dépli de la card (Step 7.6.8)
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    // Charger l'état depuis localStorage au montage
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false); // Initialiser avec false pour éviter l'erreur d'hydratation
+
+  // Charger selectedLevel3Values depuis localStorage après le montage (évite erreur d'hydratation)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('compteResultatConfigCard_selectedLevel3Values');
+      console.log('🔍 [CompteResultatConfigCard] Chargement depuis localStorage:', saved);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            setSelectedLevel3Values(parsed);
+            console.log('✅ [CompteResultatConfigCard] selectedLevel3Values chargés:', parsed);
+          }
+        } catch (e) {
+          console.warn('⚠️ [CompteResultatConfigCard] Erreur lors du chargement de selectedLevel3Values depuis localStorage:', e);
+        }
+      }
+      // Marquer que le chargement initial est terminé après un court délai
+      setTimeout(() => {
+        setIsInitialLoad(false);
+      }, 100);
+    }
+  }, []);
+
+  // Charger isCollapsed depuis localStorage après le montage (évite erreur d'hydratation)
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('compteResultatConfigCard_collapsed');
-      return saved === 'true';
+      if (saved === 'true') {
+        setIsCollapsed(true);
+      }
     }
-    return false;
-  });
+  }, []);
 
   // Sauvegarder l'état dans localStorage quand il change (Step 7.6.8)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !isInitialLoad) {
       localStorage.setItem('compteResultatConfigCard_collapsed', String(isCollapsed));
     }
-  }, [isCollapsed]);
+  }, [isCollapsed, isInitialLoad]);
 
-  // Sauvegarder selectedLevel3Values dans localStorage quand il change
+  // Sauvegarder selectedLevel3Values dans localStorage quand il change (évite de sauvegarder [] au montage)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !isInitialLoad) {
       localStorage.setItem('compteResultatConfigCard_selectedLevel3Values', JSON.stringify(selectedLevel3Values));
     }
-  }, [selectedLevel3Values]);
+  }, [selectedLevel3Values, isInitialLoad]);
 
   // Charger les mappings et les valeurs level_1 au montage
   useEffect(() => {

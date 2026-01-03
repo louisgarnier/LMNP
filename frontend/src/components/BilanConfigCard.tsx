@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { bilanAPI, BilanMapping, transactionsAPI, bilanMappingViewsAPI, BilanMappingView, amortizationViewsAPI, allowedMappingsAPI } from '@/api/client';
+import { bilanAPI, BilanMapping, transactionsAPI, bilanMappingViewsAPI, BilanMappingView, amortizationViewsAPI, allowedMappingsAPI, compteResultatMappingViewsAPI } from '@/api/client';
 
 interface BilanConfigCardProps {
   onConfigUpdated?: () => void;
@@ -136,6 +136,10 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
   // États pour gérer les vues d'amortissement (Step 7.5.11)
   const [amortizationViews, setAmortizationViews] = useState<Array<{ id: number; name: string; level_2_value: string }>>([]);
   const [loadingAmortizationViews, setLoadingAmortizationViews] = useState(false);
+  // États pour gérer les vues de compte de résultat (Step 10.8.4.3)
+  const [compteResultatViews, setCompteResultatViews] = useState<Array<{ id: number; name: string }>>([]);
+  const [loadingCompteResultatViews, setLoadingCompteResultatViews] = useState(false);
+  const [showCompteResultatViewDropdown, setShowCompteResultatViewDropdown] = useState<number | null>(null); // ID du mapping pour lequel le dropdown est ouvert
   // État pour gérer le repli/dépli de la card (Step 7.6.8)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
@@ -249,22 +253,48 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
     }
   };
 
-
-  // Fermer le menu contextuel au clic ailleurs
+  // Charger les vues de compte de résultat (Step 10.8.4.3)
   useEffect(() => {
-    const handleClickOutside = () => {
-      if (contextMenu) {
-        setContextMenu(null);
+    const loadCompteResultatViews = async () => {
+      setLoadingCompteResultatViews(true);
+      try {
+        const viewsResponse = await compteResultatMappingViewsAPI.getAll();
+        const views = viewsResponse.views.map(v => ({ id: v.id, name: v.name }));
+        setCompteResultatViews(views);
+        console.log('✅ [BilanConfigCard] Vues de compte de résultat chargées:', views.length);
+        console.log('📋 [BilanConfigCard] Liste des vues de compte de résultat:', views.map(v => `${v.name} (ID: ${v.id})`).join(', '));
+      } catch (err: any) {
+        console.error('❌ [BilanConfigCard] Erreur lors du chargement des vues de compte de résultat:', err);
+      } finally {
+        setLoadingCompteResultatViews(false);
       }
     };
 
-    if (contextMenu) {
-      document.addEventListener('click', handleClickOutside);
-      return () => {
-        document.removeEventListener('click', handleClickOutside);
-      };
-    }
-  }, [contextMenu]);
+    loadCompteResultatViews();
+  }, []);
+
+
+  // Fermer le menu contextuel au clic ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      
+      // Fermer le menu contextuel
+      if (contextMenu && !target.closest('[data-context-menu]')) {
+        setContextMenu(null);
+      }
+      
+      // Fermer le dropdown de vue de compte de résultat si on clique ailleurs
+      if (showCompteResultatViewDropdown && !target.closest('[data-compte-resultat-view-dropdown]')) {
+        setShowCompteResultatViewDropdown(null);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => {
+      document.removeEventListener('click', handleClickOutside);
+    };
+  }, [contextMenu, showCompteResultatViewDropdown]);
 
   // Fermer le dropdown Level 3 au clic ailleurs (Step 9.2)
   useEffect(() => {
@@ -974,6 +1004,54 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
     }
   };
 
+  // Gérer le changement de vue de compte de résultat (Step 10.8.4.3)
+  const handleCompteResultatViewChange = async (mappingId: number, viewId: number | null) => {
+    try {
+      console.log('🔄 [BilanConfigCard] Changement de vue de compte de résultat:', { mappingId, viewId });
+      
+      // Préserver l'état du dropdown ouvert AVANT toute modification
+      const shouldKeepDropdownOpen = showCompteResultatViewDropdown === mappingId;
+      
+      // Mise à jour optimiste de l'état local pour éviter le "saut" de page
+      setMappings(prevMappings => 
+        prevMappings.map(m => 
+          m.id === mappingId 
+            ? { ...m, compte_resultat_view_id: viewId }
+            : m
+        )
+      );
+      
+      await bilanAPI.updateMapping(mappingId, {
+        compte_resultat_view_id: viewId,
+      });
+      console.log('✅ [BilanConfigCard] Vue de compte de résultat mise à jour avec succès');
+      
+      // Restaurer le dropdown immédiatement après la mise à jour
+      if (shouldKeepDropdownOpen) {
+        // Utiliser requestAnimationFrame pour s'assurer que le state est bien mis à jour
+        requestAnimationFrame(() => {
+          setShowCompteResultatViewDropdown(mappingId);
+        });
+      }
+      
+      // NE PAS recharger les mappings pour éviter le "saut" - la mise à jour optimiste suffit
+      // Le rechargement se fera lors du prochain chargement de la page ou via un refresh manuel
+      
+      // Appeler onConfigUpdated de manière asynchrone (sans délai pour que ce soit rapide)
+      if (onConfigUpdated) {
+        // Utiliser requestAnimationFrame pour éviter le re-render immédiat
+        requestAnimationFrame(() => {
+          onConfigUpdated();
+        });
+      }
+    } catch (err: any) {
+      console.error('❌ [BilanConfigCard] Erreur lors de la mise à jour de la vue de compte de résultat:', err);
+      // En cas d'erreur, recharger pour restaurer l'état correct
+      await loadMappings();
+      alert(`❌ Erreur lors de la mise à jour: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
   // Réinitialiser tous les mappings (Step 7.5.9)
   const handleResetMappings = async () => {
     const confirmed = window.confirm(
@@ -1654,7 +1732,7 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
                         </div>
                       )}
                     </td>
-                    {/* Colonne Vue (Step 7.5.11) */}
+                    {/* Colonne Vue (Step 7.5.11, Step 10.8.4.3) */}
                     <td style={{ padding: '12px' }}>
                       {mapping.category_name === 'Charges d\'amortissements' ? (
                         // Dropdown pour sélectionner une vue d'amortissement
@@ -1692,6 +1770,139 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
                             ))}
                           </select>
                         )
+                      ) : mapping.category_name === 'Résultat de l\'exercice (bénéfice / perte)' ? (
+                        // Dropdown avec checkboxes pour sélectionner une vue de compte de résultat (Step 10.8.4.3)
+                        <div style={{ position: 'relative' }} data-compte-resultat-view-dropdown>
+                          {loadingCompteResultatViews ? (
+                            <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                              Chargement...
+                            </span>
+                          ) : compteResultatViews.length === 0 ? (
+                            <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                              Vue à configurer dans l'onglet compte de résultat
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setShowCompteResultatViewDropdown(showCompteResultatViewDropdown === mapping.id ? null : mapping.id)}
+                                style={{
+                                  width: '100%',
+                                  padding: '6px 8px',
+                                  fontSize: '13px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#ffffff',
+                                  color: '#374151',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                }}
+                              >
+                                <span>
+                                  {(() => {
+                                    const selectedViewId = mapping.compte_resultat_view_id;
+                                    if (!selectedViewId) {
+                                      return 'Sélectionner une vue...';
+                                    }
+                                    const view = compteResultatViews.find(v => v.id === selectedViewId);
+                                    return view ? view.name : 'Vue sélectionnée';
+                                  })()}
+                                </span>
+                                <span style={{ fontSize: '10px' }}>{showCompteResultatViewDropdown === mapping.id ? '▲' : '▼'}</span>
+                              </button>
+                              {showCompteResultatViewDropdown === mapping.id && (
+                                <div
+                                  style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    marginTop: '4px',
+                                    backgroundColor: '#ffffff',
+                                    border: '1px solid #d1d5db',
+                                    borderRadius: '4px',
+                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                                    zIndex: 1000,
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                  }}
+                                >
+                                  {(() => {
+                                    // S'assurer qu'on affiche UNIQUEMENT les vues de compte de résultat
+                                    // Filtrer explicitement pour éviter tout mélange avec les vues d'amortissement
+                                    const filteredViews = compteResultatViews.filter(view => {
+                                      // Les vues de compte de résultat doivent avoir un ID valide
+                                      // et ne doivent PAS être des vues d'amortissement
+                                      return view && view.id && view.name;
+                                    });
+                                    
+                                    console.log('📋 [BilanConfigCard] Dropdown "Résultat de l\'exercice" - Vues filtrées:', filteredViews.length);
+                                    console.log('📋 [BilanConfigCard] Liste des vues:', filteredViews.map(v => `${v.name} (ID: ${v.id})`).join(', '));
+                                    console.log('📋 [BilanConfigCard] Vérification - amortizationViews.length:', amortizationViews.length);
+                                    
+                                    if (filteredViews.length === 0) {
+                                      return (
+                                        <div style={{ padding: '12px', color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                                          Aucune vue de compte de résultat disponible
+                                        </div>
+                                      );
+                                    }
+                                    
+                                    return filteredViews.map((view) => {
+                                      const selectedViewId = mapping.compte_resultat_view_id;
+                                      const isChecked = selectedViewId === view.id;
+                                      return (
+                                      <label
+                                        key={`compte-resultat-view-${view.id}`}
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          padding: '8px 12px',
+                                          cursor: 'pointer',
+                                          borderBottom: '1px solid #f3f4f6',
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation(); // Empêcher la propagation du clic sur le label
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            e.preventDefault(); // Empêcher le comportement par défaut
+                                            e.stopPropagation(); // Empêcher la propagation de l'événement
+                                            // Si on coche, sélectionner cette vue (décocher les autres)
+                                            // Si on décoche, désélectionner (null)
+                                            const newViewId = e.target.checked ? view.id : null;
+                                            console.log('🔘 [BilanConfigCard] Checkbox changée (vue compte de résultat):', { viewId: view.id, viewName: view.name, checked: e.target.checked, newViewId });
+                                            handleCompteResultatViewChange(mapping.id, newViewId);
+                                          }}
+                                          onClick={(e) => {
+                                            e.preventDefault(); // Empêcher le comportement par défaut
+                                            e.stopPropagation(); // Empêcher la propagation du clic
+                                          }}
+                                          style={{
+                                            marginRight: '8px',
+                                            cursor: 'pointer',
+                                          }}
+                                        />
+                                        <span style={{ fontSize: '13px', color: '#374151' }}>{view.name}</span>
+                                      </label>
+                                    );
+                                  });
+                                  })()}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
                       ) : mapping.category_name === 'Emprunt bancaire (capital restant dû)' ? (
                         // Pour "Emprunt bancaire", afficher "Données calculées" (utilise tous les crédits automatiquement)
                         <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>

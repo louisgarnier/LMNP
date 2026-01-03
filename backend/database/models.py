@@ -364,6 +364,7 @@ class CompteResultatData(Base):
     category_name = Column(String(200), nullable=False, index=True)  # Nom de la catégorie comptable
     amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
     amortization_view_id = Column(Integer, ForeignKey("amortization_views.id"), nullable=True)  # ID de la vue d'amortissement utilisée (NULL si N/A)
+    compte_resultat_view_id = Column(Integer, ForeignKey("compte_resultat_mapping_views.id"), nullable=True)  # ID de la vue de mapping de compte de résultat utilisée (Step 10.8.4.3)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -401,6 +402,7 @@ class BilanMapping(Base):
     is_special = Column(Boolean, nullable=False, default=False)  # Indique si c'est une catégorie spéciale
     special_source = Column(String(100), nullable=True)  # Source pour les catégories spéciales ("amortizations", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments")
     amortization_view_id = Column(Integer, ForeignKey("amortization_views.id"), nullable=True)  # Pour catégorie "Amortissements cumulés"
+    compte_resultat_view_id = Column(Integer, ForeignKey("compte_resultat_mapping_views.id"), nullable=True)  # Pour catégorie "Résultat de l'exercice" (Step 10.8.4.3)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
