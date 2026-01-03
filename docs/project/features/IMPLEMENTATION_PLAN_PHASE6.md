@@ -2265,25 +2265,100 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 #### Step 10.8.4.3 : Frontend - Catégorie spéciale "Résultat de l'exercice (bénéfice / perte)"
 
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Vérifier et valider l'affichage de la catégorie spéciale "Résultat de l'exercice".
+**Description**: Implémenter et valider l'affichage de la catégorie spéciale "Résultat de l'exercice" avec sélection de vue de compte de résultat.
+
+**Étapes de développement :**
+
+**1. Backend - Migration base de données :**
+- [ ] Créer migration pour ajouter `compte_resultat_view_id` (Integer, ForeignKey vers `compte_resultat_mapping_views.id`, nullable=True) dans la table `compte_resultat_data`
+- [ ] Créer migration pour ajouter `compte_resultat_view_id` (Integer, ForeignKey vers `compte_resultat_mapping_views.id`, nullable=True) dans la table `bilan_mappings`
+- [ ] Exécuter les migrations et vérifier la structure
+
+**2. Backend - Modèle de données :**
+- [ ] Modifier `CompteResultatData` dans `backend/database/models.py` pour ajouter le champ `compte_resultat_view_id`
+- [ ] Modifier `BilanMapping` dans `backend/database/models.py` pour ajouter le champ `compte_resultat_view_id`
+- [ ] Ajouter index si nécessaire pour les recherches
+
+**3. Backend - Modèles Pydantic :**
+- [ ] Modifier `CompteResultatDataBase` dans `backend/api/models.py` pour inclure `compte_resultat_view_id: Optional[int]`
+- [ ] Modifier `BilanMappingBase` dans `backend/api/models.py` pour inclure `compte_resultat_view_id: Optional[int]`
+- [ ] Modifier `BilanMappingCreate` et `BilanMappingUpdate` pour inclure `compte_resultat_view_id`
+- [ ] Modifier `CompteResultatGenerateRequest` pour inclure `compte_resultat_view_id: Optional[int]`
+
+**4. Backend - Service de génération compte de résultat :**
+- [ ] Modifier `generate_compte_resultat()` dans `backend/api/routes/compte_resultat.py` pour stocker `compte_resultat_view_id` lors de la création de `CompteResultatData`
+- [ ] Vérifier que la vue est bien sauvegardée dans chaque enregistrement `CompteResultatData`
+
+**5. Backend - Service de calcul du bilan :**
+- [ ] Modifier `calculate_resultat_exercice()` dans `backend/api/services/bilan_service.py` pour accepter `compte_resultat_view_id: Optional[int]`
+- [ ] Filtrer `CompteResultatData` par `annee`, `category_name` ET `compte_resultat_view_id` si fourni
+- [ ] Si `compte_resultat_view_id` est None, utiliser la logique actuelle (chercher sans filtre de vue)
+- [ ] Modifier `calculate_bilan()` pour passer `compte_resultat_view_id` depuis le mapping à `calculate_resultat_exercice()`
+- [ ] Modifier `calculate_bilan()` pour NE PAS appliquer `abs()` sur "Résultat de l'exercice (bénéfice / perte)" (préserver le signe)
+
+**6. Backend - API endpoints :**
+- [ ] Vérifier que l'endpoint `/api/bilan/calculate` transmet correctement `compte_resultat_view_id` depuis les mappings
+- [ ] Vérifier que l'endpoint `/api/bilan/mappings` retourne `compte_resultat_view_id` dans les réponses
+
+**7. Frontend - API Client :**
+- [ ] Vérifier que `compteResultatMappingViewsAPI.getAll()` existe dans `frontend/src/api/client.ts`
+- [ ] Si absent, ajouter les méthodes nécessaires pour récupérer les vues de compte de résultat
+- [ ] Modifier l'interface `BilanMapping` dans `client.ts` pour inclure `compte_resultat_view_id?: number | null`
+- [ ] Modifier `BilanMappingCreate` et `BilanMappingUpdate` pour inclure `compte_resultat_view_id`
+
+**8. Frontend - BilanConfigCard :**
+- [ ] Charger les vues de compte de résultat disponibles via `compteResultatMappingViewsAPI.getAll()` (similaire à `amortizationViewsAPI.getAll()`)
+- [ ] Stocker les vues dans un état `compteResultatViews: Array<{id: number, name: string}>`
+- [ ] Dans la colonne "Vue" du tableau, pour la catégorie "Résultat de l'exercice (bénéfice / perte)" :
+  - [ ] Afficher un `<select>` dropdown (comme pour "Amortissements cumulés")
+  - [ ] Options : "Sélectionner une vue..." (valeur vide) + liste des vues disponibles
+  - [ ] Si aucune vue disponible : afficher "Vue à configurer dans l'onglet compte de résultat" (texte gris, italique)
+  - [ ] Valeur par défaut : "Sélectionner une vue..." (null)
+- [ ] Créer fonction `handleCompteResultatViewChange(mappingId: number, viewId: number | null)` similaire à `handleAmortizationViewChange()`
+- [ ] Appeler `bilanAPI.updateMapping()` avec `compte_resultat_view_id: viewId`
+- [ ] Recharger les mappings après mise à jour
+
+**9. Frontend - BilanTable :**
+- [ ] Modifier `getDisplayAmount()` pour gérer "Résultat de l'exercice (bénéfice / perte)" :
+  - [ ] Retourner le montant tel quel (peut être positif ou négatif, pas de `abs()`)
+- [ ] Modifier `isNegativeAmountCategory()` pour inclure "Résultat de l'exercice (bénéfice / perte)" :
+  - [ ] Retourner `true` si le montant est négatif (perte)
+- [ ] Vérifier que l'affichage en rouge fonctionne pour les montants négatifs
+
+**10. Tests :**
+- [ ] Créer test script `backend/tests/test_bilan_resultat_exercice_step10_8_4_3.py` :
+  - [ ] Vérifier que l'API retourne le montant avec le bon signe (positif ou négatif)
+  - [ ] Vérifier que le filtrage par `compte_resultat_view_id` fonctionne
+  - [ ] Vérifier que le mapping contient `compte_resultat_view_id`
+  - [ ] Vérifier que les données `CompteResultatData` sont liées à la vue
 
 **Tasks**:
-- [ ] Vérifier que le montant peut être positif (bénéfice) ou négatif (perte)
-- [ ] Vérifier que la catégorie est affichée dans "Capitaux propres"
-- [ ] Vérifier que le montant est récupéré depuis le compte de résultat :
-  - Utilise `resultat_net` du compte de résultat pour l'année en cours
-- [ ] Vérifier que le calcul backend est correct (récupération depuis `compte_resultat_data` ou calcul via `CompteResultatService`)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
-- [ ] Vérifier l'affichage en rouge si perte (montant négatif)
+- [ ] Backend - Migration DB (ajout `compte_resultat_view_id` dans `compte_resultat_data` et `bilan_mappings`)
+- [ ] Backend - Modèles de données (ajout champs dans `CompteResultatData` et `BilanMapping`)
+- [ ] Backend - Modèles Pydantic (ajout champs dans les modèles API)
+- [ ] Backend - Service génération (stocker `compte_resultat_view_id` dans `CompteResultatData`)
+- [ ] Backend - Service calcul (filtrer par vue et préserver le signe)
+- [ ] Frontend - API Client (ajout `compte_resultat_view_id` dans interfaces)
+- [ ] Frontend - BilanConfigCard (dropdown sélection vue compte de résultat)
+- [ ] Frontend - BilanTable (affichage signe et couleur rouge si perte)
+- [ ] Tests - Validation complète
 
 **Deliverables**:
-- Validation de l'affichage "Résultat de l'exercice" dans `BilanTable.tsx`
+- Migration DB pour `compte_resultat_view_id`
+- Modification `calculate_resultat_exercice()` pour filtrer par vue
+- Modification `calculate_bilan()` pour préserver le signe
+- Dropdown sélection vue dans `BilanConfigCard.tsx`
+- Affichage signe et couleur dans `BilanTable.tsx`
+- Test script de validation
 
 **Acceptance Criteria**:
-- [ ] Montant récupéré depuis le compte de résultat (année en cours)
+- [ ] Montant peut être positif (bénéfice) ou négatif (perte)
+- [ ] Montant récupéré depuis `CompteResultatData` filtré par `compte_resultat_view_id`
 - [ ] Position correcte (dans "Capitaux propres")
 - [ ] Affichage en rouge si perte (montant négatif)
-- [ ] Montant calculé correctement par le backend
+- [ ] Dropdown vue disponible dans la colonne "Vue" pour "Résultat de l'exercice"
+- [ ] Message informatif si aucune vue disponible
+- [ ] Montant calculé correctement par le backend (signe préservé)
 
 ---
 
