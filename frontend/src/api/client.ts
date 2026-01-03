@@ -85,11 +85,12 @@ async function fetchAPI<T>(
   } catch (error) {
     // Gérer les erreurs réseau (Failed to fetch)
     if (error instanceof TypeError && error.message === 'Failed to fetch') {
-      console.error(`❌ [API] Erreur réseau - Impossible de se connecter au serveur (${url})`);
-      console.error(`❌ [API] Vérifiez que le serveur backend est démarré sur ${API_BASE_URL}`);
-      throw new Error(`Impossible de se connecter au serveur. Vérifiez que le backend est démarré sur ${API_BASE_URL}`);
+      // Ne pas logger comme erreur - c'est juste que le backend n'est pas disponible
+      // Le composant gérera cela silencieusement
+      throw new Error(`NETWORK_ERROR: Impossible de se connecter au serveur. Vérifiez que le backend est démarré sur ${API_BASE_URL}`);
     }
     
+    // Pour les autres erreurs, logger normalement
     console.error(`❌ [API] Erreur lors de l'appel (${endpoint}):`, error);
     throw error;
   }
@@ -1731,7 +1732,6 @@ export interface BilanMappingUpdate {
   is_special?: boolean;
   special_source?: string | null;
   amortization_view_id?: number | null;
-  selected_loan_ids?: number[] | null;
 }
 
 export interface BilanData {
@@ -1826,6 +1826,18 @@ export const bilanAPI = {
     
     const query = queryParams.toString();
     return fetchAPI<BilanDataListResponse>(`/api/bilan${query ? `?${query}` : ''}`);
+  },
+  calculateAmounts: async (
+    years: number[],
+    selectedLevel3Values?: string[] | null
+  ): Promise<Record<string, Record<string, number>>> => {
+    const yearsParam = years.join(',');
+    const queryParams = new URLSearchParams();
+    queryParams.append('years', yearsParam);
+    if (selectedLevel3Values && selectedLevel3Values.length > 0) {
+      queryParams.append('selected_level_3_values', selectedLevel3Values.join(','));
+    }
+    return fetchAPI<Record<string, Record<string, number>>>(`/api/bilan/calculate?${queryParams.toString()}`);
   },
 };
 

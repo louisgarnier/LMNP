@@ -428,6 +428,13 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
     }
   };
 
+  // Plus besoin de régénérer - le calcul se fait maintenant à la volée dans BilanTable
+  // Cette fonction est conservée pour compatibilité mais ne fait plus rien
+  const regenerateBilanData = async () => {
+    console.log('✅ [BilanConfigCard] Les données seront calculées à la volée dans BilanTable (comme CompteResultatTable)');
+    // Plus besoin de générer - BilanTable utilise maintenant calculateAmounts() à la volée
+  };
+
   // Charger toutes les valeurs level_3 disponibles (Step 9.2)
   const loadAvailableLevel3Values = async () => {
     try {
@@ -482,6 +489,9 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
       // Recharger les mappings pour avoir les données à jour
       await loadMappings();
       
+      // Générer les données du bilan pour toutes les années après modification
+      await regenerateBilanData();
+      
       if (onConfigUpdated) {
         onConfigUpdated();
       }
@@ -531,6 +541,9 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
       // Recharger les mappings pour avoir les données à jour
       await loadMappings();
       
+      // Générer les données du bilan pour toutes les années après modification
+      await regenerateBilanData();
+      
       if (onConfigUpdated) {
         onConfigUpdated();
       }
@@ -564,6 +577,9 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
       
       // Recharger les mappings
       await loadMappings();
+      
+      // Générer les données du bilan pour toutes les années après modification
+      await regenerateBilanData();
       
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -601,6 +617,9 @@ export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProp
       
       // Recharger les mappings
       await loadMappings();
+      
+      // Générer les données du bilan pour toutes les années après modification
+      await regenerateBilanData();
       
       if (onConfigUpdated) {
         onConfigUpdated();

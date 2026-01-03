@@ -55,26 +55,36 @@ def calculate_normal_category(
     if not mapping.level_1_values:
         return 0.0
     
-    # Dates de début et fin d'année
-    start_date = date(year, 1, 1)
+    # Pour le bilan, on calcule le solde cumulé jusqu'à la fin de l'année
+    # Donc on prend toutes les transactions jusqu'au 31 décembre de l'année (pas seulement celles de l'année)
     end_date = date(year, 12, 31)
     
     # Condition pour level_1
     level_1_condition = EnrichedTransaction.level_1.in_(mapping.level_1_values)
     
     # Condition pour level_3 si selected_level_3_values est fourni
+    # IMPORTANT: Filtrer les valeurs pour ne garder que celles qui existent réellement dans les transactions
     level_3_condition = None
     if selected_level_3_values:
-        level_3_condition = EnrichedTransaction.level_3.in_(selected_level_3_values)
+        # Vérifier quelles valeurs level_3 existent réellement dans la base
+        existing_level_3 = db.query(EnrichedTransaction.level_3).distinct().filter(
+            EnrichedTransaction.level_3.in_(selected_level_3_values)
+        ).all()
+        valid_level_3_values = [v[0] for v in existing_level_3 if v[0] is not None]
+        
+        if valid_level_3_values:
+            level_3_condition = EnrichedTransaction.level_3.in_(valid_level_3_values)
+        # Si aucune valeur valide, on ignore le filtre level_3 (comme si selected_level_3_values était None)
     
     # Construire la condition finale
-    if level_3_condition:
+    # IMPORTANT: Ne pas utiliser if level_3_condition car c'est un objet SQLAlchemy, pas un booléen
+    if level_3_condition is not None:
         condition = and_(level_1_condition, level_3_condition)
     else:
         condition = level_1_condition
     
     # Requête : somme des montants des transactions enrichies
-    # Pour le bilan, on prend la somme algébrique (positif + négatif)
+    # Pour le bilan, on prend la somme algébrique (positif + négatif) de TOUTES les transactions jusqu'à la fin de l'année
     query = db.query(
         func.sum(Transaction.quantite).label('total')
     ).join(
@@ -82,14 +92,20 @@ def calculate_normal_category(
         Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
-            Transaction.date >= start_date,
-            Transaction.date <= end_date,
+            Transaction.date <= end_date,  # Toutes les transactions jusqu'à la fin de l'année
             condition
         )
     )
     
     result = query.scalar()
-    return result if result else 0.0
+    
+    # IMPORTANT: Dans un bilan, toutes les valeurs doivent être positives (valeur comptable)
+    # Les transactions peuvent être négatives, mais dans le bilan on affiche la valeur absolue
+    if result is None:
+        return 0.0
+    
+    # Retourner la valeur absolue pour avoir une valeur comptable positive
+    return abs(result)
 
 
 def calculate_amortizations_cumul(
@@ -327,7 +343,9 @@ def calculate_bilan(
             # Catégorie normale
             amount = calculate_normal_category(year, mapping, selected_level_3_values, db)
         
-        categories[mapping.category_name] = amount
+        # IMPORTANT: Dans un bilan, toutes les valeurs doivent être positives (valeur comptable)
+        # Appliquer la valeur absolue pour toutes les catégories
+        categories[mapping.category_name] = abs(amount) if amount is not None else 0.0
     
     # Calculer les totaux par sous-catégorie (niveau B)
     sub_category_totals = {}

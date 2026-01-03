@@ -2053,12 +2053,12 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ### Step 10.7 : Frontend - Card de configuration du Bilan
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la card de configuration pour mapper les level_1 aux catégories comptables du bilan.
 
 **Tasks**:
-- [ ] Créer `frontend/src/components/BilanConfigCard.tsx`
-- [ ] Structure similaire à `CompteResultatConfigCard.tsx` :
+- [x] Créer `frontend/src/components/BilanConfigCard.tsx`
+- [x] Structure similaire à `CompteResultatConfigCard.tsx` :
   - Titre "Configuration du bilan" avec bouton pin/unpin
   - Dropdown multi-select "Level 3 valeurs à inclure dans le bilan" (même fonctionnement que compte de résultat) 
   - Table avec colonnes :
@@ -2070,25 +2070,27 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - Bouton "+ Ajouter une catégorie"
   - Bouton "Réinitialiser les mappings"
   - Bouton gear (save/load/delete views)
-- [ ] Gérer les catégories spéciales :
+- [x] Gérer les catégories spéciales :
   - Amortissements cumulés : Dropdown avec vues d'amortissement
   - Compte bancaire : "Données calculées"
   - Résultat de l'exercice : "Données calculées"
   - Report à nouveau : "Données calculées"
-- [ ] Sauvegarder/charger les vues avec `selected_level_3_values`
-- [ ] Filtrage du dropdown Level 1 par Level 3 sélectionnés (même logique que compte de résultat)
-- [ ] Tri des lignes par Type puis Sous-catégorie puis Catégorie
+- [x] Sauvegarder/charger les vues avec `selected_level_3_values`
+- [x] Filtrage du dropdown Level 1 par Level 3 sélectionnés (même logique que compte de résultat)
+- [x] Tri des lignes par Type puis Sous-catégorie puis Catégorie
 
 **Deliverables**:
-- Fichier `frontend/src/components/BilanConfigCard.tsx`
+- ✅ Fichier `frontend/src/components/BilanConfigCard.tsx`
 
 **Acceptance Criteria**:
-- [ ] Card fonctionne comme CompteResultatConfigCard
-- [ ] Dropdown Level 3 fonctionne
-- [ ] Filtrage Level 1 par Level 3 fonctionne
-- [ ] Catégories spéciales gérées correctement
-- [ ] Sauvegarde/chargement des vues fonctionne
-- [ ] Pin/unpin fonctionne
+- [x] Card fonctionne comme CompteResultatConfigCard
+- [x] Dropdown Level 3 fonctionne
+- [x] Filtrage Level 1 par Level 3 fonctionne
+- [x] Catégories spéciales gérées correctement
+- [x] Sauvegarde/chargement des vues fonctionne
+- [x] Pin/unpin fonctionne
+
+**Note**: Fonctionnellement OK. La connexion avec BilanTable sera améliorée dans Step 10.8.
 
 ---
 
@@ -2101,34 +2103,34 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ### Step 10.8.1 : Frontend - Structure de base et affichage niveau C (Catégories)
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer la structure de base de la table et afficher les catégories comptables (niveau C) avec leurs montants par année.
 
 **Tasks**:
-- [ ] Créer `frontend/src/components/BilanTable.tsx`
-- [ ] Structure de base similaire à `CompteResultatTable.tsx` :
+- [x] Créer `frontend/src/components/BilanTable.tsx`
+- [x] Structure de base similaire à `CompteResultatTable.tsx` :
   - Colonne "Bilan" (catégories)
   - Colonnes par année (dynamiques, basées sur les données disponibles)
-- [ ] Récupérer les données du bilan depuis l'API (`bilanAPI.getBilan()`)
-- [ ] Grouper les données par catégorie comptable (niveau C)
-- [ ] Afficher chaque catégorie (niveau C) :
+- [x] Récupérer les données du bilan depuis l'API (`bilanAPI.getBilan()`)
+- [x] Grouper les données par catégorie comptable (niveau C)
+- [x] Afficher chaque catégorie (niveau C) :
   - Double indentation (ex: `&nbsp;&nbsp;&nbsp;&nbsp;Immobilisations`)
   - Montant par année dans les colonnes correspondantes
   - Formatage des montants en € (ex: `1 234,56 €`)
   - Affichage des montants négatifs en rouge (pour "Amortissements cumulés")
-- [ ] Trier les catégories par Type (ACTIF, CAPITAUX PROPRES, puis PASSIF), puis par Sous-catégorie, puis par Catégorie
+- [x] Trier les catégories par Type (ACTIF, CAPITAUX PROPRES, puis PASSIF), puis par Sous-catégorie, puis par Catégorie
 
 **Deliverables**:
-- Fichier `frontend/src/components/BilanTable.tsx` avec structure de base
-- Affichage des catégories niveau C
+- ✅ Fichier `frontend/src/components/BilanTable.tsx` avec structure de base
+- ✅ Affichage des catégories niveau C
 
 **Acceptance Criteria**:
-- [ ] Table créée avec colonnes dynamiques par année
-- [ ] Catégories niveau C affichées avec double indentation
-- [ ] Montants affichés correctement par année
-- [ ] Formatage € correct
-- [ ] Montants négatifs en rouge pour "Amortissements cumulés"
-- [ ] Tri correct (ACTIF puis PASSIF, puis sous-catégories, puis catégories)
+- [x] Table créée avec colonnes dynamiques par année
+- [x] Catégories niveau C affichées avec double indentation
+- [x] Montants affichés correctement par année
+- [x] Formatage € correct
+- [x] Montants négatifs en rouge pour "Amortissements cumulés"
+- [x] Tri correct (ACTIF puis PASSIF, puis sous-catégories, puis catégories)
 
 ---
 

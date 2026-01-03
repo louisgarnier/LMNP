@@ -311,6 +311,62 @@ async def generate_bilan(
     )
 
 
+@router.get("/bilan/calculate")
+async def calculate_bilan_amounts(
+    years: Optional[str] = Query(None, description="Années séparées par des virgules (ex: 2023,2024)"),
+    year: Optional[int] = Query(None, description="Année unique"),
+    selected_level_3_values: Optional[str] = Query(None, description="Level 3 values séparés par des virgules"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calcule les montants du bilan à la volée (comme le compte de résultat).
+    
+    Cette fonction calcule directement depuis les transactions sans stocker dans BilanData.
+    Pour chaque catégorie :
+    - Si mapping level_1 : calcule depuis les transactions (cumul jusqu'à fin d'année)
+    - Si catégorie spéciale : utilise la source spéciale (amortissements, compte bancaire, etc.)
+    
+    Args:
+        years: Années séparées par des virgules (ex: "2023,2024")
+        year: Année unique (alternative à years)
+        selected_level_3_values: Level 3 values séparés par des virgules (optionnel)
+        db: Session de base de données
+        
+    Returns:
+        Dictionnaire {year: {category_name: amount}}
+    """
+    # Déterminer les années à calculer
+    if years:
+        years_list = [int(y.strip()) for y in years.split(',')]
+    elif year:
+        years_list = [year]
+    else:
+        raise HTTPException(status_code=400, detail="Fournir soit 'years' soit 'year'")
+    
+    # Parser selected_level_3_values si fourni
+    level_3_list = None
+    if selected_level_3_values:
+        level_3_list = [v.strip() for v in selected_level_3_values.split(',')]
+    
+    # Récupérer les mappings
+    mappings = get_mappings(db)
+    
+    if not mappings:
+        raise HTTPException(status_code=400, detail="Aucun mapping configuré")
+    
+    # Calculer pour chaque année
+    results: Dict[str, Dict[str, float]] = {}
+    
+    for year_val in years_list:
+        # Calculer le bilan pour cette année
+        result = calculate_bilan(year_val, mappings, level_3_list, db)
+        
+        # Extraire les catégories
+        results[str(year_val)] = result["categories"]
+    
+    return results
+
+
 @router.get("/bilan", response_model=BilanDataListResponse)
 async def get_bilan(
     year: Optional[int] = Query(None, description="Année spécifique"),
@@ -319,7 +375,9 @@ async def get_bilan(
     db: Session = Depends(get_db)
 ):
     """
-    Récupère les données du bilan.
+    Récupère les données du bilan (depuis la table BilanData - données pré-calculées).
+    
+    NOTE: Pour un calcul à la volée, utilisez /api/bilan/calculate à la place.
     
     Args:
         year: Année spécifique (optionnel)
