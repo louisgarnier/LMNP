@@ -2240,25 +2240,25 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 #### Step 10.8.4.2 : Frontend - Catégorie spéciale "Compte bancaire"
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Vérifier et valider l'affichage de la catégorie spéciale "Compte bancaire".
 
 **Tasks**:
-- [ ] Vérifier que le montant est affiché en positif
-- [ ] Vérifier que la catégorie est affichée dans "Actif circulant"
-- [ ] Vérifier que le montant correspond au solde final de l'année :
+- [x] Vérifier que le montant est affiché en positif
+- [x] Vérifier que la catégorie est affichée dans "Actif circulant"
+- [x] Vérifier que le montant correspond au solde final de l'année :
   - Solde de la dernière transaction de l'année (au 31/12)
-- [ ] Vérifier que le calcul backend est correct (dernière transaction de l'année)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [x] Vérifier que le calcul backend est correct (dernière transaction de l'année)
+- [x] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
 
 **Deliverables**:
 - Validation de l'affichage "Compte bancaire" dans `BilanTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Montant affiché en positif
-- [ ] Position correcte (dans "Actif circulant")
-- [ ] Montant correspond au solde final de l'année
-- [ ] Montant calculé correctement par le backend
+- [x] Montant affiché en positif
+- [x] Position correcte (dans "Actif circulant")
+- [x] Montant correspond au solde final de l'année
+- [x] Montant calculé correctement par le backend
 
 ---
 
