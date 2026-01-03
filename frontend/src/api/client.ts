@@ -1694,4 +1694,197 @@ export const compteResultatMappingViewsAPI = {
   },
 };
 
+// Bilan API Types
+export interface BilanMapping {
+  id: number;
+  category_name: string;
+  level_1_values: string[] | null;
+  type: string; // "ACTIF" ou "PASSIF"
+  sub_category: string;
+  is_special: boolean;
+  special_source: string | null;
+  amortization_view_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BilanMappingListResponse {
+  mappings: BilanMapping[];
+  total: number;
+}
+
+export interface BilanMappingCreate {
+  category_name: string;
+  level_1_values?: string[] | null;
+  type: string;
+  sub_category: string;
+  is_special?: boolean;
+  special_source?: string | null;
+  amortization_view_id?: number | null;
+}
+
+export interface BilanMappingUpdate {
+  category_name?: string;
+  level_1_values?: string[] | null;
+  type?: string;
+  sub_category?: string;
+  is_special?: boolean;
+  special_source?: string | null;
+  amortization_view_id?: number | null;
+}
+
+export interface BilanData {
+  id: number;
+  annee: number;
+  category_name: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BilanDataListResponse {
+  data: BilanData[];
+  total: number;
+}
+
+export interface BilanCategoryItem {
+  category_name: string;
+  amount: number;
+}
+
+export interface BilanSubCategoryItem {
+  sub_category: string;
+  total: number;
+  categories: BilanCategoryItem[];
+}
+
+export interface BilanTypeItem {
+  type: string;
+  total: number;
+  sub_categories: BilanSubCategoryItem[];
+}
+
+export interface BilanResponse {
+  year: number;
+  types: BilanTypeItem[];
+  equilibre: {
+    actif: number;
+    passif: number;
+    difference: number;
+    percentage: number;
+  };
+}
+
+export interface BilanGenerateRequest {
+  year: number;
+  selected_level_3_values?: string[] | null;
+}
+
+export const bilanAPI = {
+  getMappings: async (): Promise<BilanMappingListResponse> => {
+    return fetchAPI<BilanMappingListResponse>('/api/bilan/mappings');
+  },
+  getMapping: async (id: number): Promise<BilanMapping> => {
+    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}`);
+  },
+  createMapping: async (data: BilanMappingCreate): Promise<BilanMapping> => {
+    return fetchAPI<BilanMapping>('/api/bilan/mappings', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  updateMapping: async (id: number, data: BilanMappingUpdate): Promise<BilanMapping> => {
+    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  deleteMapping: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/bilan/mappings/${id}`, {
+      method: 'DELETE',
+    });
+  },
+  generate: async (year: number, selected_level_3_values?: string[] | null): Promise<BilanResponse> => {
+    return fetchAPI<BilanResponse>('/api/bilan/generate', {
+      method: 'POST',
+      body: JSON.stringify({
+        year,
+        selected_level_3_values: selected_level_3_values || null,
+      }),
+    });
+  },
+  getBilan: async (params?: {
+    year?: number;
+    start_year?: number;
+    end_year?: number;
+  }): Promise<BilanDataListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year !== undefined) queryParams.append('year', params.year.toString());
+    if (params?.start_year !== undefined) queryParams.append('start_year', params.start_year.toString());
+    if (params?.end_year !== undefined) queryParams.append('end_year', params.end_year.toString());
+    
+    const query = queryParams.toString();
+    return fetchAPI<BilanDataListResponse>(`/api/bilan${query ? `?${query}` : ''}`);
+  },
+};
+
+// Bilan Mapping Views API
+export interface BilanMappingView {
+  id: number;
+  name: string;
+  view_data: {
+    mappings: BilanMapping[];
+    selected_level_3_values?: string[];
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BilanMappingViewListResponse {
+  views: BilanMappingView[];
+  total: number;
+}
+
+export interface BilanMappingViewCreate {
+  name: string;
+  view_data: {
+    mappings: BilanMapping[];
+    selected_level_3_values?: string[];
+  };
+}
+
+export interface BilanMappingViewUpdate {
+  name?: string;
+  view_data?: {
+    mappings: BilanMapping[];
+    selected_level_3_values?: string[];
+  };
+}
+
+export const bilanMappingViewsAPI = {
+  getAll: async (): Promise<BilanMappingViewListResponse> => {
+    return fetchAPI<BilanMappingViewListResponse>('/api/bilan/mapping-views');
+  },
+  getById: async (id: number): Promise<BilanMappingView> => {
+    return fetchAPI<BilanMappingView>(`/api/bilan/mapping-views/${id}`);
+  },
+  create: async (data: BilanMappingViewCreate): Promise<BilanMappingView> => {
+    return fetchAPI<BilanMappingView>('/api/bilan/mapping-views', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  update: async (id: number, data: BilanMappingViewUpdate): Promise<BilanMappingView> => {
+    return fetchAPI<BilanMappingView>(`/api/bilan/mapping-views/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/bilan/mapping-views/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 

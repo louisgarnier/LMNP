@@ -119,6 +119,10 @@ async def create_amortization_view(
     from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
     invalidate_all_compte_resultat(db)
     
+    # Invalider tous les bilans (les vues d'amortissement ont changé)
+    from backend.api.services.bilan_service import invalidate_all_bilan
+    invalidate_all_bilan(db)
+    
     return AmortizationViewResponse.model_validate(view)
 
 
@@ -204,6 +208,10 @@ async def delete_amortization_view(
     # Invalider tous les comptes de résultat (les vues d'amortissement ont changé)
     from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
     invalidate_all_compte_resultat(db)
+    
+    # Invalider tous les bilans (les vues d'amortissement ont changé)
+    from backend.api.services.bilan_service import invalidate_all_bilan
+    invalidate_all_bilan(db)
     
     return None
 

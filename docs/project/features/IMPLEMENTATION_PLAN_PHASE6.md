@@ -1834,11 +1834,11 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ### Step 10.1 : Backend - Modèle de données pour le Bilan
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les modèles de base de données pour stocker les mappings et les données du bilan.
 
 **Tasks**:
-- [ ] Créer modèle `BilanMapping` dans `backend/database/models.py`
+- [x] Créer modèle `BilanMapping` dans `backend/database/models.py`
   - `id` (Integer, primary_key)
   - `category_name` (String, unique=False) - Nom de la catégorie comptable (niveau C)
   - `level_1_values` (JSON) - Liste des level_1 mappés à cette catégorie
@@ -1848,40 +1848,40 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - `special_source` (String, nullable) - Source pour les catégories spéciales ("amortizations", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments")
   - `amortization_view_id` (Integer, ForeignKey, nullable) - Pour catégorie "Amortissements cumulés"
   - `created_at`, `updated_at` (DateTime)
-- [ ] Créer modèle `BilanData` dans `backend/database/models.py`
+- [x] Créer modèle `BilanData` dans `backend/database/models.py`
   - `id` (Integer, primary_key)
   - `annee` (Integer, index=True)
   - `category_name` (String, index=True)
   - `amount` (Float)
   - `created_at`, `updated_at` (DateTime)
-- [ ] Créer modèle `BilanMappingView` dans `backend/database/models.py`
+- [x] Créer modèle `BilanMappingView` dans `backend/database/models.py`
   - `id` (Integer, primary_key)
   - `name` (String, unique=True)
   - `view_data` (JSON) - Structure: `{'mappings': [...], 'selected_level_3_values': [...]}`
   - `created_at`, `updated_at` (DateTime)
-- [ ] Créer script de migration `backend/scripts/create_bilan_tables.py`
+- [x] Créer script de migration `backend/scripts/create_bilan_tables.py`
 
 **Deliverables**:
-- Modèles SQLAlchemy dans `backend/database/models.py`
-- Script de migration `backend/scripts/create_bilan_tables.py`
+- ✅ Modèles SQLAlchemy dans `backend/database/models.py`
+- ✅ Script de migration `backend/scripts/create_bilan_tables.py`
 
 **Acceptance Criteria**:
-- [ ] Modèles créés avec tous les champs nécessaires
-- [ ] Index créés pour les recherches fréquentes (category_name, type, sub_category, annee, category_name)
-- [ ] Relations définies si nécessaire (ForeignKey vers amortization_views)
-- [ ] Migration testée - Tables créées avec succès
+- [x] Modèles créés avec tous les champs nécessaires
+- [x] Index créés pour les recherches fréquentes (category_name, type, sub_category, annee, category_name)
+- [x] Relations définies si nécessaire (ForeignKey vers amortization_views)
+- [x] Migration testée - Tables créées avec succès
 
 ---
 
 ### Step 10.2 : Backend - Service de calcul du Bilan
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer le service pour calculer les montants du bilan par catégorie et par année.
 
 **Tasks**:
-- [ ] Créer `backend/api/services/bilan_service.py`
-- [ ] Fonction `get_mappings(db: Session) -> List[BilanMapping]`
-- [ ] Fonction `calculate_bilan(year: int, mappings: List[BilanMapping], selected_level_3_values: List[str], db: Session) -> dict`
+- [x] Créer `backend/api/services/bilan_service.py`
+- [x] Fonction `get_mappings(db: Session) -> List[BilanMapping]`
+- [x] Fonction `calculate_bilan(year: int, mappings: List[BilanMapping], selected_level_3_values: List[str], db: Session) -> dict`
   - Pour chaque mapping :
     - Si `is_special == False` : Calculer depuis transactions enrichies (même logique que compte de résultat)
     - Si `is_special == True` :
@@ -1890,12 +1890,12 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
       - `special_source == "compte_resultat"` : Résultat de l'année depuis compte de résultat
       - `special_source == "compte_resultat_cumul"` : Cumul des résultats précédents
       - `special_source == "loan_payments"` : Capital restant dû au 31/12
-- [ ] Fonction `invalidate_all_bilan(db: Session)` - Marquer toutes les données comme invalides
-- [ ] Fonction `invalidate_bilan_for_year(year: int, db: Session)` - Invalider une année spécifique
-- [ ] Fonction `get_bilan_data(db: Session, year: Optional[int] = None, start_year: Optional[int] = None, end_year: Optional[int] = None) -> List[BilanData]`
-- [ ] Gérer les totaux par niveau (A, B, C)
-- [ ] Calculer l'équilibre ACTIF = PASSIF et le pourcentage de différence
-- [ ] Fonctions auxiliaires pour chaque catégorie spéciale :
+- [x] Fonction `invalidate_all_bilan(db: Session)` - Marquer toutes les données comme invalides
+- [x] Fonction `invalidate_bilan_for_year(year: int, db: Session)` - Invalider une année spécifique
+- [x] Fonction `get_bilan_data(db: Session, year: Optional[int] = None, start_year: Optional[int] = None, end_year: Optional[int] = None) -> List[BilanData]`
+- [x] Gérer les totaux par niveau (A, B, C)
+- [x] Calculer l'équilibre ACTIF = PASSIF et le pourcentage de différence
+- [x] Fonctions auxiliaires pour chaque catégorie spéciale :
   - `calculate_normal_category()` - Catégories normales
   - `calculate_amortizations_cumul()` - Amortissements cumulés
   - `calculate_compte_bancaire()` - Solde bancaire
@@ -1904,104 +1904,104 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - `calculate_capital_restant_du()` - Capital restant dû
 
 **Deliverables**:
-- Fichier `backend/api/services/bilan_service.py`
-- Fonctions de calcul et de gestion des données
-- Test `backend/tests/test_bilan_service_step10_2.py`
+- ✅ Fichier `backend/api/services/bilan_service.py`
+- ✅ Fonctions de calcul et de gestion des données
+- ✅ Test `backend/tests/test_bilan_service_step10_2.py`
 
 **Acceptance Criteria**:
-- [ ] Toutes les catégories normales calculées correctement depuis transactions
-- [ ] Toutes les catégories spéciales calculées correctement depuis leurs sources
-- [ ] Totaux calculés correctement (niveaux A, B, C)
-- [ ] Équilibre ACTIF = PASSIF calculé et validé
-- [ ] Pourcentage de différence calculé
-- [ ] Tous les tests passent
+- [x] Toutes les catégories normales calculées correctement depuis transactions
+- [x] Toutes les catégories spéciales calculées correctement depuis leurs sources
+- [x] Totaux calculés correctement (niveaux A, B, C)
+- [x] Équilibre ACTIF = PASSIF calculé et validé
+- [x] Pourcentage de différence calculé
+- [x] Tous les tests passent
 
 ---
 
 ### Step 10.3 : Backend - Modèles Pydantic pour l'API
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les modèles Pydantic pour les requêtes et réponses API du bilan.
 
 **Tasks**:
-- [ ] Créer `BilanMappingBase`, `BilanMappingCreate`, `BilanMappingUpdate`, `BilanMappingResponse` dans `backend/api/models.py`
-- [ ] Créer `BilanMappingListResponse` pour la liste des mappings
-- [ ] Créer `BilanDataBase`, `BilanDataResponse`, `BilanDataListResponse` dans `backend/api/models.py`
-- [ ] Créer `BilanResponse` avec structure hiérarchique (ACTIF/PASSIF → Sous-catégories → Catégories)
+- [x] Créer `BilanMappingBase`, `BilanMappingCreate`, `BilanMappingUpdate`, `BilanMappingResponse` dans `backend/api/models.py`
+- [x] Créer `BilanMappingListResponse` pour la liste des mappings
+- [x] Créer `BilanDataBase`, `BilanDataResponse`, `BilanDataListResponse` dans `backend/api/models.py`
+- [x] Créer `BilanResponse` avec structure hiérarchique (ACTIF/PASSIF → Sous-catégories → Catégories)
   - `BilanTypeItem` : Type (ACTIF/PASSIF) avec total et sous-catégories
   - `BilanSubCategoryItem` : Sous-catégorie avec total et catégories
   - `BilanCategoryItem` : Catégorie avec montant
-- [ ] Créer `BilanMappingViewCreate`, `BilanMappingViewUpdate`, `BilanMappingViewResponse`, `BilanMappingViewListResponse`
-- [ ] Créer `BilanGenerateRequest` (year, selected_level_3_values)
+- [x] Créer `BilanMappingViewCreate`, `BilanMappingViewUpdate`, `BilanMappingViewResponse`, `BilanMappingViewListResponse`
+- [x] Créer `BilanGenerateRequest` (year, selected_level_3_values)
 
 **Deliverables**:
-- Modèles Pydantic dans `backend/api/models.py`
+- ✅ Modèles Pydantic dans `backend/api/models.py`
 
 **Acceptance Criteria**:
-- [ ] Tous les modèles créés avec validation appropriée
-- [ ] Structure hiérarchique bien représentée (BilanTypeItem → BilanSubCategoryItem → BilanCategoryItem)
-- [ ] Compatibilité avec les catégories spéciales (champs is_special, special_source, amortization_view_id)
-- [ ] Tous les modèles importables sans erreur
+- [x] Tous les modèles créés avec validation appropriée
+- [x] Structure hiérarchique bien représentée (BilanTypeItem → BilanSubCategoryItem → BilanCategoryItem)
+- [x] Compatibilité avec les catégories spéciales (champs is_special, special_source, amortization_view_id)
+- [x] Tous les modèles importables sans erreur
 
 ---
 
 ### Step 10.4 : Backend - Endpoints API pour le Bilan
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les endpoints API pour gérer les mappings, générer le bilan et récupérer les données.
 
 **Tasks**:
-- [ ] Créer `backend/api/routes/bilan.py`
-- [ ] Endpoints CRUD pour `BilanMapping` :
+- [x] Créer `backend/api/routes/bilan.py`
+- [x] Endpoints CRUD pour `BilanMapping` :
   - `GET /api/bilan/mappings` - Liste des mappings
   - `GET /api/bilan/mappings/{mapping_id}` - Détails d'un mapping
   - `POST /api/bilan/mappings` - Créer un mapping
   - `PUT /api/bilan/mappings/{mapping_id}` - Mettre à jour un mapping
   - `DELETE /api/bilan/mappings/{mapping_id}` - Supprimer un mapping
-- [ ] Endpoint pour générer le bilan :
+- [x] Endpoint pour générer le bilan :
   - `POST /api/bilan/generate` - Générer le bilan pour une année (avec structure hiérarchique)
-- [ ] Endpoints pour récupérer les données :
+- [x] Endpoints pour récupérer les données :
   - `GET /api/bilan` - Récupérer les données du bilan (avec filtres year, start_year, end_year)
-- [ ] Endpoints pour les vues :
+- [x] Endpoints pour les vues :
   - `GET /api/bilan/mapping-views` - Liste des vues
   - `GET /api/bilan/mapping-views/{view_id}` - Détails d'une vue
   - `POST /api/bilan/mapping-views` - Créer une vue
   - `PUT /api/bilan/mapping-views/{view_id}` - Mettre à jour une vue
   - `DELETE /api/bilan/mapping-views/{view_id}` - Supprimer une vue
-- [ ] Intégrer les endpoints dans `backend/api/main.py`
-- [ ] Invalidation automatique des données lors de modification des mappings
+- [x] Intégrer les endpoints dans `backend/api/main.py`
+- [x] Invalidation automatique des données lors de modification des mappings
 
 **Deliverables**:
-- Fichier `backend/api/routes/bilan.py`
-- Intégration dans `backend/api/main.py`
-- Test `backend/tests/test_bilan_endpoints_step10_4.py`
+- ✅ Fichier `backend/api/routes/bilan.py`
+- ✅ Intégration dans `backend/api/main.py`
+- ✅ Test `backend/tests/test_bilan_endpoints_step10_4.py`
 
 **Acceptance Criteria**:
-- [ ] Tous les endpoints CRUD fonctionnent correctement
-- [ ] Génération du bilan fonctionne avec toutes les catégories spéciales
-- [ ] Récupération des données avec filtres fonctionne
-- [ ] Gestion des vues fonctionne
-- [ ] Gestion des erreurs appropriée (HTTPException pour erreurs 404, 400)
-- [ ] Structure hiérarchique correctement construite dans la réponse
+- [x] Tous les endpoints CRUD fonctionnent correctement
+- [x] Génération du bilan fonctionne avec toutes les catégories spéciales
+- [x] Récupération des données avec filtres fonctionne
+- [x] Gestion des vues fonctionne
+- [x] Gestion des erreurs appropriée (HTTPException pour erreurs 404, 400)
+- [x] Structure hiérarchique correctement construite dans la réponse
 
 ---
 
 ### Step 10.5 : Backend - Recalcul automatique
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Implémenter le recalcul automatique du bilan quand les données sources changent.
 
 **Tasks**:
-- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des transactions enrichies
-- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des amortissements
-- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification du compte de résultat
-- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des loan payments
-- [ ] Appeler `invalidate_bilan_for_year(year, db)` dans les endpoints de modification des transactions (create, update, delete)
-- [ ] Appeler `invalidate_bilan_for_year(year, db)` dans les endpoints de modification des loan payments (create, update, delete)
-- [ ] Vérifier que le recalcul est déclenché automatiquement
+- [x] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des transactions enrichies
+- [x] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des amortissements
+- [x] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification du compte de résultat
+- [x] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des loan payments
+- [x] Appeler `invalidate_bilan_for_year(year, db)` dans les endpoints de modification des transactions (create, update, delete)
+- [x] Appeler `invalidate_bilan_for_year(year, db)` dans les endpoints de modification des loan payments (create, update, delete)
+- [x] Vérifier que le recalcul est déclenché automatiquement
 
 **Deliverables**:
-- Mise à jour des endpoints concernés :
+- ✅ Mise à jour des endpoints concernés :
   - `backend/api/routes/enrichment.py`
   - `backend/api/routes/transactions.py`
   - `backend/api/routes/loan_payments.py`
@@ -2009,31 +2009,31 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - `backend/api/routes/amortization_views.py`
   - `backend/api/routes/compte_resultat.py`
   - `backend/api/routes/mappings.py`
-- Test `backend/tests/test_bilan_automatic_recalculation_step10_5.py`
+- ✅ Test `backend/tests/test_bilan_automatic_recalculation_step10_5.py`
 
 **Acceptance Criteria**:
-- [ ] Recalcul déclenché lors de la modification des transactions
-- [ ] Recalcul déclenché lors de la modification des amortissements
-- [ ] Recalcul déclenché lors de la modification du compte de résultat
-- [ ] Recalcul déclenché lors de la modification des loan payments
-- [ ] Recalcul déclenché lors de la modification des mappings
+- [x] Recalcul déclenché lors de la modification des transactions
+- [x] Recalcul déclenché lors de la modification des amortissements
+- [x] Recalcul déclenché lors de la modification du compte de résultat
+- [x] Recalcul déclenché lors de la modification des loan payments
+- [x] Recalcul déclenché lors de la modification des mappings
 
 ---
 
 ### Step 10.6 : Frontend - API Client pour le Bilan
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Créer les fonctions API client pour communiquer avec le backend du bilan.
 
 **Tasks**:
-- [ ] Ajouter `bilanAPI` dans `frontend/src/api/client.ts`
-- [ ] Fonctions CRUD pour les mappings :
+- [x] Ajouter `bilanAPI` dans `frontend/src/api/client.ts`
+- [x] Fonctions CRUD pour les mappings :
   - `getMappings()`, `getMapping(id)`, `createMapping(data)`, `updateMapping(id, data)`, `deleteMapping(id)`
-- [ ] Fonctions pour les données :
+- [x] Fonctions pour les données :
   - `generate(year, selected_level_3_values)`, `getBilan(year?, start_year?, end_year?)`
-- [ ] Fonctions pour les vues :
+- [x] Fonctions pour les vues :
   - `getAll()`, `getById(id)`, `create(data)`, `update(id, data)`, `delete(id)` dans `bilanMappingViewsAPI`
-- [ ] Types TypeScript pour les interfaces :
+- [x] Types TypeScript pour les interfaces :
   - `BilanMapping`, `BilanMappingCreate`, `BilanMappingUpdate`, `BilanMappingListResponse`
   - `BilanData`, `BilanDataListResponse`
   - `BilanCategoryItem`, `BilanSubCategoryItem`, `BilanTypeItem`, `BilanResponse`
@@ -2041,13 +2041,13 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
   - `BilanMappingView`, `BilanMappingViewCreate`, `BilanMappingViewUpdate`, `BilanMappingViewListResponse`
 
 **Deliverables**:
-- Mise à jour `frontend/src/api/client.ts`
-- Types TypeScript définis
+- ✅ Mise à jour `frontend/src/api/client.ts`
+- ✅ Types TypeScript définis
 
 **Acceptance Criteria**:
-- [ ] Toutes les fonctions API créées
-- [ ] Types TypeScript corrects (correspondance avec modèles Pydantic backend)
-- [ ] Gestion des erreurs appropriée (utilise fetchAPI avec gestion d'erreurs)
+- [x] Toutes les fonctions API créées
+- [x] Types TypeScript corrects (correspondance avec modèles Pydantic backend)
+- [x] Gestion des erreurs appropriée (utilise fetchAPI avec gestion d'erreurs)
 
 ---
 
@@ -2060,7 +2060,7 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - [ ] Créer `frontend/src/components/BilanConfigCard.tsx`
 - [ ] Structure similaire à `CompteResultatConfigCard.tsx` :
   - Titre "Configuration du bilan" avec bouton pin/unpin
-  - Dropdown multi-select "Level 3 valeurs à inclure dans le bilan" (même fonctionnement que compte de résultat)
+  - Dropdown multi-select "Level 3 valeurs à inclure dans le bilan" (même fonctionnement que compte de résultat) 
   - Table avec colonnes :
     - Type (ACTIF/PASSIF) - Dropdown
     - Sous-catégorie (niveau B) - Dropdown filtré par Type

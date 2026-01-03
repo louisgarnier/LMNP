@@ -388,3 +388,59 @@ class CompteResultatMappingView(Base):
         Index('idx_crmv_name', 'name'),
     )
 
+
+class BilanMapping(Base):
+    """Mapping des level_1 vers les catégories comptables du bilan."""
+    __tablename__ = "bilan_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category_name = Column(String(200), nullable=False, index=True)  # Nom de la catégorie comptable (niveau C)
+    level_1_values = Column(JSON, nullable=True)  # Liste des level_1 mappés à cette catégorie
+    type = Column(String(50), nullable=False, index=True)  # "ACTIF" ou "PASSIF"
+    sub_category = Column(String(200), nullable=False, index=True)  # Sous-catégorie (niveau B)
+    is_special = Column(Boolean, nullable=False, default=False)  # Indique si c'est une catégorie spéciale
+    special_source = Column(String(100), nullable=True)  # Source pour les catégories spéciales ("amortizations", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments")
+    amortization_view_id = Column(Integer, ForeignKey("amortization_views.id"), nullable=True)  # Pour catégorie "Amortissements cumulés"
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_bm_category_name', 'category_name'),
+        Index('idx_bm_type', 'type'),
+        Index('idx_bm_sub_category', 'sub_category'),
+    )
+
+
+class BilanData(Base):
+    """Données générées du bilan par année et catégorie."""
+    __tablename__ = "bilan_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    annee = Column(Integer, nullable=False, index=True)  # Année du bilan
+    category_name = Column(String(200), nullable=False, index=True)  # Nom de la catégorie comptable
+    amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_bd_year_category', 'annee', 'category_name'),
+    )
+
+
+class BilanMappingView(Base):
+    """Vues sauvegardées de configuration des mappings de bilan."""
+    __tablename__ = "bilan_mapping_views"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False, unique=True)  # Nom de la vue (ex: "Configuration 2024")
+    view_data = Column(JSON, nullable=False)  # Données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches
+    __table_args__ = (
+        Index('idx_bmv_name', 'name'),
+    )
+

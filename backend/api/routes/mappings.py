@@ -841,6 +841,10 @@ async def update_mapping(
     from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
     invalidate_all_compte_resultat(db)
     
+    # Invalider tous les bilans (les transactions enrichies ont changé)
+    from backend.api.services.bilan_service import invalidate_all_bilan
+    invalidate_all_bilan(db)
+    
     # Recalculer les amortissements car les classifications ont changé
     from backend.api.services.amortization_service import recalculate_all_amortizations
     recalculate_all_amortizations(db)
@@ -921,6 +925,10 @@ async def delete_mapping(
     # Step 8.6: Invalider les données calculées qui dépendent des transactions enrichies
     from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
     invalidate_all_compte_resultat(db)
+    
+    # Invalider tous les bilans (les transactions enrichies ont changé)
+    from backend.api.services.bilan_service import invalidate_all_bilan
+    invalidate_all_bilan(db)
     
     # Recalculer les amortissements car les classifications ont changé
     from backend.api.services.amortization_service import recalculate_all_amortizations
@@ -1422,6 +1430,10 @@ async def reset_allowed_mappings(
         # Invalider les données calculées
         from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
         invalidate_all_compte_resultat(db)
+        
+        # Invalider tous les bilans (les mappings ont changé)
+        from backend.api.services.bilan_service import invalidate_all_bilan
+        invalidate_all_bilan(db)
         
         # Recalculer les amortissements
         from backend.api.services.amortization_service import recalculate_all_amortizations

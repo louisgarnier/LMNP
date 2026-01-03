@@ -198,6 +198,10 @@ async def delete_compte_resultat_mapping(
     from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
     invalidate_all_compte_resultat(db)
     
+    # Invalider tous les bilans (les mappings ont changé)
+    from backend.api.services.bilan_service import invalidate_all_bilan
+    invalidate_all_bilan(db)
+    
     return None
 
 

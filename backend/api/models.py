@@ -684,3 +684,138 @@ class CompteResultatMappingViewListResponse(BaseModel):
     """Model for list of compte de résultat mapping views."""
     views: List[CompteResultatMappingViewResponse]
     total: int
+
+
+# Bilan Models
+
+class BilanMappingBase(BaseModel):
+    """Base model for bilan mapping."""
+    category_name: str = Field(..., max_length=200, description="Nom de la catégorie comptable (niveau C)")
+    level_1_values: Optional[List[str]] = Field(None, description="Liste des level_1 mappés à cette catégorie")
+    type: str = Field(..., description="Type: 'ACTIF' ou 'PASSIF'")
+    sub_category: str = Field(..., max_length=200, description="Sous-catégorie (niveau B)")
+    is_special: bool = Field(False, description="Indique si c'est une catégorie spéciale")
+    special_source: Optional[str] = Field(None, description="Source pour les catégories spéciales ('amortizations', 'transactions', 'compte_resultat', 'compte_resultat_cumul', 'loan_payments')")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée (pour catégorie 'Amortissements cumulés')")
+
+
+class BilanMappingCreate(BilanMappingBase):
+    """Model for creating a bilan mapping."""
+    pass
+
+
+class BilanMappingUpdate(BaseModel):
+    """Model for updating a bilan mapping."""
+    category_name: Optional[str] = Field(None, max_length=200, description="Nom de la catégorie comptable")
+    level_1_values: Optional[List[str]] = Field(None, description="Liste des level_1 mappés à cette catégorie")
+    type: Optional[str] = Field(None, description="Type: 'ACTIF' ou 'PASSIF'")
+    sub_category: Optional[str] = Field(None, max_length=200, description="Sous-catégorie (niveau B)")
+    is_special: Optional[bool] = Field(None, description="Indique si c'est une catégorie spéciale")
+    special_source: Optional[str] = Field(None, description="Source pour les catégories spéciales")
+    amortization_view_id: Optional[int] = Field(None, description="ID de la vue d'amortissement utilisée")
+
+
+class BilanMappingResponse(BilanMappingBase):
+    """Model for bilan mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BilanMappingListResponse(BaseModel):
+    """Model for list of bilan mappings response."""
+    mappings: List[BilanMappingResponse]
+    total: int
+
+
+class BilanDataBase(BaseModel):
+    """Base model for bilan data."""
+    annee: int = Field(..., description="Année du bilan")
+    category_name: str = Field(..., max_length=200, description="Nom de la catégorie comptable")
+    amount: float = Field(..., description="Montant pour cette catégorie et cette année")
+
+
+class BilanDataResponse(BilanDataBase):
+    """Model for bilan data response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BilanDataListResponse(BaseModel):
+    """Model for list of bilan data response."""
+    data: List[BilanDataResponse]
+    total: int
+
+
+class BilanGenerateRequest(BaseModel):
+    """Model for generating bilan."""
+    year: int = Field(..., description="Année pour laquelle générer le bilan")
+    selected_level_3_values: Optional[List[str]] = Field(None, description="Liste des level_3 à inclure dans le calcul")
+
+
+# Bilan Response Models (structure hiérarchique)
+
+class BilanCategoryItem(BaseModel):
+    """Catégorie comptable (niveau C) avec montant."""
+    category_name: str = Field(..., description="Nom de la catégorie comptable")
+    amount: float = Field(..., description="Montant pour cette catégorie")
+
+
+class BilanSubCategoryItem(BaseModel):
+    """Sous-catégorie (niveau B) avec total et catégories."""
+    sub_category: str = Field(..., description="Nom de la sous-catégorie")
+    total: float = Field(..., description="Total de la sous-catégorie")
+    categories: List[BilanCategoryItem] = Field(..., description="Liste des catégories (niveau C)")
+
+
+class BilanTypeItem(BaseModel):
+    """Type (ACTIF/PASSIF) avec total et sous-catégories."""
+    type: str = Field(..., description="Type: 'ACTIF' ou 'PASSIF'")
+    total: float = Field(..., description="Total du type")
+    sub_categories: List[BilanSubCategoryItem] = Field(..., description="Liste des sous-catégories (niveau B)")
+
+
+class BilanResponse(BaseModel):
+    """Model for bilan response (structure hiérarchique)."""
+    year: int = Field(..., description="Année du bilan")
+    types: List[BilanTypeItem] = Field(..., description="Liste des types (ACTIF, PASSIF)")
+    equilibre: Dict[str, Any] = Field(..., description="Équilibre ACTIF = PASSIF avec différence et pourcentage")
+
+
+# Bilan Mapping Views Models
+
+class BilanMappingViewResponse(BaseModel):
+    """Model for bilan mapping view response."""
+    id: int
+    name: str
+    view_data: dict = Field(..., description="Données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}")
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class BilanMappingViewCreate(BaseModel):
+    """Model for creating a bilan mapping view."""
+    name: str = Field(..., description="Nom de la vue")
+    view_data: dict = Field(..., description="Données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}")
+
+
+class BilanMappingViewUpdate(BaseModel):
+    """Model for updating a bilan mapping view."""
+    name: Optional[str] = Field(None, description="Nouveau nom de la vue")
+    view_data: Optional[dict] = Field(None, description="Nouvelles données JSON de la vue. Structure: {'mappings': [...], 'selected_level_3_values': [...]}")
+
+
+class BilanMappingViewListResponse(BaseModel):
+    """Model for list of bilan mapping views."""
+    views: List[BilanMappingViewResponse]
+    total: int

@@ -470,6 +470,10 @@ async def create_transaction(
     # Invalider le compte de résultat pour l'année de la transaction
     invalidate_compte_resultat_for_year(db_transaction.date.year, db)
     
+    # Invalider le bilan pour l'année de la transaction
+    from backend.api.services.bilan_service import invalidate_bilan_for_year
+    invalidate_bilan_for_year(db_transaction.date.year, db)
+    
     return TransactionResponse.from_orm(db_transaction)
 
 
@@ -531,6 +535,11 @@ async def update_transaction(
     from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_date_range
     invalidate_compte_resultat_for_date_range(min_date, max(old_date, new_date), db)
     
+    # Invalider le bilan pour les années concernées
+    from backend.api.services.bilan_service import invalidate_bilan_for_year
+    for year in range(min_date.year, max(old_date, new_date).year + 1):
+        invalidate_bilan_for_year(year, db)
+    
     db.refresh(db_transaction)
     
     return TransactionResponse.model_validate(db_transaction)
@@ -576,6 +585,10 @@ async def delete_transaction(
     # Invalider le compte de résultat pour l'année de la transaction supprimée
     from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
     invalidate_compte_resultat_for_year(transaction_date.year, db)
+    
+    # Invalider le bilan pour l'année de la transaction supprimée
+    from backend.api.services.bilan_service import invalidate_bilan_for_year
+    invalidate_bilan_for_year(transaction_date.year, db)
     
     return None
 
@@ -967,6 +980,10 @@ async def import_file(
             # Invalider tous les comptes de résultat (les transactions ont changé)
             from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
             invalidate_all_compte_resultat(db)
+            
+            # Invalider tous les bilans (les transactions ont changé)
+            from backend.api.services.bilan_service import invalidate_all_bilan
+            invalidate_all_bilan(db)
             
             # Enrichir automatiquement toutes les transactions insérées
             # Charger les mappings une seule fois pour optimiser

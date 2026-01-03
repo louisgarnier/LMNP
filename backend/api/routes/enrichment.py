@@ -101,6 +101,10 @@ async def update_transaction_classifications(
         from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
         invalidate_all_compte_resultat(db)
         
+        # Invalider le bilan (les transactions enrichies ont changé)
+        from backend.api.services.bilan_service import invalidate_all_bilan
+        invalidate_all_bilan(db)
+        
         # Recalculer les amortissements car les classifications ont changé
         from backend.api.services.amortization_service import recalculate_all_amortizations
         recalculate_all_amortizations(db)
