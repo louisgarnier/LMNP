@@ -2136,23 +2136,23 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ### Step 10.8.2 : Frontend - Affichage niveau B (Sous-catégories) avec totaux
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 **Description**: Ajouter l'affichage des sous-catégories (niveau B) avec leurs totaux calculés.
 
 **Tasks**:
-- [ ] Ajouter les lignes de sous-catégories (niveau B) :
+- [x] Ajouter les lignes de sous-catégories (niveau B) :
   - **Actif immobilisé**
   - **Actif circulant**
   - **Capitaux propres**
   - **Tresorerie passive**
   - **Dettes financières**
-- [ ] Affichage avec indentation simple (ex: `&nbsp;&nbsp;Actif immobilisé`)
-- [ ] Calculer les totaux par sous-catégorie et par année :
+- [x] Affichage avec indentation simple (ex: `&nbsp;&nbsp;Actif immobilisé`)
+- [x] Calculer les totaux par sous-catégorie et par année :
   - Pour chaque sous-catégorie, sommer tous les montants des catégories (niveau C) qui lui appartiennent
   - Gérer les montants négatifs correctement (ex: "Amortissements cumulés" diminue l'actif)
-- [ ] Afficher les totaux en gras
-- [ ] Placer chaque ligne de sous-catégorie juste avant ses catégories (niveau C)
-- [ ] Logique de calcul :
+- [x] Afficher les totaux en gras
+- [x] Placer chaque ligne de sous-catégorie juste avant ses catégories (niveau C)
+- [x] Logique de calcul :
   - **Actif immobilisé** = Immobilisations - Amortissements cumulés
   - **Actif circulant** = Compte bancaire + Créances locataires + Charges payées d'avance
   - **Capitaux propres** = Capitaux propres + Apports initiaux + Souscription de parts sociales + Résultat de l'exercice + Report à nouveau + Compte courant d'associé
@@ -2164,11 +2164,11 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 - Affichage des sous-catégories avec totaux
 
 **Acceptance Criteria**:
-- [ ] Toutes les sous-catégories affichées avec indentation simple
-- [ ] Totaux calculés correctement pour chaque sous-catégorie
-- [ ] Logique de calcul respectée (notamment pour "Actif immobilisé" avec amortissements en diminution)
-- [ ] Totaux affichés en gras
-- [ ] Ordre hiérarchique respecté (sous-catégorie avant ses catégories)
+- [x] Toutes les sous-catégories affichées avec indentation simple
+- [x] Totaux calculés correctement pour chaque sous-catégorie
+- [x] Logique de calcul respectée (notamment pour "Actif immobilisé" avec amortissements en diminution)
+- [x] Totaux affichés en gras
+- [x] Ordre hiérarchique respecté (sous-catégorie avant ses catégories)
 
 ---
 
