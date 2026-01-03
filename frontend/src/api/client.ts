@@ -1731,6 +1731,7 @@ export interface BilanMappingUpdate {
   is_special?: boolean;
   special_source?: string | null;
   amortization_view_id?: number | null;
+  selected_loan_ids?: number[] | null;
 }
 
 export interface BilanData {

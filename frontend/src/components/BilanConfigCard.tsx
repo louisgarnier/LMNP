@@ -1,5 +1,5 @@
 /**
- * CompteResultatConfigCard component - Card de configuration du compte de résultat
+ * BilanConfigCard component - Card de configuration du bilan
  * 
  * ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
  */
@@ -7,54 +7,103 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { compteResultatAPI, CompteResultatMapping, transactionsAPI, compteResultatMappingViewsAPI, CompteResultatMappingView, amortizationViewsAPI, loanConfigsAPI, LoanConfig, allowedMappingsAPI } from '@/api/client';
+import { bilanAPI, BilanMapping, transactionsAPI, bilanMappingViewsAPI, BilanMappingView, amortizationViewsAPI, allowedMappingsAPI } from '@/api/client';
 
-interface CompteResultatConfigCardProps {
+interface BilanConfigCardProps {
   onConfigUpdated?: () => void;
 }
 
-type TypeValue = 'Produits d\'exploitation' | 'Charges d\'exploitation';
+type TypeValue = 'ACTIF' | 'PASSIF';
 
-// Catégories prédéfinies
-const PRODUITS_CATEGORIES = [
-  'Loyers hors charge encaissés',
-  'Charges locatives payées par locataires',
-  'Autres revenus',
+// Sous-catégories par Type
+const ACTIF_SUB_CATEGORIES = [
+  'Actif immobilisé',
+  'Actif circulant',
 ];
 
-const CHARGES_CATEGORIES = [
-  'Charges de copropriété hors fonds travaux',
-  'Fluides non refacturés',
-  'Assurances',
-  'Honoraires',
-  'Travaux et mobilier',
-  'Impôts et taxes',
-  'Charges d\'amortissements',
-  'Autres charges diverses',
-  'Coût du financement (hors remboursement du capital)',
+const PASSIF_SUB_CATEGORIES = [
+  'Capitaux propres',
+  'Trésorerie passive',
+  'Dettes financières',
 ];
 
-// Catégories spéciales (données calculées, pas de mapping level_1/level_2)
+// Catégories comptables par sous-catégorie
+const CATEGORIES_BY_SUB_CATEGORY: Record<string, string[]> = {
+  'Actif immobilisé': [
+    'Immobilisations',
+    'Amortissements cumulés',
+  ],
+  'Actif circulant': [
+    'Compte bancaire',
+    'Créances locataires',
+    'Charges payées d\'avance',
+  ],
+  'Capitaux propres': [
+    'Capitaux propres',
+    'Apports initiaux',
+    'Souscription de parts sociales',
+    'Résultat de l\'exercice (bénéfice / perte)',
+    'Report à nouveau / report du déficit',
+    'Compte courant d\'associé',
+  ],
+  'Trésorerie passive': [
+    'Cautions reçues',
+  ],
+  'Dettes financières': [
+    'Emprunt bancaire (capital restant dû)',
+    'Autres dettes',
+  ],
+};
+
+// Catégories spéciales (données calculées, pas de mapping level_1)
 const SPECIAL_CATEGORIES = [
-  'Charges d\'amortissements',
-  'Coût du financement (hors remboursement du capital)',
+  'Amortissements cumulés',
+  'Compte bancaire',
+  'Résultat de l\'exercice (bénéfice / perte)',
+  'Report à nouveau / report du déficit',
 ];
 
-// Fonction pour déduire le type selon la catégorie
-function getTypeForCategory(categoryName: string): 'Produits d\'exploitation' | 'Charges d\'exploitation' {
-  if (PRODUITS_CATEGORIES.includes(categoryName)) {
-    return 'Produits d\'exploitation';
+// Source pour chaque catégorie spéciale
+const SPECIAL_SOURCE_BY_CATEGORY: Record<string, string> = {
+  'Amortissements cumulés': 'amortizations',
+  'Compte bancaire': 'transactions',
+  'Résultat de l\'exercice (bénéfice / perte)': 'compte_resultat',
+  'Report à nouveau / report du déficit': 'compte_resultat_cumul',
+  'Emprunt bancaire (capital restant dû)': 'loan_payments',
+};
+
+// Fonction pour obtenir la sous-catégorie d'une catégorie comptable
+function getSubCategoryForCategory(categoryName: string): string | null {
+  for (const [subCategory, categories] of Object.entries(CATEGORIES_BY_SUB_CATEGORY)) {
+    if (categories.includes(categoryName)) {
+      return subCategory;
+    }
   }
-  return 'Charges d\'exploitation';
+  return null;
+}
+
+// Fonction pour obtenir le type d'une sous-catégorie
+function getTypeForSubCategory(subCategory: string): TypeValue {
+  if (ACTIF_SUB_CATEGORIES.includes(subCategory)) {
+    return 'ACTIF';
+  }
+  return 'PASSIF';
+}
+
+// Fonction pour obtenir le type d'une catégorie comptable
+function getTypeForCategory(categoryName: string): TypeValue {
+  const subCategory = getSubCategoryForCategory(categoryName);
+  if (!subCategory) return 'ACTIF'; // Par défaut
+  return getTypeForSubCategory(subCategory);
 }
 
 // Fonction pour vérifier si une catégorie est spéciale
 function isSpecialCategory(categoryName: string): boolean {
-  return SPECIAL_CATEGORIES.includes(categoryName);
+  return SPECIAL_CATEGORIES.includes(categoryName) || categoryName === 'Emprunt bancaire (capital restant dû)';
 }
 
-export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResultatConfigCardProps) {
-  const [mappings, setMappings] = useState<CompteResultatMapping[]>([]);
+export default function BilanConfigCard({ onConfigUpdated }: BilanConfigCardProps) {
+  const [mappings, setMappings] = useState<BilanMapping[]>([]);
   const [loading, setLoading] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; mappingId: number } | null>(null);
   // État pour stocker le Type de chaque mapping (pas stocké en backend, uniquement frontend)
@@ -63,25 +112,13 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   const [level1Values, setLevel1Values] = useState<string[]>([]);
   const [editingLevel1Id, setEditingLevel1Id] = useState<number | null>(null);
   // États pour gérer la sélection des level_3 à inclure (Step 9.2)
-  const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>(() => {
-    // Charger l'état depuis localStorage au montage
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('compteResultatConfigCard_selectedLevel3Values');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.warn('⚠️ [CompteResultatConfigCard] Erreur lors du chargement de selectedLevel3Values depuis localStorage:', e);
-          return [];
-        }
-      }
-    }
-    return [];
-  });
+  const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>([]);
   const [availableLevel3Values, setAvailableLevel3Values] = useState<string[]>([]);
   const [loadingLevel3Values, setLoadingLevel3Values] = useState(false);
   const [showLevel3Dropdown, setShowLevel3Dropdown] = useState(false);
   const level3DropdownRef = useRef<HTMLDivElement>(null);
+  // Flag pour éviter de sauvegarder lors du chargement initial depuis localStorage
+  const [isInitialLoad, setIsInitialLoad] = useState<boolean>(true);
   // États pour gérer les vues (Save/Load/Delete) (Step 7.5.10)
   const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
   const [showSaveViewPopup, setShowSaveViewPopup] = useState(false);
@@ -99,34 +136,67 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   // États pour gérer les vues d'amortissement (Step 7.5.11)
   const [amortizationViews, setAmortizationViews] = useState<Array<{ id: number; name: string; level_2_value: string }>>([]);
   const [loadingAmortizationViews, setLoadingAmortizationViews] = useState(false);
-  // États pour gérer les crédits (Step 7.5.12)
-  const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
-  const [loadingLoanConfigs, setLoadingLoanConfigs] = useState(false);
-  const [showLoanDropdown, setShowLoanDropdown] = useState<number | null>(null); // ID du mapping pour lequel le dropdown est ouvert
-  const loanDropdownRef = useRef<HTMLDivElement>(null);
   // État pour gérer le repli/dépli de la card (Step 7.6.8)
-  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
-    // Charger l'état depuis localStorage au montage
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+
+  // Charger selectedLevel3Values depuis localStorage après le montage (évite erreur d'hydratation)
+  useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('compteResultatConfigCard_collapsed');
-      return saved === 'true';
+      const saved = localStorage.getItem('bilanConfigCard_selectedLevel3Values');
+      console.log('🔍 [BilanConfigCard] Chargement depuis localStorage:', saved);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            console.log('✅ [BilanConfigCard] Valeurs chargées depuis localStorage:', parsed);
+            // Charger les valeurs
+            setSelectedLevel3Values(parsed);
+            // Réinitialiser le flag après un court délai pour permettre le rendu et éviter la sauvegarde immédiate
+            setTimeout(() => {
+              console.log('✅ [BilanConfigCard] Fin du chargement initial, activation de la sauvegarde');
+              setIsInitialLoad(false);
+            }, 200);
+          } else {
+            console.log('⚠️ [BilanConfigCard] Valeurs invalides dans localStorage (pas un tableau)');
+            setIsInitialLoad(false);
+          }
+        } catch (e) {
+          console.warn('⚠️ [BilanConfigCard] Erreur lors du chargement de selectedLevel3Values depuis localStorage:', e);
+          setIsInitialLoad(false);
+        }
+      } else {
+        console.log('⚠️ [BilanConfigCard] Aucune valeur trouvée dans localStorage');
+        setIsInitialLoad(false);
+      }
+      
+      // Charger isCollapsed depuis localStorage
+      const savedCollapsed = localStorage.getItem('bilanConfigCard_collapsed');
+      if (savedCollapsed === 'true') {
+        setIsCollapsed(true);
+      }
     }
-    return false;
-  });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Exécuter une seule fois au montage
 
   // Sauvegarder l'état dans localStorage quand il change (Step 7.6.8)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('compteResultatConfigCard_collapsed', String(isCollapsed));
+      localStorage.setItem('bilanConfigCard_collapsed', String(isCollapsed));
     }
   }, [isCollapsed]);
 
   // Sauvegarder selectedLevel3Values dans localStorage quand il change
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('compteResultatConfigCard_selectedLevel3Values', JSON.stringify(selectedLevel3Values));
+      // Ne pas sauvegarder lors du chargement initial
+      if (isInitialLoad) {
+        console.log('⏭️ [BilanConfigCard] Ignorer la sauvegarde (chargement initial), valeurs:', selectedLevel3Values);
+        return;
+      }
+      console.log('💾 [BilanConfigCard] Sauvegarde dans localStorage:', selectedLevel3Values);
+      localStorage.setItem('bilanConfigCard_selectedLevel3Values', JSON.stringify(selectedLevel3Values));
     }
-  }, [selectedLevel3Values]);
+  }, [selectedLevel3Values, isInitialLoad]);
 
   // Charger les mappings et les valeurs level_1 au montage
   useEffect(() => {
@@ -134,7 +204,6 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     loadLevel1Values();
     loadAvailableLevel3Values();
     loadAmortizationViews();
-    loadLoanConfigs();
   }, []);
 
   // Recharger les level_1 quand la sélection de level_3 change (Step 9.3)
@@ -167,70 +236,19 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
             });
           });
         } catch (err) {
-          console.warn(`⚠️ [CompteResultatConfigCard] Erreur lors du chargement des vues pour ${level2}:`, err);
+          console.warn(`⚠️ [BilanConfigCard] Erreur lors du chargement des vues pour ${level2}:`, err);
         }
       }
       
       setAmortizationViews(allViews);
-      console.log('✅ [CompteResultatConfigCard] Vues d\'amortissement chargées:', allViews.length);
+      console.log('✅ [BilanConfigCard] Vues d\'amortissement chargées:', allViews.length);
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des vues d\'amortissement:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors du chargement des vues d\'amortissement:', err);
     } finally {
       setLoadingAmortizationViews(false);
     }
   };
 
-  // Charger les crédits configurés (Step 7.5.12)
-  const loadLoanConfigs = async () => {
-    try {
-      setLoadingLoanConfigs(true);
-      const response = await loanConfigsAPI.getAll();
-      setLoanConfigs(response.configs || []);
-      console.log('✅ [CompteResultatConfigCard] Crédits chargés:', response.configs.length);
-    } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des crédits:', err);
-      setLoanConfigs([]);
-    } finally {
-      setLoadingLoanConfigs(false);
-    }
-  };
-
-  // Gérer le changement de sélection des crédits (Step 7.5.12)
-  const handleLoanSelectionChange = async (mappingId: number, loanId: number, checked: boolean) => {
-    try {
-      const mapping = mappings.find(m => m.id === mappingId);
-      if (!mapping) return;
-
-      const currentSelectedIds = mapping.selected_loan_ids || [];
-      let newSelectedIds: number[];
-
-      if (checked) {
-        // Ajouter le crédit à la sélection
-        newSelectedIds = [...currentSelectedIds, loanId];
-      } else {
-        // Retirer le crédit de la sélection
-        newSelectedIds = currentSelectedIds.filter(id => id !== loanId);
-      }
-
-      console.log('🔄 [CompteResultatConfigCard] Changement de sélection de crédits:', { mappingId, loanId, checked, newSelectedIds });
-      
-      await compteResultatAPI.updateMapping(mappingId, {
-        selected_loan_ids: newSelectedIds.length > 0 ? newSelectedIds : null,
-      });
-      
-      console.log('✅ [CompteResultatConfigCard] Sélection de crédits mise à jour avec succès');
-      
-      // Recharger les mappings
-      await loadMappings();
-      
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
-    } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la mise à jour de la sélection de crédits:', err);
-      alert(`❌ Erreur lors de la mise à jour: ${err.message || 'Erreur inconnue'}`);
-    }
-  };
 
   // Fermer le menu contextuel au clic ailleurs
   useEffect(() => {
@@ -247,25 +265,6 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
       };
     }
   }, [contextMenu]);
-
-  // Fermer le dropdown de crédits au clic ailleurs (Step 7.5.12)
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showLoanDropdown !== null) {
-        const target = event.target as HTMLElement;
-        if (!target.closest('[data-loan-dropdown]')) {
-          setShowLoanDropdown(null);
-        }
-      }
-    };
-
-    if (showLoanDropdown !== null) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => {
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-  }, [showLoanDropdown]);
 
   // Fermer le dropdown Level 3 au clic ailleurs (Step 9.2)
   useEffect(() => {
@@ -286,17 +285,6 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
   }, [showLevel3Dropdown]);
 
-  // Recharger les crédits quand onConfigUpdated est appelé (Step 7.5.12)
-  // Cela permet de mettre à jour la liste des crédits si un crédit est ajouté/supprimé ailleurs
-  useEffect(() => {
-    if (onConfigUpdated) {
-      // Recharger les crédits après un court délai pour laisser le temps aux autres composants de se mettre à jour
-      const timeout = setTimeout(() => {
-        loadLoanConfigs();
-      }, 500);
-      return () => clearTimeout(timeout);
-    }
-  }, [onConfigUpdated]);
 
   // Fermer le menu View au clic ailleurs (Step 7.5.10)
   useEffect(() => {
@@ -318,16 +306,16 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   const loadMappings = async () => {
     try {
       setLoading(true);
-      const response = await compteResultatAPI.getMappings();
+      const response = await bilanAPI.getMappings();
       const loadedMappings = response.mappings || [];
-      console.log('🔄 [CompteResultatConfigCard] Mappings rechargés:', loadedMappings);
+      console.log('🔄 [BilanConfigCard] Mappings rechargés:', loadedMappings);
       setMappings(loadedMappings);
       
       // Initialiser les Types pour chaque mapping (déduit selon la catégorie)
       const initialTypes: Record<number, TypeValue> = {};
       loadedMappings.forEach(mapping => {
         initialTypes[mapping.id] = getTypeForCategory(mapping.category_name);
-        console.log(`🔍 [CompteResultatConfigCard] Mapping ${mapping.id} - level_1_values:`, mapping.level_1_values);
+        console.log(`🔍 [BilanConfigCard] Mapping ${mapping.id} - level_1_values:`, mapping.level_1_values);
       });
       setMappingTypes(initialTypes);
     } catch (err: any) {
@@ -344,7 +332,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     if (!mapping) return;
 
     // Vérifier si la catégorie actuelle est valide pour le nouveau Type
-    const availableCategories = getAvailableCategoriesForType(newType);
+    const availableCategories = getAvailableSubCategoriesForType(newType);
     const currentCategoryValid = availableCategories.includes(mapping.category_name);
 
     // Mettre à jour le Type dans l'état local
@@ -356,17 +344,22 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     // Si la catégorie actuelle n'est plus valide, la réinitialiser à la première catégorie du nouveau Type
     if (!currentCategoryValid) {
       const newCategory = availableCategories[0];
-      console.log(`🔄 [CompteResultatConfigCard] Type changé, réinitialisation de la catégorie à:`, newCategory);
+      console.log(`🔄 [BilanConfigCard] Type changé, réinitialisation de la catégorie à:`, newCategory);
       await handleCategoryChange(mappingId, newCategory);
     }
   };
 
-  // Obtenir les catégories disponibles selon le Type (Step 7.5.4)
-  const getAvailableCategoriesForType = (type: TypeValue): string[] => {
-    if (type === 'Produits d\'exploitation') {
-      return PRODUITS_CATEGORIES;
+  // Obtenir les sous-catégories disponibles selon le Type
+  const getAvailableSubCategoriesForType = (type: TypeValue): string[] => {
+    if (type === 'ACTIF') {
+      return ACTIF_SUB_CATEGORIES;
     }
-    return CHARGES_CATEGORIES;
+    return PASSIF_SUB_CATEGORIES;
+  };
+
+  // Obtenir les catégories comptables disponibles selon la sous-catégorie
+  const getAvailableCategoriesForSubCategory = (subCategory: string): string[] => {
+    return CATEGORIES_BY_SUB_CATEGORY[subCategory] || [];
   };
 
   // Charger les valeurs level_1 disponibles depuis les transactions enrichies (Step 7.5.5)
@@ -375,30 +368,61 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     try {
       // Si aucun level_3 n'est sélectionné, ne pas charger de valeurs
       if (selectedLevel3Values.length === 0) {
-        console.log('⚠️ [CompteResultatConfigCard] Aucun level_3 sélectionné, pas de chargement de level_1');
+        console.log('⚠️ [BilanConfigCard] Aucun level_3 sélectionné, pas de chargement de level_1');
         setLevel1Values([]);
         return;
       }
 
-      console.log('🔍 [CompteResultatConfigCard] Chargement des valeurs level_1 filtrées par level_3:', selectedLevel3Values);
+      console.log('🔍 [BilanConfigCard] Chargement des valeurs level_1 filtrées par level_3:', selectedLevel3Values);
       
-      // 1. Récupérer les level_1 autorisés pour les level_3 sélectionnés
-      const allowedLevel1Values = await allowedMappingsAPI.getAllowedLevel1ForLevel3List(selectedLevel3Values);
-      console.log('✅ [CompteResultatConfigCard] Level_1 autorisés:', allowedLevel1Values);
+      // Récupérer directement les level_1 uniques depuis les transactions qui ont les level_3 sélectionnés
+      // Pour chaque level_3 sélectionné, récupérer les transactions et extraire les level_1 uniques
+      const allLevel1Values = new Set<string>();
       
-      // 2. Récupérer les level_1 qui existent réellement dans les transactions enrichies
-      const transactionLevel1Response = await transactionsAPI.getUniqueValues('level_1');
-      const transactionLevel1Values = transactionLevel1Response.values || [];
-      console.log('✅ [CompteResultatConfigCard] Level_1 dans les transactions:', transactionLevel1Values);
+      for (const level3 of selectedLevel3Values) {
+        try {
+          // Récupérer toutes les transactions avec ce level_3 (pagination si nécessaire)
+          let skip = 0;
+          const limit = 1000; // Limite maximale de l'API
+          let hasMore = true;
+          
+          while (hasMore) {
+            const transactionsResponse = await transactionsAPI.getAll(
+              skip,
+              limit,
+              undefined, // startDate
+              undefined, // endDate
+              undefined, // sortBy
+              undefined, // sortDirection
+              undefined, // unclassifiedOnly
+              undefined, // filterNom
+              undefined, // filterLevel1
+              undefined, // filterLevel2
+              level3 // filterLevel3
+            );
+            
+            // Extraire les level_1 uniques de ces transactions (déjà filtrées par filter_level_3)
+            transactionsResponse.transactions
+              .map((t: { level_1?: string }) => t.level_1)
+              .filter((level1): level1 is string => level1 !== null && level1 !== undefined && level1 !== '')
+              .forEach((level1: string) => allLevel1Values.add(level1));
+            
+            // Vérifier s'il y a plus de transactions à récupérer
+            hasMore = transactionsResponse.transactions.length === limit;
+            skip += limit;
+          }
+        } catch (err) {
+          console.warn(`⚠️ [BilanConfigCard] Erreur lors de la récupération des transactions pour level_3=${level3}:`, err);
+        }
+      }
       
-      // 3. Faire l'intersection : garder uniquement les level_1 qui sont à la fois autorisés ET dans les transactions
-      const filteredValues = allowedLevel1Values.filter(level1 => transactionLevel1Values.includes(level1));
-      console.log('✅ [CompteResultatConfigCard] Level_1 filtrés (autorisés ET dans transactions):', filteredValues);
+      const filteredValues = Array.from(allLevel1Values).sort();
+      console.log('✅ [BilanConfigCard] Level_1 filtrés (depuis transactions avec level_3 sélectionnés):', filteredValues);
       
       setLevel1Values(filteredValues);
-      console.log('✅ [CompteResultatConfigCard] Nombre de valeurs level_1 chargées:', filteredValues.length);
+      console.log('✅ [BilanConfigCard] Nombre de valeurs level_1 chargées:', filteredValues.length);
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des valeurs level_1:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors du chargement des valeurs level_1:', err);
       // Ne pas afficher d'alerte, juste logger l'erreur pour ne pas bloquer l'interface
       setLevel1Values([]);
     }
@@ -408,37 +432,52 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   const loadAvailableLevel3Values = async () => {
     try {
       setLoadingLevel3Values(true);
-      console.log('🔍 [CompteResultatConfigCard] Chargement des valeurs level_3 disponibles...');
+      console.log('🔍 [BilanConfigCard] Chargement des valeurs level_3 disponibles...');
       const values = await allowedMappingsAPI.getAllowedLevel3();
-      console.log('✅ [CompteResultatConfigCard] Valeurs level_3 reçues:', values);
+      console.log('✅ [BilanConfigCard] Valeurs level_3 reçues:', values);
       setAvailableLevel3Values(values);
-      console.log('✅ [CompteResultatConfigCard] Nombre de valeurs level_3 chargées:', values.length);
+      console.log('✅ [BilanConfigCard] Nombre de valeurs level_3 chargées:', values.length);
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des valeurs level_3:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors du chargement des valeurs level_3:', err);
       setAvailableLevel3Values([]);
     } finally {
       setLoadingLevel3Values(false);
     }
   };
 
-  // Gérer le changement de catégorie comptable (Step 7.5.4)
-  const handleCategoryChange = async (mappingId: number, newCategory: string) => {
+  // Gérer le changement de sous-catégorie
+  const handleSubCategoryChange = async (mappingId: number, newSubCategory: string) => {
     const mapping = mappings.find(m => m.id === mappingId);
     if (!mapping) return;
 
     try {
-      console.log(`🔄 [CompteResultatConfigCard] Mise à jour de la catégorie pour le mapping ${mappingId}:`, newCategory);
+      console.log(`🔄 [BilanConfigCard] Mise à jour de la sous-catégorie pour le mapping ${mappingId}:`, newSubCategory);
+      
+      // Obtenir la première catégorie de la nouvelle sous-catégorie
+      const availableCategories = getAvailableCategoriesForSubCategory(newSubCategory);
+      const newCategory = availableCategories[0] || mapping.category_name;
+      const newType = getTypeForSubCategory(newSubCategory);
+      const isSpecial = isSpecialCategory(newCategory);
+      const specialSource = SPECIAL_SOURCE_BY_CATEGORY[newCategory] || null;
       
       // Mettre à jour le mapping via l'API
-      await compteResultatAPI.updateMapping(mappingId, {
+      await bilanAPI.updateMapping(mappingId, {
         category_name: newCategory,
-        // Conserver les valeurs existantes
-        level_1_values: mapping.level_1_values,
-        level_2_values: [],
-        level_3_values: null,
+        type: newType,
+        sub_category: newSubCategory,
+        is_special: isSpecial,
+        special_source: specialSource,
+        // Conserver les valeurs existantes si la catégorie n'est pas spéciale
+        level_1_values: isSpecial ? null : mapping.level_1_values,
       });
       
-      console.log('✅ [CompteResultatConfigCard] Catégorie mise à jour avec succès');
+      console.log('✅ [BilanConfigCard] Sous-catégorie mise à jour avec succès');
+      
+      // Mettre à jour le Type dans l'état local
+      setMappingTypes(prev => ({
+        ...prev,
+        [mappingId]: newType
+      }));
       
       // Recharger les mappings pour avoir les données à jour
       await loadMappings();
@@ -447,7 +486,56 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la mise à jour de la catégorie:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la mise à jour de la sous-catégorie:', err);
+      alert(`❌ Erreur lors de la mise à jour: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Gérer le changement de catégorie comptable
+  const handleCategoryChange = async (mappingId: number, newCategory: string) => {
+    const mapping = mappings.find(m => m.id === mappingId);
+    if (!mapping) return;
+
+    try {
+      console.log(`🔄 [BilanConfigCard] Mise à jour de la catégorie pour le mapping ${mappingId}:`, newCategory);
+      
+      const subCategory = getSubCategoryForCategory(newCategory);
+      if (!subCategory) {
+        alert('❌ Sous-catégorie introuvable pour cette catégorie');
+        return;
+      }
+      
+      const type = getTypeForSubCategory(subCategory);
+      const isSpecial = isSpecialCategory(newCategory);
+      const specialSource = SPECIAL_SOURCE_BY_CATEGORY[newCategory] || null;
+      
+      // Mettre à jour le mapping via l'API
+      await bilanAPI.updateMapping(mappingId, {
+        category_name: newCategory,
+        type: type,
+        sub_category: subCategory,
+        is_special: isSpecial,
+        special_source: specialSource,
+        // Conserver les valeurs existantes si la catégorie n'est pas spéciale
+        level_1_values: isSpecial ? null : mapping.level_1_values,
+      });
+      
+      console.log('✅ [BilanConfigCard] Catégorie mise à jour avec succès');
+      
+      // Mettre à jour le Type dans l'état local
+      setMappingTypes(prev => ({
+        ...prev,
+        [mappingId]: type
+      }));
+      
+      // Recharger les mappings pour avoir les données à jour
+      await loadMappings();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('❌ [BilanConfigCard] Erreur lors de la mise à jour de la catégorie:', err);
       alert(`❌ Erreur lors de la mise à jour: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -465,16 +553,14 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     
     try {
       const updatedValues = [...currentValues, value];
-      console.log('💾 [CompteResultatConfigCard] Ajout de valeur level_1:', value, 'pour mapping:', mappingId, '→', updatedValues);
+      console.log('💾 [BilanConfigCard] Ajout de valeur level_1:', value, 'pour mapping:', mappingId, '→', updatedValues);
       
-      await compteResultatAPI.updateMapping(mappingId, {
+      await bilanAPI.updateMapping(mappingId, {
         category_name: mapping.category_name,
         level_1_values: updatedValues,
-        level_2_values: [],
-        level_3_values: null,
       });
       
-      console.log('✅ [CompteResultatConfigCard] Valeur level_1 ajoutée avec succès');
+      console.log('✅ [BilanConfigCard] Valeur level_1 ajoutée avec succès');
       
       // Recharger les mappings
       await loadMappings();
@@ -483,37 +569,35 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de l\'ajout de la valeur level_1:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de l\'ajout de la valeur level_1:', err);
       alert(`❌ Erreur lors de l'ajout: ${err.message || 'Erreur inconnue'}`);
     }
   };
 
   // Supprimer une valeur level_1 (Step 7.5.5)
   const handleLevel1Remove = async (mappingId: number, value: string) => {
-    console.log('🗑️ [CompteResultatConfigCard] handleLevel1Remove appelé avec:', { mappingId, value });
+    console.log('🗑️ [BilanConfigCard] handleLevel1Remove appelé avec:', { mappingId, value });
     const mapping = mappings.find(m => m.id === mappingId);
     if (!mapping) {
-      console.error('❌ [CompteResultatConfigCard] Mapping non trouvé:', mappingId);
+      console.error('❌ [BilanConfigCard] Mapping non trouvé:', mappingId);
       alert(`❌ Mapping non trouvé pour l'ID: ${mappingId}`);
       return;
     }
     
     try {
       const currentValues = mapping.level_1_values && Array.isArray(mapping.level_1_values) ? mapping.level_1_values : [];
-      console.log('🔍 [CompteResultatConfigCard] Valeurs actuelles level_1:', currentValues);
-      console.log('🔍 [CompteResultatConfigCard] Valeur à supprimer:', value);
+      console.log('🔍 [BilanConfigCard] Valeurs actuelles level_1:', currentValues);
+      console.log('🔍 [BilanConfigCard] Valeur à supprimer:', value);
       const updatedValues = currentValues.filter(v => v !== value);
-      console.log('🔍 [CompteResultatConfigCard] Valeurs après filtrage:', updatedValues);
-      console.log('🗑️ [CompteResultatConfigCard] Suppression de valeur level_1:', value, 'pour mapping:', mappingId, '→', updatedValues);
+      console.log('🔍 [BilanConfigCard] Valeurs après filtrage:', updatedValues);
+      console.log('🗑️ [BilanConfigCard] Suppression de valeur level_1:', value, 'pour mapping:', mappingId, '→', updatedValues);
       
-      await compteResultatAPI.updateMapping(mappingId, {
+      await bilanAPI.updateMapping(mappingId, {
         category_name: mapping.category_name,
         level_1_values: updatedValues.length > 0 ? updatedValues : null,
-        level_2_values: [],
-        level_3_values: null,
       });
       
-      console.log('✅ [CompteResultatConfigCard] Valeur level_1 supprimée avec succès');
+      console.log('✅ [BilanConfigCard] Valeur level_1 supprimée avec succès');
       
       // Recharger les mappings
       await loadMappings();
@@ -522,7 +606,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la suppression de la valeur level_1:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la suppression de la valeur level_1:', err);
       alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -531,17 +615,19 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   // Ajouter une nouvelle catégorie (Step 7.5.7)
   const handleAddCategory = async () => {
     try {
-      // Prendre la première catégorie de "Charges d'exploitation" par défaut
-      const defaultCategory = CHARGES_CATEGORIES[0]; // "Charges de copropriété hors fonds travaux"
+      // Prendre la première catégorie de "ACTIF" par défaut
+      const defaultSubCategory = ACTIF_SUB_CATEGORIES[0]; // "Actif immobilisé"
+      const defaultCategory = CATEGORIES_BY_SUB_CATEGORY[defaultSubCategory][0]; // "Immobilisations"
       
-      console.log('➕ [CompteResultatConfigCard] Création d\'un nouveau mapping...');
-      const newMapping = await compteResultatAPI.createMapping({
+      console.log('➕ [BilanConfigCard] Création d\'un nouveau mapping...');
+      const newMapping = await bilanAPI.createMapping({
         category_name: defaultCategory,
+        type: 'ACTIF',
+        sub_category: defaultSubCategory,
+        is_special: false,
         level_1_values: null,
-        level_2_values: [],
-        level_3_values: null,
       });
-      console.log('✅ [CompteResultatConfigCard] Nouveau mapping créé:', newMapping);
+      console.log('✅ [BilanConfigCard] Nouveau mapping créé:', newMapping);
       
       // Recharger les mappings
       await loadMappings();
@@ -550,7 +636,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la création du mapping:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la création du mapping:', err);
       alert(`❌ Erreur lors de la création: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -583,9 +669,9 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
 
     try {
-      console.log('🗑️ [CompteResultatConfigCard] Suppression du mapping:', mappingId);
-      await compteResultatAPI.deleteMapping(mappingId);
-      console.log('✅ [CompteResultatConfigCard] Mapping supprimé avec succès');
+      console.log('🗑️ [BilanConfigCard] Suppression du mapping:', mappingId);
+      await bilanAPI.deleteMapping(mappingId);
+      console.log('✅ [BilanConfigCard] Mapping supprimé avec succès');
       
       // Recharger les mappings
       await loadMappings();
@@ -594,7 +680,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la suppression:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la suppression:', err);
       alert(`❌ Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
     } finally {
       handleCloseContextMenu();
@@ -610,7 +696,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
 
     try {
-      console.log('💾 [CompteResultatConfigCard] Sauvegarde de la vue:', name);
+      console.log('💾 [BilanConfigCard] Sauvegarde de la vue:', name);
 
       // Préparer les données de la vue (tous les mappings actuels)
       const viewData = {
@@ -625,7 +711,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
       };
 
       // Vérifier si une vue avec le même nom existe déjà
-      const viewsResponse = await compteResultatMappingViewsAPI.getAll();
+      const viewsResponse = await bilanMappingViewsAPI.getAll();
       const existingView = viewsResponse.views.find(v => v.name === name);
 
       if (existingView) {
@@ -637,11 +723,11 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
 
         if (confirmed) {
           // Mettre à jour la vue existante
-          await compteResultatMappingViewsAPI.update(existingView.id, {
+          await bilanMappingViewsAPI.update(existingView.id, {
             view_data: viewData,
           });
 
-          console.log('✅ [CompteResultatConfigCard] Vue écrasée avec succès');
+          console.log('✅ [BilanConfigCard] Vue écrasée avec succès');
 
           // Fermer le popup et réinitialiser
           setShowSaveViewPopup(false);
@@ -650,19 +736,19 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         // Si l'utilisateur annule, on ne fait rien (le popup reste ouvert)
       } else {
         // Aucune vue existante - créer une nouvelle vue
-        await compteResultatMappingViewsAPI.create({
+        await bilanMappingViewsAPI.create({
           name: name,
           view_data: viewData,
         });
 
-        console.log('✅ [CompteResultatConfigCard] Vue sauvegardée avec succès');
+        console.log('✅ [BilanConfigCard] Vue sauvegardée avec succès');
 
         // Fermer le popup et réinitialiser
         setShowSaveViewPopup(false);
         setSaveViewName('');
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la sauvegarde de la vue:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la sauvegarde de la vue:', err);
 
       // Extraire le message d'erreur
       let errorMessage = 'Erreur inconnue';
@@ -690,11 +776,11 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
 
     try {
       setLoadingViews(true);
-      const viewsResponse = await compteResultatMappingViewsAPI.getAll();
+      const viewsResponse = await bilanMappingViewsAPI.getAll();
       setAvailableViews(viewsResponse.views.map(v => ({ id: v.id, name: v.name })));
       setShowLoadViewPopup(true);
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des vues:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors du chargement des vues:', err);
       alert(`❌ Erreur lors du chargement des vues: ${err?.message || 'Erreur inconnue'}`);
     } finally {
       setLoadingViews(false);
@@ -721,32 +807,35 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
 
     try {
       setLoadingView(true);
-      console.log('📥 [CompteResultatConfigCard] Chargement de la vue:', viewId);
+      console.log('📥 [BilanConfigCard] Chargement de la vue:', viewId);
 
       // Récupérer la vue depuis l'API
-      const view = await compteResultatMappingViewsAPI.getById(viewId);
+      const view = await bilanMappingViewsAPI.getById(viewId);
       const viewData = view.view_data;
 
       // Supprimer tous les mappings existants
       for (const mapping of mappings) {
         try {
-          await compteResultatAPI.deleteMapping(mapping.id);
+          await bilanAPI.deleteMapping(mapping.id);
         } catch (err) {
-          console.warn(`⚠️ [CompteResultatConfigCard] Erreur lors de la suppression du mapping ${mapping.id}:`, err);
+          console.warn(`⚠️ [BilanConfigCard] Erreur lors de la suppression du mapping ${mapping.id}:`, err);
         }
       }
 
       // Créer les mappings depuis view_data.mappings
       for (const mappingData of viewData.mappings) {
         try {
-          await compteResultatAPI.createMapping({
+          await bilanAPI.createMapping({
             category_name: mappingData.category_name,
             level_1_values: mappingData.level_1_values,
-            level_2_values: [],
-            level_3_values: null,
+            type: mappingData.type,
+            sub_category: mappingData.sub_category,
+            is_special: mappingData.is_special,
+            special_source: mappingData.special_source,
+            amortization_view_id: mappingData.amortization_view_id,
           });
         } catch (err) {
-          console.error(`❌ [CompteResultatConfigCard] Erreur lors de la création du mapping ${mappingData.category_name}:`, err);
+          console.error(`❌ [BilanConfigCard] Erreur lors de la création du mapping ${mappingData.category_name}:`, err);
         }
       }
 
@@ -756,14 +845,14 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
       // Charger selected_level_3_values depuis view_data (Step 9.2)
       if (viewData.selected_level_3_values && Array.isArray(viewData.selected_level_3_values)) {
         setSelectedLevel3Values(viewData.selected_level_3_values);
-        console.log('✅ [CompteResultatConfigCard] Level 3 sélectionnés chargés:', viewData.selected_level_3_values);
+        console.log('✅ [BilanConfigCard] Level 3 sélectionnés chargés:', viewData.selected_level_3_values);
       } else {
         // Compatibilité avec les vues existantes qui n'ont pas selected_level_3_values
         setSelectedLevel3Values([]);
-        console.log('⚠️ [CompteResultatConfigCard] Aucune sélection Level 3 dans la vue, réinitialisation');
+        console.log('⚠️ [BilanConfigCard] Aucune sélection Level 3 dans la vue, réinitialisation');
       }
 
-      console.log('✅ [CompteResultatConfigCard] Vue chargée avec succès');
+      console.log('✅ [BilanConfigCard] Vue chargée avec succès');
 
       // Fermer le popup
       setShowLoadViewPopup(false);
@@ -774,7 +863,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement de la vue:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors du chargement de la vue:', err);
       alert(`❌ Erreur lors du chargement: ${err?.message || 'Erreur inconnue'}`);
     } finally {
       setLoadingView(false);
@@ -788,11 +877,11 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
 
     try {
       setLoadingViewsForDelete(true);
-      const viewsResponse = await compteResultatMappingViewsAPI.getAll();
+      const viewsResponse = await bilanMappingViewsAPI.getAll();
       setAvailableViewsForDelete(viewsResponse.views.map(v => ({ id: v.id, name: v.name })));
       setShowDeleteViewPopup(true);
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors du chargement des vues:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors du chargement des vues:', err);
       alert(`❌ Erreur lors du chargement des vues: ${err?.message || 'Erreur inconnue'}`);
     } finally {
       setLoadingViewsForDelete(false);
@@ -823,12 +912,12 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     }
 
     try {
-      console.log('🗑️ [CompteResultatConfigCard] Suppression de la vue:', viewId);
+      console.log('🗑️ [BilanConfigCard] Suppression de la vue:', viewId);
 
       // Appeler l'API pour supprimer la vue
-      await compteResultatMappingViewsAPI.delete(viewId);
+      await bilanMappingViewsAPI.delete(viewId);
 
-      console.log('✅ [CompteResultatConfigCard] Vue supprimée avec succès');
+      console.log('✅ [BilanConfigCard] Vue supprimée avec succès');
 
       // Retirer la vue de la liste
       const updatedViews = availableViewsForDelete.filter(v => v.id !== viewId);
@@ -840,7 +929,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         setShowDeleteViewPopup(false);
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la suppression de la vue:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la suppression de la vue:', err);
       alert(`❌ Erreur lors de la suppression: ${err?.message || 'Erreur inconnue'}`);
     }
   };
@@ -848,11 +937,11 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
   // Gérer le changement de vue d'amortissement (Step 7.5.11)
   const handleAmortizationViewChange = async (mappingId: number, viewId: number | null) => {
     try {
-      console.log('🔄 [CompteResultatConfigCard] Changement de vue d\'amortissement:', { mappingId, viewId });
-      await compteResultatAPI.updateMapping(mappingId, {
+      console.log('🔄 [BilanConfigCard] Changement de vue d\'amortissement:', { mappingId, viewId });
+      await bilanAPI.updateMapping(mappingId, {
         amortization_view_id: viewId,
       });
-      console.log('✅ [CompteResultatConfigCard] Vue d\'amortissement mise à jour avec succès');
+      console.log('✅ [BilanConfigCard] Vue d\'amortissement mise à jour avec succès');
       
       // Recharger les mappings
       await loadMappings();
@@ -861,7 +950,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la mise à jour de la vue d\'amortissement:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la mise à jour de la vue d\'amortissement:', err);
       alert(`❌ Erreur lors de la mise à jour: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -879,31 +968,44 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     if (!confirmed) return;
 
     try {
-      console.log(`🔄 [CompteResultatConfigCard] Réinitialisation de tous les mappings...`);
+      console.log(`🔄 [BilanConfigCard] Réinitialisation de tous les mappings...`);
       
       // 1. Supprimer tous les mappings existants
       for (const mapping of mappings) {
-        console.log(`🗑️ [CompteResultatConfigCard] Suppression du mapping ${mapping.id}: ${mapping.category_name}`);
-        await compteResultatAPI.deleteMapping(mapping.id);
+        console.log(`🗑️ [BilanConfigCard] Suppression du mapping ${mapping.id}: ${mapping.category_name}`);
+        await bilanAPI.deleteMapping(mapping.id);
       }
       
-      console.log('✅ [CompteResultatConfigCard] Tous les mappings existants ont été supprimés');
+      console.log('✅ [BilanConfigCard] Tous les mappings existants ont été supprimés');
       
       // 2. Créer les mappings par défaut pour toutes les catégories prédéfinies
-      const allCategories = [...PRODUITS_CATEGORIES, ...CHARGES_CATEGORIES];
-      console.log(`➕ [CompteResultatConfigCard] Création des mappings par défaut pour ${allCategories.length} catégories...`);
+      const allCategories: string[] = [];
+      Object.entries(CATEGORIES_BY_SUB_CATEGORY).forEach(([subCategory, categories]) => {
+        categories.forEach(category => {
+          allCategories.push(category);
+        });
+      });
+      console.log(`➕ [BilanConfigCard] Création des mappings par défaut pour ${allCategories.length} catégories...`);
       
       for (const category of allCategories) {
-        console.log(`➕ [CompteResultatConfigCard] Création du mapping pour: ${category}`);
-        await compteResultatAPI.createMapping({
+        const subCategory = getSubCategoryForCategory(category);
+        if (!subCategory) continue;
+        const type = getTypeForSubCategory(subCategory);
+        const isSpecial = isSpecialCategory(category);
+        const specialSource = SPECIAL_SOURCE_BY_CATEGORY[category] || null;
+        
+        console.log(`➕ [BilanConfigCard] Création du mapping pour: ${category} (${type}, ${subCategory})`);
+        await bilanAPI.createMapping({
           category_name: category,
+          type: type,
+          sub_category: subCategory,
+          is_special: isSpecial,
+          special_source: specialSource,
           level_1_values: null,
-          level_2_values: [],
-          level_3_values: null,
         });
       }
       
-      console.log(`✅ [CompteResultatConfigCard] ${allCategories.length} mappings par défaut créés`);
+      console.log(`✅ [BilanConfigCard] ${allCategories.length} mappings par défaut créés`);
       
       // 3. Recharger les mappings
       await loadMappings();
@@ -912,7 +1014,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('❌ [CompteResultatConfigCard] Erreur lors de la réinitialisation:', err);
+      console.error('❌ [BilanConfigCard] Erreur lors de la réinitialisation:', err);
       alert(`❌ Erreur lors de la réinitialisation: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -937,8 +1039,8 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
     const typeB = mappingTypes[b.id] || getTypeForCategory(b.category_name);
     
     if (typeA !== typeB) {
-      // Produits d'exploitation avant Charges d'exploitation
-      return typeA === 'Produits d\'exploitation' ? -1 : 1;
+      // ACTIF avant PASSIF
+      return typeA === 'ACTIF' ? -1 : 1;
     }
     
     // Même type : trier par nom de catégorie
@@ -963,7 +1065,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h3 style={{ fontSize: '18px', fontWeight: '600', color: '#111827', margin: 0 }}>
-            Configuration du compte de résultat
+            Configuration du bilan
           </h3>
           {/* Bouton pin/unpin (Step 7.6.8) */}
           <button
@@ -1139,7 +1241,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
           {/* Dropdown Level 3 valeurs à inclure (Step 9.2) */}
           <div style={{ marginBottom: '16px', position: 'relative' }} ref={level3DropdownRef}>
             <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: '500', color: '#374151' }}>
-              Level 3 valeurs à inclure dans le compte de résultat
+              Level 3 valeurs à inclure dans le bilan
             </label>
             <div style={{ position: 'relative' }}>
               <button
@@ -1281,6 +1383,15 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                   textAlign: 'left', 
                   fontWeight: '600', 
                   color: '#374151',
+                  width: '15%'
+                }}>
+                  Sous-catégorie
+                </th>
+                <th style={{ 
+                  padding: '12px', 
+                  textAlign: 'left', 
+                  fontWeight: '600', 
+                  color: '#374151',
                   width: '18%'
                 }}>
                   Catégorie comptable
@@ -1339,8 +1450,30 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                           cursor: 'pointer',
                         }}
                       >
-                        <option value="Produits d'exploitation">Produits d'exploitation</option>
-                        <option value="Charges d'exploitation">Charges d'exploitation</option>
+                        <option value="ACTIF">ACTIF</option>
+                        <option value="PASSIF">PASSIF</option>
+                      </select>
+                    </td>
+                    <td style={{ padding: '12px' }}>
+                      <select
+                        value={mapping.sub_category || ''}
+                        onChange={(e) => handleSubCategoryChange(mapping.id, e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '6px 8px',
+                          fontSize: '13px',
+                          border: '1px solid #d1d5db',
+                          borderRadius: '4px',
+                          backgroundColor: '#ffffff',
+                          color: '#374151',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {getAvailableSubCategoriesForType(type).map((subCategory) => (
+                          <option key={subCategory} value={subCategory}>
+                            {subCategory}
+                          </option>
+                        ))}
                       </select>
                     </td>
                     <td style={{ padding: '12px' }}>
@@ -1358,7 +1491,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                           cursor: 'pointer',
                         }}
                       >
-                        {getAvailableCategoriesForType(type).map((category) => (
+                        {getAvailableCategoriesForSubCategory(mapping.sub_category || '').map((category) => (
                           <option key={category} value={category}>
                             {category}
                           </option>
@@ -1391,7 +1524,7 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                                   onClick={(e) => {
                                     e.preventDefault();
                                     e.stopPropagation();
-                                    console.log('🗑️ [CompteResultatConfigCard] Clic sur suppression level_1:', value, 'pour mapping:', mapping.id);
+                                    console.log('🗑️ [BilanConfigCard] Clic sur suppression level_1:', value, 'pour mapping:', mapping.id);
                                     handleLevel1Remove(mapping.id, value);
                                   }}
                                   style={{
@@ -1463,12 +1596,12 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                               return (
                                 <button
                                   onClick={() => {
-                                    console.log('🔍 [CompteResultatConfigCard] Clic sur "+ Ajouter" pour mapping:', mapping.id);
-                                    console.log('🔍 [CompteResultatConfigCard] level1Values:', level1Values);
-                                    console.log('🔍 [CompteResultatConfigCard] mapping.level_1_values:', mapping.level_1_values);
-                                    console.log('🔍 [CompteResultatConfigCard] Valeurs disponibles:', availableValues);
+                                    console.log('🔍 [BilanConfigCard] Clic sur "+ Ajouter" pour mapping:', mapping.id);
+                                    console.log('🔍 [BilanConfigCard] level1Values:', level1Values);
+                                    console.log('🔍 [BilanConfigCard] mapping.level_1_values:', mapping.level_1_values);
+                                    console.log('🔍 [BilanConfigCard] Valeurs disponibles:', availableValues);
                                     if (selectedLevel3Values.length === 0) {
-                                      alert('⚠️ Sélectionnez d\'abord des Level 3 dans le dropdown "Level 3 valeurs à inclure dans le compte de résultat".');
+                                      alert('⚠️ Sélectionnez d\'abord des Level 3 dans le dropdown "Level 3 valeurs à inclure dans le bilan".');
                                     } else if (availableValues.length > 0) {
                                       setEditingLevel1Id(mapping.id);
                                     } else {
@@ -1540,109 +1673,11 @@ export default function CompteResultatConfigCard({ onConfigUpdated }: CompteResu
                             ))}
                           </select>
                         )
-                      ) : mapping.category_name === 'Coût du financement (hors remboursement du capital)' ? (
-                        // Dropdown avec checkboxes pour sélectionner les crédits (Step 7.5.12)
-                        <div style={{ position: 'relative' }} data-loan-dropdown>
-                          {loadingLoanConfigs ? (
-                            <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
-                              Chargement...
-                            </span>
-                          ) : loanConfigs.length === 0 ? (
-                            <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
-                              vue à configurer
-                            </span>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => setShowLoanDropdown(showLoanDropdown === mapping.id ? null : mapping.id)}
-                                style={{
-                                  width: '100%',
-                                  padding: '6px 8px',
-                                  fontSize: '13px',
-                                  border: '1px solid #d1d5db',
-                                  borderRadius: '4px',
-                                  backgroundColor: '#ffffff',
-                                  color: '#374151',
-                                  cursor: 'pointer',
-                                  textAlign: 'left',
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                }}
-                              >
-                                <span>
-                                  {(() => {
-                                    const selectedIds = mapping.selected_loan_ids || [];
-                                    if (selectedIds.length === 0) {
-                                      return 'Sélectionner des crédits...';
-                                    } else if (selectedIds.length === 1) {
-                                      const loan = loanConfigs.find(l => l.id === selectedIds[0]);
-                                      return loan ? loan.name : `${selectedIds.length} crédit sélectionné`;
-                                    } else {
-                                      return `${selectedIds.length} crédits sélectionnés`;
-                                    }
-                                  })()}
-                                </span>
-                                <span style={{ fontSize: '10px' }}>{showLoanDropdown === mapping.id ? '▲' : '▼'}</span>
-                              </button>
-                              {showLoanDropdown === mapping.id && (
-                                <div
-                                  style={{
-                                    position: 'absolute',
-                                    top: '100%',
-                                    left: 0,
-                                    right: 0,
-                                    marginTop: '4px',
-                                    backgroundColor: '#ffffff',
-                                    border: '1px solid #d1d5db',
-                                    borderRadius: '4px',
-                                    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                                    zIndex: 1000,
-                                    maxHeight: '200px',
-                                    overflowY: 'auto',
-                                  }}
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  {loanConfigs.map((loan) => {
-                                    const selectedIds = mapping.selected_loan_ids || [];
-                                    const isChecked = selectedIds.includes(loan.id);
-                                    return (
-                                      <label
-                                        key={loan.id}
-                                        style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          padding: '8px 12px',
-                                          cursor: 'pointer',
-                                          borderBottom: '1px solid #f3f4f6',
-                                        }}
-                                        onMouseEnter={(e) => {
-                                          e.currentTarget.style.backgroundColor = '#f9fafb';
-                                        }}
-                                        onMouseLeave={(e) => {
-                                          e.currentTarget.style.backgroundColor = 'transparent';
-                                        }}
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={isChecked}
-                                          onChange={(e) => {
-                                            handleLoanSelectionChange(mapping.id, loan.id, e.target.checked);
-                                          }}
-                                          style={{
-                                            marginRight: '8px',
-                                            cursor: 'pointer',
-                                          }}
-                                        />
-                                        <span style={{ fontSize: '13px', color: '#374151' }}>{loan.name}</span>
-                                      </label>
-                                    );
-                                  })}
-                                </div>
-                              )}
-                            </>
-                          )}
-                        </div>
+                      ) : mapping.category_name === 'Emprunt bancaire (capital restant dû)' ? (
+                        // Pour "Emprunt bancaire", afficher "Données calculées" (utilise tous les crédits automatiquement)
+                        <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>
+                          Données calculées
+                        </span>
                       ) : (
                         // Pour toutes les autres catégories
                         <span style={{ color: '#9ca3af', fontStyle: 'italic', fontSize: '12px' }}>

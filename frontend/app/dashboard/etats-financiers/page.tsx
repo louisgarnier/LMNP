@@ -14,6 +14,7 @@ import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
 import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 import CompteResultatTable from '@/components/CompteResultatTable';
+import BilanConfigCard from '@/components/BilanConfigCard';
 
 export default function EtatsFinanciersPage() {
   const searchParams = useSearchParams();
@@ -153,9 +154,11 @@ export default function EtatsFinanciersPage() {
               <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', marginBottom: '16px' }}>
                 Bilan
               </h2>
-              <p style={{ color: '#6b7280' }}>
-                Cette section sera implémentée dans Step 7.2
-              </p>
+              <BilanConfigCard 
+                onConfigUpdated={() => {
+                  // TODO: Recharger le tableau quand la config change (Step 10.8)
+                }}
+              />
             </div>
           )}
 
