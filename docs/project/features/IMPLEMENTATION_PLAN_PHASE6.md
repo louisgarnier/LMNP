@@ -1760,210 +1760,641 @@ Ce document contient le plan d'implémentation pour les phases suivantes du proj
 
 ---
 
-## Phase 10 : Bilans et autres états financiers
+## Phase 10 : Implémentation de l'onglet Bilan
 
-### Step 10.1 : Service bilans backend
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Migrer les logiques de `bilan_actif.py` et `bilan_passif.py`.
+**Description**: Créer un nouvel onglet "Bilan" avec une structure similaire au compte de résultat, incluant une card de configuration pour mapper les level_1 aux catégories comptables du bilan et une table pour afficher le bilan par année.
+
+### Structure hiérarchique du Bilan
+
+**Niveau A** : ACTIF / PASSIF (lignes de total)
+
+**Niveau B** : Sous-catégories (lignes de total)
+- ACTIF :
+  - Actif immobilisé
+  - Actif circulant
+- PASSIF :
+  - Capitaux propres
+  - Trésorerie passive
+  - Dettes financières
+
+**Niveau C** : Catégories comptables (mappées avec level_1)
+- **Actif immobilisé** :
+  - Immobilisations (filtre normal)
+  - Amortissements cumulés → **catégorie spéciale**
+- **Actif circulant** :
+  - Compte bancaire → **catégorie spéciale**
+  - Créances locataires (filtre normal)
+  - Charges payées d'avance (filtre normal)
+- **Capitaux propres** :
+  - Capitaux propres (filtre normal)
+  - Apports initiaux (filtre normal)
+  - Souscription de parts sociales (filtre normal)
+  - Résultat de l'exercice (bénéfice / perte) → **catégorie spéciale**
+  - Report à nouveau / report du déficit → **catégorie spéciale**
+  - Compte courant d'associé (filtre normal)
+- **Tresorerie passive** :
+  - Cautions reçues (filtre normal - dépôt de garantie locataire)
+- **Dettes financières** :
+  - Emprunt bancaire (capital restant dû) (filtre normal)
+  - Autres dettes (filtre normal)
+
+### Logique des catégories spéciales
+
+1. **Amortissements cumulés** :
+   - Source : Table `amortizations` (AmortizationResult)
+   - Calcul : Cumul de toutes les années jusqu'à l'année en cours
+   - Affichage : En diminution de l'actif (négatif)
+
+2. **Compte bancaire** :
+   - Source : Table `transactions`
+   - Calcul : Solde final de l'année (solde de la dernière transaction de l'année)
+   - Affichage : Montant positif
+
+3. **Résultat de l'exercice** :
+   - Source : Table `compte_resultat_data` ou calcul depuis CompteResultatService
+   - Calcul : Résultat de l'année en cours depuis le compte de résultat
+   - Affichage : Bénéfice (positif) ou perte (négatif)
+
+4. **Report à nouveau / report du déficit** :
+   - Source : Table `compte_resultat_data` ou calcul depuis CompteResultatService
+   - Calcul : Cumul des résultats des années précédentes (N-1, N-2, etc.)
+   - Première année : 0 (pas de report)
+   - Affichage : Montant cumulé
+
+5. **Emprunt bancaire (capital restant dû)** :
+   - Source : Table `loan_payments` (LoanPayment)
+   - Calcul : Crédit accordé - Cumulé des remboursements de capital (année par année)
+   - Affichage : Montant positif (dette)
+
+### Équilibre ACTIF = PASSIF
+
+- Validation automatique : Afficher un pourcentage de différence sous la ligne total
+- Format : `% Différence : X.XX%` (rouge si différence > 0, vert si = 0)
+
+### Step 10.1 : Backend - Modèle de données pour le Bilan
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer les modèles de base de données pour stocker les mappings et les données du bilan.
 
 **Tasks**:
-- [ ] Ajouter bilans dans financial_statements_service.py
-- [ ] Implémenter bilan actif
-- [ ] Implémenter bilan passif
-- [ ] Implémenter validation équilibre
-- [ ] Créer endpoints POST /api/reports/bilan-actif et /api/reports/bilan-passif
-- [ ] **Créer test complet avec validation équilibre**
-- [ ] **Valider avec l'utilisateur**
+- [ ] Créer modèle `BilanMapping` dans `backend/database/models.py`
+  - `id` (Integer, primary_key)
+  - `category_name` (String, unique=False) - Nom de la catégorie comptable (niveau C)
+  - `level_1_values` (JSON) - Liste des level_1 mappés à cette catégorie
+  - `type` (String) - "ACTIF" ou "PASSIF"
+  - `sub_category` (String) - Sous-catégorie (niveau B)
+  - `is_special` (Boolean) - Indique si c'est une catégorie spéciale
+  - `special_source` (String, nullable) - Source pour les catégories spéciales ("amortizations", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments")
+  - `amortization_view_id` (Integer, ForeignKey, nullable) - Pour catégorie "Amortissements cumulés"
+  - `created_at`, `updated_at` (DateTime)
+- [ ] Créer modèle `BilanData` dans `backend/database/models.py`
+  - `id` (Integer, primary_key)
+  - `annee` (Integer, index=True)
+  - `category_name` (String, index=True)
+  - `amount` (Float)
+  - `created_at`, `updated_at` (DateTime)
+- [ ] Créer modèle `BilanMappingView` dans `backend/database/models.py`
+  - `id` (Integer, primary_key)
+  - `name` (String, unique=True)
+  - `view_data` (JSON) - Structure: `{'mappings': [...], 'selected_level_3_values': [...]}`
+  - `created_at`, `updated_at` (DateTime)
+- [ ] Créer script de migration `backend/scripts/create_bilan_tables.py`
 
 **Deliverables**:
-- Mise à jour `backend/api/services/financial_statements_service.py`
-- Mise à jour `backend/api/routes/reports.py`
-- `backend/tests/test_bilans.py` - Tests bilans
-
-**Tests**:
-- [ ] Test calcul bilan actif
-- [ ] Test calcul bilan passif
-- [ ] Test équilibre Actif = Passif
-- [ ] Test calculs cumulés
-- [ ] Test dettes fin d'année courante
+- Modèles SQLAlchemy dans `backend/database/models.py`
+- Script de migration `backend/scripts/create_bilan_tables.py`
 
 **Acceptance Criteria**:
-- [ ] Bilan actif généré (immobilisations, actif circulant)
-- [ ] Bilan passif généré (capitaux propres, dettes)
-- [ ] Équilibre Actif = Passif validé
-- [ ] Calculs cumulés corrects
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que les bilans sont corrects**
-
-**Impact Frontend**: 
-- [ ] Afficher résultats dans console/logs
-- [ ] Tester génération depuis interface
+- [ ] Modèles créés avec tous les champs nécessaires
+- [ ] Index créés pour les recherches fréquentes (category_name, type, sub_category, annee, category_name)
+- [ ] Relations définies si nécessaire (ForeignKey vers amortization_views)
+- [ ] Migration testée - Tables créées avec succès
 
 ---
 
-### Step 10.2 : Vue bilan frontend
+### Step 10.2 : Backend - Service de calcul du Bilan
+
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Interface pour visualiser les bilans actif et passif.
+**Description**: Créer le service pour calculer les montants du bilan par catégorie et par année.
 
 **Tasks**:
-- [ ] Créer composant BalanceSheet
-- [ ] Créer page vue bilan
-- [ ] Implémenter affichage actif/passif côte à côte
-- [ ] Implémenter vérification équilibre
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [ ] Créer `backend/api/services/bilan_service.py`
+- [ ] Fonction `get_mappings(db: Session) -> List[BilanMapping]`
+- [ ] Fonction `calculate_bilan(year: int, mappings: List[BilanMapping], selected_level_3_values: List[str], db: Session) -> dict`
+  - Pour chaque mapping :
+    - Si `is_special == False` : Calculer depuis transactions enrichies (même logique que compte de résultat)
+    - Si `is_special == True` :
+      - `special_source == "amortizations"` : Cumul des amortissements jusqu'à l'année
+      - `special_source == "transactions"` : Solde final de l'année (dernière transaction)
+      - `special_source == "compte_resultat"` : Résultat de l'année depuis compte de résultat
+      - `special_source == "compte_resultat_cumul"` : Cumul des résultats précédents
+      - `special_source == "loan_payments"` : Capital restant dû au 31/12
+- [ ] Fonction `invalidate_all_bilan(db: Session)` - Marquer toutes les données comme invalides
+- [ ] Fonction `invalidate_bilan_for_year(year: int, db: Session)` - Invalider une année spécifique
+- [ ] Fonction `get_bilan_data(db: Session, year: Optional[int] = None, start_year: Optional[int] = None, end_year: Optional[int] = None) -> List[BilanData]`
+- [ ] Gérer les totaux par niveau (A, B, C)
+- [ ] Calculer l'équilibre ACTIF = PASSIF et le pourcentage de différence
+- [ ] Fonctions auxiliaires pour chaque catégorie spéciale :
+  - `calculate_normal_category()` - Catégories normales
+  - `calculate_amortizations_cumul()` - Amortissements cumulés
+  - `calculate_compte_bancaire()` - Solde bancaire
+  - `calculate_resultat_exercice()` - Résultat de l'exercice
+  - `calculate_report_a_nouveau()` - Report à nouveau
+  - `calculate_capital_restant_du()` - Capital restant dû
 
 **Deliverables**:
-- `frontend/app/dashboard/bilan/page.tsx` - Page bilan
-- `frontend/src/components/BalanceSheet.tsx` - Composant bilan
-
-**Tests**:
-- [ ] Test affichage bilan actif
-- [ ] Test affichage bilan passif
-- [ ] Test vérification équilibre
-- [ ] Test évolution année par année
+- Fichier `backend/api/services/bilan_service.py`
+- Fonctions de calcul et de gestion des données
+- Test `backend/tests/test_bilan_service_step10_2.py`
 
 **Acceptance Criteria**:
-- [ ] Bilan actif et passif affichés côte à côte
-- [ ] Équilibre vérifié et affiché
-- [ ] Évolution année par année visible
-- [ ] **Utilisateur confirme que la vue fonctionne**
-
-**Impact Frontend**: 
-- ✅ Onglet Bilan fonctionnel
-- ✅ Actif et Passif visibles côte à côte
-- ✅ Équilibre validé visuellement
+- [ ] Toutes les catégories normales calculées correctement depuis transactions
+- [ ] Toutes les catégories spéciales calculées correctement depuis leurs sources
+- [ ] Totaux calculés correctement (niveaux A, B, C)
+- [ ] Équilibre ACTIF = PASSIF calculé et validé
+- [ ] Pourcentage de différence calculé
+- [ ] Tous les tests passent
 
 ---
 
-## Phase 11 : Consolidation et autres vues
+### Step 10.3 : Backend - Modèles Pydantic pour l'API
 
-### Step 11.1 : Service consolidation backend
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Migrer la logique de `merge_etats_financiers.py`.
+**Description**: Créer les modèles Pydantic pour les requêtes et réponses API du bilan.
 
 **Tasks**:
-- [ ] Ajouter consolidation dans financial_statements_service.py
-- [ ] Implémenter analyses de cohérence
-- [ ] Implémenter formatage français
-- [ ] Créer endpoint POST /api/reports/consolidation
-- [ ] **Créer test complet**
-- [ ] **Valider avec l'utilisateur**
+- [ ] Créer `BilanMappingBase`, `BilanMappingCreate`, `BilanMappingUpdate`, `BilanMappingResponse` dans `backend/api/models.py`
+- [ ] Créer `BilanMappingListResponse` pour la liste des mappings
+- [ ] Créer `BilanDataBase`, `BilanDataResponse`, `BilanDataListResponse` dans `backend/api/models.py`
+- [ ] Créer `BilanResponse` avec structure hiérarchique (ACTIF/PASSIF → Sous-catégories → Catégories)
+  - `BilanTypeItem` : Type (ACTIF/PASSIF) avec total et sous-catégories
+  - `BilanSubCategoryItem` : Sous-catégorie avec total et catégories
+  - `BilanCategoryItem` : Catégorie avec montant
+- [ ] Créer `BilanMappingViewCreate`, `BilanMappingViewUpdate`, `BilanMappingViewResponse`, `BilanMappingViewListResponse`
+- [ ] Créer `BilanGenerateRequest` (year, selected_level_3_values)
 
 **Deliverables**:
-- Mise à jour `backend/api/services/financial_statements_service.py`
-- Mise à jour `backend/api/routes/reports.py`
-- `backend/tests/test_consolidation.py` - Tests consolidation
-
-**Tests**:
-- [ ] Test consolidation des états
-- [ ] Test analyses de cohérence
-- [ ] Test formatage français
-- [ ] Test détection dernière date
+- Modèles Pydantic dans `backend/api/models.py`
 
 **Acceptance Criteria**:
-- [ ] Consolidation des états financiers fonctionne
-- [ ] Analyses de cohérence calculées
-- [ ] Formatage français appliqué
-- [ ] Test script exécutable et tous les tests passent
-- [ ] **Utilisateur confirme que la consolidation fonctionne**
-
-**Impact Frontend**: 
-- [ ] Afficher résultats dans console/logs
-- [ ] Tester génération depuis interface
+- [ ] Tous les modèles créés avec validation appropriée
+- [ ] Structure hiérarchique bien représentée (BilanTypeItem → BilanSubCategoryItem → BilanCategoryItem)
+- [ ] Compatibilité avec les catégories spéciales (champs is_special, special_source, amortization_view_id)
+- [ ] Tous les modèles importables sans erreur
 
 ---
 
-### Step 11.2 : Vue cashflow frontend
+### Step 10.4 : Backend - Endpoints API pour le Bilan
+
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Interface pour suivre le solde bancaire et vérifier la cohérence.
+**Description**: Créer les endpoints API pour gérer les mappings, générer le bilan et récupérer les données.
 
 **Tasks**:
-- [ ] Créer composant CashflowChart
-- [ ] Créer page vue cashflow
-- [ ] Implémenter évolution solde dans le temps
-- [ ] Implémenter détection écarts
-- [ ] **Créer test visuel dans navigateur**
-- [ ] **Valider avec l'utilisateur**
+- [ ] Créer `backend/api/routes/bilan.py`
+- [ ] Endpoints CRUD pour `BilanMapping` :
+  - `GET /api/bilan/mappings` - Liste des mappings
+  - `GET /api/bilan/mappings/{mapping_id}` - Détails d'un mapping
+  - `POST /api/bilan/mappings` - Créer un mapping
+  - `PUT /api/bilan/mappings/{mapping_id}` - Mettre à jour un mapping
+  - `DELETE /api/bilan/mappings/{mapping_id}` - Supprimer un mapping
+- [ ] Endpoint pour générer le bilan :
+  - `POST /api/bilan/generate` - Générer le bilan pour une année (avec structure hiérarchique)
+- [ ] Endpoints pour récupérer les données :
+  - `GET /api/bilan` - Récupérer les données du bilan (avec filtres year, start_year, end_year)
+- [ ] Endpoints pour les vues :
+  - `GET /api/bilan/mapping-views` - Liste des vues
+  - `GET /api/bilan/mapping-views/{view_id}` - Détails d'une vue
+  - `POST /api/bilan/mapping-views` - Créer une vue
+  - `PUT /api/bilan/mapping-views/{view_id}` - Mettre à jour une vue
+  - `DELETE /api/bilan/mapping-views/{view_id}` - Supprimer une vue
+- [ ] Intégrer les endpoints dans `backend/api/main.py`
+- [ ] Invalidation automatique des données lors de modification des mappings
 
 **Deliverables**:
-- `frontend/app/dashboard/cashflow/page.tsx` - Page cashflow
-- `frontend/src/components/CashflowChart.tsx` - Graphique cashflow
-
-**Tests**:
-- [ ] Test affichage évolution solde
-- [ ] Test détection écarts
-- [ ] Test comparaison avec transactions
+- Fichier `backend/api/routes/bilan.py`
+- Intégration dans `backend/api/main.py`
+- Test `backend/tests/test_bilan_endpoints_step10_4.py`
 
 **Acceptance Criteria**:
-- [ ] Évolution du solde bancaire affichée
-- [ ] Détection des écarts possibles
-- [ ] Comparaison avec transactions
-- [ ] **Utilisateur confirme que la vue fonctionne**
-
-**Impact Frontend**: 
-- ✅ Onglet Cashflow fonctionnel
-- ✅ Graphique évolution solde visible
-- ✅ Détection écarts testée
+- [ ] Tous les endpoints CRUD fonctionnent correctement
+- [ ] Génération du bilan fonctionne avec toutes les catégories spéciales
+- [ ] Récupération des données avec filtres fonctionne
+- [ ] Gestion des vues fonctionne
+- [ ] Gestion des erreurs appropriée (HTTPException pour erreurs 404, 400)
+- [ ] Structure hiérarchique correctement construite dans la réponse
 
 ---
 
+### Step 10.5 : Backend - Recalcul automatique
 
-## Phase 11 : Tests et validation finale
-
-### Step 11.1 : Tests end-to-end
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Tests complets du workflow depuis upload jusqu'aux états financiers.
+**Description**: Implémenter le recalcul automatique du bilan quand les données sources changent.
 
 **Tasks**:
-- [ ] Créer tests E2E backend
-- [ ] Créer tests E2E frontend
-- [ ] Tester workflow complet
-- [ ] Valider tous les calculs
-- [ ] **Valider avec l'utilisateur**
+- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des transactions enrichies
+- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des amortissements
+- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification du compte de résultat
+- [ ] Appeler `invalidate_all_bilan(db)` dans les endpoints de modification des loan payments
+- [ ] Appeler `invalidate_bilan_for_year(year, db)` dans les endpoints de modification des transactions (create, update, delete)
+- [ ] Appeler `invalidate_bilan_for_year(year, db)` dans les endpoints de modification des loan payments (create, update, delete)
+- [ ] Vérifier que le recalcul est déclenché automatiquement
 
 **Deliverables**:
-- `backend/tests/test_e2e.py` - Tests E2E backend
-- `frontend/__tests__/e2e/` - Tests E2E frontend
-
-**Tests**:
-- [ ] Test workflow complet upload → enrichissement → calculs → états
-- [ ] Test validation calculs finaux
-- [ ] Test interface dans différents navigateurs
+- Mise à jour des endpoints concernés :
+  - `backend/api/routes/enrichment.py`
+  - `backend/api/routes/transactions.py`
+  - `backend/api/routes/loan_payments.py`
+  - `backend/api/routes/amortization.py`
+  - `backend/api/routes/amortization_views.py`
+  - `backend/api/routes/compte_resultat.py`
+  - `backend/api/routes/mappings.py`
+- Test `backend/tests/test_bilan_automatic_recalculation_step10_5.py`
 
 **Acceptance Criteria**:
-- [ ] Workflow complet testé
-- [ ] Tous les calculs validés
-- [ ] Interface testée dans différents navigateurs
-- [ ] **Utilisateur confirme que tout fonctionne**
-
-**Impact Frontend**: 
-- ✅ Application complète testée
-- ✅ Tous les onglets fonctionnels
+- [ ] Recalcul déclenché lors de la modification des transactions
+- [ ] Recalcul déclenché lors de la modification des amortissements
+- [ ] Recalcul déclenché lors de la modification du compte de résultat
+- [ ] Recalcul déclenché lors de la modification des loan payments
+- [ ] Recalcul déclenché lors de la modification des mappings
 
 ---
 
-### Step 11.2 : Documentation et finalisation
+### Step 10.6 : Frontend - API Client pour le Bilan
+
 **Status**: ⏸️ EN ATTENTE  
-**Description**: Documentation utilisateur et technique, optimisation finale.
+**Description**: Créer les fonctions API client pour communiquer avec le backend du bilan.
 
 **Tasks**:
-- [ ] Créer guide utilisateur
-- [ ] Mettre à jour README.md
-- [ ] Optimisation finale
-- [ ] **Valider avec l'utilisateur**
+- [ ] Ajouter `bilanAPI` dans `frontend/src/api/client.ts`
+- [ ] Fonctions CRUD pour les mappings :
+  - `getMappings()`, `getMapping(id)`, `createMapping(data)`, `updateMapping(id, data)`, `deleteMapping(id)`
+- [ ] Fonctions pour les données :
+  - `generate(year, selected_level_3_values)`, `getBilan(year?, start_year?, end_year?)`
+- [ ] Fonctions pour les vues :
+  - `getAll()`, `getById(id)`, `create(data)`, `update(id, data)`, `delete(id)` dans `bilanMappingViewsAPI`
+- [ ] Types TypeScript pour les interfaces :
+  - `BilanMapping`, `BilanMappingCreate`, `BilanMappingUpdate`, `BilanMappingListResponse`
+  - `BilanData`, `BilanDataListResponse`
+  - `BilanCategoryItem`, `BilanSubCategoryItem`, `BilanTypeItem`, `BilanResponse`
+  - `BilanGenerateRequest`
+  - `BilanMappingView`, `BilanMappingViewCreate`, `BilanMappingViewUpdate`, `BilanMappingViewListResponse`
 
 **Deliverables**:
-- `docs/guides/user_guide.md` - Guide utilisateur
-- Mise à jour `README.md`
+- Mise à jour `frontend/src/api/client.ts`
+- Types TypeScript définis
 
 **Acceptance Criteria**:
-- [ ] Documentation complète
-- [ ] Application prête pour utilisation
-- [ ] **Utilisateur confirme que tout est prêt**
+- [ ] Toutes les fonctions API créées
+- [ ] Types TypeScript corrects (correspondance avec modèles Pydantic backend)
+- [ ] Gestion des erreurs appropriée (utilise fetchAPI avec gestion d'erreurs)
 
 ---
 
+### Step 10.7 : Frontend - Card de configuration du Bilan
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la card de configuration pour mapper les level_1 aux catégories comptables du bilan.
+
+**Tasks**:
+- [ ] Créer `frontend/src/components/BilanConfigCard.tsx`
+- [ ] Structure similaire à `CompteResultatConfigCard.tsx` :
+  - Titre "Configuration du bilan" avec bouton pin/unpin
+  - Dropdown multi-select "Level 3 valeurs à inclure dans le bilan" (même fonctionnement que compte de résultat)
+  - Table avec colonnes :
+    - Type (ACTIF/PASSIF) - Dropdown
+    - Sous-catégorie (niveau B) - Dropdown filtré par Type
+    - Catégorie comptable (niveau C) - Dropdown filtré par Sous-catégorie
+    - Level 1 (valeurs) - Tags avec dropdown filtré par Level 3 sélectionnés
+    - Vue (pour catégories spéciales) - Dropdown ou "Données calculées"
+  - Bouton "+ Ajouter une catégorie"
+  - Bouton "Réinitialiser les mappings"
+  - Bouton gear (save/load/delete views)
+- [ ] Gérer les catégories spéciales :
+  - Amortissements cumulés : Dropdown avec vues d'amortissement
+  - Compte bancaire : "Données calculées"
+  - Résultat de l'exercice : "Données calculées"
+  - Report à nouveau : "Données calculées"
+- [ ] Sauvegarder/charger les vues avec `selected_level_3_values`
+- [ ] Filtrage du dropdown Level 1 par Level 3 sélectionnés (même logique que compte de résultat)
+- [ ] Tri des lignes par Type puis Sous-catégorie puis Catégorie
+
+**Deliverables**:
+- Fichier `frontend/src/components/BilanConfigCard.tsx`
+
+**Acceptance Criteria**:
+- [ ] Card fonctionne comme CompteResultatConfigCard
+- [ ] Dropdown Level 3 fonctionne
+- [ ] Filtrage Level 1 par Level 3 fonctionne
+- [ ] Catégories spéciales gérées correctement
+- [ ] Sauvegarde/chargement des vues fonctionne
+- [ ] Pin/unpin fonctionne
+
+---
+
+### Step 10.8 : Frontend - Table d'affichage du Bilan
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la table pour afficher le bilan avec structure hiérarchique et colonnes par année. Décomposé en sous-steps pour valider chaque niveau hiérarchique.
+
+---
+
+### Step 10.8.1 : Frontend - Structure de base et affichage niveau C (Catégories)
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la structure de base de la table et afficher les catégories comptables (niveau C) avec leurs montants par année.
+
+**Tasks**:
+- [ ] Créer `frontend/src/components/BilanTable.tsx`
+- [ ] Structure de base similaire à `CompteResultatTable.tsx` :
+  - Colonne "Bilan" (catégories)
+  - Colonnes par année (dynamiques, basées sur les données disponibles)
+- [ ] Récupérer les données du bilan depuis l'API (`bilanAPI.getBilan()`)
+- [ ] Grouper les données par catégorie comptable (niveau C)
+- [ ] Afficher chaque catégorie (niveau C) :
+  - Double indentation (ex: `&nbsp;&nbsp;&nbsp;&nbsp;Immobilisations`)
+  - Montant par année dans les colonnes correspondantes
+  - Formatage des montants en € (ex: `1 234,56 €`)
+  - Affichage des montants négatifs en rouge (pour "Amortissements cumulés")
+- [ ] Trier les catégories par Type (ACTIF, CAPITAUX PROPRES, puis PASSIF), puis par Sous-catégorie, puis par Catégorie
+
+**Deliverables**:
+- Fichier `frontend/src/components/BilanTable.tsx` avec structure de base
+- Affichage des catégories niveau C
+
+**Acceptance Criteria**:
+- [ ] Table créée avec colonnes dynamiques par année
+- [ ] Catégories niveau C affichées avec double indentation
+- [ ] Montants affichés correctement par année
+- [ ] Formatage € correct
+- [ ] Montants négatifs en rouge pour "Amortissements cumulés"
+- [ ] Tri correct (ACTIF puis PASSIF, puis sous-catégories, puis catégories)
+
+---
+
+### Step 10.8.2 : Frontend - Affichage niveau B (Sous-catégories) avec totaux
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter l'affichage des sous-catégories (niveau B) avec leurs totaux calculés.
+
+**Tasks**:
+- [ ] Ajouter les lignes de sous-catégories (niveau B) :
+  - **Actif immobilisé**
+  - **Actif circulant**
+  - **Capitaux propres**
+  - **Tresorerie passive**
+  - **Dettes financières**
+- [ ] Affichage avec indentation simple (ex: `&nbsp;&nbsp;Actif immobilisé`)
+- [ ] Calculer les totaux par sous-catégorie et par année :
+  - Pour chaque sous-catégorie, sommer tous les montants des catégories (niveau C) qui lui appartiennent
+  - Gérer les montants négatifs correctement (ex: "Amortissements cumulés" diminue l'actif)
+- [ ] Afficher les totaux en gras
+- [ ] Placer chaque ligne de sous-catégorie juste avant ses catégories (niveau C)
+- [ ] Logique de calcul :
+  - **Actif immobilisé** = Immobilisations - Amortissements cumulés
+  - **Actif circulant** = Compte bancaire + Créances locataires + Charges payées d'avance
+  - **Capitaux propres** = Capitaux propres + Apports initiaux + Souscription de parts sociales + Résultat de l'exercice + Report à nouveau + Compte courant d'associé
+  - **Tresorerie passive** = Cautions
+  - **Dettes financières** = Emprunt bancaire + Autres dettes
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/BilanTable.tsx`
+- Affichage des sous-catégories avec totaux
+
+**Acceptance Criteria**:
+- [ ] Toutes les sous-catégories affichées avec indentation simple
+- [ ] Totaux calculés correctement pour chaque sous-catégorie
+- [ ] Logique de calcul respectée (notamment pour "Actif immobilisé" avec amortissements en diminution)
+- [ ] Totaux affichés en gras
+- [ ] Ordre hiérarchique respecté (sous-catégorie avant ses catégories)
+
+---
+
+### Step 10.8.3 : Frontend - Affichage niveau A (ACTIF/PASSIF) avec totaux
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter l'affichage des niveaux A (ACTIF et PASSIF) avec leurs totaux calculés.
+
+**Tasks**:
+- [ ] Ajouter les lignes de niveau A :
+  - **ACTIF** (en haut)
+  - **PASSIF** (en bas)
+- [ ] Affichage sans indentation, en gras, style titre (fond gris)
+- [ ] Calculer les totaux par niveau A et par année :
+  - **TOTAL ACTIF** = Actif immobilisé + Actif circulant
+  - **TOTAL PASSIF** = Capitaux propres + Tresorerie passive + Dettes financières
+- [ ] Afficher les lignes de niveau A :
+  - Ligne "ACTIF" juste avant "Actif immobilisé"
+  - Ligne "PASSIF" juste avant "Capitaux propres"
+- [ ] Style des lignes de niveau A :
+  - Fond légèrement gris (#e5e7eb)
+  - Texte en gras (fontWeight: '700')
+  - Bordure supérieure et inférieure
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/BilanTable.tsx`
+- Affichage des niveaux A avec totaux
+
+**Acceptance Criteria**:
+- [ ] Lignes ACTIF et PASSIF affichées correctement
+- [ ] Totaux ACTIF et PASSIF calculés correctement
+- [ ] Style visuel distinct pour les niveaux A (fond gris, texte en gras)
+- [ ] Ordre hiérarchique respecté (ACTIF en haut, PASSIF en bas)
+
+---
+
+### Step 10.8.4 : Frontend - Gestion des catégories spéciales dans l'affichage
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: S'assurer que les catégories spéciales sont affichées correctement avec leurs calculs spécifiques.
+
+**Tasks**:
+- [ ] Vérifier l'affichage de **Amortissements cumulés** :
+  - Montant négatif (en rouge)
+  - Affiché sous "Immobilisations"
+  - Contribue à diminuer "Actif immobilisé" (Immobilisations - Amortissements cumulés)
+- [ ] Vérifier l'affichage de **Compte bancaire** :
+  - Montant positif
+  - Solde final de l'année (dernière transaction de l'année)
+  - Affiché dans "Actif circulant"
+- [ ] Vérifier l'affichage de **Résultat de l'exercice** :
+  - Montant positif (bénéfice) ou négatif (perte)
+  - Récupéré depuis le compte de résultat pour l'année en cours (utilise `resultat_net`)
+  - Affiché dans "Capitaux propres"
+- [ ] Vérifier l'affichage de **Report à nouveau** :
+  - Montant cumulé des années précédentes
+  - Première année : 0 (pas de report)
+  - Affiché dans "Capitaux propres"
+- [ ] Vérifier l'affichage de **Emprunt bancaire** :
+  - Montant positif (dette)
+  - Calculé : Crédit accordé - Cumulé des remboursements de capital
+  - Affiché dans "Dettes financières"
+- [ ] Ajouter des indicateurs visuels si nécessaire (icônes, badges) pour identifier les catégories spéciales
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/BilanTable.tsx`
+- Validation de l'affichage des catégories spéciales
+
+**Acceptance Criteria**:
+- [ ] Amortissements cumulés affichés en négatif et en rouge
+- [ ] Compte bancaire affiche le solde final de l'année
+- [ ] Résultat de l'exercice récupéré depuis le compte de résultat
+- [ ] Report à nouveau calculé correctement (cumul des années précédentes)
+- [ ] Emprunt bancaire affiche le capital restant dû correctement
+- [ ] Toutes les catégories spéciales contribuent correctement aux totaux
+
+---
+
+### Step 10.8.5 : Frontend - Validation équilibre ACTIF = PASSIF avec % de différence
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Ajouter la validation de l'équilibre ACTIF = PASSIF et afficher le pourcentage de différence.
+
+**Tasks**:
+- [ ] Ajouter une ligne "ÉQUILIBRE" ou "% Différence" après "TOTAL PASSIF"
+- [ ] Calculer la différence pour chaque année :
+  - `différence = TOTAL ACTIF - TOTAL PASSIF`
+  - `pourcentage = (différence / TOTAL ACTIF) * 100` (si TOTAL ACTIF > 0)
+- [ ] Afficher le pourcentage de différence :
+  - Format : `% Différence : X.XX%`
+  - Si différence = 0 : Vert, texte "Équilibre respecté ✓"
+  - Si différence > 0 : Rouge, afficher le pourcentage
+  - Si TOTAL ACTIF = 0 : Afficher "N/A"
+- [ ] Style de la ligne :
+  - Fond légèrement coloré (vert si équilibré, rouge si déséquilibré)
+  - Texte en gras
+  - Bordure supérieure épaisse
+- [ ] Ajouter un message d'alerte si déséquilibré :
+  - Afficher un warning si différence > 0.01% (tolérance pour arrondis)
+  - Message : "⚠️ Attention : Le bilan n'est pas équilibré. Vérifiez les calculs."
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/BilanTable.tsx`
+- Validation de l'équilibre avec indicateur visuel
+
+**Acceptance Criteria**:
+- [ ] Différence calculée correctement pour chaque année
+- [ ] Pourcentage de différence calculé et affiché
+- [ ] Indicateur visuel (vert/rouge) selon l'équilibre
+- [ ] Message d'alerte si déséquilibré
+- [ ] Tolérance pour les arrondis (0.01%)
+
+---
+
+### Step 10.8.6 : Frontend - Formatage et finitions
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Finaliser le formatage, les styles et la présentation de la table.
+
+**Tasks**:
+- [ ] Formatage des montants :
+  - Format français : `1 234,56 €`
+  - Alignement à droite pour les colonnes de montants
+  - Zéro affiché comme `0,00 €` (pas de cellule vide)
+- [ ] Styles et espacements :
+  - Indentation cohérente pour chaque niveau (A: 0px, B: 20px, C: 40px)
+  - Espacement vertical entre les sections (ACTIF et PASSIF)
+  - Bordures et séparateurs visuels
+- [ ] Responsive design :
+  - Table scrollable horizontalement si trop de colonnes (années)
+  - Colonne "Bilan" fixe lors du scroll horizontal
+- [ ] Améliorations UX :
+  - Tooltip sur les catégories spéciales expliquant leur calcul
+  - Highlight au survol des lignes
+  - Alternance de couleurs pour les lignes (zebrage léger)
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/BilanTable.tsx`
+- Table finalisée avec tous les styles
+
+**Acceptance Criteria**:
+- [ ] Formatage des montants cohérent et correct
+- [ ] Styles visuels clairs et hiérarchie bien visible
+- [ ] Table responsive et scrollable si nécessaire
+- [ ] UX améliorée avec tooltips et highlights
+- [ ] Présentation professionnelle et lisible
+
+---
+
+### Step 10.9 : Frontend - Page Bilan
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Créer la page principale de l'onglet Bilan.
+
+**Tasks**:
+- [ ] Créer `frontend/app/dashboard/bilan/page.tsx`
+- [ ] Intégrer `BilanConfigCard` et `BilanTable`
+- [ ] Gérer le rechargement des données après modification de la configuration
+- [ ] Ajouter l'onglet "Bilan" dans la navigation principale
+
+**Deliverables**:
+- Fichier `frontend/app/dashboard/bilan/page.tsx`
+- Mise à jour de la navigation
+
+**Acceptance Criteria**:
+- [ ] Page fonctionne correctement
+- [ ] Card et table intégrées
+- [ ] Rechargement automatique après modification
+- [ ] Navigation mise à jour
+
+---
+
+### Step 10.10 : Test et validation
+
+**Status**: ⏸️ EN ATTENTE  
+**Description**: Tester l'ensemble des fonctionnalités du bilan.
+
+**Tasks**:
+- [ ] Tester la création/modification/suppression des mappings
+- [ ] Tester le filtrage par Level 3
+- [ ] Tester le calcul des catégories normales
+- [ ] Tester le calcul des catégories spéciales
+- [ ] Tester l'affichage hiérarchique
+- [ ] Tester l'équilibre ACTIF = PASSIF
+- [ ] Tester la sauvegarde/chargement des vues
+- [ ] Tester le recalcul automatique
+- [ ] **Test complet de bout en bout validé**
+
+**Deliverables**:
+- Tests manuels dans le navigateur
+- Validation que tous les calculs sont corrects
+
+**Acceptance Criteria**:
+- [ ] Toutes les fonctionnalités fonctionnent correctement
+- [ ] Tous les calculs sont corrects
+- [ ] Équilibre ACTIF = PASSIF validé
+- [ ] **Utilisateur confirme que tout fonctionne correctement**
+
+---
+
+**Phase 10 - Acceptance Criteria globaux**:
+- [ ] Modèles de données créés
+- [ ] Service de calcul fonctionne pour toutes les catégories
+- [ ] Endpoints API fonctionnent
+- [ ] Card de configuration fonctionne avec filtrage Level 3
+- [ ] Table d'affichage avec structure hiérarchique fonctionne
+- [ ] Équilibre ACTIF = PASSIF validé
+- [ ] Recalcul automatique fonctionne
+- [ ] **Test complet de bout en bout validé**
+
+---
+
+## Notes importantes
+
+⚠️ **Rappel Best Practices**:
+- Ne jamais cocher [x] avant que les tests soient créés ET exécutés ET validés
+- Toujours créer un test script (.py) après chaque implémentation
+- Toujours proposer le test à l'utilisateur avant exécution
+- Toujours montrer l'impact frontend à chaque étape
+- Ne cocher [x] qu'après confirmation explicite de l'utilisateur
+
+**Légende Status**:
+- ⏸️ EN ATTENTE - Pas encore commencé
+- ⏳ EN COURS - En cours d'implémentation
+- ✅ COMPLÉTÉ - Terminé et validé par l'utilisateur
+
+
+---
 ## Notes importantes
 
 ⚠️ **Rappel Best Practices**:
