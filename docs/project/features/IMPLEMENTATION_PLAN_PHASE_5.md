@@ -176,13 +176,13 @@
 
 ### Step 5.3 : Backend - Validation des mappings importés
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Modifier l'endpoint d'import de mappings pour valider les valeurs contre la table `allowed_mappings`. Le bouton "Load mapping" reste exactement le même, seule la validation change.
 
 **Tasks**:
 
-- [ ] Modifier `POST /api/mappings/import` dans `backend/api/routes/mappings.py` :
+- [x] Modifier `POST /api/mappings/import` dans `backend/api/routes/mappings.py` :
 
   - **Le workflow reste identique** : détection de colonnes, preview, import
 
@@ -200,11 +200,11 @@
 
   - Si toutes les valeurs sont valides, créer le mapping comme avant (pas de changement ici)
 
-- [ ] Mettre à jour le modèle de réponse `MappingImportResponse` pour inclure les détails des erreurs
+- [x] Validation de level_3 contre la liste fixe (Passif, Produits, Emprunt, Charges Déductibles, Actif)
 
-- [ ] Logger les erreurs de validation dans les logs backend avec "erreur - mapping inconnu"
+- [x] Logger les erreurs de validation dans les logs backend avec "erreur - mapping inconnu"
 
-- [ ] **Tester avec un fichier contenant des valeurs valides et invalides**
+- [x] **Tester avec un fichier contenant des valeurs valides et invalides**
 
 **Deliverables**:
 
@@ -214,17 +214,21 @@
 
 **Acceptance Criteria**:
 
-- [ ] Le bouton "Load mapping" fonctionne exactement comme avant (même interface, même workflow)
+- [x] Le bouton "Load mapping" fonctionne exactement comme avant (même interface, même workflow)
 
-- [ ] Les lignes avec valeurs invalides sont ignorées (pas de mapping créé)
+- [x] Les lignes avec valeurs invalides sont ignorées (pas de mapping créé)
 
-- [ ] Les erreurs sont loggées avec "erreur - mapping inconnu"
+- [x] Les erreurs sont loggées avec "erreur - mapping inconnu"
 
-- [ ] Les statistiques d'import incluent le nombre d'erreurs
+- [x] Les statistiques d'import incluent le nombre d'erreurs
 
-- [ ] Les lignes valides sont importées normalement
+- [x] Les lignes valides sont importées normalement
 
-- [ ] **Test avec fichier mixte (valides + invalides) validé**
+- [x] Validation de level_3 contre la liste fixe fonctionne
+
+- [x] **Test avec fichier mixte (valides + invalides) validé**
+
+- [x] **Test API : 1 mapping valide importé, 1 mapping invalide rejeté avec message "erreur - mapping inconnu"**
 
 ---
 

@@ -11,6 +11,7 @@ from typing import List, Optional, Dict
 import pandas as pd
 import io
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 
@@ -34,10 +35,13 @@ from backend.api.services.enrichment_service import enrich_transaction, transact
 from backend.api.services.mapping_obligatoire_service import (
     get_allowed_level1_values,
     get_allowed_level2_values,
-    get_allowed_level3_values
+    get_allowed_level3_values,
+    validate_mapping,
+    validate_level3_value
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def detect_mapping_columns(df: pd.DataFrame) -> Dict[str, str]:
@@ -327,6 +331,37 @@ async def import_mapping_file(
                         level_3=level_3_value if level_3_value else None,
                         error_message="Le champ 'level_2' est obligatoire et ne peut pas être vide"
                     ))
+                    continue
+                
+                # Validation contre allowed_mappings (Step 5.3)
+                # Valider que level_3 est dans la liste fixe si fourni
+                if level_3_value and not validate_level3_value(level_3_value):
+                    errors_count += 1
+                    errors_list.append(MappingError(
+                        line_number=line_number,
+                        nom=nom_value,
+                        level_1=level_1_value,
+                        level_2=level_2_value,
+                        level_3=level_3_value,
+                        error_message="erreur - mapping inconnu"
+                    ))
+                    # Logger l'erreur
+                    logger.warning(f"Ligne {line_number}: erreur - mapping inconnu (level_3 invalide: '{level_3_value}')")
+                    continue
+                
+                # Valider que la combinaison (level_1, level_2, level_3) existe dans allowed_mappings
+                if not validate_mapping(db, level_1_value, level_2_value, level_3_value if level_3_value else None):
+                    errors_count += 1
+                    errors_list.append(MappingError(
+                        line_number=line_number,
+                        nom=nom_value,
+                        level_1=level_1_value,
+                        level_2=level_2_value,
+                        level_3=level_3_value if level_3_value else None,
+                        error_message="erreur - mapping inconnu"
+                    ))
+                    # Logger l'erreur
+                    logger.warning(f"Ligne {line_number}: erreur - mapping inconnu (combinaison non autorisée: level_1='{level_1_value}', level_2='{level_2_value}', level_3='{level_3_value}')")
                     continue
                 
                 # Vérifier doublon dans le fichier (déjà traité dans cette session)
