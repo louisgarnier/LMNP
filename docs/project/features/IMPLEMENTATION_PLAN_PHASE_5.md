@@ -354,85 +354,35 @@
 
 **Status**: ⏳ EN ATTENTE  
 
-**Description**: Modifier l'interface de mapping manuel dans l'onglet Transactions pour utiliser des dropdowns filtrés hiérarchiquement avec filtrage bidirectionnel. **Garder l'option "✏️" (bouton d'édition)** - voir Step 5.8 pour les détails.
+**Description**: Modifier l'interface de mapping manuel dans l'onglet Transactions pour utiliser des dropdowns filtrés hiérarchiquement avec filtrage bidirectionnel. **Garder l'option "✏️" (bouton d'édition)** - voir Step 5.9 pour les détails.
 
 **Important** : Chaque level_1 a une combinaison unique level_2/level_3 dans `allowed_mappings`.
 
+---
+
+#### Step 5.5.1 : Backend - Fonctions de filtrage bidirectionnel
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Créer les fonctions backend pour le filtrage bidirectionnel (level_3 → level_2, level_2 → level_1, etc.)
+
 **Tasks**:
 
-- [ ] **Backend - Nouvelles fonctions de filtrage** :
+- [ ] Créer `get_allowed_level2_for_level3(db: Session, level_3: str)` dans `mapping_obligatoire_service.py` : retourne les level_2 qui ont ce level_3 (distinct)
 
-  - Créer `get_allowed_level2_for_level3(db: Session, level_3: str)` dans `mapping_obligatoire_service.py` : retourne les level_2 qui ont ce level_3
+- [ ] Créer `get_allowed_level1_for_level2(db: Session, level_2: str)` dans `mapping_obligatoire_service.py` : retourne les level_1 qui ont ce level_2 (distinct)
 
-  - Créer `get_allowed_level1_for_level2(db: Session, level_2: str)` dans `mapping_obligatoire_service.py` : retourne les level_1 qui ont ce level_2
+- [ ] Créer `get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3: str)` : retourne les level_1 qui ont ce couple (distinct, pour validation)
 
-  - Créer `get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3: str)` : retourne les level_1 qui ont ce couple (pour validation)
+- [ ] Créer endpoints API correspondants dans `backend/api/routes/mappings.py` :
 
-  - Créer endpoints API correspondants dans `backend/api/routes/mappings.py` :
+  - `GET /api/mappings/allowed-level2-for-level3?level_3={value}`
 
-    - `GET /api/mappings/allowed-level2-for-level3?level_3={value}`
+  - `GET /api/mappings/allowed-level1-for-level2?level_2={value}`
 
-    - `GET /api/mappings/allowed-level1-for-level2?level_2={value}`
+  - `GET /api/mappings/allowed-level1-for-level2-and-level3?level_2={value}&level_3={value}`
 
-    - `GET /api/mappings/allowed-level1-for-level2-and-level3?level_2={value}&level_3={value}`
-
-- [ ] **Frontend - API Client** :
-
-  - Ajouter fonctions dans `frontend/src/api/client.ts` pour les nouveaux endpoints
-
-- [ ] **Frontend - TransactionsTable** :
-
-  - Remplacer les inputs texte par des dropdowns pour level_1, level_2, level_3
-
-  - Charger les valeurs prédéfinies depuis `GET /api/mappings/allowed-level1` au montage
-
-  - Implémenter le **filtrage hiérarchique bidirectionnel** :
-
-    
-
-    **Scénario 1 : Sélection de level_1 en premier**
-
-    - Level_1 sélectionné → level_2 et level_3 sont **automatiquement sélectionnés** (combinaison unique)
-
-    - Dropdown level_2 et level_3 restent disponibles mais pré-remplis
-
-    
-
-    **Scénario 2 : Sélection de level_2 en premier**
-
-    - Level_2 sélectionné → level_3 est **automatiquement sélectionné** (combinaison unique pour ce level_2)
-
-    - Level_1 doit être sélectionné manuellement (plusieurs level_1 peuvent avoir le même level_2)
-
-    - Dropdown level_1 : affiche les level_1 autorisés pour ce level_2 (appel à `GET /api/mappings/allowed-level1-for-level2?level_2={value}`)
-
-    
-
-    **Scénario 3 : Sélection de level_3 en premier**
-
-    - Level_3 sélectionné → level_2 et level_1 doivent être sélectionnés manuellement
-
-    - Dropdown level_2 : affiche les level_2 autorisés pour ce level_3 (appel à `GET /api/mappings/allowed-level2-for-level3?level_3={value}`)
-
-    - Dropdown level_1 : affiche les level_1 autorisés pour le couple (level_2, level_3) sélectionné
-
-    
-
-    **Règles de changement** :
-
-    - Changer level_1 → level_2 et level_3 changent automatiquement (nouvelle combinaison unique)
-
-    - Changer level_2 → level_3 change automatiquement, level_1 reste tel quel
-
-    - Changer level_3 → level_2 et level_1 restent tels quels (pas de réinitialisation)
-
-  
-
-  - Ajouter option "Unassigned" dans chaque dropdown pour permettre de retirer le mapping
-
-  - **Garder le bouton "✏️" (édition)** - voir Step 5.8 pour les détails
-
-- [ ] **Tester le filtrage hiérarchique bidirectionnel dans le navigateur**
+- [ ] **Tester les endpoints backend**
 
 **Deliverables**:
 
@@ -440,11 +390,261 @@
 
 - Mise à jour `backend/api/routes/mappings.py` - Nouveaux endpoints
 
-- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Dropdowns filtrés bidirectionnels
-
-- Mise à jour `frontend/src/api/client.ts` - Nouveaux appels API
+- Tests backend pour les nouveaux endpoints
 
 **Acceptance Criteria**:
+
+- [ ] Les 3 fonctions retournent les bonnes valeurs filtrées
+
+- [ ] Les 3 endpoints API fonctionnent correctement
+
+- [ ] **Tests backend passent**
+
+---
+
+#### Step 5.5.2 : Frontend - API Client pour filtrage bidirectionnel
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Ajouter les fonctions dans le client API frontend pour appeler les nouveaux endpoints.
+
+**Tasks**:
+
+- [ ] Ajouter fonctions dans `frontend/src/api/client.ts` pour les 3 nouveaux endpoints :
+
+  - `getAllowedLevel2ForLevel3(level_3: string)`
+
+  - `getAllowedLevel1ForLevel2(level_2: string)`
+
+  - `getAllowedLevel1ForLevel2AndLevel3(level_2: string, level_3: string)`
+
+- [ ] **Tester les appels API depuis le frontend (console.log ou test manuel)**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/api/client.ts` - Nouvelles fonctions API
+
+**Acceptance Criteria**:
+
+- [ ] Les 3 fonctions sont ajoutées et exportées
+
+- [ ] Les appels API fonctionnent correctement
+
+- [ ] **Test manuel dans console navigateur validé**
+
+---
+
+#### Step 5.5.3 : Frontend - Scénario 1 : Sélection level_1 → level_2 + level_3 automatiques
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Implémenter le scénario où level_1 est sélectionné en premier, level_2 et level_3 sont automatiquement sélectionnés.
+
+**Tasks**:
+
+- [ ] Modifier `TransactionsTable.tsx` :
+
+  - Charger les valeurs level_1 depuis `GET /api/mappings/allowed-level1` au montage
+
+  - Remplacer l'input texte level_1 par un dropdown avec les valeurs autorisées
+
+  - Quand level_1 est sélectionné :
+
+    - Trouver la combinaison unique (level_2, level_3) pour ce level_1
+
+    - Pré-remplir automatiquement level_2 et level_3
+
+    - Les dropdowns level_2 et level_3 restent disponibles mais pré-remplis
+
+  - Ajouter option "Unassigned" dans le dropdown level_1
+
+- [ ] **Tester le scénario 1 dans le navigateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Scénario 1 implémenté
+
+**Acceptance Criteria**:
+
+- [ ] Dropdown level_1 affiche les valeurs autorisées
+
+- [ ] Sélection level_1 → level_2 et level_3 sont automatiquement sélectionnés
+
+- [ ] Option "Unassigned" permet de retirer le mapping
+
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 5.5.4 : Frontend - Scénario 2 : Sélection level_2 → level_3 automatique, level_1 manuel
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Implémenter le scénario où level_2 est sélectionné en premier, level_3 est automatiquement sélectionné, level_1 doit être sélectionné manuellement.
+
+**Tasks**:
+
+- [ ] Modifier `TransactionsTable.tsx` :
+
+  - Quand level_2 est sélectionné (sans level_1) :
+
+    - Trouver la combinaison unique level_3 pour ce level_2
+
+    - Pré-remplir automatiquement level_3
+
+    - Charger les level_1 autorisés pour ce level_2 (appel à `getAllowedLevel1ForLevel2`)
+
+    - Afficher ces level_1 dans le dropdown level_1
+
+  - Ajouter option "Unassigned" dans le dropdown level_2
+
+- [ ] **Tester le scénario 2 dans le navigateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Scénario 2 implémenté
+
+**Acceptance Criteria**:
+
+- [ ] Sélection level_2 → level_3 est automatiquement sélectionné
+
+- [ ] Dropdown level_1 affiche les level_1 autorisés pour ce level_2
+
+- [ ] Option "Unassigned" permet de retirer le mapping
+
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 5.5.5 : Frontend - Scénario 3 : Sélection level_3 → level_2 + level_1 manuels
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Implémenter le scénario où level_3 est sélectionné en premier, level_2 et level_1 doivent être sélectionnés manuellement.
+
+**Tasks**:
+
+- [ ] Modifier `TransactionsTable.tsx` :
+
+  - Quand level_3 est sélectionné (sans level_1 ni level_2) :
+
+    - Charger les level_2 autorisés pour ce level_3 (appel à `getAllowedLevel2ForLevel3`)
+
+    - Afficher ces level_2 dans le dropdown level_2
+
+    - Quand level_2 est sélectionné après level_3 :
+
+      - Charger les level_1 autorisés pour le couple (level_2, level_3) (appel à `getAllowedLevel1ForLevel2AndLevel3`)
+
+      - Afficher ces level_1 dans le dropdown level_1
+
+  - Ajouter option "Unassigned" dans le dropdown level_3
+
+- [ ] **Tester le scénario 3 dans le navigateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Scénario 3 implémenté
+
+**Acceptance Criteria**:
+
+- [ ] Sélection level_3 → dropdown level_2 affiche les level_2 autorisés
+
+- [ ] Sélection level_2 (après level_3) → dropdown level_1 affiche les level_1 autorisés pour le couple
+
+- [ ] Option "Unassigned" permet de retirer le mapping
+
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 5.5.6 : Frontend - Règles de changement et suppression des inputs texte
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Implémenter les règles de changement et supprimer complètement les inputs texte (mode custom).
+
+**Tasks**:
+
+- [ ] Modifier `TransactionsTable.tsx` :
+
+  - **Règle 1** : Changer level_1 → level_2 et level_3 changent automatiquement (nouvelle combinaison unique)
+
+  - **Règle 2** : Changer level_2 → level_3 change automatiquement, level_1 reste tel quel
+
+  - **Règle 3** : Changer level_3 → level_2 et level_1 restent tels quels (pas de réinitialisation)
+
+  - **Supprimer complètement** les inputs texte (mode custom) pour level_1, level_2, level_3
+
+  - Supprimer les états `customLevel1`, `customLevel2`, `customLevel3`
+
+  - Supprimer l'option "➕ Nouveau..." des dropdowns
+
+- [ ] **Tester toutes les règles de changement dans le navigateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Règles de changement implémentées
+
+**Acceptance Criteria**:
+
+- [ ] Les 3 règles de changement fonctionnent correctement
+
+- [ ] Les inputs texte sont complètement supprimés (plus de mode custom)
+
+- [ ] Les dropdowns ne permettent que la sélection de valeurs autorisées
+
+- [ ] **Test visuel dans navigateur validé**
+
+---
+
+#### Step 5.5.7 : Frontend - Tests finaux et validation complète
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Tests finaux de tous les scénarios et validation que tout fonctionne ensemble.
+
+**Tasks**:
+
+- [ ] Tester tous les scénarios dans le navigateur :
+
+  - Scénario 1 : level_1 → level_2 + level_3 automatiques
+
+  - Scénario 2 : level_2 → level_3 automatique, level_1 manuel
+
+  - Scénario 3 : level_3 → level_2 + level_1 manuels
+
+  - Règles de changement : changer level_1, level_2, level_3
+
+  - Option "Unassigned" dans chaque dropdown
+
+  - Mise à jour en cascade (toutes les transactions avec le même nom sont mises à jour)
+
+- [ ] Vérifier que le bouton "✏️" est conservé (fonctionnalité détaillée dans Step 5.9)
+
+- [ ] **Test complet de bout en bout validé**
+
+**Deliverables**:
+
+- Tests manuels complets dans le navigateur
+
+**Acceptance Criteria**:
+
+- [ ] Tous les scénarios fonctionnent correctement
+
+- [ ] Toutes les règles de changement fonctionnent
+
+- [ ] Option "Unassigned" fonctionne dans tous les dropdowns
+
+- [ ] Mise à jour en cascade fonctionne
+
+- [ ] Bouton "✏️" conservé
+
+- [ ] **Test visuel complet dans navigateur validé par l'utilisateur**
+
+---
+
+**Step 5.5 - Acceptance Criteria globaux**:
 
 - [ ] Dropdowns remplacent les inputs texte (level_1, level_2, level_3 ne sont plus éditables en texte libre)
 
@@ -460,11 +660,11 @@
 
 - [ ] Option "Unassigned" permet de retirer le mapping
 
-- [ ] Bouton "✏️" conservé (fonctionnalité détaillée dans Step 5.8)
+- [ ] Bouton "✏️" conservé (fonctionnalité détaillée dans Step 5.9)
 
 - [ ] Mise à jour en cascade fonctionne (toutes les transactions avec le même nom sont mises à jour)
 
-- [ ] **Test visuel dans navigateur validé**
+- [ ] **Test visuel complet dans navigateur validé**
 
 ---
 
