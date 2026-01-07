@@ -665,7 +665,7 @@
 
 - [ ] **Fonctionnalité confirmée** : Le bouton "✏️" édite les champs transaction (date, nom, quantite)
 
-- [ ] **Édition des classifications** : Déjà implémentée dans Step 5.4 via clic sur les valeurs level_1/level_2/level_3
+- [ ] **Édition des classifications** : Déjà implémentée dans Step 5.5 via clic sur les valeurs level_1/level_2/level_3
 
 - [ ] Validation contre `allowed_mappings` respectée (déjà implémentée dans Step 5.4)
 
