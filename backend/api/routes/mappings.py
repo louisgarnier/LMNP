@@ -15,7 +15,7 @@ from pathlib import Path
 from datetime import datetime
 
 from backend.database import get_db
-from backend.database.models import Mapping, Transaction, EnrichedTransaction, MappingImport
+from backend.database.models import Mapping, Transaction, EnrichedTransaction, MappingImport, AllowedMapping
 from backend.api.models import (
     MappingCreate,
     MappingUpdate,
@@ -26,9 +26,16 @@ from backend.api.models import (
     MappingImportHistory,
     ColumnMapping,
     MappingError,
-    DuplicateMapping
+    DuplicateMapping,
+    AllowedMappingResponse,
+    AllowedMappingListResponse
 )
 from backend.api.services.enrichment_service import enrich_transaction, transaction_matches_mapping_name
+from backend.api.services.mapping_obligatoire_service import (
+    get_allowed_level1_values,
+    get_allowed_level2_values,
+    get_allowed_level3_values
+)
 
 router = APIRouter()
 
@@ -854,6 +861,62 @@ async def delete_mapping(
     return None
 
 
+# Allowed mappings endpoints (doivent être définis AVANT /mappings/{mapping_id})
+
+@router.get("/mappings/allowed-level1")
+async def get_allowed_level1(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer toutes les valeurs level_1 autorisées.
+    
+    Returns:
+        Liste des valeurs level_1 uniques, triées
+    """
+    values = get_allowed_level1_values(db)
+    return {"level_1": values}
+
+
+@router.get("/mappings/allowed-level2")
+async def get_allowed_level2(
+    level_1: str = Query(..., description="Valeur de level_1"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs level_2 autorisées pour un level_1 donné.
+    
+    Args:
+        level_1: Valeur de level_1
+        db: Session de base de données
+    
+    Returns:
+        Liste des valeurs level_2 uniques pour ce level_1, triées
+    """
+    values = get_allowed_level2_values(db, level_1)
+    return {"level_2": values}
+
+
+@router.get("/mappings/allowed-level3")
+async def get_allowed_level3(
+    level_1: str = Query(..., description="Valeur de level_1"),
+    level_2: str = Query(..., description="Valeur de level_2"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs level_3 autorisées pour un couple (level_1, level_2).
+    
+    Args:
+        level_1: Valeur de level_1
+        level_2: Valeur de level_2
+        db: Session de base de données
+    
+    Returns:
+        Liste des valeurs level_3 uniques pour ce couple, triées
+    """
+    values = get_allowed_level3_values(db, level_1, level_2)
+    return {"level_3": values}
+
+
 @router.get("/mappings/combinations")
 async def get_mapping_combinations(
     level_1: Optional[str] = Query(None, description="Filtrer par level_1"),
@@ -945,4 +1008,6 @@ async def get_mapping(
         raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
     
     return MappingResponse.model_validate(mapping)
+
+
 

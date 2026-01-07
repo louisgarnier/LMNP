@@ -122,13 +122,59 @@
 
 - [x] Fonctions de validation fonctionnent correctement
 
-- [ ] Endpoints API retournent les bonnes valeurs filtrées (à faire dans Step 5.2)
+- [x] Endpoints API retournent les bonnes valeurs filtrées (Step 5.2 complété)
 
 - [x] **Test script exécutable et tous les tests passent**
 
 ---
 
-### Step 5.2 : Backend - Validation des mappings importés
+### Step 5.2 : API Backend - Endpoints pour combinaisons autorisées
+
+**Status**: ✅ COMPLÉTÉ  
+
+**Description**: Créer les endpoints API pour gérer les combinaisons autorisées (lecture, filtrage).
+
+**Tasks**:
+
+- [x] Créer Pydantic models dans `backend/api/models.py` :
+
+  - `AllowedMappingBase`, `AllowedMappingCreate`, `AllowedMappingResponse`, `AllowedMappingListResponse`
+
+- [x] Endpoint `GET /api/mappings/allowed-level1` pour récupérer toutes les valeurs level_1 autorisées
+
+- [x] Endpoint `GET /api/mappings/allowed-level2?level_1={value}` pour récupérer les level_2 autorisés pour un level_1
+
+- [x] Endpoint `GET /api/mappings/allowed-level3?level_1={value}&level_2={value}` pour récupérer les level_3 autorisés pour un couple (level_1, level_2)
+
+- [x] Intégrer dans `main.py` (router déjà intégré via mappings.router)
+
+- [x] **Tester les endpoints et la validation**
+
+**Deliverables**:
+
+- Mise à jour `backend/api/models.py` - Modèles Pydantic pour AllowedMapping
+
+- Mise à jour `backend/api/routes/mappings.py` - Nouveaux endpoints (placés avant /mappings/{mapping_id} pour éviter conflits)
+
+- `backend/tests/test_allowed_mappings_endpoints_step5_2.py` - Tests des endpoints
+
+**Acceptance Criteria**:
+
+- [x] Modèles Pydantic créés pour AllowedMapping
+
+- [x] Endpoints API retournent les bonnes valeurs filtrées
+
+- [x] Filtrage par level_1 et level_2 fonctionne
+
+- [x] Validation des paramètres fonctionne (erreur 422 si paramètres manquants)
+
+- [x] **Test script exécutable et tous les tests passent**
+
+- [x] **Endpoints testés avec API démarrée - tous fonctionnent (49 valeurs level_1, filtrage level_2 et level_3 OK)**
+
+---
+
+### Step 5.3 : Backend - Validation des mappings importés
 
 **Status**: ⏳ EN ATTENTE  
 

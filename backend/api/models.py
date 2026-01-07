@@ -156,6 +156,37 @@ class MappingCreate(MappingBase):
     pass
 
 
+# Allowed mapping models
+
+class AllowedMappingBase(BaseModel):
+    """Base model for allowed mapping."""
+    level_1: str = Field(..., max_length=100, description="Catégorie principale")
+    level_2: str = Field(..., max_length=100, description="Sous-catégorie")
+    level_3: Optional[str] = Field(None, max_length=100, description="Détail spécifique")
+    is_hardcoded: bool = Field(False, description="True si hard codé (protégé)")
+
+
+class AllowedMappingCreate(AllowedMappingBase):
+    """Model for creating an allowed mapping."""
+    pass
+
+
+class AllowedMappingResponse(AllowedMappingBase):
+    """Model for allowed mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AllowedMappingListResponse(BaseModel):
+    """Model for list of allowed mappings."""
+    mappings: List[AllowedMappingResponse]
+    total: int
+
+
 class MappingUpdate(BaseModel):
     """Model for updating a mapping."""
     nom: Optional[str] = Field(None, max_length=500)
