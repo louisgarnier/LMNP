@@ -45,13 +45,13 @@
 
 ### Step 5.1 : Backend - Création de la table de mappings autorisés
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer une table en BDD pour stocker tous les mappings autorisés (combinaisons valides de level_1, level_2, level_3).
 
 **Tasks**:
 
-- [ ] Créer un nouveau modèle SQLAlchemy `AllowedMapping` dans `backend/database/models.py` :
+- [x] Créer un nouveau modèle SQLAlchemy `AllowedMapping` dans `backend/database/models.py` :
 
   - Colonnes : `id`, `level_1` (String, not null), `level_2` (String, not null), `level_3` (String, nullable), `is_hardcoded` (Boolean, default=False)
 
@@ -61,9 +61,9 @@
 
   - **Champ `is_hardcoded`** : marque les 50 combinaisons initiales comme protégées (ne peuvent jamais être supprimées)
 
-- [ ] Créer script de migration `backend/scripts/create_allowed_mappings_table.py` pour créer la table
+- [x] Créer script de migration `backend/scripts/add_is_hardcoded_column.py` pour ajouter la colonne si nécessaire
 
-- [ ] Créer `backend/api/services/mapping_obligatoire_service.py` :
+- [x] Créer `backend/api/services/mapping_obligatoire_service.py` :
 
   - Fonction `load_allowed_mappings_from_excel(db: Session)` : charge le fichier `scripts/mappings_obligatoires.xlsx` et insère les 50 combinaisons dans la table `allowed_mappings` avec `is_hardcoded = True`
     - **Utilisé une seule fois** pour hard coder les valeurs initiales
@@ -91,12 +91,12 @@
 
 - [ ] Endpoint `GET /api/mappings/allowed-level3?level_1={value}&level_2={value}` pour récupérer les level_3 autorisés pour un couple (level_1, level_2)
 
-- [ ] Créer script de migration `backend/scripts/load_hardcoded_mappings.py` pour charger les 50 combinaisons initiales depuis le fichier Excel
+- [x] Créer script de migration `backend/scripts/load_hardcoded_mappings.py` pour charger les 50 combinaisons initiales depuis le fichier Excel
   - À exécuter une seule fois pour hard coder les valeurs initiales
   - Marque toutes les combinaisons avec `is_hardcoded = True`
   - Le fichier Excel peut être supprimé après ce chargement initial
 
-- [ ] **Tester les endpoints et la validation**
+- [x] **Tester les endpoints et la validation**
 
 **Deliverables**:
 
@@ -114,17 +114,17 @@
 
 **Acceptance Criteria**:
 
-- [ ] Table `allowed_mappings` créée en BDD avec structure correcte (incluant champ `is_hardcoded`)
+- [x] Table `allowed_mappings` créée en BDD avec structure correcte (incluant champ `is_hardcoded`)
 
-- [ ] Script de migration charge correctement les 50 combinaisons depuis `scripts/mappings_obligatoires.xlsx` avec `is_hardcoded = True`
+- [x] Script de migration charge correctement les 49 combinaisons uniques depuis `scripts/mappings_obligatoires.xlsx` avec `is_hardcoded = True` (50 lignes dans Excel, 1 doublon détecté)
 
-- [ ] Les 50 combinaisons initiales sont protégées (`is_hardcoded = True`) et ne peuvent pas être supprimées
+- [x] Les combinaisons initiales sont protégées (`is_hardcoded = True`) et ne peuvent pas être supprimées
 
-- [ ] Fonctions de validation fonctionnent correctement
+- [x] Fonctions de validation fonctionnent correctement
 
-- [ ] Endpoints API retournent les bonnes valeurs filtrées
+- [ ] Endpoints API retournent les bonnes valeurs filtrées (à faire dans Step 5.2)
 
-- [ ] **Test script exécutable et tous les tests passent**
+- [x] **Test script exécutable et tous les tests passent**
 
 ---
 

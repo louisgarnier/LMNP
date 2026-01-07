@@ -194,3 +194,25 @@ class PivotConfig(Base):
         Index('idx_pivot_configs_name', 'name'),
     )
 
+
+class AllowedMapping(Base):
+    """Allowed mapping combinations (level_1, level_2, level_3) that can be used for transactions."""
+    __tablename__ = "allowed_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    level_1 = Column(String(100), nullable=False, index=True)  # Catégorie principale
+    level_2 = Column(String(100), nullable=False, index=True)  # Sous-catégorie
+    level_3 = Column(String(100), index=True)  # Détail spécifique (nullable)
+    is_hardcoded = Column(Boolean, default=False, nullable=False)  # True pour les 50 combinaisons initiales (protégées)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Contrainte unique sur la combinaison (level_1, level_2, level_3)
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_allowed_mapping_unique', 'level_1', 'level_2', 'level_3', unique=True),
+        Index('idx_allowed_mapping_level_1', 'level_1'),
+        Index('idx_allowed_mapping_level_2', 'level_2'),
+        Index('idx_allowed_mapping_level_3', 'level_3'),
+    )
+

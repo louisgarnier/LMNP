@@ -56,6 +56,22 @@ CREATE TABLE IF NOT EXISTS mappings (
 
 CREATE INDEX IF NOT EXISTS idx_mappings_nom ON mappings(nom);
 
+-- Allowed mappings table - Allowed mapping combinations (level_1, level_2, level_3)
+CREATE TABLE IF NOT EXISTS allowed_mappings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level_1 VARCHAR(100) NOT NULL,
+    level_2 VARCHAR(100) NOT NULL,
+    level_3 VARCHAR(100),
+    is_hardcoded BOOLEAN DEFAULT 0 NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_allowed_mapping_unique ON allowed_mappings(level_1, level_2, level_3);
+CREATE INDEX IF NOT EXISTS idx_allowed_mapping_level_1 ON allowed_mappings(level_1);
+CREATE INDEX IF NOT EXISTS idx_allowed_mapping_level_2 ON allowed_mappings(level_2);
+CREATE INDEX IF NOT EXISTS idx_allowed_mapping_level_3 ON allowed_mappings(level_3);
+
 -- Parameters table - Configuration parameters
 CREATE TABLE IF NOT EXISTS parameters (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
