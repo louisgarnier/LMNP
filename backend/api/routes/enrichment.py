@@ -110,12 +110,14 @@ async def update_transaction_classifications(
             raise HTTPException(status_code=400, detail=str(e))
         
         # Après avoir mis à jour le mapping, re-enrichir TOUTES les transactions
-        # avec le même nom pour qu'elles utilisent le nouveau mapping
-        all_transactions = db.query(Transaction).all()
+        # avec le même nom (correspondance exacte) pour qu'elles utilisent le nouveau mapping
+        # Step 5.3 : Utiliser correspondance exacte du nom au lieu de matching par préfixe
+        all_transactions = db.query(Transaction).filter(
+            Transaction.nom == transaction.nom
+        ).all()
         for other_transaction in all_transactions:
             if other_transaction.id != transaction.id:  # Ne pas re-enrichir la transaction qu'on vient de modifier
-                if transaction_matches_mapping_name(other_transaction.nom, transaction.nom):
-                    enrich_transaction(other_transaction, db)
+                enrich_transaction(other_transaction, db)
         
         db.commit()
     

@@ -234,17 +234,17 @@
 
 ### Step 5.3 : Backend - Vérification et test de la mise à jour automatique
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Vérifier que la mise à jour automatique de toutes les transactions avec le même nom fonctionne correctement (cette fonctionnalité devrait déjà exister).
 
 **Tasks**:
 
-- [ ] Vérifier le code actuel de `update_transaction_classification()` dans `backend/api/services/enrichment_service.py`
+- [x] Vérifier le code actuel de `update_transaction_classification()` dans `backend/api/services/enrichment_service.py`
 
-- [ ] Vérifier le code actuel de `create_or_update_mapping_from_classification()`
+- [x] Vérifier le code actuel de `create_or_update_mapping_from_classification()`
 
-- [ ] Modifier `find_best_mapping()` dans `enrichment_service.py` :
+- [x] Modifier `find_best_mapping()` dans `enrichment_service.py` :
 
   - **Nouvelle règle** : Si plusieurs mappings correspondent à une transaction (même nom), retourner `None` au lieu du meilleur mapping
 
@@ -252,7 +252,13 @@
 
   - Cela évite les conflits et force un mapping manuel
 
-- [ ] Tester que quand on modifie le mapping d'une transaction :
+- [x] Corriger la mise à jour en cascade dans `backend/api/routes/enrichment.py` :
+
+  - Utiliser correspondance exacte du nom (`Transaction.nom == transaction.nom`) au lieu de `transaction_matches_mapping_name()`
+
+  - Re-enrichir toutes les transactions avec le même nom après mise à jour du mapping
+
+- [x] Tester que quand on modifie le mapping d'une transaction :
 
   - Toutes les transactions existantes avec le même nom sont mises à jour
 
@@ -260,29 +266,35 @@
 
   - Les futures transactions avec le même nom héritent du mapping
 
-- [ ] **Tester la mise à jour en cascade avec plusieurs transactions du même nom**
+- [x] **Tester la mise à jour en cascade avec plusieurs transactions du même nom**
 
-- [ ] **Tester que les transactions avec plusieurs mappings possibles restent non classées**
+- [x] **Tester que les transactions avec plusieurs mappings possibles restent non classées**
 
 **Deliverables**:
 
-- Vérification/correction de `backend/api/services/enrichment_service.py` si nécessaire
+- Mise à jour `backend/api/services/enrichment_service.py` - Modification de `find_best_mapping()` pour retourner `None` si plusieurs mappings correspondent
 
-- Script de test pour valider la mise à jour en cascade
+- Mise à jour `backend/api/routes/enrichment.py` - Correction de la mise à jour en cascade avec correspondance exacte
+
+- `backend/tests/test_enrichment_cascade_step5_3.py` - Tests de mise à jour en cascade et gestion des conflits
+
+- `backend/tests/test_step5_3_and_5_4_combined.py` - Tests combinés Step 5.3 + Step 5.4
 
 **Acceptance Criteria**:
 
-- [ ] Quand on modifie le mapping d'une transaction, toutes les transactions avec le même nom sont mises à jour
+- [x] Quand on modifie le mapping d'une transaction, toutes les transactions avec le même nom sont mises à jour
 
-- [ ] Le mapping dans la table `mappings` est créé/mis à jour
+- [x] Le mapping dans la table `mappings` est créé/mis à jour
 
-- [ ] Les futures transactions avec le même nom héritent automatiquement du mapping
+- [x] Les futures transactions avec le même nom héritent automatiquement du mapping
 
-- [ ] **Si plusieurs mappings correspondent à une transaction, elle reste non classée (unassigned)**
+- [x] **Si plusieurs mappings correspondent à une transaction, elle reste non classée (unassigned)**
 
-- [ ] **Test avec plusieurs transactions du même nom validé**
+- [x] **Test avec plusieurs transactions du même nom validé**
 
-- [ ] **Test que les transactions avec plusieurs mappings possibles restent non classées**
+- [x] **Test que les transactions avec plusieurs mappings possibles restent non classées**
+
+- [x] **Test combiné Step 5.3 + Step 5.4 validé**
 
 ---
 
