@@ -12,6 +12,10 @@ from typing import Optional, Tuple
 from datetime import date
 
 from backend.database.models import Transaction, Mapping, EnrichedTransaction
+from backend.api.services.mapping_obligatoire_service import (
+    validate_mapping,
+    validate_level3_value
+)
 
 
 def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optional[Mapping]:
@@ -270,6 +274,9 @@ def create_or_update_mapping_from_classification(
     Le mapping est la source de vérité. Si un mapping existe déjà avec le même nom,
     on le met à jour. Sinon, on en crée un nouveau.
     
+    **Validation Step 5.4** : La combinaison (level_1, level_2, level_3) doit être validée
+    contre allowed_mappings avant de créer/mettre à jour le mapping.
+    
     Args:
         db: Session de base de données
         transaction_name: Nom de la transaction
@@ -279,7 +286,19 @@ def create_or_update_mapping_from_classification(
     
     Returns:
         Le mapping créé ou mis à jour
+    
+    Raises:
+        ValueError: Si la combinaison n'est pas autorisée
     """
+    # Validation contre allowed_mappings (Step 5.4)
+    # Valider que level_3 est dans la liste fixe si fourni
+    if level_3 and not validate_level3_value(level_3):
+        raise ValueError(f"La valeur level_3 '{level_3}' n'est pas autorisée. Valeurs autorisées : Passif, Produits, Emprunt, Charges Déductibles, Actif")
+    
+    # Valider que la combinaison existe dans allowed_mappings
+    if not validate_mapping(db, level_1, level_2, level_3):
+        raise ValueError(f"La combinaison (level_1='{level_1}', level_2='{level_2}', level_3='{level_3}') n'est pas autorisée. Veuillez utiliser une combinaison valide depuis les mappings autorisés.")
+    
     # Chercher un mapping existant avec le même nom
     existing_mapping = db.query(Mapping).filter(Mapping.nom == transaction_name).first()
     

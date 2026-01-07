@@ -286,7 +286,59 @@
 
 ---
 
-### Step 5.4 : Frontend - Dropdowns filtrés hiérarchiquement dans l'onglet Transactions
+### Step 5.4 : API Backend - Validation dans endpoints enrichissement transactions
+
+**Status**: ✅ COMPLÉTÉ  
+
+**Description**: Ajouter la validation obligatoire dans l'endpoint de modification des classifications de transactions.
+
+**Tasks**:
+
+- [x] Modifier `PUT /api/enrichment/transactions/{transaction_id}` :
+
+  - Valider que level_1, level_2, level_3 (si fournis) existent dans les combinaisons autorisées
+
+  - Retourner erreur 400 si combinaison non autorisée
+
+  - Empêcher la création/mise à jour du mapping si combinaison invalide
+
+- [x] Modifier la fonction `create_or_update_mapping_from_classification()` dans `enrichment_service.py` :
+
+  - Valider la combinaison avant de créer/mettre à jour le mapping
+
+  - Ne pas créer le mapping si combinaison invalide
+
+  - Lever ValueError avec message explicite si combinaison invalide
+
+- [x] Ajouter messages d'erreur explicites
+
+- [x] **Tester la validation avec combinaisons valides et invalides**
+
+**Deliverables**:
+
+- Mise à jour `backend/api/routes/enrichment.py` - Validation ajoutée
+
+- Mise à jour `backend/api/services/enrichment_service.py` - Validation dans fonction utilitaire
+
+- `backend/tests/test_enrichment_validation_step5_4.py` - Tests de validation
+
+**Acceptance Criteria**:
+
+- [x] Impossible de modifier une classification avec combinaison non autorisée
+
+- [x] Le mapping n'est pas créé/mis à jour si combinaison invalide
+
+- [x] Messages d'erreur clairs (erreur 400 avec détails)
+
+- [x] Validation de level_3 contre la liste fixe fonctionne
+
+- [x] **Test script exécutable et tous les tests passent**
+
+- [x] **Test API : combinaison valide acceptée, combinaison invalide rejetée avec erreur 400**
+
+---
+
+### Step 5.5 : Frontend - Dropdowns filtrés hiérarchiquement dans l'onglet Transactions
 
 **Status**: ⏳ EN ATTENTE  
 
@@ -404,7 +456,7 @@
 
 ---
 
-### Step 5.5 : Frontend - Dropdowns filtrés dans l'onglet Mapping
+### Step 5.6 : Frontend - Dropdowns filtrés dans l'onglet Mapping
 
 **Status**: ⏳ EN ATTENTE  
 
@@ -416,7 +468,7 @@
 
 - [ ] Remplacer les inputs texte level_1, level_2, level_3 par des dropdowns
 
-- [ ] Implémenter le même filtrage hiérarchique que Step 5.4
+- [ ] Implémenter le même filtrage hiérarchique que Step 5.5
 
 - [ ] Charger les valeurs prédéfinies depuis l'API
 
@@ -444,7 +496,7 @@
 
 ---
 
-### Step 5.6 : Backend - Vérification et test du recalcul automatique
+### Step 5.7 : Backend - Vérification et test du recalcul automatique
 
 **Status**: ⏳ EN ATTENTE  
 
@@ -486,7 +538,7 @@
 
 ---
 
-### Step 5.7 : Frontend - Gestion de la table allowed_mappings
+### Step 5.8 : Frontend - Gestion de la table allowed_mappings
 
 **Status**: ⏳ EN ATTENTE  
 
@@ -512,7 +564,7 @@
 
   - Bouton "+ Ajouter" pour créer une nouvelle combinaison
 
-  - Modal de création avec dropdowns filtrés hiérarchiquement (même logique que Step 5.4 et 5.5)
+  - Modal de création avec dropdowns filtrés hiérarchiquement (même logique que Step 5.5 et 5.6)
 
   - **Permettre de créer une nouvelle combinaison** (level_1, level_2, level_3) qui n'existe pas encore dans `allowed_mappings`
 
@@ -587,7 +639,7 @@
   - Level_3 doit être dans la liste fixe : Passif, Produits, Emprunt, Charges Déductibles, Actif
   - Messages d'erreur clairs si validation échoue
 
-- [ ] Validation de la hiérarchie (même logique que Step 5.4 et 5.5)
+- [ ] Validation de la hiérarchie (même logique que Step 5.5 et 5.6)
 
 - [ ] Suppression de mappings autorisés fonctionne (avec confirmation) :
   - **Impossible de supprimer les combinaisons hard codées** (bouton désactivé)
@@ -603,7 +655,7 @@
 
 ---
 
-### Step 5.8 : Frontend - Fonctionnalité du bouton "✏️" dans l'onglet Transactions
+### Step 5.9 : Frontend - Fonctionnalité du bouton "✏️" dans l'onglet Transactions
 
 **Status**: ⏳ EN ATTENTE  
 
@@ -629,7 +681,7 @@
 
 - [ ] Fonctionnalité du bouton "✏️" définie : édite date, nom, quantite
 
-- [ ] Édition des classifications via clic sur les valeurs avec dropdowns filtrés (Step 5.4)
+- [ ] Édition des classifications via clic sur les valeurs avec dropdowns filtrés (Step 5.5)
 
 - [ ] Validation contre `allowed_mappings` respectée
 

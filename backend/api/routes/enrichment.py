@@ -17,6 +17,10 @@ from backend.api.services.enrichment_service import (
     transaction_matches_mapping_name,
     enrich_all_transactions
 )
+from backend.api.services.mapping_obligatoire_service import (
+    validate_mapping,
+    validate_level3_value
+)
 
 router = APIRouter()
 
@@ -64,6 +68,22 @@ async def update_transaction_classifications(
     final_level_2 = level_2 if level_2 is not None else (existing_enriched.level_2 if existing_enriched else None)
     final_level_3 = level_3 if level_3 is not None else (existing_enriched.level_3 if existing_enriched else None)
     
+    # Validation contre allowed_mappings (Step 5.4)
+    if final_level_1 and final_level_2:
+        # Valider que level_3 est dans la liste fixe si fourni
+        if final_level_3 and not validate_level3_value(final_level_3):
+            raise HTTPException(
+                status_code=400,
+                detail=f"La valeur level_3 '{final_level_3}' n'est pas autorisée. Valeurs autorisées : Passif, Produits, Emprunt, Charges Déductibles, Actif"
+            )
+        
+        # Valider que la combinaison existe dans allowed_mappings
+        if not validate_mapping(db, final_level_1, final_level_2, final_level_3):
+            raise HTTPException(
+                status_code=400,
+                detail=f"La combinaison (level_1='{final_level_1}', level_2='{final_level_2}', level_3='{final_level_3}') n'est pas autorisée. Veuillez utiliser une combinaison valide depuis les mappings autorisés."
+            )
+    
     # Mettre à jour les classifications
     updated_enriched = update_transaction_classification(
         db=db,
@@ -77,13 +97,17 @@ async def update_transaction_classifications(
     # Le mapping est la source de vérité, donc on crée/mise à jour un mapping
     # avec le nom de la transaction et les classifications finales (nouvelles ou existantes)
     if final_level_1 and final_level_2:  # level_1 et level_2 sont obligatoires, level_3 est optionnel
-        create_or_update_mapping_from_classification(
-            db=db,
-            transaction_name=transaction.nom,
-            level_1=final_level_1,
-            level_2=final_level_2,
-            level_3=final_level_3
-        )
+        try:
+            create_or_update_mapping_from_classification(
+                db=db,
+                transaction_name=transaction.nom,
+                level_1=final_level_1,
+                level_2=final_level_2,
+                level_3=final_level_3
+            )
+        except ValueError as e:
+            # La validation dans create_or_update_mapping_from_classification a échoué
+            raise HTTPException(status_code=400, detail=str(e))
         
         # Après avoir mis à jour le mapping, re-enrichir TOUTES les transactions
         # avec le même nom pour qu'elles utilisent le nouveau mapping
