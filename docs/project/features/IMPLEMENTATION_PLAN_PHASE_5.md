@@ -410,13 +410,13 @@
 
 #### Step 5.5.2 : Frontend - API Client pour filtrage bidirectionnel
 
-**Status**: ⏳ EN ATTENTE
+**Status**: ✅ COMPLÉTÉ
 
 **Description**: Ajouter les fonctions dans le client API frontend pour appeler les nouveaux endpoints.
 
 **Tasks**:
 
-- [ ] Ajouter fonctions dans `frontend/src/api/client.ts` pour les 3 nouveaux endpoints :
+- [x] Ajouter fonctions dans `frontend/src/api/client.ts` pour les 3 nouveaux endpoints :
 
   - `getAllowedLevel2ForLevel3(level_3: string)`
 
@@ -432,11 +432,11 @@
 
 **Acceptance Criteria**:
 
-- [ ] Les 3 fonctions sont ajoutées et exportées
+- [x] Les 3 fonctions sont ajoutées et exportées
 
-- [ ] Les appels API fonctionnent correctement
+- [ ] Les appels API fonctionnent correctement (à tester dans Step 5.5.3)
 
-- [ ] **Test manuel dans console navigateur validé**
+- [ ] **Test manuel dans console navigateur validé (à faire dans Step 5.5.3)**
 
 ---
 

@@ -481,6 +481,40 @@ export const mappingsAPI = {
   },
 
   /**
+   * Récupérer les valeurs level_2 autorisées pour un level_3 donné (filtrage bidirectionnel)
+   * Utilisé quand level_3 est sélectionné en premier
+   */
+  async getAllowedLevel2ForLevel3(level_3: string): Promise<{ level_2: string[] }> {
+    const params = new URLSearchParams({
+      level_3,
+    });
+    return fetchAPI<{ level_2: string[] }>(`/api/mappings/allowed-level2-for-level3?${params.toString()}`);
+  },
+
+  /**
+   * Récupérer les valeurs level_1 autorisées pour un level_2 donné (filtrage bidirectionnel)
+   * Utilisé quand level_2 est sélectionné en premier
+   */
+  async getAllowedLevel1ForLevel2(level_2: string): Promise<{ level_1: string[] }> {
+    const params = new URLSearchParams({
+      level_2,
+    });
+    return fetchAPI<{ level_1: string[] }>(`/api/mappings/allowed-level1-for-level2?${params.toString()}`);
+  },
+
+  /**
+   * Récupérer les valeurs level_1 autorisées pour un couple (level_2, level_3) (filtrage bidirectionnel)
+   * Utilisé quand level_3 puis level_2 sont sélectionnés
+   */
+  async getAllowedLevel1ForLevel2AndLevel3(level_2: string, level_3: string): Promise<{ level_1: string[] }> {
+    const params = new URLSearchParams({
+      level_2,
+      level_3,
+    });
+    return fetchAPI<{ level_1: string[] }>(`/api/mappings/allowed-level1-for-level2-and-level3?${params.toString()}`);
+  },
+
+  /**
    * Prévisualiser un fichier Excel de mappings
    */
   preview: async (file: File): Promise<MappingPreviewResponse> => {
