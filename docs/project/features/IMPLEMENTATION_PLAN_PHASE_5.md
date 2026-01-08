@@ -896,21 +896,21 @@
 
 ### Step 5.9 : Frontend - Fonctionnalité du bouton "✏️" dans l'onglet Transactions
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Le bouton "✏️" édite uniquement les champs `date`, `nom`, `quantite` (pas les classifications). Les classifications (level_1, level_2, level_3) sont déjà éditables via les dropdowns filtrés en cliquant directement sur les valeurs (implémenté dans Step 5.4).
 
 **Tasks**:
 
-- [ ] **Fonctionnalité confirmée** : Le bouton "✏️" édite les champs transaction (date, nom, quantite)
+- [x] **Fonctionnalité confirmée** : Le bouton "✏️" édite les champs transaction (date, nom, quantite)
 
-- [ ] **Édition des classifications** : Déjà implémentée dans Step 5.5 via clic sur les valeurs level_1/level_2/level_3
+- [x] **Édition des classifications** : Déjà implémentée dans Step 5.5 via clic sur les valeurs level_1/level_2/level_3
 
-- [ ] Validation contre `allowed_mappings` respectée (déjà implémentée dans Step 5.4)
+- [x] Validation contre `allowed_mappings` respectée (déjà implémentée dans Step 5.4)
 
-- [ ] Mise à jour en cascade fonctionne (déjà implémentée dans Step 5.3)
+- [x] Mise à jour en cascade fonctionne (déjà implémentée dans Step 5.3)
 
-- [ ] **Test visuel dans navigateur validé**
+- [x] **Test visuel dans navigateur validé**
 
 **Deliverables**:
 
@@ -918,15 +918,15 @@
 
 **Acceptance Criteria**:
 
-- [ ] Fonctionnalité du bouton "✏️" définie : édite date, nom, quantite
+- [x] Fonctionnalité du bouton "✏️" définie : édite date, nom, quantite
 
-- [ ] Édition des classifications via clic sur les valeurs avec dropdowns filtrés (Step 5.5)
+- [x] Édition des classifications via clic sur les valeurs avec dropdowns filtrés (Step 5.5)
 
-- [ ] Validation contre `allowed_mappings` respectée
+- [x] Validation contre `allowed_mappings` respectée
 
-- [ ] Mise à jour en cascade fonctionne (toutes les transactions avec le même nom sont mises à jour)
+- [x] Mise à jour en cascade fonctionne (toutes les transactions avec le même nom sont mises à jour)
 
-- [ ] **Test visuel dans navigateur validé**
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
@@ -944,7 +944,7 @@
 
 - [ ] Dropdowns filtrés hiérarchiquement dans l'onglet Mapping
 
-- [ ] Bouton "✏️" conservé avec fonctionnalité définie (Step 5.8)
+- [x] Bouton "✏️" conservé avec fonctionnalité définie (Step 5.9)
 
 - [ ] Mise à jour en cascade : toutes les transactions avec le même nom sont mises à jour (vérifiée et testée)
 
