@@ -1291,18 +1291,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                           >
                             <option value="">-- Sélectionner --</option>
                             <option value="__UNASSIGNED__">Unassigned</option>
-                            {allowedLevel1List.length > 0 ? (
-                              allowedLevel1List.map((val) => (
+                            {(allowedLevel1List.length > 0 ? allowedLevel1List : availableLevel1)
+                              .filter(val => val && val !== 'Unassigned' && val !== 'unassigned')
+                              .map((val) => (
                                 <option key={val} value={val}>{val}</option>
-                              ))
-                            ) : (
-                              availableLevel1.length > 0 ? (
-                                availableLevel1.map((val) => (
-                                  <option key={val} value={val}>{val}</option>
-                                ))
-                              ) : (
-                                <option disabled>Aucune valeur disponible</option>
-                              )
+                              ))}
+                            {(allowedLevel1List.length === 0 && availableLevel1.length === 0) && (
+                              <option disabled>Aucune valeur disponible</option>
                             )}
                           </select>
                         )
