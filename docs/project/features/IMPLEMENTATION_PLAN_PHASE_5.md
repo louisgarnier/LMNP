@@ -768,7 +768,7 @@
 
 ### Step 5.8 : Frontend - Gestion de la table allowed_mappings
 
-**Status**: 🔄 EN COURS  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer un sous-onglet dans l'onglet Mapping pour gérer la table `allowed_mappings` (combinaisons autorisées de level_1/level_2/level_3).
 
@@ -782,9 +782,9 @@
 
 **Tasks**:
 
-- [ ] Modifier `frontend/app/dashboard/transactions/page.tsx` pour ajouter des sous-onglets dans l'onglet Mapping
+- [x] Modifier `frontend/app/dashboard/transactions/page.tsx` pour ajouter des sous-onglets dans l'onglet Mapping
 
-- [ ] Créer composant `AllowedMappingsTable.tsx` pour gérer les mappings autorisés :
+- [x] Créer composant `AllowedMappingsTable.tsx` pour gérer les mappings autorisés :
 
   - Tableau pour visualiser tous les mappings autorisés (level_1, level_2, level_3)
     - Afficher une colonne "Type" indiquant "Hard codé" ou "Ajouté manuellement"
@@ -812,9 +812,9 @@
 
   - Pagination et filtres
 
-- [ ] Ajouter fonctions API dans `frontend/src/api/client.ts` pour les endpoints CRUD
+- [x] Ajouter fonctions API dans `frontend/src/api/client.ts` pour les endpoints CRUD
 
-- [ ] **Bouton "Reset mappings autorisés par défaut"** :
+- [x] **Bouton "Reset mappings autorisés par défaut"** :
 
   - Endpoint backend `POST /api/mappings/allowed/reset` qui :
 
@@ -830,7 +830,7 @@
 
   - **Note** : Le fichier Excel n'est plus nécessaire après le chargement initial, le reset ne recharge pas depuis le fichier
 
-- [ ] **Tester l'affichage et le reset des mappings autorisés**
+- [x] **Tester l'affichage et le reset des mappings autorisés**
 
 **Deliverables**:
 
@@ -860,37 +860,37 @@
 
 **Acceptance Criteria**:
 
-- [ ] Sous-onglets fonctionnent dans l'onglet Mapping
+- [x] Sous-onglets fonctionnent dans l'onglet Mapping
 
-- [ ] Interface pour visualiser les mappings autorisés (tableau)
+- [x] Interface pour visualiser les mappings autorisés (tableau)
 
-- [ ] Interface pour ajouter de nouvelles combinaisons (level_1, level_2, level_3) :
+- [x] Interface pour ajouter de nouvelles combinaisons (level_1, level_2, level_3) :
   - Level_1 : Dropdown + option "➕ Nouveau..." → input texte
   - Level_2 : Dropdown + option "➕ Nouveau..." → input texte
   - Level_3 : Dropdown uniquement (valeurs autorisées)
   - Détection de valeurs similaires avec warning
 
-- [ ] **Permettre de créer de nouvelles combinaisons** qui n'existent pas encore dans `allowed_mappings`
+- [x] **Permettre de créer de nouvelles combinaisons** qui n'existent pas encore dans `allowed_mappings`
 
-- [ ] Validation lors de l'ajout :
+- [x] Validation lors de l'ajout :
   - Combinaison complète unique (contrainte unique sur level_1, level_2, level_3)
   - Warning si valeurs similaires existent pour level_1 ou level_2
   - Level_3 doit être dans la liste fixe : Passif, Produits, Emprunt, Charges Déductibles, Actif
   - Messages d'erreur clairs si validation échoue
 
-- [ ] Validation de la hiérarchie (même logique que Step 5.5 et 5.6)
+- [x] Validation de la hiérarchie (même logique que Step 5.5 et 5.6)
 
-- [ ] Suppression de mappings autorisés fonctionne (avec confirmation) :
+- [x] Suppression de mappings autorisés fonctionne (avec confirmation) :
   - **Impossible de supprimer les combinaisons hard codées** (bouton désactivé)
   - Seulement les combinaisons ajoutées manuellement peuvent être supprimées
 
-- [ ] **Bouton "Reset mappings autorisés par défaut" fonctionne** :
+- [x] **Bouton "Reset mappings autorisés par défaut" fonctionne** :
   - Supprime uniquement les combinaisons ajoutées manuellement
   - Garde les 50 combinaisons initiales (protégées)
 
-- [ ] **Reset supprime les mappings invalides et réinitialise les transactions associées**
+- [x] **Reset supprime les mappings invalides et réinitialise les transactions associées**
 
-- [ ] **Test visuel dans navigateur validé**
+- [x] **Test visuel dans navigateur validé**
 
 ---
 

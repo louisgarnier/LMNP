@@ -18,12 +18,17 @@ export default function AllowedMappingsTable() {
   const [newLevel1, setNewLevel1] = useState('');
   const [newLevel2, setNewLevel2] = useState('');
   const [newLevel3, setNewLevel3] = useState('');
+  const [customLevel1, setCustomLevel1] = useState(false);
+  const [customLevel2, setCustomLevel2] = useState(false);
   const [createAvailableLevel1, setCreateAvailableLevel1] = useState<string[]>([]);
   const [createAvailableLevel2, setCreateAvailableLevel2] = useState<string[]>([]);
   const [createAvailableLevel3, setCreateAvailableLevel3] = useState<string[]>([]);
+  const [similarLevel1Warning, setSimilarLevel1Warning] = useState<string[]>([]);
+  const [similarLevel2Warning, setSimilarLevel2Warning] = useState<string[]>([]);
   
   // États pour les valeurs autorisées (pour les dropdowns)
   const [allowedLevel1List, setAllowedLevel1List] = useState<string[]>([]);
+  const [allowedLevel2List, setAllowedLevel2List] = useState<string[]>([]);
   
   // Valeurs level_3 autorisées (fixes)
   const ALLOWED_LEVEL_3_VALUES = ['Passif', 'Produits', 'Emprunt', 'Charges Déductibles', 'Actif'];
@@ -47,6 +52,40 @@ export default function AllowedMappingsTable() {
     loadMappings();
   }, [page, pageSize]);
 
+  // Fonction pour détecter les valeurs similaires
+  const findSimilarValues = (value: string, existingValues: string[]): string[] => {
+    if (!value || value.trim() === '') return [];
+    
+    const normalizedValue = value.toLowerCase().trim();
+    const similar: string[] = [];
+    
+    for (const existing of existingValues) {
+      const normalizedExisting = existing.toLowerCase().trim();
+      
+      // Détecter si les valeurs sont similaires (même racine, pluriel/singulier, etc.)
+      if (normalizedValue === normalizedExisting) {
+        similar.push(existing);
+      } else if (
+        normalizedValue.includes(normalizedExisting) || 
+        normalizedExisting.includes(normalizedValue)
+      ) {
+        // Vérifier si l'une contient l'autre (ex: "caution" vs "cautions")
+        const shorter = normalizedValue.length < normalizedExisting.length ? normalizedValue : normalizedExisting;
+        const longer = normalizedValue.length >= normalizedExisting.length ? normalizedValue : normalizedExisting;
+        
+        // Si la différence est juste un 's' à la fin (pluriel), considérer comme similaire
+        if (longer === shorter + 's' || shorter === longer.slice(0, -1)) {
+          similar.push(existing);
+        } else if (longer.includes(shorter) && shorter.length >= 4) {
+          // Si la valeur plus courte est contenue dans la plus longue et fait au moins 4 caractères
+          similar.push(existing);
+        }
+      }
+    }
+    
+    return similar;
+  };
+
   // Charger les valeurs autorisées au montage
   useEffect(() => {
     const loadAllowedValues = async () => {
@@ -55,8 +94,13 @@ export default function AllowedMappingsTable() {
         const level1List = level1Response.level_1 || [];
         setAllowedLevel1List(level1List);
         setCreateAvailableLevel1(level1List);
+        
+        // Charger aussi tous les level_2 pour la détection de similarité
+        const level2Response = await mappingsAPI.getAllowedLevel2();
+        const level2List = level2Response.level_2 || [];
+        setAllowedLevel2List(level2List);
       } catch (err) {
-        console.error('Error loading allowed level_1:', err);
+        console.error('Error loading allowed values:', err);
       }
     };
     loadAllowedValues();
@@ -64,15 +108,54 @@ export default function AllowedMappingsTable() {
 
   // Handlers pour la modal de création
   const handleCreateLevel1Change = async (value: string) => {
-    setNewLevel1(value);
-    setNewLevel2('');
-    setNewLevel3('');
-    setCreateAvailableLevel2([]);
-    setCreateAvailableLevel3([]);
-    
-    if (value) {
+    if (value === '__CUSTOM__') {
+      setCustomLevel1(true);
+      setNewLevel1('');
+      setSimilarLevel1Warning([]);
+      // Quand on crée un nouveau level_1, charger TOUS les level_2 disponibles
       try {
-        const level2Response = await mappingsAPI.getAllowedLevel2(value);
+        const level2Response = await mappingsAPI.getAllowedLevel2();
+        const level2List = level2Response.level_2 || [];
+        setCreateAvailableLevel2(level2List);
+      } catch (err) {
+        console.error('Error loading allowed level_2:', err);
+      }
+    } else {
+      setCustomLevel1(false);
+      setNewLevel1(value);
+      setNewLevel2('');
+      setNewLevel3('');
+      setCreateAvailableLevel2([]);
+      setCreateAvailableLevel3([]);
+      setSimilarLevel1Warning([]);
+      
+      if (value) {
+        try {
+          const level2Response = await mappingsAPI.getAllowedLevel2(value);
+          const level2List = level2Response.level_2 || [];
+          setCreateAvailableLevel2(level2List);
+        } catch (err) {
+          console.error('Error loading allowed level_2:', err);
+        }
+      }
+    }
+  };
+
+  const handleCreateLevel1InputChange = async (value: string) => {
+    setNewLevel1(value);
+    
+    // Détecter les valeurs similaires
+    if (value && value.trim() !== '') {
+      const similar = findSimilarValues(value, allowedLevel1List);
+      setSimilarLevel1Warning(similar);
+    } else {
+      setSimilarLevel1Warning([]);
+    }
+    
+    // Quand on tape un nouveau level_1, s'assurer que tous les level_2 sont disponibles
+    if (value && value.trim() !== '' && createAvailableLevel2.length === 0) {
+      try {
+        const level2Response = await mappingsAPI.getAllowedLevel2();
         const level2List = level2Response.level_2 || [];
         setCreateAvailableLevel2(level2List);
       } catch (err) {
@@ -82,20 +165,47 @@ export default function AllowedMappingsTable() {
   };
 
   const handleCreateLevel2Change = async (value: string) => {
-    setNewLevel2(value);
-    setNewLevel3('');
-    setCreateAvailableLevel3([]);
-    
-    const level_1 = newLevel1;
-    if (value && level_1) {
-      try {
-        const level3Response = await mappingsAPI.getAllowedLevel3(level_1, value);
-        const level3List = level3Response.level_3 || [];
-        setCreateAvailableLevel3(level3List);
-      } catch (err) {
-        console.error('Error loading allowed level_3:', err);
+    if (value === '__CUSTOM__') {
+      setCustomLevel2(true);
+      setNewLevel2('');
+      setNewLevel3('');
+      setCreateAvailableLevel3([]);
+      setSimilarLevel2Warning([]);
+    } else {
+      setCustomLevel2(false);
+      setNewLevel2(value);
+      setNewLevel3('');
+      setCreateAvailableLevel3([]);
+      setSimilarLevel2Warning([]);
+      
+      // Si level_2 existe (même avec un nouveau level_1), charger les level_3 déjà mappés
+      if (value) {
+        try {
+          // Charger les level_3 pour ce level_2 (peu importe le level_1)
+          const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(value);
+          const level3List = level3Response.level_3 || [];
+          setCreateAvailableLevel3(level3List);
+        } catch (err) {
+          console.error('Error loading allowed level_3:', err);
+        }
       }
     }
+  };
+
+  const handleCreateLevel2InputChange = (value: string) => {
+    setNewLevel2(value);
+    
+    // Détecter les valeurs similaires
+    if (value && value.trim() !== '') {
+      const similar = findSimilarValues(value, allowedLevel2List);
+      setSimilarLevel2Warning(similar);
+    } else {
+      setSimilarLevel2Warning([]);
+    }
+    
+    // Si c'est une nouvelle valeur, vider level_3 (on ne peut pas savoir quel level_3 lui associer)
+    setNewLevel3('');
+    setCreateAvailableLevel3([]);
   };
 
   const handleCreateLevel3Change = (value: string) => {
@@ -115,13 +225,17 @@ export default function AllowedMappingsTable() {
     }
 
     try {
-      await mappingsAPI.createAllowedMapping(newLevel1, newLevel2, newLevel3 || undefined);
+      await mappingsAPI.createAllowedMapping(newLevel1.trim(), newLevel2.trim(), newLevel3?.trim() || undefined);
       setShowCreateModal(false);
       setNewLevel1('');
       setNewLevel2('');
       setNewLevel3('');
+      setCustomLevel1(false);
+      setCustomLevel2(false);
       setCreateAvailableLevel2([]);
       setCreateAvailableLevel3([]);
+      setSimilarLevel1Warning([]);
+      setSimilarLevel2Warning([]);
       loadMappings();
     } catch (err: any) {
       alert(`Erreur lors de la création: ${err.message}`);
@@ -350,31 +464,107 @@ export default function AllowedMappingsTable() {
             
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 1 *</label>
-              <select
-                value={newLevel1}
-                onChange={(e) => handleCreateLevel1Change(e.target.value)}
-                style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-              >
-                <option value="">-- Sélectionner --</option>
-                {createAvailableLevel1.map((val) => (
-                  <option key={val} value={val}>{val}</option>
-                ))}
-              </select>
+              {customLevel1 ? (
+                <div>
+                  <input
+                    type="text"
+                    value={newLevel1}
+                    onChange={(e) => handleCreateLevel1InputChange(e.target.value)}
+                    placeholder="Entrer une nouvelle valeur level_1"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                  <button
+                    onClick={() => {
+                      setCustomLevel1(false);
+                      setNewLevel1('');
+                      setSimilarLevel1Warning([]);
+                    }}
+                    style={{
+                      marginTop: '4px',
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      backgroundColor: '#6b7280',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ← Retour à la liste
+                  </button>
+                  {similarLevel1Warning.length > 0 && (
+                    <div style={{ marginTop: '8px', padding: '8px', backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '4px', fontSize: '12px', color: '#92400e' }}>
+                      ⚠️ Valeurs similaires existantes : {similarLevel1Warning.join(', ')}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <select
+                  value={newLevel1}
+                  onChange={(e) => handleCreateLevel1Change(e.target.value)}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {createAvailableLevel1.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                  <option value="__CUSTOM__">➕ Nouveau...</option>
+                </select>
+              )}
             </div>
             
             <div style={{ marginBottom: '16px' }}>
               <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 2 *</label>
-              <select
-                value={newLevel2}
-                onChange={(e) => handleCreateLevel2Change(e.target.value)}
-                disabled={!newLevel1}
-                style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-              >
-                <option value="">-- Sélectionner --</option>
-                {createAvailableLevel2.map((val) => (
-                  <option key={val} value={val}>{val}</option>
-                ))}
-              </select>
+              {customLevel2 ? (
+                <div>
+                  <input
+                    type="text"
+                    value={newLevel2}
+                    onChange={(e) => handleCreateLevel2InputChange(e.target.value)}
+                    placeholder="Entrer une nouvelle valeur level_2"
+                    style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                  <button
+                    onClick={() => {
+                      setCustomLevel2(false);
+                      setNewLevel2('');
+                      setNewLevel3('');
+                      setCreateAvailableLevel3([]);
+                      setSimilarLevel2Warning([]);
+                    }}
+                    style={{
+                      marginTop: '4px',
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      backgroundColor: '#6b7280',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    ← Retour à la liste
+                  </button>
+                  {similarLevel2Warning.length > 0 && (
+                    <div style={{ marginTop: '8px', padding: '8px', backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '4px', fontSize: '12px', color: '#92400e' }}>
+                      ⚠️ Valeurs similaires existantes : {similarLevel2Warning.join(', ')}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <select
+                  value={newLevel2}
+                  onChange={(e) => handleCreateLevel2Change(e.target.value)}
+                  disabled={false}
+                  style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {createAvailableLevel2.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                  <option value="__CUSTOM__">➕ Nouveau...</option>
+                </select>
+              )}
             </div>
             
             <div style={{ marginBottom: '16px' }}>
@@ -382,16 +572,20 @@ export default function AllowedMappingsTable() {
               <select
                 value={newLevel3}
                 onChange={(e) => handleCreateLevel3Change(e.target.value)}
-                disabled={!newLevel2}
+                disabled={!newLevel2 && !customLevel2}
                 style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
               >
                 <option value="">-- Sélectionner (optionnel) --</option>
-                {ALLOWED_LEVEL_3_VALUES.map((val) => (
+                {/* Afficher les level_3 déjà mappés pour ce level_2 si level_2 existe, sinon toutes les valeurs autorisées */}
+                {(createAvailableLevel3.length > 0 ? createAvailableLevel3 : ALLOWED_LEVEL_3_VALUES).map((val) => (
                   <option key={val} value={val}>{val}</option>
                 ))}
               </select>
               <div style={{ marginTop: '4px', fontSize: '12px', color: '#666' }}>
-                Valeurs autorisées : {ALLOWED_LEVEL_3_VALUES.join(', ')}
+                {createAvailableLevel3.length > 0 
+                  ? `Valeurs déjà mappées pour ce level_2 : ${createAvailableLevel3.join(', ')}`
+                  : `Valeurs autorisées : ${ALLOWED_LEVEL_3_VALUES.join(', ')}`
+                }
               </div>
             </div>
             
@@ -417,8 +611,12 @@ export default function AllowedMappingsTable() {
                   setNewLevel1('');
                   setNewLevel2('');
                   setNewLevel3('');
+                  setCustomLevel1(false);
+                  setCustomLevel2(false);
                   setCreateAvailableLevel2([]);
                   setCreateAvailableLevel3([]);
+                  setSimilarLevel1Warning([]);
+                  setSimilarLevel2Warning([]);
                 }}
                 style={{
                   flex: 1,
