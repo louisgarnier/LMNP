@@ -15,6 +15,7 @@ import UnclassifiedTransactionsTable from '@/components/UnclassifiedTransactions
 import MappingTable, { MappingTableRef } from '@/components/MappingTable';
 import MappingFileUpload from '@/components/MappingFileUpload';
 import MappingImportLog from '@/components/MappingImportLog';
+import AllowedMappingsTable from '@/components/AllowedMappingsTable';
 import { transactionsAPI, mappingsAPI, fileUploadAPI } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
 
@@ -28,6 +29,7 @@ export default function TransactionsPage() {
   const [isLoadingMappingCount, setIsLoadingMappingCount] = useState(false);
   const { clearLogs } = useImportLog();
   const mappingTableRef = useRef<MappingTableRef>(null);
+  const [mappingSubTab, setMappingSubTab] = useState<'existing' | 'allowed'>('existing');
 
   const loadTransactionCount = async () => {
     setIsLoadingCount(true);
@@ -330,7 +332,54 @@ export default function TransactionsPage() {
 
         {tab === 'mapping' && (
           <div>
-            <MappingTable ref={mappingTableRef} onMappingChange={handleImportComplete} />
+            {/* Sous-onglets pour Mapping */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              marginBottom: '24px',
+              borderBottom: '2px solid #e5e5e5'
+            }}>
+              <button
+                onClick={() => setMappingSubTab('existing')}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: mappingSubTab === 'existing' ? '600' : '400',
+                  color: mappingSubTab === 'existing' ? '#1e3a5f' : '#666',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderBottom: mappingSubTab === 'existing' ? '3px solid #1e3a5f' : '3px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Mappings existants
+              </button>
+              <button
+                onClick={() => setMappingSubTab('allowed')}
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '16px',
+                  fontWeight: mappingSubTab === 'allowed' ? '600' : '400',
+                  color: mappingSubTab === 'allowed' ? '#1e3a5f' : '#666',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  borderBottom: mappingSubTab === 'allowed' ? '3px solid #1e3a5f' : '3px solid transparent',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                Mappings autorisés
+              </button>
+            </div>
+            
+            {/* Contenu selon le sous-onglet */}
+            {mappingSubTab === 'existing' && (
+              <MappingTable ref={mappingTableRef} onMappingChange={handleImportComplete} />
+            )}
+            {mappingSubTab === 'allowed' && (
+              <AllowedMappingsTable />
+            )}
           </div>
         )}
       </div>
