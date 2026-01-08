@@ -246,11 +246,13 @@
 
 - [x] Modifier `find_best_mapping()` dans `enrichment_service.py` :
 
-  - **Nouvelle règle** : Si plusieurs mappings correspondent à une transaction (même nom), retourner `None` au lieu du meilleur mapping
+  - **Nouvelle règle** : Si plusieurs mappings correspondent à une transaction, choisir celui avec le nom le plus long (correspondance exacte ou préfixe le plus long)
 
-  - La transaction ne sera pas mappée et se retrouvera dans l'onglet "Non classées" (unassigned)
+  - Si plusieurs mappings ont la même longueur maximale, retourner `None` (conflit réel - plusieurs mappings équivalents)
 
-  - Cela évite les conflits et force un mapping manuel
+  - La transaction ne sera pas mappée uniquement si plusieurs mappings équivalents correspondent, et se retrouvera dans l'onglet "Non classées" (unassigned)
+
+  - Cela évite les conflits réels tout en permettant l'utilisation du meilleur mapping disponible
 
 - [x] Corriger la mise à jour en cascade dans `backend/api/routes/enrichment.py` :
 

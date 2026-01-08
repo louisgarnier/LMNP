@@ -29,16 +29,20 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
     4. Matching "smart" : Recherche par pattern/contient (si le nom de la transaction
        contient le nom du mapping)
     
-    **Règle importante (Step 5.3)** : Si plusieurs mappings correspondent à une transaction,
-    retourner None pour éviter les conflits. La transaction restera non classée (unassigned).
+    **Règle importante (Step 5.3 modifiée)** : Si plusieurs mappings correspondent à une transaction,
+    choisir celui avec le nom le plus long (correspondance exacte ou préfixe le plus long).
+    Si plusieurs mappings ont la même longueur et correspondent, retourner None pour éviter les conflits.
     
     Args:
         transaction_name: Nom de la transaction à mapper
         mappings: Liste des mappings disponibles
     
     Returns:
-        Le meilleur mapping trouvé, ou None si aucun mapping ne correspond ou si plusieurs mappings correspondent
+        Le meilleur mapping trouvé (le plus long qui correspond), ou None si aucun mapping ne correspond
+        ou si plusieurs mappings de même longueur correspondent
     """
+    best_match = None
+    best_length = 0
     matching_mappings = []
     
     # Normaliser le nom de la transaction (supprimer espaces en début/fin)
@@ -47,40 +51,50 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
     for mapping in mappings:
         mapping_name = mapping.nom.strip()
         matches = False
+        match_length = 0
         
         # Cas spécial pour PRLV SEPA
         if 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
             if transaction_name.startswith(mapping_name):
                 matches = True
+                match_length = len(mapping_name)
         
         # Cas spécial pour VIR STRIPE (correspondance exacte)
         elif 'VIR STRIPE' in transaction_name and mapping_name == 'VIR STRIPE':
             matches = True
+            match_length = len(mapping_name)
         
         # Cas général : recherche par préfixe (si is_prefix_match = True)
         elif mapping.is_prefix_match:
             if transaction_name.startswith(mapping_name):
                 matches = True
+                match_length = len(mapping_name)
         
         # Matching "smart" : recherche par pattern/contient
         # Si le nom de la transaction contient le nom du mapping
         elif mapping_name in transaction_name:
             matches = True
+            match_length = len(mapping_name)
         
         if matches:
-            matching_mappings.append(mapping)
+            matching_mappings.append((mapping, match_length))
+            # Garder le meilleur (le plus long)
+            if match_length > best_length:
+                best_match = mapping
+                best_length = match_length
     
     # Si aucun mapping ne correspond
     if len(matching_mappings) == 0:
         return None
     
-    # **Règle Step 5.3** : Si plusieurs mappings correspondent, retourner None
-    # pour éviter les conflits. La transaction restera non classée.
-    if len(matching_mappings) > 1:
+    # Si plusieurs mappings correspondent avec la même longueur maximale, retourner None
+    # (conflit réel - plusieurs mappings équivalents)
+    max_length_mappings = [m for m, length in matching_mappings if length == best_length]
+    if len(max_length_mappings) > 1:
         return None
     
-    # Un seul mapping correspond → le retourner
-    return matching_mappings[0]
+    # Retourner le meilleur mapping (le plus long)
+    return best_match
 
 
 def transaction_matches_mapping_name(transaction_name: str, mapping_name: str) -> bool:
