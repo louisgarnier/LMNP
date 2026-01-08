@@ -34,9 +34,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [availableLevel1, setAvailableLevel1] = useState<string[]>([]);
   const [availableLevel2, setAvailableLevel2] = useState<string[]>([]);
   const [availableLevel3, setAvailableLevel3] = useState<string[]>([]);
-  const [customLevel1, setCustomLevel1] = useState(false);
-  const [customLevel2, setCustomLevel2] = useState(false);
-  const [customLevel3, setCustomLevel3] = useState(false);
   // Step 5.5.3: Liste des level_1 autorisés chargée au montage
   const [allowedLevel1List, setAllowedLevel1List] = useState<string[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -515,10 +512,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       level_3: currentLevel3,
     });
     
-    // Vérifier si les valeurs actuelles sont "custom" (pas dans les mappings)
-    setCustomLevel1(false);
-    setCustomLevel2(false);
-    setCustomLevel3(false);
     
     // Step 5.5.3: Charger les level_1 autorisés depuis allowed_mappings
     try {
@@ -599,12 +592,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       });
       setAvailableLevel2([]);
       setAvailableLevel3([]);
-      setCustomLevel1(false);
       return;
     }
-
-    // Step 5.5.3: Plus de mode custom pour level_1 - utiliser uniquement les valeurs autorisées
-    setCustomLevel1(false);
     
     // Step 5.5.3: Charger level_2 et level_3 automatiquement pour ce level_1
     if (value) {
@@ -677,12 +666,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         level_3: undefined
       });
       setAvailableLevel3([]);
-      setCustomLevel2(false);
       return;
     }
-
-    // Step 5.5.4: Plus de mode custom pour level_2 - utiliser uniquement les valeurs autorisées
-    setCustomLevel2(false);
     
     const level_1 = editingClassificationValues.level_1;
     
@@ -788,12 +773,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         ...editingClassificationValues, 
         level_3: undefined
       });
-      setCustomLevel3(false);
       return;
     }
-
-    // Step 5.5.5: Plus de mode custom pour level_3 - utiliser uniquement les valeurs autorisées
-    setCustomLevel3(false);
     
     const level_1 = editingClassificationValues.level_1;
     const level_2 = editingClassificationValues.level_2;
@@ -878,14 +859,11 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   };
 
   const handleCancelClassification = () => {
-    setEditingClassificationId(null);
-    setEditingClassificationValues({});
-    setAvailableLevel1([]);
-    setAvailableLevel2([]);
-    setAvailableLevel3([]);
-    setCustomLevel1(false);
-    setCustomLevel2(false);
-    setCustomLevel3(false);
+      setEditingClassificationId(null);
+      setEditingClassificationValues({});
+      setAvailableLevel1([]);
+      setAvailableLevel2([]);
+      setAvailableLevel3([]);
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -1421,48 +1399,22 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_1 ? '#666' : '#999', fontStyle: transaction.level_1 ? 'normal' : 'italic' }}>
                       {editingClassificationId === transaction.id ? (
-                        customLevel1 ? (
-                          <input
-                            type="text"
-                            value={editingClassificationValues.level_1 || ''}
-                            onChange={async (e) => {
-                              const newValue = e.target.value;
-                              setEditingClassificationValues({ ...editingClassificationValues, level_1: newValue, level_2: undefined, level_3: undefined });
-                              setAvailableLevel2([]);
-                              setAvailableLevel3([]);
-                              
-                              // Si une valeur est saisie, charger TOUS les level_2 disponibles (car c'est une nouvelle valeur)
-                              if (newValue) {
-                                try {
-                                  const combinations = await mappingsAPI.getCombinations(undefined, undefined, true, false);
-                                  const level2List = combinations.level_2 || [];
-                                  setAvailableLevel2(level2List);
-                                } catch (err) {
-                                  console.error('Error loading level_2 combinations:', err);
-                                }
-                              }
-                            }}
-                            placeholder="Saisir une valeur..."
-                            style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                          />
-                        ) : (
-                          <select
-                            value={editingClassificationValues.level_1 || ''}
-                            onChange={(e) => handleLevel1Change(e.target.value)}
-                            style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                          >
-                            <option value="">-- Sélectionner --</option>
-                            {/* Step 5.5.4: Utiliser availableLevel1 si filtré (non vide), sinon allowedLevel1List */}
-                            {(availableLevel1.length > 0 ? availableLevel1 : allowedLevel1List)
-                              .filter(val => val && val !== 'Unassigned' && val !== 'unassigned')
-                              .map((val) => (
-                                <option key={val} value={val}>{val}</option>
-                              ))}
-                            {(allowedLevel1List.length === 0 && availableLevel1.length === 0) && (
-                              <option disabled>Aucune valeur disponible</option>
-                            )}
-                          </select>
-                        )
+                        <select
+                          value={editingClassificationValues.level_1 || ''}
+                          onChange={(e) => handleLevel1Change(e.target.value)}
+                          style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
+                        >
+                          <option value="">-- Sélectionner --</option>
+                          {/* Step 5.5.4: Utiliser availableLevel1 si filtré (non vide), sinon allowedLevel1List */}
+                          {(availableLevel1.length > 0 ? availableLevel1 : allowedLevel1List)
+                            .filter(val => val && val !== 'Unassigned' && val !== 'unassigned')
+                            .map((val) => (
+                              <option key={val} value={val}>{val}</option>
+                            ))}
+                          {(allowedLevel1List.length === 0 && availableLevel1.length === 0) && (
+                            <option disabled>Aucune valeur disponible</option>
+                          )}
+                        </select>
                       ) : (
                         <span 
                           onClick={() => handleEditClassification(transaction)}

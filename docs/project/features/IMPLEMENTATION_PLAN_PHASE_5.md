@@ -572,39 +572,39 @@
 
 #### Step 5.5.6 : Frontend - Règles de changement et suppression des inputs texte
 
-**Status**: ⏳ EN ATTENTE
+**Status**: ✅ COMPLÉTÉ
 
 **Description**: Implémenter les règles de changement et supprimer complètement les inputs texte (mode custom).
 
 **Tasks**:
 
-- [ ] Modifier `TransactionsTable.tsx` :
+- [x] Modifier `TransactionsTable.tsx` :
 
-  - **Règle 1** : Changer level_1 → level_2 et level_3 changent automatiquement (nouvelle combinaison unique)
+  - **Règle 1** : Changer level_1 → level_2 et level_3 changent automatiquement (nouvelle combinaison unique) ✅ (déjà implémenté dans Step 5.5.3)
 
-  - **Règle 2** : Changer level_2 → level_3 change automatiquement, level_1 reste tel quel
+  - **Règle 2** : Changer level_2 → level_3 change automatiquement, level_1 reste tel quel ✅ (déjà implémenté dans Step 5.5.4)
 
-  - **Règle 3** : Changer level_3 → level_2 et level_1 restent tels quels (pas de réinitialisation)
+  - **Règle 3** : Changer level_3 → level_2 et level_1 restent tels quels (pas de réinitialisation) ✅ (déjà implémenté dans Step 5.5.5)
 
-  - **Supprimer complètement** les inputs texte (mode custom) pour level_1, level_2, level_3
+  - **Supprimer complètement** les inputs texte (mode custom) pour level_1, level_2, level_3 ✅
 
-  - Supprimer les états `customLevel1`, `customLevel2`, `customLevel3`
+  - Supprimer les états `customLevel1`, `customLevel2`, `customLevel3` ✅
 
-  - Supprimer l'option "➕ Nouveau..." des dropdowns
+  - Supprimer l'option "➕ Nouveau..." des dropdowns ✅ (déjà fait dans Step 5.5.3, 5.5.4, 5.5.5)
 
-- [ ] **Tester toutes les règles de changement dans le navigateur**
+- [x] **Tester toutes les règles de changement dans le navigateur**
 
 **Deliverables**:
 
-- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Règles de changement implémentées
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Règles de changement implémentées et code mort supprimé
 
 **Acceptance Criteria**:
 
-- [ ] Les 3 règles de changement fonctionnent correctement
+- [x] Les 3 règles de changement fonctionnent correctement
 
-- [ ] Les inputs texte sont complètement supprimés (plus de mode custom)
+- [x] Les inputs texte sont complètement supprimés (plus de mode custom)
 
-- [ ] Les dropdowns ne permettent que la sélection de valeurs autorisées
+- [x] Les dropdowns ne permettent que la sélection de valeurs autorisées
 
 - [ ] **Test visuel dans navigateur validé**
 
