@@ -42,7 +42,11 @@ from backend.api.services.mapping_obligatoire_service import (
     get_allowed_level1_for_level2_and_level3,
     get_allowed_level3_for_level2,
     validate_mapping,
-    validate_level3_value
+    validate_level3_value,
+    get_all_allowed_mappings,
+    create_allowed_mapping,
+    delete_allowed_mapping,
+    reset_allowed_mappings
 )
 
 router = APIRouter()
