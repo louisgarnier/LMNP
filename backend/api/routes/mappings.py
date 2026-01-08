@@ -1234,3 +1234,28 @@ async def reset_allowed_mappings_endpoint(
         logger.error(f"Erreur lors du reset des mappings autorisés: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du reset: {str(e)}")
 
+
+@router.get("/mappings/{mapping_id}", response_model=MappingResponse)
+async def get_mapping(
+    mapping_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer un mapping par son ID.
+    
+    Args:
+        mapping_id: ID du mapping
+        db: Session de base de données
+    
+    Returns:
+        Détails du mapping
+    
+    Raises:
+        HTTPException: Si le mapping n'existe pas
+    """
+    mapping = db.query(Mapping).filter(Mapping.id == mapping_id).first()
+    if not mapping:
+        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
+    
+    return MappingResponse.model_validate(mapping)
+
