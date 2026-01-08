@@ -36,6 +36,9 @@ from backend.api.services.mapping_obligatoire_service import (
     get_allowed_level1_values,
     get_allowed_level2_values,
     get_allowed_level3_values,
+    get_allowed_level2_for_level3,
+    get_allowed_level1_for_level2,
+    get_allowed_level1_for_level2_and_level3,
     validate_mapping,
     validate_level3_value
 )
@@ -950,6 +953,74 @@ async def get_allowed_level3(
     """
     values = get_allowed_level3_values(db, level_1, level_2)
     return {"level_3": values}
+
+
+@router.get("/mappings/allowed-level2-for-level3")
+async def get_allowed_level2_for_level3_endpoint(
+    level_3: str = Query(..., description="Valeur de level_3"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs level_2 autorisées pour un level_3 donné.
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_3 est sélectionné en premier,
+    on peut filtrer les level_2 possibles.
+    
+    Args:
+        level_3: Valeur de level_3
+        db: Session de base de données
+    
+    Returns:
+        Liste des valeurs level_2 uniques pour ce level_3, triées
+    """
+    values = get_allowed_level2_for_level3(db, level_3)
+    return {"level_2": values}
+
+
+@router.get("/mappings/allowed-level1-for-level2")
+async def get_allowed_level1_for_level2_endpoint(
+    level_2: str = Query(..., description="Valeur de level_2"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs level_1 autorisées pour un level_2 donné.
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_2 est sélectionné en premier,
+    on peut filtrer les level_1 possibles.
+    
+    Args:
+        level_2: Valeur de level_2
+        db: Session de base de données
+    
+    Returns:
+        Liste des valeurs level_1 uniques pour ce level_2, triées
+    """
+    values = get_allowed_level1_for_level2(db, level_2)
+    return {"level_1": values}
+
+
+@router.get("/mappings/allowed-level1-for-level2-and-level3")
+async def get_allowed_level1_for_level2_and_level3_endpoint(
+    level_2: str = Query(..., description="Valeur de level_2"),
+    level_3: str = Query(..., description="Valeur de level_3"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs level_1 autorisées pour un couple (level_2, level_3).
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_3 puis level_2 sont sélectionnés,
+    on peut filtrer les level_1 possibles pour validation.
+    
+    Args:
+        level_2: Valeur de level_2
+        level_3: Valeur de level_3
+        db: Session de base de données
+    
+    Returns:
+        Liste des valeurs level_1 uniques pour ce couple, triées
+    """
+    values = get_allowed_level1_for_level2_and_level3(db, level_2, level_3)
+    return {"level_1": values}
 
 
 @router.get("/mappings/combinations")

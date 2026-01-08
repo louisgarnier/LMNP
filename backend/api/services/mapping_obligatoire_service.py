@@ -226,3 +226,68 @@ def reset_to_hardcoded_values(db: Session) -> int:
     db.commit()
     return deleted_count
 
+
+def get_allowed_level2_for_level3(db: Session, level_3: str) -> List[str]:
+    """
+    Retourne les valeurs level_2 autorisées pour un level_3 donné (distinct).
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_3 est sélectionné en premier,
+    on peut filtrer les level_2 possibles.
+    
+    Args:
+        db: Session de base de données
+        level_3: Valeur de level_3
+    
+    Returns:
+        Liste des valeurs level_2 uniques pour ce level_3, triées
+    """
+    values = db.query(distinct(AllowedMapping.level_2)).filter(
+        AllowedMapping.level_3 == level_3,
+        AllowedMapping.level_2.isnot(None)
+    ).order_by(AllowedMapping.level_2).all()
+    return [v[0] for v in values if v[0]]
+
+
+def get_allowed_level1_for_level2(db: Session, level_2: str) -> List[str]:
+    """
+    Retourne les valeurs level_1 autorisées pour un level_2 donné (distinct).
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_2 est sélectionné en premier,
+    on peut filtrer les level_1 possibles.
+    
+    Args:
+        db: Session de base de données
+        level_2: Valeur de level_2
+    
+    Returns:
+        Liste des valeurs level_1 uniques pour ce level_2, triées
+    """
+    values = db.query(distinct(AllowedMapping.level_1)).filter(
+        AllowedMapping.level_2 == level_2,
+        AllowedMapping.level_1.isnot(None)
+    ).order_by(AllowedMapping.level_1).all()
+    return [v[0] for v in values if v[0]]
+
+
+def get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3: str) -> List[str]:
+    """
+    Retourne les valeurs level_1 autorisées pour un couple (level_2, level_3) (distinct).
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_3 puis level_2 sont sélectionnés,
+    on peut filtrer les level_1 possibles pour validation.
+    
+    Args:
+        db: Session de base de données
+        level_2: Valeur de level_2
+        level_3: Valeur de level_3
+    
+    Returns:
+        Liste des valeurs level_1 uniques pour ce couple, triées
+    """
+    values = db.query(distinct(AllowedMapping.level_1)).filter(
+        AllowedMapping.level_2 == level_2,
+        AllowedMapping.level_3 == level_3,
+        AllowedMapping.level_1.isnot(None)
+    ).order_by(AllowedMapping.level_1).all()
+    return [v[0] for v in values if v[0]]
+

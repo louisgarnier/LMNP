@@ -362,19 +362,19 @@
 
 #### Step 5.5.1 : Backend - Fonctions de filtrage bidirectionnel
 
-**Status**: ⏳ EN ATTENTE
+**Status**: ✅ COMPLÉTÉ
 
 **Description**: Créer les fonctions backend pour le filtrage bidirectionnel (level_3 → level_2, level_2 → level_1, etc.)
 
 **Tasks**:
 
-- [ ] Créer `get_allowed_level2_for_level3(db: Session, level_3: str)` dans `mapping_obligatoire_service.py` : retourne les level_2 qui ont ce level_3 (distinct)
+- [x] Créer `get_allowed_level2_for_level3(db: Session, level_3: str)` dans `mapping_obligatoire_service.py` : retourne les level_2 qui ont ce level_3 (distinct)
 
-- [ ] Créer `get_allowed_level1_for_level2(db: Session, level_2: str)` dans `mapping_obligatoire_service.py` : retourne les level_1 qui ont ce level_2 (distinct)
+- [x] Créer `get_allowed_level1_for_level2(db: Session, level_2: str)` dans `mapping_obligatoire_service.py` : retourne les level_1 qui ont ce level_2 (distinct)
 
-- [ ] Créer `get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3: str)` : retourne les level_1 qui ont ce couple (distinct, pour validation)
+- [x] Créer `get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3: str)` : retourne les level_1 qui ont ce couple (distinct, pour validation)
 
-- [ ] Créer endpoints API correspondants dans `backend/api/routes/mappings.py` :
+- [x] Créer endpoints API correspondants dans `backend/api/routes/mappings.py` :
 
   - `GET /api/mappings/allowed-level2-for-level3?level_3={value}`
 
@@ -382,7 +382,9 @@
 
   - `GET /api/mappings/allowed-level1-for-level2-and-level3?level_2={value}&level_3={value}`
 
-- [ ] **Tester les endpoints backend**
+- [x] **Tester les endpoints backend**
+
+- [x] **Corriger conflit de noms entre endpoints et fonctions importées**
 
 **Deliverables**:
 
@@ -394,11 +396,15 @@
 
 **Acceptance Criteria**:
 
-- [ ] Les 3 fonctions retournent les bonnes valeurs filtrées
+- [x] Les 3 fonctions retournent les bonnes valeurs filtrées
 
-- [ ] Les 3 endpoints API fonctionnent correctement
+- [x] Les 3 endpoints API fonctionnent correctement
 
-- [ ] **Tests backend passent**
+- [x] **Tests backend passent**
+
+- [x] **Tests unitaires passent (test_bidirectional_filtering_step5_5_1.py)**
+
+- [x] **Tests API passent (TestClient)**
 
 ---
 
