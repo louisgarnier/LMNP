@@ -541,6 +541,11 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         setAvailableLevel2([]);
       }
       
+      // Step 5.5.5: Charger tous les level_3 disponibles pour permettre le scénario 3 (level_3 avant level_2 et level_1)
+      // Les valeurs level_3 autorisées sont fixes : Passif, Produits, Emprunt, Charges Déductibles, Actif
+      const allowedLevel3Values = ['Passif', 'Produits', 'Emprunt', 'Charges Déductibles', 'Actif'];
+      setAvailableLevel3(allowedLevel3Values);
+      
       // Step 5.5.3: Si level_1 existe, charger les level_2 spécifiques et level_3 autorisés
       if (currentLevel1) {
         try {
@@ -548,21 +553,35 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
           const level2List = level2Response.level_2 || [];
           setAvailableLevel2(level2List);
           
-          // Si level_2 existe aussi, charger les level_3 autorisés
+          // Si level_2 existe aussi, charger les level_3 autorisés pour cette combinaison
           if (currentLevel2) {
             const level3Response = await mappingsAPI.getAllowedLevel3(currentLevel1, currentLevel2);
             const level3List = level3Response.level_3 || [];
             setAvailableLevel3(level3List);
-          } else {
-            // Si level_2 n'existe pas, ne pas charger level_3 (sera chargé quand level_2 sera sélectionné)
-            setAvailableLevel3([]);
           }
         } catch (err) {
           console.error('Error loading allowed combinations:', err);
         }
-      } else {
-        // Si level_1 n'existe pas, ne pas charger level_3 (sera chargé quand level_2 ou level_3 sera sélectionné)
-        setAvailableLevel3([]);
+      }
+      // Step 5.5.4: Si level_2 existe (sans level_1), charger les level_3 pour ce level_2
+      else if (currentLevel2) {
+        try {
+          const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(currentLevel2);
+          const level3List = level3Response.level_3 || [];
+          setAvailableLevel3(level3List);
+        } catch (err) {
+          console.error('Error loading allowed level_3 for level_2:', err);
+        }
+      }
+      // Step 5.5.5: Si level_3 existe (sans level_1 ni level_2), charger les level_2 pour ce level_3
+      else if (currentLevel3) {
+        try {
+          const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(currentLevel3);
+          const level2List = level2Response.level_2 || [];
+          setAvailableLevel2(level2List);
+        } catch (err) {
+          console.error('Error loading allowed level_2 for level_3:', err);
+        }
       }
     } catch (err) {
       console.error('Error loading combinations:', err);
@@ -730,6 +749,107 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         });
         setAvailableLevel3([]);
       }
+    }
+    // Step 5.5.5: Si level_3 est déjà sélectionné (mais pas level_1), charger les level_1 pour le couple (level_2, level_3)
+    else if (!level_1 && value) {
+      const level_3 = editingClassificationValues.level_3;
+      if (level_3) {
+        try {
+          // Charger les level_1 autorisés pour le couple (level_2, level_3)
+          const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(value, level_3);
+          const level1List = level1Response.level_1 || [];
+          setAvailableLevel1(level1List);
+          
+          setEditingClassificationValues({ 
+            ...editingClassificationValues, 
+            level_2: value
+          });
+        } catch (err) {
+          console.error('Error loading allowed level_1 for level_2 and level_3:', err);
+          setEditingClassificationValues({ 
+            ...editingClassificationValues, 
+            level_2: value
+          });
+        }
+      } else {
+        // Si level_3 n'est pas sélectionné, juste mettre à jour level_2
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_2: value
+        });
+      }
+    }
+  };
+
+  const handleLevel3Change = async (value: string) => {
+    // Step 5.5.5: Valeur vide pour retirer le mapping
+    if (value === '') {
+      setEditingClassificationValues({ 
+        ...editingClassificationValues, 
+        level_3: undefined
+      });
+      setCustomLevel3(false);
+      return;
+    }
+
+    // Step 5.5.5: Plus de mode custom pour level_3 - utiliser uniquement les valeurs autorisées
+    setCustomLevel3(false);
+    
+    const level_1 = editingClassificationValues.level_1;
+    const level_2 = editingClassificationValues.level_2;
+    
+    // Step 5.5.5: Scénario 3 - Si level_1 et level_2 ne sont pas encore sélectionnés
+    if (!level_1 && !level_2 && value) {
+      try {
+        // Charger les level_2 autorisés pour ce level_3
+        const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(value);
+        const level2List = level2Response.level_2 || [];
+        setAvailableLevel2(level2List);
+        
+        // Ne pas charger level_1 pour l'instant (sera chargé quand level_2 sera sélectionné)
+        setAvailableLevel1([]);
+        
+        // Mettre à jour la valeur
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_3: value
+        });
+      } catch (err) {
+        console.error('Error loading allowed level_2 for level_3:', err);
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_3: value
+        });
+        setAvailableLevel2([]);
+      }
+    }
+    // Si level_2 est déjà sélectionné (mais pas level_1), charger les level_1 pour le couple
+    else if (!level_1 && level_2 && value) {
+      try {
+        // Charger les level_1 autorisés pour le couple (level_2, level_3)
+        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(level_2, value);
+        const level1List = level1Response.level_1 || [];
+        setAvailableLevel1(level1List);
+        
+        // Mettre à jour la valeur
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_3: value
+        });
+      } catch (err) {
+        console.error('Error loading allowed level_1 for level_2 and level_3:', err);
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_3: value
+        });
+      }
+    }
+    // Si level_1 et level_2 sont déjà sélectionnés, juste mettre à jour level_3
+    else {
+      setEditingClassificationValues({ 
+        ...editingClassificationValues, 
+        level_3: value
+      });
     }
   };
 
@@ -1386,52 +1506,27 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_3 ? '#666' : '#999', fontStyle: transaction.level_3 ? 'normal' : 'italic' }}>
                       {editingClassificationId === transaction.id ? (
-                        customLevel3 ? (
-                          <input
-                            type="text"
-                            value={editingClassificationValues.level_3 || ''}
-                            onChange={(e) => setEditingClassificationValues({ ...editingClassificationValues, level_3: e.target.value })}
-                            placeholder="Saisir une valeur (optionnel)..."
-                            style={{ 
-                              width: '100%', 
-                              padding: '4px', 
-                              border: '1px solid #ddd', 
-                              borderRadius: '2px',
-                              backgroundColor: 'white'
-                            }}
-                          />
-                        ) : (
-                          <select
-                            value={editingClassificationValues.level_3 || ''}
-                            onChange={(e) => {
-                              if (e.target.value === '__CUSTOM__') {
-                                setCustomLevel3(true);
-                                setEditingClassificationValues({ ...editingClassificationValues, level_3: '' });
-                              } else {
-                                setCustomLevel3(false);
-                                setEditingClassificationValues({ ...editingClassificationValues, level_3: e.target.value });
-                              }
-                            }}
-                            disabled={false}
-                            style={{ 
-                              width: '100%', 
-                              padding: '4px', 
-                              border: '1px solid #ddd', 
-                              borderRadius: '2px',
-                              backgroundColor: 'white'
-                            }}
-                          >
-                            <option value="">-- Sélectionner (optionnel) --</option>
-                            {availableLevel3.length > 0 ? (
-                              availableLevel3.map((val) => (
-                                <option key={val} value={val}>{val}</option>
-                              ))
-                            ) : (
-                              <option disabled>Aucune valeur disponible</option>
-                            )}
-                            <option value="__CUSTOM__">➕ Nouveau...</option>
-                          </select>
-                        )
+                        <select
+                          value={editingClassificationValues.level_3 || ''}
+                          onChange={(e) => handleLevel3Change(e.target.value)}
+                          disabled={false}
+                          style={{ 
+                            width: '100%', 
+                            padding: '4px', 
+                            border: '1px solid #ddd', 
+                            borderRadius: '2px',
+                            backgroundColor: 'white'
+                          }}
+                        >
+                          <option value="">-- Sélectionner (optionnel) --</option>
+                          {availableLevel3.length > 0 ? (
+                            availableLevel3.map((val) => (
+                              <option key={val} value={val}>{val}</option>
+                            ))
+                          ) : (
+                            <option disabled>Aucune valeur disponible</option>
+                          )}
+                        </select>
                       ) : (
                         <span 
                           onClick={() => handleEditClassification(transaction)}
