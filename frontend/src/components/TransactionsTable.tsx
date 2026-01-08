@@ -1332,7 +1332,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                             style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
                           >
                             <option value="">-- Sélectionner --</option>
-                            {(allowedLevel1List.length > 0 ? allowedLevel1List : availableLevel1)
+                            {/* Step 5.5.4: Utiliser availableLevel1 si filtré (non vide), sinon allowedLevel1List */}
+                            {(availableLevel1.length > 0 ? availableLevel1 : allowedLevel1List)
                               .filter(val => val && val !== 'Unassigned' && val !== 'unassigned')
                               .map((val) => (
                                 <option key={val} value={val}>{val}</option>
