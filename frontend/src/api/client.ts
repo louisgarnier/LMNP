@@ -481,6 +481,34 @@ export const mappingsAPI = {
   },
 
   /**
+   * Récupérer toutes les valeurs level_1 autorisées (depuis allowed_mappings)
+   */
+  async getAllowedLevel1(): Promise<{ level_1: string[] }> {
+    return fetchAPI<{ level_1: string[] }>('/api/mappings/allowed-level1');
+  },
+
+  /**
+   * Récupérer les valeurs level_2 autorisées pour un level_1 donné (depuis allowed_mappings)
+   */
+  async getAllowedLevel2(level_1: string): Promise<{ level_2: string[] }> {
+    const params = new URLSearchParams({
+      level_1,
+    });
+    return fetchAPI<{ level_2: string[] }>(`/api/mappings/allowed-level2?${params.toString()}`);
+  },
+
+  /**
+   * Récupérer les valeurs level_3 autorisées pour un couple (level_1, level_2) (depuis allowed_mappings)
+   */
+  async getAllowedLevel3(level_1: string, level_2: string): Promise<{ level_3: string[] }> {
+    const params = new URLSearchParams({
+      level_1,
+      level_2,
+    });
+    return fetchAPI<{ level_3: string[] }>(`/api/mappings/allowed-level3?${params.toString()}`);
+  },
+
+  /**
    * Récupérer les valeurs level_2 autorisées pour un level_3 donné (filtrage bidirectionnel)
    * Utilisé quand level_3 est sélectionné en premier
    */
