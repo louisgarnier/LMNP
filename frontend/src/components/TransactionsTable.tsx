@@ -1348,59 +1348,27 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_2 ? '#666' : '#999', fontStyle: transaction.level_2 ? 'normal' : 'italic' }}>
                       {editingClassificationId === transaction.id ? (
-                        customLevel2 ? (
-                          <input
-                            type="text"
-                            value={editingClassificationValues.level_2 || ''}
-                            onChange={async (e) => {
-                              const newValue = e.target.value;
-                              setEditingClassificationValues({ ...editingClassificationValues, level_2: newValue, level_3: undefined });
-                              setAvailableLevel3([]);
-                              
-                              // Si une valeur est saisie, charger TOUS les level_3 disponibles (car c'est une nouvelle valeur)
-                              if (newValue) {
-                                try {
-                                  const combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
-                                  const level3List = combinations.level_3 || [];
-                                  setAvailableLevel3(level3List);
-                                } catch (err) {
-                                  console.error('Error loading level_3 combinations:', err);
-                                }
-                              }
-                            }}
-                            placeholder="Saisir une valeur..."
-                            style={{ 
-                              width: '100%', 
-                              padding: '4px', 
-                              border: '1px solid #ddd', 
-                              borderRadius: '2px',
-                              backgroundColor: 'white'
-                            }}
-                          />
-                        ) : (
-                          <select
-                            value={editingClassificationValues.level_2 || ''}
-                            onChange={(e) => handleLevel2Change(e.target.value)}
-                            disabled={!editingClassificationValues.level_1}
-                            style={{ 
-                              width: '100%', 
-                              padding: '4px', 
-                              border: '1px solid #ddd', 
-                              borderRadius: '2px',
-                              backgroundColor: editingClassificationValues.level_1 ? 'white' : '#f5f5f5'
-                            }}
-                          >
-                            <option value="">-- Sélectionner --</option>
-                            {availableLevel2.length > 0 ? (
-                              availableLevel2.map((val) => (
-                                <option key={val} value={val}>{val}</option>
-                              ))
-                            ) : (
-                              <option disabled>Aucune valeur disponible</option>
-                            )}
-                            <option value="__CUSTOM__">➕ Nouveau...</option>
-                          </select>
-                        )
+                        <select
+                          value={editingClassificationValues.level_2 || ''}
+                          onChange={(e) => handleLevel2Change(e.target.value)}
+                          disabled={false}
+                          style={{ 
+                            width: '100%', 
+                            padding: '4px', 
+                            border: '1px solid #ddd', 
+                            borderRadius: '2px',
+                            backgroundColor: 'white'
+                          }}
+                        >
+                          <option value="">-- Sélectionner --</option>
+                          {availableLevel2.length > 0 ? (
+                            availableLevel2.map((val) => (
+                              <option key={val} value={val}>{val}</option>
+                            ))
+                          ) : (
+                            <option disabled>Aucune valeur disponible</option>
+                          )}
+                        </select>
                       ) : (
                         <span 
                           onClick={() => handleEditClassification(transaction)}
