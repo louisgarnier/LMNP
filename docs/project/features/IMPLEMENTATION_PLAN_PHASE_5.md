@@ -442,13 +442,13 @@
 
 #### Step 5.5.3 : Frontend - Scénario 1 : Sélection level_1 → level_2 + level_3 automatiques
 
-**Status**: ⏳ EN ATTENTE
+**Status**: ✅ COMPLÉTÉ
 
 **Description**: Implémenter le scénario où level_1 est sélectionné en premier, level_2 et level_3 sont automatiquement sélectionnés.
 
 **Tasks**:
 
-- [ ] Modifier `TransactionsTable.tsx` :
+- [x] Modifier `TransactionsTable.tsx` :
 
   - Charger les valeurs level_1 depuis `GET /api/mappings/allowed-level1` au montage
 
@@ -462,9 +462,9 @@
 
     - Les dropdowns level_2 et level_3 restent disponibles mais pré-remplis
 
-  - Ajouter option "Unassigned" dans le dropdown level_1
+  - Utiliser "-- Sélectionner --" (valeur vide) pour retirer le mapping (pas d'option "Unassigned" dans le dropdown)
 
-- [ ] **Tester le scénario 1 dans le navigateur**
+- [x] **Tester le scénario 1 dans le navigateur**
 
 **Deliverables**:
 
@@ -472,13 +472,13 @@
 
 **Acceptance Criteria**:
 
-- [ ] Dropdown level_1 affiche les valeurs autorisées
+- [x] Dropdown level_1 affiche les valeurs autorisées
 
-- [ ] Sélection level_1 → level_2 et level_3 sont automatiquement sélectionnés
+- [x] Sélection level_1 → level_2 et level_3 sont automatiquement sélectionnés (si combinaison unique)
 
-- [ ] Option "Unassigned" permet de retirer le mapping
+- [x] Valeur vide ("-- Sélectionner --") permet de retirer le mapping
 
-- [ ] **Test visuel dans navigateur validé**
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
