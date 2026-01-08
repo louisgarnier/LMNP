@@ -768,7 +768,7 @@
 
 ### Step 5.8 : Frontend - Gestion de la table allowed_mappings
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: 🔄 EN COURS  
 
 **Description**: Créer un sous-onglet dans l'onglet Mapping pour gérer la table `allowed_mappings` (combinaisons autorisées de level_1/level_2/level_3).
 
@@ -792,13 +792,19 @@
 
   - Bouton "+ Ajouter" pour créer une nouvelle combinaison
 
-  - Modal de création avec dropdowns filtrés hiérarchiquement (même logique que Step 5.5 et 5.6)
+  - Modal de création avec dropdowns + création de nouvelles valeurs :
+    - **Level_1** : Dropdown avec valeurs existantes + option "➕ Nouveau..." → input texte pour créer une nouvelle valeur
+    - **Level_2** : Dropdown avec valeurs existantes + option "➕ Nouveau..." → input texte pour créer une nouvelle valeur
+    - **Level_3** : Dropdown uniquement avec valeurs autorisées (Passif, Produits, Emprunt, Charges Déductibles, Actif) - pas de création
+    - **Détection de valeurs similaires** : Afficher un warning avec les valeurs similaires existantes pour level_1 et level_2 (ex: "caution" vs "cautions")
+    - **Filtrage conditionnel** : Si level_2 existe (même avec un nouveau level_1), charger les level_3 déjà mappés pour ce level_2
 
   - **Permettre de créer une nouvelle combinaison** (level_1, level_2, level_3) qui n'existe pas encore dans `allowed_mappings`
 
   - **Validation** : 
-    - Vérifier que la combinaison n'existe pas déjà (contrainte unique)
+    - Vérifier que la combinaison complète (level_1, level_2, level_3) n'existe pas déjà (contrainte unique)
     - **Level_3 doit être dans la liste fixe** : Passif, Produits, Emprunt, Charges Déductibles, Actif
+    - **Warning** : Détecter et afficher les valeurs similaires existantes pour level_1 et level_2 (pas de blocage, juste avertissement)
 
   - Bouton de suppression avec confirmation pour chaque ligne :
     - **Désactiver le bouton de suppression** pour les combinaisons hard codées (`is_hardcoded = True`)
@@ -858,12 +864,17 @@
 
 - [ ] Interface pour visualiser les mappings autorisés (tableau)
 
-- [ ] Interface pour ajouter de nouvelles combinaisons (level_1, level_2, level_3) avec dropdowns filtrés
+- [ ] Interface pour ajouter de nouvelles combinaisons (level_1, level_2, level_3) :
+  - Level_1 : Dropdown + option "➕ Nouveau..." → input texte
+  - Level_2 : Dropdown + option "➕ Nouveau..." → input texte
+  - Level_3 : Dropdown uniquement (valeurs autorisées)
+  - Détection de valeurs similaires avec warning
 
 - [ ] **Permettre de créer de nouvelles combinaisons** qui n'existent pas encore dans `allowed_mappings`
 
 - [ ] Validation lors de l'ajout :
-  - Combinaison unique (contrainte unique sur level_1, level_2, level_3)
+  - Combinaison complète unique (contrainte unique sur level_1, level_2, level_3)
+  - Warning si valeurs similaires existent pour level_1 ou level_2
   - Level_3 doit être dans la liste fixe : Passif, Produits, Emprunt, Charges Déductibles, Actif
   - Messages d'erreur clairs si validation échoue
 
