@@ -13,17 +13,16 @@ interface AmortizationTableProps {
   onCellClick?: (year: number, category: string) => void;
   refreshKey?: number; // Pour forcer le rechargement
   level2Value?: string; // Level 2 sélectionné
-  amortizationViewId?: number | null; // ID de la vue d'amortissement chargée (pour utiliser ses résultats sauvegardés)
 }
 
-export default function AmortizationTable({ onCellClick, refreshKey, level2Value, amortizationViewId }: AmortizationTableProps) {
+export default function AmortizationTable({ onCellClick, refreshKey, level2Value }: AmortizationTableProps) {
   const [data, setData] = useState<AmortizationAggregatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
-  }, [refreshKey, level2Value, amortizationViewId]); // Recharger quand refreshKey, level2Value ou amortizationViewId change
+  }, [refreshKey, level2Value]); // Recharger quand refreshKey ou level2Value change
 
   const loadData = async () => {
     // Si aucun Level 2 n'est sélectionné, ne pas charger les données
@@ -38,10 +37,10 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
     try {
       setLoading(true);
       setError(null);
-      console.log(`📊 [AmortizationTable] Chargement des résultats - level2Value: ${level2Value}, amortizationViewId: ${amortizationViewId || 'none'}`);
+      console.log(`📊 [AmortizationTable] Chargement des résultats - level2Value: ${level2Value}`);
       
-      // Passer l'ID de la vue pour filtrer les résultats
-      const response = await amortizationAPI.getResultsAggregated(amortizationViewId || undefined);
+      // Récupérer les résultats agrégés
+      const response = await amortizationAPI.getResultsAggregated();
       
       console.log(`✅ [AmortizationTable] Résultats reçus:`, {
         categories: response.categories?.length || 0,

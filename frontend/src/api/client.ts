@@ -990,4 +990,210 @@ export const pivotConfigsAPI = {
   },
 };
 
+// ============================================================================
+// Amortization API
+// ============================================================================
+
+export interface AmortizationResultsResponse {
+  results: Record<number, Record<string, number>>;
+  totals_by_year: Record<number, number>;
+  totals_by_category: Record<string, number>;
+  grand_total: number;
+}
+
+export interface AmortizationAggregatedResponse {
+  categories: string[];
+  years: number[];
+  data: number[][];
+  totals_by_category: Record<string, number>;
+  totals_by_year: Record<number, number>;
+  grand_total: number;
+}
+
+export interface AmortizationResultDetail {
+  transaction_id: number;
+  transaction_date: string;
+  transaction_nom: string;
+  transaction_quantite: number;
+  year: number;
+  category: string;
+  amount: number;
+}
+
+export interface AmortizationDetailsResponse {
+  items: AmortizationResultDetail[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface AmortizationRecalculateResponse {
+  message: string;
+  results_created: number;
+}
+
+export const amortizationAPI = {
+  /**
+   * Récupère les résultats d'amortissement agrégés par année et catégorie
+   */
+  getResults: async (): Promise<AmortizationResultsResponse> => {
+    return fetchAPI<AmortizationResultsResponse>('/api/amortization/results');
+  },
+
+  /**
+   * Récupère les résultats d'amortissement sous forme de tableau croisé
+   */
+  getResultsAggregated: async (): Promise<AmortizationAggregatedResponse> => {
+    return fetchAPI<AmortizationAggregatedResponse>('/api/amortization/results/aggregated');
+  },
+
+  /**
+   * Récupère les détails des transactions pour un drill-down
+   */
+  getResultsDetails: async (params?: { year?: number; category?: string; page?: number; page_size?: number }): Promise<AmortizationDetailsResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params?.year !== undefined) queryParams.append('year', params.year.toString());
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+    
+    const queryString = queryParams.toString();
+    return fetchAPI<AmortizationDetailsResponse>(`/api/amortization/results/details${queryString ? `?${queryString}` : ''}`);
+  },
+
+  /**
+   * Force le recalcul complet de tous les amortissements
+   */
+  recalculate: async (): Promise<AmortizationRecalculateResponse> => {
+    return fetchAPI<AmortizationRecalculateResponse>('/api/amortization/recalculate', {
+      method: 'POST',
+    });
+  },
+};
+
+// ============================================================================
+// Amortization Types API
+// ============================================================================
+
+export interface AmortizationType {
+  id: number;
+  name: string;
+  level_2_value: string;
+  level_1_values: string[];
+  start_date: string | null;
+  duration: number;
+  annual_amount: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AmortizationTypeCreate {
+  name: string;
+  level_2_value: string;
+  level_1_values: string[];
+  start_date?: string | null;
+  duration: number;
+  annual_amount?: number | null;
+}
+
+export interface AmortizationTypeUpdate {
+  name?: string;
+  level_2_value?: string;
+  level_1_values?: string[];
+  start_date?: string | null;
+  duration?: number;
+  annual_amount?: number | null;
+}
+
+export interface AmortizationTypeListResponse {
+  items: AmortizationType[];
+  total: number;
+}
+
+export interface AmortizationTypeAmountResponse {
+  type_id: number;
+  type_name: string;
+  amount: number;
+}
+
+export interface AmortizationTypeCumulatedResponse {
+  type_id: number;
+  type_name: string;
+  cumulated_amount: number;
+}
+
+export interface AmortizationTypeTransactionCountResponse {
+  type_id: number;
+  type_name: string;
+  transaction_count: number;
+}
+
+export const amortizationTypesAPI = {
+  /**
+   * Liste tous les types d'amortissement
+   */
+  getAll: async (level_2_value?: string): Promise<AmortizationTypeListResponse> => {
+    const params = level_2_value ? `?level_2_value=${encodeURIComponent(level_2_value)}` : '';
+    return fetchAPI<AmortizationTypeListResponse>(`/api/amortization/types${params}`);
+  },
+
+  /**
+   * Récupère un type d'amortissement par ID
+   */
+  getById: async (id: number): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}`);
+  },
+
+  /**
+   * Crée un nouveau type d'amortissement
+   */
+  create: async (data: AmortizationTypeCreate): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>('/api/amortization/types', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Met à jour un type d'amortissement
+   */
+  update: async (id: number, data: AmortizationTypeUpdate): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Supprime un type d'amortissement
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/amortization/types/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Calcule le montant total d'immobilisation pour un type
+   */
+  getAmount: async (id: number): Promise<AmortizationTypeAmountResponse> => {
+    return fetchAPI<AmortizationTypeAmountResponse>(`/api/amortization/types/${id}/amount`);
+  },
+
+  /**
+   * Calcule le montant cumulé d'amortissement pour un type
+   */
+  getCumulated: async (id: number): Promise<AmortizationTypeCumulatedResponse> => {
+    return fetchAPI<AmortizationTypeCumulatedResponse>(`/api/amortization/types/${id}/cumulated`);
+  },
+
+  /**
+   * Compte le nombre de transactions correspondant à un type
+   */
+  getTransactionCount: async (id: number): Promise<AmortizationTypeTransactionCountResponse> => {
+    return fetchAPI<AmortizationTypeTransactionCountResponse>(`/api/amortization/types/${id}/transaction-count`);
+  },
+};
 

@@ -296,3 +296,118 @@ class PivotConfigListResponse(BaseModel):
     """Model for list of pivot configs."""
     items: List[PivotConfigResponse]
     total: int
+
+
+# Amortization models
+
+class AmortizationResultsResponse(BaseModel):
+    """Model for amortization results response (aggregated by year and category)."""
+    results: Dict[int, Dict[str, float]] = Field(..., description="Results by year: {year: {category: amount, ...}}")
+    totals_by_year: Dict[int, float] = Field(..., description="Total by year")
+    totals_by_category: Dict[str, float] = Field(..., description="Total by category")
+    grand_total: float = Field(..., description="Grand total")
+
+
+class AmortizationAggregatedResponse(BaseModel):
+    """Model for aggregated amortization results (ready for pivot table display)."""
+    categories: List[str] = Field(..., description="List of categories")
+    years: List[int] = Field(..., description="List of years")
+    data: List[List[float]] = Field(..., description="Matrix data: data[row][col] = amount for category[row] and year[years[col]]")
+    totals_by_category: Dict[str, float] = Field(..., description="Total by category")
+    totals_by_year: Dict[int, float] = Field(..., description="Total by year")
+    grand_total: float = Field(..., description="Grand total")
+
+
+class AmortizationResultDetail(BaseModel):
+    """Model for a single amortization result detail."""
+    transaction_id: int
+    transaction_date: date
+    transaction_nom: str
+    transaction_quantite: float
+    year: int
+    category: str
+    amount: float
+
+    class Config:
+        from_attributes = True
+
+
+class AmortizationDetailsResponse(BaseModel):
+    """Model for amortization details response (drill-down)."""
+    items: List[AmortizationResultDetail]
+    total: int
+    page: int = 1
+    page_size: int = 100
+
+
+class AmortizationRecalculateResponse(BaseModel):
+    """Model for recalculate response."""
+    message: str
+    results_created: int
+
+
+# AmortizationType models
+
+class AmortizationTypeBase(BaseModel):
+    """Base model for amortization type."""
+    name: str = Field(..., max_length=255, description="Nom du type d'amortissement")
+    level_2_value: str = Field(..., max_length=100, description="Valeur level_2 à considérer")
+    level_1_values: List[str] = Field(default_factory=list, description="Liste des valeurs level_1 mappées")
+    start_date: Optional[date] = Field(None, description="Date de début d'amortissement (override, nullable)")
+    duration: float = Field(..., ge=0, description="Durée d'amortissement en années (0 = non amortissable)")
+    annual_amount: Optional[float] = Field(None, description="Annuité d'amortissement (override, nullable)")
+
+
+class AmortizationTypeCreate(AmortizationTypeBase):
+    """Model for creating an amortization type."""
+    pass
+
+
+class AmortizationTypeUpdate(BaseModel):
+    """Model for updating an amortization type."""
+    name: Optional[str] = Field(None, max_length=255)
+    level_2_value: Optional[str] = Field(None, max_length=100)
+    level_1_values: Optional[List[str]] = None
+    start_date: Optional[date] = None
+    duration: Optional[float] = Field(None, ge=0)
+    annual_amount: Optional[float] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class AmortizationTypeResponse(AmortizationTypeBase):
+    """Model for amortization type response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AmortizationTypeListResponse(BaseModel):
+    """Model for list of amortization types."""
+    items: List[AmortizationTypeResponse]
+    total: int
+
+
+class AmortizationTypeAmountResponse(BaseModel):
+    """Model for amortization type amount calculation."""
+    type_id: int
+    type_name: str
+    amount: float = Field(..., description="Montant total d'immobilisation (somme des transactions)")
+
+
+class AmortizationTypeCumulatedResponse(BaseModel):
+    """Model for amortization type cumulated amount calculation."""
+    type_id: int
+    type_name: str
+    cumulated_amount: float = Field(..., description="Montant cumulé d'amortissement (somme des AmortizationResult)")
+
+
+class AmortizationTypeTransactionCountResponse(BaseModel):
+    """Model for amortization type transaction count."""
+    type_id: int
+    type_name: str
+    transaction_count: int = Field(..., description="Nombre de transactions correspondant au type")

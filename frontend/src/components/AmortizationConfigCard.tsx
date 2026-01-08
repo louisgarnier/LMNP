@@ -7,15 +7,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { transactionsAPI, amortizationTypesAPI, amortizationAPI, amortizationViewsAPI, AmortizationType } from '@/api/client';
+import { transactionsAPI, amortizationTypesAPI, amortizationAPI, AmortizationType } from '@/api/client';
 
 interface AmortizationConfigCardProps {
   onConfigUpdated?: () => void;
   onLevel2Change?: (level2Value: string) => void;
-  onViewLoaded?: (viewId: number | null) => void; // Callback pour notifier quand une vue est chargée
+  onLevel2ValuesLoaded?: (count: number) => void; // Callback pour notifier le nombre de valeurs Level 2 disponibles
 }
 
-export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change, onViewLoaded }: AmortizationConfigCardProps) {
+export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change, onLevel2ValuesLoaded }: AmortizationConfigCardProps) {
   // Récupérer la valeur sauvegardée depuis localStorage, ou chaîne vide par défaut
   const getSavedLevel2Value = (): string => {
     if (typeof window !== 'undefined') {
@@ -25,17 +25,6 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     return '';
   };
 
-  // Récupérer l'ID de la vue sauvegardée depuis localStorage
-  const getSavedLoadedViewId = (): number | null => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('amortization_loaded_view_id');
-      if (saved) {
-        const viewId = parseInt(saved, 10);
-        return isNaN(viewId) ? null : viewId;
-      }
-    }
-    return null;
-  };
 
   const [level2Value, setLevel2Value] = useState<string>(getSavedLevel2Value());
   const [level2Values, setLevel2Values] = useState<string[]>([]);
@@ -62,74 +51,13 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
   const [isAutoRecalculating, setIsAutoRecalculating] = useState(false);
   const [level2ValuesLoaded, setLevel2ValuesLoaded] = useState(false);
   const hasRestoredLevel2 = useRef(false); // Pour ne charger qu'une fois au montage
-  const [isViewMenuOpen, setIsViewMenuOpen] = useState(false);
-  const viewMenuRef = useRef<HTMLDivElement>(null);
-  const [showSaveViewPopup, setShowSaveViewPopup] = useState(false);
-  const [saveViewName, setSaveViewName] = useState('');
-  const [savingView, setSavingView] = useState(false);
-  const [showLoadViewPopup, setShowLoadViewPopup] = useState(false);
-  const [availableViews, setAvailableViews] = useState<Array<{ id: number; name: string }>>([]);
-  const [loadingViews, setLoadingViews] = useState(false);
-  const [selectedViewId, setSelectedViewId] = useState<number | null>(null);
-  const [loadingView, setLoadingView] = useState(false);
-  const justLoadedViewRef = useRef(false); // Flag pour indiquer qu'on vient de charger une vue
-  const [showDeleteViewPopup, setShowDeleteViewPopup] = useState(false);
-  const [availableViewsForDelete, setAvailableViewsForDelete] = useState<Array<{ id: number; name: string }>>([]);
-  const [loadingViewsForDelete, setLoadingViewsForDelete] = useState(false);
-  const [selectedViewIdForDelete, setSelectedViewIdForDelete] = useState<number | null>(null);
-  const [deletingView, setDeletingView] = useState(false);
-  // État pour stocker l'ID de la vue actuellement chargée (pour utiliser ses résultats sauvegardés)
-  // Initialiser depuis localStorage pour persister entre les changements d'onglet
-  const [loadedViewId, setLoadedViewId] = useState<number | null>(getSavedLoadedViewId());
-  
-  // Fonction pour restaurer les montants cumulés depuis localStorage
-  const restoreCumulatedAmountsFromStorage = (viewId: number | null): Record<number, number> => {
-    if (typeof window !== 'undefined' && viewId !== null && viewId > 0) {
-      const key = `amortization_cumulated_amounts_view_${viewId}`;
-      const saved = localStorage.getItem(key);
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.warn('⚠️ [AmortizationConfigCard] Erreur lors de la restauration depuis localStorage:', e);
-        }
-      }
-    }
-    return {};
-  };
-  
-  // Initialiser les montants cumulés depuis localStorage si une vue est chargée
-  const [cumulatedAmounts, setCumulatedAmounts] = useState<Record<number, number>>(() => {
-    const savedViewId = getSavedLoadedViewId();
-    if (savedViewId) {
-      return restoreCumulatedAmountsFromStorage(savedViewId);
-    }
-    return {};
-  });
+  // Initialiser les montants cumulés
+  const [cumulatedAmounts, setCumulatedAmounts] = useState<Record<number, number>>({});
   const [mounted, setMounted] = useState(false);
 
   // Marquer le composant comme monté après l'hydratation
   useEffect(() => {
     setMounted(true);
-    
-    // IMPORTANT: Restaurer loadedViewId et cumulatedAmounts depuis localStorage au montage
-    // Cela garantit que les valeurs sont restaurées même si le composant est remonté
-    const savedViewId = getSavedLoadedViewId();
-    if (savedViewId !== null && savedViewId > 0) {
-      console.log(`📥 [AmortizationConfigCard] Restauration au montage - vue ${savedViewId} depuis localStorage`);
-      setLoadedViewId(savedViewId);
-      
-      // Restaurer les montants cumulés depuis localStorage
-      const restoredAmounts = restoreCumulatedAmountsFromStorage(savedViewId);
-      if (Object.keys(restoredAmounts).length > 0) {
-        console.log(`📥 [AmortizationConfigCard] Montants cumulés restaurés au montage pour vue ${savedViewId}:`, restoredAmounts);
-        setCumulatedAmounts(restoredAmounts);
-      } else {
-        console.log(`⚠️ [AmortizationConfigCard] Aucun montant cumulé trouvé dans localStorage pour vue ${savedViewId}`);
-      }
-    } else {
-      console.log(`📥 [AmortizationConfigCard] Aucune vue chargée trouvée dans localStorage au montage`);
-    }
   }, []);
 
   // Charger les valeurs uniques de level_2 au montage
@@ -166,131 +94,49 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
   
   // Recharger les montants quand les types changent (mais PAS quand level2Value change)
   useEffect(() => {
-    console.log('🔍 [AmortizationConfigCard] DEBUG useEffect déclenché', {
-      loadingView,
-      justLoadedViewRef: justLoadedViewRef.current,
-      typesCount: amortizationTypes.length,
-      level2Value,
-      loadedViewId,
-      cumulatedAmountsKeys: Object.keys(cumulatedAmounts),
-      loadingCumulatedAmountsKeys: Object.keys(loadingCumulatedAmounts)
-    });
-    
-    // Ne pas se déclencher si on est en train de charger une vue
-    // Le chargement de vue gère lui-même le rechargement des montants
-    if (loadingView) {
-      console.log('⏭️ [AmortizationConfigCard] useEffect ignoré car loadingView=true');
-      return;
-    }
-    
-    // Ne pas se déclencher si on vient juste de charger une vue
-    // Le chargement de vue gère lui-même le rechargement des montants
-    if (justLoadedViewRef.current) {
-      console.log('⏭️ [AmortizationConfigCard] useEffect ignoré car on vient de charger une vue');
-      return;
-    }
-    
     // Ne pas se déclencher si les montants cumulés sont déjà en cours de chargement
-    // Cela évite de recharger inutilement après le chargement d'une vue
     const isLoadingAny = Object.values(loadingCumulatedAmounts).some(loading => loading);
     if (isLoadingAny) {
-      console.log('⏭️ [AmortizationConfigCard] useEffect ignoré car montants cumulés déjà en cours de chargement');
       return;
     }
     
-    // Utiliser loadedViewId du state (qui est initialisé depuis localStorage au montage)
-    // plutôt que de lire localStorage à chaque fois, pour éviter les problèmes de timing
-    const currentViewId = loadedViewId;
-    
-    console.log('🔍 [AmortizationConfigCard] DEBUG useEffect - currentViewId depuis state:', currentViewId, 'loadedViewId:', loadedViewId);
-    
-    // IMPORTANT: Si on a une vue chargée, ne JAMAIS recharger les montants cumulés depuis le useEffect
-    // Les montants cumulés doivent être chargés uniquement lors du chargement de la vue
-    // Cela évite d'écraser les valeurs sauvegardées
-    if (currentViewId !== null && currentViewId > 0) {
-      console.log('⏭️ [AmortizationConfigCard] useEffect ignoré car vue chargée (ID:', currentViewId, ') - les montants cumulés sont gérés par loadView');
-      // Vérifier si les montants cumulés sont déjà dans le state
-      const hasCumulatedAmounts = Object.keys(cumulatedAmounts).length > 0;
-      if (hasCumulatedAmounts) {
-        console.log('🔍 [AmortizationConfigCard] DEBUG useEffect - montants cumulés déjà dans le state:', Object.keys(cumulatedAmounts));
-      } else {
-        // Si pas dans le state, vérifier localStorage et restaurer si nécessaire
-        const key = `amortization_cumulated_amounts_view_${currentViewId}`;
-        const saved = typeof window !== 'undefined' ? localStorage.getItem(key) : null;
-        if (saved) {
-          try {
-            const restoredAmounts = JSON.parse(saved);
-            console.log(`📥 [AmortizationConfigCard] Restauration des montants cumulés depuis localStorage pour vue ${currentViewId}:`, restoredAmounts);
-            setCumulatedAmounts(restoredAmounts);
-          } catch (e) {
-            console.warn('⚠️ [AmortizationConfigCard] Erreur lors de la restauration depuis localStorage:', e);
-          }
-        } else {
-          console.log('🔍 [AmortizationConfigCard] DEBUG useEffect - montants cumulés pas dans localStorage, key:', key);
-        }
-      }
-      return;
-    }
-    
-    // Si on a des montants cumulés déjà chargés (même sans vue), ne pas recharger inutilement
+    // Si on a des montants cumulés déjà chargés, ne pas recharger inutilement
     const hasCumulatedAmounts = Object.keys(cumulatedAmounts).length > 0;
     if (hasCumulatedAmounts) {
-      console.log('⏭️ [AmortizationConfigCard] useEffect ignoré car montants cumulés déjà chargés:', Object.keys(cumulatedAmounts));
       return;
     }
     
-    console.log('🔄 [AmortizationConfigCard] useEffect loadAmounts déclenché - APPEL DES FONCTIONS', { 
-      typesCount: amortizationTypes.length, 
-      level2Value,
-      loadedViewId,
-      currentViewId, // Valeur depuis localStorage
-      hasCumulatedAmounts,
-      shouldLoad: amortizationTypes.length > 0 && level2Value 
-    });
     if (amortizationTypes.length > 0 && level2Value) {
-      console.log('🔍 [AmortizationConfigCard] DEBUG useEffect - AVANT loadCumulatedAmounts, cumulatedAmounts actuel:', cumulatedAmounts);
       loadAmounts();
-      // Utiliser currentViewId depuis localStorage pour éviter les problèmes de closure
-      loadCumulatedAmounts(undefined, currentViewId);
-      console.log('🔍 [AmortizationConfigCard] DEBUG useEffect - APRÈS loadCumulatedAmounts appelé');
+      loadCumulatedAmounts();
       loadTransactionCounts();
-    } else {
-      console.log('⚠️ [AmortizationConfigCard] loadAmounts non déclenché:', { 
-        typesCount: amortizationTypes.length, 
-        level2Value 
-      });
     }
-  }, [amortizationTypes, loadedViewId, loadingView, loadingCumulatedAmounts]); // Ne PAS ajouter cumulatedAmounts pour éviter les boucles
+  }, [amortizationTypes, level2Value, loadingCumulatedAmounts]); // Ne PAS ajouter cumulatedAmounts pour éviter les boucles
 
-  // Fermer le menu View au clic ailleurs
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (viewMenuRef.current && !viewMenuRef.current.contains(event.target as Node)) {
-        setIsViewMenuOpen(false);
-      }
-    };
-
-    if (isViewMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [isViewMenuOpen]);
 
   const loadLevel2Values = async () => {
     try {
       setLoadingValues(true);
       const response = await transactionsAPI.getUniqueValues('level_2');
-      setLevel2Values(response.values || []);
+      const values = response.values || [];
+      setLevel2Values(values);
       setLevel2ValuesLoaded(true); // Marquer comme chargé
+      
+      // Notifier le parent du nombre de valeurs disponibles
+      if (onLevel2ValuesLoaded) {
+        onLevel2ValuesLoaded(values.length);
+      }
       
       // Ne pas sélectionner automatiquement de valeur par défaut
       // L'utilisateur doit sélectionner manuellement un Level 2
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_2:', err);
       setLevel2ValuesLoaded(true); // Marquer comme chargé même en cas d'erreur
+      
+      // Notifier le parent qu'aucune valeur n'est disponible en cas d'erreur
+      if (onLevel2ValuesLoaded) {
+        onLevel2ValuesLoaded(0);
+      }
     } finally {
       setLoadingValues(false);
     }
@@ -536,15 +382,6 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       // 7. Recharger les types (maintenant vides)
       await loadAmortizationTypes();
       
-      // 8. Réinitialiser l'ID de la vue chargée (on n'utilise plus une vue sauvegardée)
-      setLoadedViewId(null);
-      // Supprimer de localStorage aussi
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('amortization_loaded_view_id');
-      }
-      if (onViewLoaded) {
-        onViewLoaded(null);
-      }
       
       // 9. Notifier le parent pour réinitialiser la table (après tout)
       if (onConfigUpdated) {
@@ -959,407 +796,6 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     }
   }, [contextMenu]);
 
-  // Sauvegarder la vue actuelle
-  const saveCurrentView = async (name: string) => {
-    if (!name || name.trim() === '') {
-      alert('⚠️ Le nom de la vue ne peut pas être vide');
-      return;
-    }
-
-    if (!level2Value) {
-      alert('⚠️ Veuillez sélectionner un Level 2 avant de sauvegarder une vue');
-      return;
-    }
-
-    // Collecter tous les types d'amortissement actuels avec leurs configs
-    // (défini avant le try pour être accessible dans le catch)
-    const viewData = {
-      level_2_value: level2Value,
-      amortization_types: amortizationTypes.map(type => ({
-        name: type.name,
-        level_1_values: type.level_1_values || [],
-        start_date: type.start_date || null,
-        duration: type.duration,
-        annual_amount: type.annual_amount || null,
-      })),
-    };
-
-    try {
-      setSavingView(true);
-      console.log('💾 [AmortizationConfigCard] Sauvegarde de la vue:', name);
-
-      // Vérifier d'abord si une vue avec ce nom existe déjà
-      const viewsResponse = await amortizationViewsAPI.getAll(level2Value);
-      const existingView = viewsResponse.views.find(v => v.name === name.trim());
-
-      if (existingView) {
-        // Une vue avec ce nom existe déjà - proposer de l'écraser
-        const confirmed = window.confirm(
-          `Une vue avec le nom "${name}" existe déjà pour ce Level 2.\n\n` +
-          `Voulez-vous écraser la sauvegarde existante ?`
-        );
-        
-        if (confirmed) {
-              // Mettre à jour la vue existante
-              await amortizationViewsAPI.update(existingView.id, {
-                view_data: viewData,
-              });
-              
-              console.log('✅ [AmortizationConfigCard] Vue écrasée avec succès');
-              
-              // Fermer le popup et réinitialiser
-              setShowSaveViewPopup(false);
-              setSaveViewName('');
-        }
-        // Si l'utilisateur annule, on ne fait rien (le popup reste ouvert)
-      } else {
-        // Aucune vue existante - créer une nouvelle vue
-        await amortizationViewsAPI.create({
-          name: name.trim(),
-          level_2_value: level2Value,
-          view_data: viewData,
-        });
-
-        console.log('✅ [AmortizationConfigCard] Vue sauvegardée avec succès');
-        
-        // Fermer le popup et réinitialiser
-        setShowSaveViewPopup(false);
-        setSaveViewName('');
-      }
-    } catch (err: any) {
-      console.error('❌ [AmortizationConfigCard] Erreur lors de la sauvegarde de la vue:', err);
-      
-      // Extraire le message d'erreur
-      let errorMessage = 'Erreur inconnue';
-      if (err?.message) {
-        errorMessage = err.message;
-      } else if (typeof err === 'string') {
-        errorMessage = err;
-      }
-      
-      alert(`❌ Erreur lors de la sauvegarde: ${errorMessage}`);
-    } finally {
-      setSavingView(false);
-    }
-  };
-
-  // Ouvrir le popup Save view
-  const handleOpenSaveView = () => {
-    setIsViewMenuOpen(false);
-    setSaveViewName('');
-    setShowSaveViewPopup(true);
-  };
-
-  // Ouvrir le popup Load view
-  const handleOpenLoadView = async () => {
-    setIsViewMenuOpen(false);
-    setSelectedViewId(null);
-    
-    if (!level2Value) {
-      alert('⚠️ Veuillez sélectionner un Level 2 avant de charger une vue');
-      return;
-    }
-
-    try {
-      setLoadingViews(true);
-      const viewsResponse = await amortizationViewsAPI.getAll(level2Value);
-      setAvailableViews(viewsResponse.views.map(v => ({ id: v.id, name: v.name })));
-      setShowLoadViewPopup(true);
-    } catch (err: any) {
-      console.error('❌ [AmortizationConfigCard] Erreur lors du chargement des vues:', err);
-      alert(`❌ Erreur lors du chargement des vues: ${err?.message || 'Erreur inconnue'}`);
-    } finally {
-      setLoadingViews(false);
-    }
-  };
-
-  // Charger une vue
-  const loadView = async (viewId: number | null) => {
-    if (viewId === null) {
-      // "(default)" sélectionné - réinitialiser la vue chargée
-      setLoadedViewId(null);
-      // Supprimer de localStorage aussi
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('amortization_loaded_view_id');
-      }
-      if (onViewLoaded) {
-        onViewLoaded(null);
-      }
-      setShowLoadViewPopup(false);
-      setSelectedViewId(null);
-      return;
-    }
-
-    // Confirmation avant chargement
-    const confirmed = window.confirm(
-      'Cette action va remplacer la configuration actuelle. Continuer ?'
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      // IMPORTANT: Réinitialiser le flag au début du chargement pour éviter les problèmes
-      justLoadedViewRef.current = false;
-      setLoadingView(true);
-      console.log('📥 [AmortizationConfigCard] Chargement de la vue:', viewId);
-
-      // Récupérer la vue depuis l'API
-      const view = await amortizationViewsAPI.getById(viewId);
-      
-      // Récupérer level_2_value et view_data
-      const targetLevel2 = view.level_2_value;
-      const viewData = view.view_data;
-
-      // Changer le Level 2 sélectionné si nécessaire
-      if (targetLevel2 !== level2Value) {
-        console.log(`🔄 [AmortizationConfigCard] Changement de Level 2: ${level2Value} → ${targetLevel2}`);
-        if (onLevel2Change) {
-          onLevel2Change(targetLevel2);
-        }
-        setLevel2Value(targetLevel2);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('amortization_level2_value', targetLevel2);
-        }
-        // Attendre un peu pour que le Level 2 soit mis à jour dans la page
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
-      // Supprimer tous les types existants pour ce Level 2
-      const currentTypes = amortizationTypes.filter(t => t.level_2_value === targetLevel2);
-      for (const type of currentTypes) {
-        try {
-          await amortizationTypesAPI.delete(type.id);
-        } catch (err) {
-          console.warn(`⚠️ [AmortizationConfigCard] Erreur lors de la suppression du type ${type.id}:`, err);
-        }
-      }
-
-      // NE PLUS supprimer les résultats d'amortissement - ils sont isolés par vue
-      // Les résultats de cette vue sont déjà sauvegardés et seront utilisés directement
-
-      // Créer les types depuis view_data.amortization_types
-      const newTypes: AmortizationType[] = [];
-      for (const typeData of viewData.amortization_types) {
-        try {
-          const createdType = await amortizationTypesAPI.create({
-            name: typeData.name,
-            level_2_value: targetLevel2,
-            level_1_values: typeData.level_1_values || [],
-            start_date: typeData.start_date || null,
-            duration: typeData.duration,
-            annual_amount: typeData.annual_amount || null,
-          });
-          newTypes.push(createdType);
-        } catch (err) {
-          console.error(`❌ [AmortizationConfigCard] Erreur lors de la création du type ${typeData.name}:`, err);
-        }
-      }
-
-      // Recharger les types depuis l'API pour avoir les IDs corrects
-      const reloadedTypesResponse = await amortizationTypesAPI.getAll();
-      const reloadedTypes = reloadedTypesResponse.types.filter(t => t.level_2_value === targetLevel2);
-      
-      // IMPORTANT: Définir loadedViewId AVANT de mettre à jour amortizationTypes
-      // pour que le useEffect utilise la bonne valeur quand il se déclenche
-      setLoadedViewId(viewId);
-      // Sauvegarder dans localStorage aussi
-      if (typeof window !== 'undefined') {
-        if (viewId !== null) {
-          localStorage.setItem('amortization_loaded_view_id', viewId.toString());
-        } else {
-          localStorage.removeItem('amortization_loaded_view_id');
-        }
-      }
-      
-      // Maintenant mettre à jour les types (cela déclenchera le useEffect avec la bonne loadedViewId)
-      setAmortizationTypes(reloadedTypes);
-
-      // IMPORTANT: Mettre à jour la vue avec les types recréés pour recalculer les résultats
-      // Cela garantit que les résultats d'amortissement sont à jour avec les types actuels
-      if (reloadedTypes.length > 0) {
-        console.log(`🔄 [AmortizationConfigCard] Mise à jour de la vue ${viewId} pour recalculer les résultats...`);
-        try {
-          // Construire view_data depuis les types recréés
-          const viewData = {
-            amortization_types: reloadedTypes.map(type => {
-              // Convertir start_date en string si c'est un objet Date, sinon utiliser tel quel
-              let startDateStr: string | null = null;
-              if (type.start_date) {
-                if (type.start_date instanceof Date) {
-                  startDateStr = type.start_date.toISOString().split('T')[0];
-                } else if (typeof type.start_date === 'string') {
-                  startDateStr = type.start_date.split('T')[0]; // Enlever l'heure si présente
-                }
-              }
-              
-              return {
-                name: type.name,
-                level_1_values: type.level_1_values || [],
-                start_date: startDateStr,
-                duration: type.duration,
-                annual_amount: type.annual_amount
-              };
-            })
-          };
-          
-          // Mettre à jour la vue (cela déclenchera automatiquement le recalcul des résultats)
-          await amortizationViewsAPI.update(viewId, {
-            view_data: viewData
-          });
-          
-          console.log(`✅ [AmortizationConfigCard] Vue ${viewId} mise à jour - résultats recalculés`);
-          
-          // Attendre un peu pour que les résultats soient bien calculés en base
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (viewError: any) {
-          console.warn(`⚠️ [AmortizationConfigCard] Erreur lors de la mise à jour de la vue ${viewId}:`, viewError);
-          // Ne pas faire échouer le chargement de la vue si la mise à jour échoue
-          // Les résultats existants seront utilisés
-        }
-      }
-
-      // Recharger les montants avec la vue chargée
-      // IMPORTANT: Passer viewId directement car setLoadedViewId est asynchrone
-      // IMPORTANT: Attendre un peu pour que React ait mis à jour le state avant de charger
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      if (reloadedTypes.length > 0) {
-        console.log(`🔄 [AmortizationConfigCard] Chargement des montants pour ${reloadedTypes.length} types avec vue ${viewId}`);
-        await loadAmounts(reloadedTypes);
-        console.log(`🔄 [AmortizationConfigCard] Chargement des montants cumulés pour vue ${viewId}`);
-        // IMPORTANT: Marquer qu'on vient de charger une vue AVANT de charger les montants cumulés
-        // pour empêcher le useEffect de se déclencher et d'écraser les valeurs
-        justLoadedViewRef.current = true;
-        
-        // IMPORTANT: Attendre un peu plus pour que les types soient bien dans le state
-        await new Promise(resolve => setTimeout(resolve, 200));
-        // Appeler loadCumulatedAmounts avec les types et le viewId
-        await loadCumulatedAmounts(reloadedTypes, viewId);
-        console.log(`✅ [AmortizationConfigCard] Montants cumulés chargés pour vue ${viewId}`);
-        
-        // IMPORTANT: Attendre que les montants cumulés soient bien dans le state
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Vérifier que les montants cumulés ont bien été chargés
-        // Lire depuis le state pour vérifier
-        console.log('🔍 [AmortizationConfigCard] Vérification des montants cumulés chargés...');
-        
-        // Garder le flag actif pendant plus longtemps pour éviter que le useEffect ne se déclenche
-        // après que setLoadingView(false) soit appelé
-        setTimeout(() => {
-          justLoadedViewRef.current = false;
-          console.log('🔄 [AmortizationConfigCard] Flag justLoadedViewRef réinitialisé');
-        }, 2000);
-        await loadTransactionCounts(reloadedTypes);
-      } else {
-        setAmounts({});
-        console.log('🚨 [AmortizationConfigCard] DEBUG - setCumulatedAmounts({}) appelé - VIDAGE DES MONTANTS CUMULÉS');
-    console.trace('🚨 [AmortizationConfigCard] Stack trace du vidage');
-    setCumulatedAmounts({});
-        setTransactionCounts({});
-      }
-
-      // Notifier le parent de la vue chargée
-      if (onViewLoaded) {
-        onViewLoaded(viewId);
-      }
-      console.log(`✅ [AmortizationConfigCard] Vue ${viewId} chargée - utilisation des résultats sauvegardés`);
-
-      console.log('✅ [AmortizationConfigCard] Vue chargée avec succès');
-      
-      // IMPORTANT: Mettre loadingView à false APRÈS avoir tout mis à jour
-      // Le flag justLoadedViewRef est déjà défini plus haut pour empêcher le useEffect de se déclencher
-      setLoadingView(false);
-      
-      // Fermer le popup
-      setShowLoadViewPopup(false);
-      setSelectedViewId(null);
-
-      // Notifier le parent
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
-    } catch (err: any) {
-      console.error('❌ [AmortizationConfigCard] Erreur lors du chargement de la vue:', err);
-      alert(`❌ Erreur lors du chargement: ${err?.message || 'Erreur inconnue'}`);
-      // En cas d'erreur, mettre loadingView à false aussi
-      setLoadingView(false);
-    }
-  };
-
-  // Ouvrir le popup Delete view
-  const handleOpenDeleteView = async () => {
-    setIsViewMenuOpen(false);
-    setSelectedViewIdForDelete(null);
-    
-    if (!level2Value) {
-      alert('⚠️ Veuillez sélectionner un Level 2 avant de supprimer une vue');
-      return;
-    }
-
-    try {
-      setLoadingViewsForDelete(true);
-      const viewsResponse = await amortizationViewsAPI.getAll(level2Value);
-      setAvailableViewsForDelete(viewsResponse.views.map(v => ({ id: v.id, name: v.name })));
-      setShowDeleteViewPopup(true);
-    } catch (err: any) {
-      console.error('❌ [AmortizationConfigCard] Erreur lors du chargement des vues:', err);
-      alert(`❌ Erreur lors du chargement des vues: ${err?.message || 'Erreur inconnue'}`);
-    } finally {
-      setLoadingViewsForDelete(false);
-    }
-  };
-
-  // Supprimer une vue
-  const deleteView = async (viewId: number | null) => {
-    if (viewId === null) {
-      return;
-    }
-
-    // Trouver le nom de la vue pour la confirmation
-    const viewToDelete = availableViewsForDelete.find(v => v.id === viewId);
-    if (!viewToDelete) {
-      alert('⚠️ Vue introuvable');
-      return;
-    }
-
-    // Confirmation avant suppression
-    const confirmed = window.confirm(
-      `Êtes-vous sûr de vouloir supprimer la vue "${viewToDelete.name}" ?\n\n` +
-      `Cette action est irréversible.`
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    try {
-      setDeletingView(true);
-      console.log('🗑️ [AmortizationConfigCard] Suppression de la vue:', viewId);
-
-      // Appeler l'API pour supprimer la vue
-      await amortizationViewsAPI.delete(viewId);
-
-      console.log('✅ [AmortizationConfigCard] Vue supprimée avec succès');
-      
-      // Retirer la vue de la liste
-      const updatedViews = availableViewsForDelete.filter(v => v.id !== viewId);
-      setAvailableViewsForDelete(updatedViews);
-      setSelectedViewIdForDelete(null);
-
-      // Si la liste est vide, fermer le popup
-      if (updatedViews.length === 0) {
-        setShowDeleteViewPopup(false);
-      }
-    } catch (err: any) {
-      console.error('❌ [AmortizationConfigCard] Erreur lors de la suppression de la vue:', err);
-      alert(`❌ Erreur lors de la suppression: ${err?.message || 'Erreur inconnue'}`);
-    } finally {
-      setDeletingView(false);
-    }
-  };
 
   // Fonction utilitaire pour déclencher le recalcul automatique des amortissements
   const triggerAutoRecalculate = async () => {
@@ -1367,94 +803,9 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
       setIsAutoRecalculating(true);
       console.log('🔄 [AmortizationConfigCard] Déclenchement du recalcul automatique des amortissements...');
       
-      // Si une vue est chargée, mettre à jour la vue pour recalculer ses résultats
-      if (loadedViewId !== null && loadedViewId > 0) {
-        console.log(`📊 [AmortizationConfigCard] Vue chargée (ID: ${loadedViewId}) - mise à jour de la vue pour recalculer ses résultats...`);
-        
-        try {
-          // Récupérer la vue actuelle
-          const currentView = await amortizationViewsAPI.getById(loadedViewId);
-          
-          // Construire view_data depuis les types actuels
-          const currentTypes = amortizationTypes.filter(t => t.level_2_value === level2Value);
-          const viewData = {
-            amortization_types: currentTypes.map(type => {
-              // Convertir start_date en string si c'est un objet Date, sinon utiliser tel quel
-              let startDateStr: string | null = null;
-              if (type.start_date) {
-                if (type.start_date instanceof Date) {
-                  startDateStr = type.start_date.toISOString().split('T')[0];
-                } else if (typeof type.start_date === 'string') {
-                  startDateStr = type.start_date.split('T')[0]; // Enlever l'heure si présente
-                }
-              }
-              
-              return {
-                name: type.name,
-                level_1_values: type.level_1_values || [],
-                start_date: startDateStr,
-                duration: type.duration,
-                annual_amount: type.annual_amount
-              };
-            })
-          };
-          
-          // Mettre à jour la vue (cela déclenchera automatiquement le recalcul des résultats)
-          await amortizationViewsAPI.update(loadedViewId, {
-            view_data: viewData
-          });
-          
-          console.log(`✅ [AmortizationConfigCard] Vue ${loadedViewId} mise à jour - résultats recalculés`);
-        } catch (viewError: any) {
-          // Si la vue n'existe plus, réinitialiser loadedViewId et recalculer globalement
-          const errorMessage = viewError?.message || String(viewError || '');
-          console.log(`🔍 [AmortizationConfigCard] Erreur lors de la mise à jour de la vue:`, {
-            message: errorMessage,
-            status: viewError?.status,
-            error: viewError
-          });
-          
-          const isViewNotFound = 
-            errorMessage.includes('non trouvée') || 
-            errorMessage.includes('not found') ||
-            errorMessage.includes('404') ||
-            errorMessage.includes('Vue d\'amortissement') ||
-            viewError?.status === 404;
-          
-          if (isViewNotFound) {
-            console.warn(`⚠️ [AmortizationConfigCard] Vue ${loadedViewId} n'existe plus - réinitialisation et recalcul global`);
-            setLoadedViewId(null);
-            // Supprimer de localStorage aussi
-            if (typeof window !== 'undefined') {
-              localStorage.removeItem('amortization_loaded_view_id');
-            }
-            if (onViewLoaded) {
-              onViewLoaded(null);
-            }
-            // Recalculer globalement
-            const response = await amortizationAPI.recalculate();
-            console.log('✅ [AmortizationConfigCard] Recalcul global terminé:', response.message);
-            
-            // Recharger les montants cumulés après le recalcul
-            await loadCumulatedAmounts();
-            
-            // Notifier le parent pour rafraîchir le tableau d'amortissements
-            if (onConfigUpdated) {
-              onConfigUpdated();
-            }
-            return; // Sortir de la fonction après le recalcul global
-          } else {
-            // Autre erreur, la propager
-            console.error(`❌ [AmortizationConfigCard] Erreur inattendue lors de la mise à jour de la vue:`, viewError);
-            throw viewError;
-          }
-        }
-      } else {
-        // Aucune vue chargée - recalculer les résultats globaux
-        console.log('📊 [AmortizationConfigCard] Aucune vue chargée - recalcul des résultats globaux...');
-        const response = await amortizationAPI.recalculate();
-        console.log('✅ [AmortizationConfigCard] Recalcul automatique terminé:', response.message);
-      }
+      // Recalculer les résultats globaux
+      const response = await amortizationAPI.recalculate();
+      console.log('✅ [AmortizationConfigCard] Recalcul automatique terminé:', response.message);
       
       // Recharger les montants cumulés après le recalcul
       await loadCumulatedAmounts();
@@ -1549,38 +900,12 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     setLoadingAmounts(newLoadingAmounts);
   };
 
-  const loadCumulatedAmounts = async (typesToLoad?: AmortizationType[], viewIdOverride?: number | null) => {
+  const loadCumulatedAmounts = async (typesToLoad?: AmortizationType[]) => {
     const types = typesToLoad || amortizationTypes;
     if (!level2Value || types.length === 0) {
       console.log('⚠️ [AmortizationConfigCard] loadCumulatedAmounts ignoré:', { level2Value, typesCount: types.length });
       return;
     }
-    
-    // Utiliser viewIdOverride si fourni, sinon lire depuis localStorage pour éviter les problèmes de closure
-    let viewIdToUse: number | null | undefined;
-    if (viewIdOverride !== undefined) {
-      viewIdToUse = viewIdOverride;
-    } else {
-      // Lire depuis localStorage pour éviter les problèmes de closure avec React batching
-      if (typeof window !== 'undefined') {
-        const saved = localStorage.getItem('amortization_loaded_view_id');
-        if (saved) {
-          const viewId = parseInt(saved, 10);
-          viewIdToUse = isNaN(viewId) ? null : viewId;
-        } else {
-          viewIdToUse = null;
-        }
-      } else {
-        viewIdToUse = loadedViewId;
-      }
-    }
-    
-    console.log('📊 [AmortizationConfigCard] loadCumulatedAmounts appelé', { 
-      typesCount: types.length, 
-      viewIdOverride, 
-      loadedViewId, 
-      viewIdToUse 
-    });
     
     const newCumulatedAmounts: Record<number, number> = {};
     const newLoadingCumulatedAmounts: Record<number, boolean> = {};
@@ -1596,8 +921,8 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     // Charger les montants cumulés pour tous les types en parallèle
     const promises = types.map(async (type) => {
       try {
-        console.log(`📤 [AmortizationConfigCard] Appel API cumulated pour type ${type.id} (${type.name}), vue: ${viewIdToUse || 'none'}`);
-        const response = await amortizationTypesAPI.getCumulated(type.id, viewIdToUse || undefined);
+        console.log(`📤 [AmortizationConfigCard] Appel API cumulated pour type ${type.id} (${type.name})`);
+        const response = await amortizationTypesAPI.getCumulated(type.id);
         console.log(`✅ [AmortizationConfigCard] Montant cumulé reçu pour type ${type.id}:`, response.cumulated_amount);
         newCumulatedAmounts[type.id] = response.cumulated_amount;
       } catch (err: any) {
@@ -1610,27 +935,9 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
     
     await Promise.all(promises);
     console.log('💾 [AmortizationConfigCard] Montants cumulés calculés:', newCumulatedAmounts);
-    console.log('💾 [AmortizationConfigCard] Mise à jour du state avec les montants cumulés');
-    console.log('🔍 [AmortizationConfigCard] DEBUG loadCumulatedAmounts - viewIdToUse:', viewIdToUse, 'types count:', types.length);
     
-    // IMPORTANT: Sauvegarder dans localStorage AVANT de mettre à jour le state
-    // pour que les valeurs persistent même si le composant est remonté
-    if (typeof window !== 'undefined' && viewIdToUse !== null && viewIdToUse !== undefined) {
-      const key = `amortization_cumulated_amounts_view_${viewIdToUse}`;
-      localStorage.setItem(key, JSON.stringify(newCumulatedAmounts));
-      console.log('💾 [AmortizationConfigCard] Montants cumulés sauvegardés dans localStorage pour vue', viewIdToUse, 'key:', key);
-    }
-    
-    // IMPORTANT: Mettre à jour le state de manière synchrone pour éviter les problèmes de timing
-    // Utiliser une fonction de mise à jour pour éviter d'écraser les valeurs existantes
-    setCumulatedAmounts(prev => {
-      console.log('🔍 [AmortizationConfigCard] DEBUG setCumulatedAmounts - prev:', prev, 'new:', newCumulatedAmounts);
-      const updated = { ...prev, ...newCumulatedAmounts };
-      console.log('💾 [AmortizationConfigCard] State mis à jour (merge):', updated);
-      return updated;
-    });
+    setCumulatedAmounts(newCumulatedAmounts);
     setLoadingCumulatedAmounts(newLoadingCumulatedAmounts);
-    console.log('✅ [AmortizationConfigCard] State mis à jour avec les montants cumulés - FIN loadCumulatedAmounts');
   };
 
   const loadTransactionCounts = async (typesToLoad?: AmortizationType[]) => {
@@ -1785,119 +1092,6 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
             </span>
           )}
         </span>
-        {/* Icône engrenage */}
-        <div style={{ position: 'relative' }} ref={viewMenuRef}>
-          <button
-            onClick={() => setIsViewMenuOpen(!isViewMenuOpen)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#6b7280',
-              fontSize: '18px',
-              borderRadius: '4px',
-              transition: 'background-color 0.2s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#f3f4f6';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-            title="Options de vue"
-          >
-            ⚙️
-          </button>
-          {/* Menu déroulant */}
-          {isViewMenuOpen && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: '0',
-                marginTop: '4px',
-                backgroundColor: '#ffffff',
-                border: '1px solid #e5e7eb',
-                borderRadius: '6px',
-                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                minWidth: '150px',
-                zIndex: 1000,
-              }}
-            >
-              <button
-                onClick={handleOpenLoadView}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  textAlign: 'left',
-                  fontSize: '14px',
-                  color: '#374151',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: '6px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f3f4f6';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                Load...
-              </button>
-              <button
-                onClick={handleOpenSaveView}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  textAlign: 'left',
-                  fontSize: '14px',
-                  color: '#374151',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: '6px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f3f4f6';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                Save
-              </button>
-              <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '4px 0' }} />
-              <button
-                onClick={handleOpenDeleteView}
-                style={{
-                  width: '100%',
-                  padding: '10px 16px',
-                  textAlign: 'left',
-                  fontSize: '14px',
-                  color: '#dc2626',
-                  backgroundColor: 'transparent',
-                  border: 'none',
-                  cursor: 'pointer',
-                  borderRadius: '6px',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#fee2e2';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }}
-              >
-                Delete...
-              </button>
-            </div>
-          )}
-        </div>
       </h2>
       
       {/* Champ Level 2 */}
@@ -2555,488 +1749,6 @@ export default function AmortizationConfigCard({ onConfigUpdated, onLevel2Change
         </div>
       )}
 
-      {/* Popup Save view */}
-      {showSaveViewPopup && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => {
-            if (!savingView) {
-              setShowSaveViewPopup(false);
-              setSaveViewName('');
-            }
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '24px',
-              maxWidth: '500px',
-              width: '90%',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', margin: 0 }}>
-                Sauvegarder la vue
-              </h2>
-              <button
-                onClick={() => {
-                  if (!savingView) {
-                    setShowSaveViewPopup(false);
-                    setSaveViewName('');
-                  }
-                }}
-                disabled={savingView}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: savingView ? 'not-allowed' : 'pointer',
-                  color: '#666',
-                  padding: '0',
-                  width: '32px',
-                  height: '32px',
-                  opacity: savingView ? 0.5 : 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ marginBottom: '20px' }}>
-              <label
-                htmlFor="save-view-name"
-                style={{
-                  display: 'block',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  marginBottom: '8px',
-                }}
-              >
-                Nom de la vue
-              </label>
-              <input
-                id="save-view-name"
-                type="text"
-                value={saveViewName}
-                onChange={(e) => setSaveViewName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !savingView && saveViewName.trim()) {
-                    saveCurrentView(saveViewName);
-                  } else if (e.key === 'Escape' && !savingView) {
-                    setShowSaveViewPopup(false);
-                    setSaveViewName('');
-                  }
-                }}
-                disabled={savingView}
-                placeholder="Ex: Configuration 2024, Waitlists..."
-                autoFocus
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  fontSize: '14px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  outline: 'none',
-                  opacity: savingView ? 0.6 : 1,
-                }}
-              />
-              <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px', marginBottom: 0 }}>
-                Format libre. Si une vue avec ce nom existe déjà, vous pourrez choisir de l'écraser.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={() => {
-                  if (!savingView) {
-                    setShowSaveViewPopup(false);
-                    setSaveViewName('');
-                  }
-                }}
-                disabled={savingView}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  backgroundColor: '#f3f4f6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: savingView ? 'not-allowed' : 'pointer',
-                  opacity: savingView ? 0.5 : 1,
-                }}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => saveCurrentView(saveViewName)}
-                disabled={savingView || !saveViewName.trim()}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#ffffff',
-                  backgroundColor: (!savingView && saveViewName.trim()) ? '#3b82f6' : '#9ca3af',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: (savingView || !saveViewName.trim()) ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {savingView ? 'Sauvegarde...' : 'Sauvegarder'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Popup Load view */}
-      {showLoadViewPopup && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => {
-            if (!loadingView) {
-              setShowLoadViewPopup(false);
-              setSelectedViewId(null);
-            }
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '24px',
-              maxWidth: '500px',
-              width: '90%',
-              maxHeight: '80vh',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', margin: 0 }}>
-                Charger une vue
-              </h2>
-              <button
-                onClick={() => {
-                  if (!loadingView) {
-                    setShowLoadViewPopup(false);
-                    setSelectedViewId(null);
-                  }
-                }}
-                disabled={loadingView}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: loadingView ? 'not-allowed' : 'pointer',
-                  color: '#666',
-                  padding: '0',
-                  width: '32px',
-                  height: '32px',
-                  opacity: loadingView ? 0.5 : 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
-              {loadingViews ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
-                  Chargement des vues...
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {/* Option "(default)" */}
-                  <div
-                    onClick={() => !loadingView && setSelectedViewId(null)}
-                    style={{
-                      padding: '12px 16px',
-                      borderRadius: '6px',
-                      cursor: loadingView ? 'not-allowed' : 'pointer',
-                      backgroundColor: selectedViewId === null ? '#e0f2fe' : 'transparent',
-                      border: selectedViewId === null ? '2px solid #3b82f6' : '2px solid transparent',
-                      opacity: loadingView ? 0.5 : 1,
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!loadingView && selectedViewId !== null) {
-                        e.currentTarget.style.backgroundColor = '#f3f4f6';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!loadingView && selectedViewId !== null) {
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }
-                    }}
-                  >
-                    <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
-                      (default)
-                    </div>
-                    <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
-                      Vue actuelle (non sauvegardée)
-                    </div>
-                  </div>
-
-                  {/* Liste des vues sauvegardées */}
-                  {availableViews.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-                      Aucune vue sauvegardée pour ce Level 2
-                    </div>
-                  ) : (
-                    availableViews.map((view) => (
-                      <div
-                        key={view.id}
-                        onClick={() => !loadingView && setSelectedViewId(view.id)}
-                        style={{
-                          padding: '12px 16px',
-                          borderRadius: '6px',
-                          cursor: loadingView ? 'not-allowed' : 'pointer',
-                          backgroundColor: selectedViewId === view.id ? '#e0f2fe' : 'transparent',
-                          border: selectedViewId === view.id ? '2px solid #3b82f6' : '2px solid transparent',
-                          opacity: loadingView ? 0.5 : 1,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!loadingView && selectedViewId !== view.id) {
-                            e.currentTarget.style.backgroundColor = '#f3f4f6';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!loadingView && selectedViewId !== view.id) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                      >
-                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
-                          {view.name}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
-              <button
-                onClick={() => {
-                  if (!loadingView) {
-                    setShowLoadViewPopup(false);
-                    setSelectedViewId(null);
-                  }
-                }}
-                disabled={loadingView}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  backgroundColor: '#f3f4f6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: loadingView ? 'not-allowed' : 'pointer',
-                  opacity: loadingView ? 0.5 : 1,
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => loadView(selectedViewId)}
-                disabled={loadingView || (selectedViewId === null && availableViews.length > 0)}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#ffffff',
-                  backgroundColor: (loadingView || (selectedViewId === null && availableViews.length > 0)) ? '#9ca3af' : '#3b82f6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: (loadingView || (selectedViewId === null && availableViews.length > 0)) ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {loadingView ? 'Chargement...' : 'OK'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Popup Delete view */}
-      {showDeleteViewPopup && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-          }}
-          onClick={() => {
-            if (!deletingView) {
-              setShowDeleteViewPopup(false);
-              setSelectedViewIdForDelete(null);
-            }
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'white',
-              borderRadius: '8px',
-              padding: '24px',
-              maxWidth: '500px',
-              width: '90%',
-              maxHeight: '80vh',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', margin: 0 }}>
-                Supprimer une vue
-              </h2>
-              <button
-                onClick={() => {
-                  if (!deletingView) {
-                    setShowDeleteViewPopup(false);
-                    setSelectedViewIdForDelete(null);
-                  }
-                }}
-                disabled={deletingView}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: deletingView ? 'not-allowed' : 'pointer',
-                  color: '#666',
-                  padding: '0',
-                  width: '32px',
-                  height: '32px',
-                  opacity: deletingView ? 0.5 : 1,
-                }}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '20px' }}>
-              {loadingViewsForDelete ? (
-                <div style={{ textAlign: 'center', padding: '20px', color: '#6b7280' }}>
-                  Chargement des vues...
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {availableViewsForDelete.length === 0 ? (
-                    <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '14px' }}>
-                      Aucune vue sauvegardée pour ce Level 2
-                    </div>
-                  ) : (
-                    availableViewsForDelete.map((view) => (
-                      <div
-                        key={view.id}
-                        onClick={() => !deletingView && setSelectedViewIdForDelete(view.id)}
-                        style={{
-                          padding: '12px 16px',
-                          borderRadius: '6px',
-                          cursor: deletingView ? 'not-allowed' : 'pointer',
-                          backgroundColor: selectedViewIdForDelete === view.id ? '#fee2e2' : 'transparent',
-                          border: selectedViewIdForDelete === view.id ? '2px solid #dc2626' : '2px solid transparent',
-                          opacity: deletingView ? 0.5 : 1,
-                        }}
-                        onMouseEnter={(e) => {
-                          if (!deletingView && selectedViewIdForDelete !== view.id) {
-                            e.currentTarget.style.backgroundColor = '#f3f4f6';
-                          }
-                        }}
-                        onMouseLeave={(e) => {
-                          if (!deletingView && selectedViewIdForDelete !== view.id) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                      >
-                        <div style={{ fontSize: '14px', fontWeight: '500', color: '#374151' }}>
-                          {view.name}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
-              <button
-                onClick={() => {
-                  if (!deletingView) {
-                    setShowDeleteViewPopup(false);
-                    setSelectedViewIdForDelete(null);
-                  }
-                }}
-                disabled={deletingView}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#374151',
-                  backgroundColor: '#f3f4f6',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: deletingView ? 'not-allowed' : 'pointer',
-                  opacity: deletingView ? 0.5 : 1,
-                }}
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => deleteView(selectedViewIdForDelete)}
-                disabled={deletingView || selectedViewIdForDelete === null}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: '#ffffff',
-                  backgroundColor: (deletingView || selectedViewIdForDelete === null) ? '#9ca3af' : '#dc2626',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: (deletingView || selectedViewIdForDelete === null) ? 'not-allowed' : 'pointer',
-                }}
-              >
-                {deletingView ? 'Suppression...' : 'Supprimer'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

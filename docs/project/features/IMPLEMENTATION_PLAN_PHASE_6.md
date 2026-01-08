@@ -31,7 +31,7 @@
 
 ### Step 6.1 : Backend - Table AmortizationType
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer la table `amortization_types` pour stocker les types d'amortissement.
 
@@ -45,23 +45,23 @@
 
 **Tasks**:
 
-- [ ] Créer modèle `AmortizationType` dans `backend/database/models.py` :
+- [x] Créer modèle `AmortizationType` dans `backend/database/models.py` :
 
   - `id`, `name`, `level_2_value`, `level_1_values` (JSON), `start_date` (nullable), `duration`, `annual_amount` (nullable)
 
   - Index sur `level_2_value`
 
-- [ ] Créer script d'initialisation `backend/scripts/init_amortization_types.py` :
+- [x] Créer script d'initialisation `backend/scripts/init_amortization_types.py` :
 
   - Créer 7 types initiaux si la table est vide
 
-  - Noms par défaut : "Ammortissement meubles", "Ammortissement travaux", "Ammortissement construction", "Ammortissement terrain", etc.
+  - Noms par défaut : "Immobilisation terrain", "Immobilisation structure/GO", "Immobilisation mobilier", "Immobilisation IGT", "Immobilisation agencements", "Immobilisation Facade/Toiture", "Immobilisation travaux"
 
-- [ ] Exécuter script et valider
+- [x] Exécuter script et valider
 
-- [ ] **Créer test unitaire pour le modèle**
+- [x] **Créer test unitaire pour le modèle**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -73,19 +73,19 @@
 
 **Acceptance Criteria**:
 
-- [ ] Table `amortization_types` créée
+- [x] Table `amortization_types` créée
 
-- [ ] 7 types initiaux créés automatiquement si table vide
+- [x] 7 types initiaux créés automatiquement si table vide
 
-- [ ] Modèle SQLAlchemy fonctionnel
+- [x] Modèle SQLAlchemy fonctionnel
 
-- [ ] Tests unitaires passent (4 tests)
+- [x] Tests unitaires passent (4 tests)
 
 ---
 
 ### Step 6.2 : Backend - Table et service calcul amortissements
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer table BDD pour stocker les résultats d'amortissements et service de calcul.
 
@@ -99,7 +99,7 @@
 
 **Tasks**:
 
-- [ ] Créer table `amortization_results` avec colonnes :
+- [x] Créer table `amortization_results` avec colonnes :
 
   - `id` (PK)
 
@@ -113,9 +113,9 @@
 
   - `created_at`, `updated_at`
 
-- [ ] Créer modèle SQLAlchemy `AmortizationResult`
+- [x] Créer modèle SQLAlchemy `AmortizationResult`
 
-- [ ] Créer service `amortization_service.py` avec :
+- [x] Créer service `amortization_service.py` avec :
 
   - Fonction `calculate_30_360_days(start_date, end_date)`
 
@@ -125,7 +125,7 @@
 
   - Fonction `recalculate_transaction_amortization(transaction_id)` - Recalcul pour une transaction
 
-- [ ] Implémenter logique Yearly Amount Distribution :
+- [x] Implémenter logique Yearly Amount Distribution :
 
   - Calcul montant journalier (total_amount / total_days)
 
@@ -133,11 +133,11 @@
 
   - Dernière année = solde restant pour garantir somme exacte
 
-- [ ] Validation : vérifier que somme des amortissements = montant initial
+- [x] Validation : vérifier que somme des amortissements = montant initial
 
-- [ ] **Créer test complet avec calculs réels** (8 tests, tous passés)
+- [x] **Créer test complet avec calculs réels** (8 tests, tous passés)
 
-- [ ] Service utilise `AmortizationType` pour le matching des transactions :
+- [x] Service utilise `AmortizationType` pour le matching des transactions :
 
   - `recalculate_transaction_amortization()` utilise les `AmortizationType` configurés
 
@@ -147,7 +147,7 @@
 
   - Stockage du nom du type dans `AmortizationResult.category`
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -159,35 +159,35 @@
 
 **Tests**:
 
-- [ ] Test calcul convention 30/360
+- [x] Test calcul convention 30/360
 
-- [ ] Test répartition proportionnelle
+- [x] Test répartition proportionnelle
 
-- [ ] Test 4 catégories (meubles, travaux, construction, terrain)
+- [x] Test 4 catégories (meubles, travaux, construction, terrain)
 
-- [ ] Test validation somme = montant initial
+- [x] Test validation somme = montant initial
 
-- [ ] Test recalcul complet
+- [x] Test recalcul complet
 
-- [ ] Test recalcul transaction unique
+- [x] Test recalcul transaction unique
 
 **Acceptance Criteria**:
 
-- [ ] Calculs d'amortissements corrects (convention 30/360)
+- [x] Calculs d'amortissements corrects (convention 30/360)
 
-- [ ] Répartition proportionnelle validée
+- [x] Répartition proportionnelle validée
 
-- [ ] Validation somme = montant initial
+- [x] Validation somme = montant initial
 
-- [ ] Stockage en DB fonctionnel
+- [x] Stockage en DB fonctionnel
 
-- [ ] Service utilise `AmortizationType` pour le matching des transactions
+- [x] Service utilise `AmortizationType` pour le matching des transactions
 
-- [ ] Gestion de `start_date` override depuis le type
+- [x] Gestion de `start_date` override depuis le type
 
-- [ ] Gestion de `annual_amount` override depuis le type
+- [x] Gestion de `annual_amount` override depuis le type
 
-- [ ] **Utilisateur confirme que les calculs sont corrects**
+- [x] **Utilisateur confirme que les calculs sont corrects**
 
 ---
 
@@ -195,25 +195,25 @@
 
 ### Step 6.4 : Backend - Endpoints API amortissements
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer endpoints API pour récupérer les résultats d'amortissements.
 
 **Tasks**:
 
-- [ ] Créer endpoint `GET /api/amortization/results` :
+- [x] Créer endpoint `GET /api/amortization/results` :
   - Retourne résultats agrégés par année et catégorie
   - Format : `{ year: { category: amount, ... }, ... }`
 
   - Inclure ligne Total et colonne Total
 
-- [ ] Créer endpoint `GET /api/amortization/results/aggregated` :
+- [x] Créer endpoint `GET /api/amortization/results/aggregated` :
 
   - Retourne tableau croisé prêt pour affichage
 
   - Format : `{ categories: [...], years: [...], data: [[...], ...], totals: {...} }`
 
-- [ ] Créer endpoint `GET /api/amortization/results/details` :
+- [x] Créer endpoint `GET /api/amortization/results/details` :
 
   - Paramètres : `year` (optionnel), `category` (optionnel)
 
@@ -221,15 +221,15 @@
 
   - Utilisé pour drill-down depuis le tableau croisé
 
-- [ ] Créer endpoint `POST /api/amortization/recalculate` :
+- [x] Créer endpoint `POST /api/amortization/recalculate` :
 
   - Force recalcul complet de tous les amortissements
 
   - Utile pour recalculer après changement de config
 
-- [ ] **Créer test manuel** (script de test)
+- [x] **Créer test manuel** (script de test)
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -241,19 +241,18 @@
 
 **Acceptance Criteria**:
 
-- [ ] Endpoints retournent données correctes
+- [x] Endpoints retournent données correctes
 
-- [ ] Format adapté pour affichage frontend
+- [x] Format adapté pour affichage frontend
 
-- [ ] Totaux calculés correctement
+- [x] Totaux calculés correctement
 
-- [ ] Pagination fonctionne pour details endpoint
+- [x] Pagination fonctionne pour details endpoint
 
-- [ ] Filtres (year, category) fonctionnent pour details endpoint
+- [x] Filtres (year, category) fonctionnent pour details endpoint
 
-- [ ] **Utilisateur confirme que les endpoints fonctionnent**
+- [x] **Utilisateur confirme que les endpoints fonctionnent**
 
----
 
 ---
 
@@ -317,7 +316,7 @@
 
 #### Step 6.6.1: Backend - API Endpoints AmortizationType
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer les endpoints API pour gérer les types d'amortissement.
 
@@ -329,13 +328,15 @@
 
 **Tasks**:
 
-- [ ] Créer `backend/api/models.py` - Modèles Pydantic :
+- [x] Créer `backend/api/models.py` - Modèles Pydantic :
 
   - `AmortizationTypeBase`, `AmortizationTypeCreate`, `AmortizationTypeUpdate`, `AmortizationTypeResponse`
 
   - `AmortizationTypeListResponse`, `AmortizationTypeAmountResponse`, `AmortizationTypeCumulatedResponse`
 
-- [ ] Créer `backend/api/routes/amortization_types.py` :
+  - `AmortizationTypeTransactionCountResponse`
+
+- [x] Créer `backend/api/routes/amortization_types.py` :
 
   - `GET /api/amortization/types` - Liste tous les types
 
@@ -351,11 +352,13 @@
 
   - `GET /api/amortization/types/{id}/cumulated` - Calculer montant cumulé
 
-- [ ] Intégrer dans `backend/api/main.py`
+  - `GET /api/amortization/types/{id}/transaction-count` - Compter transactions
 
-- [ ] **Créer tests API (script de test manuel)**
+- [x] Intégrer dans `backend/api/main.py`
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Créer tests API (script de test manuel)**
+
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -369,13 +372,13 @@
 
 **Acceptance Criteria**:
 
-- [ ] Tous les endpoints créés
+- [x] Tous les endpoints créés (8 endpoints)
 
-- [ ] Validation des données (durée obligatoire, etc.)
+- [x] Validation des données (durée obligatoire, etc.)
 
-- [ ] Imports validés
+- [x] Imports validés
 
-- [ ] Tests manuels à exécuter (serveur backend requis)
+- [x] Tests manuels exécutés (8/8 passés)
 
 ---
 

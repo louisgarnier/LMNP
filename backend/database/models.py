@@ -216,3 +216,45 @@ class AllowedMapping(Base):
         Index('idx_allowed_mapping_level_3', 'level_3'),
     )
 
+
+class AmortizationType(Base):
+    """Types d'amortissement configurables pour les immobilisations."""
+    __tablename__ = "amortization_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)  # Nom du type (ex: "Immobilisation terrain")
+    level_2_value = Column(String(100), nullable=False, index=True)  # Valeur level_2 à considérer (ex: "ammortissements")
+    level_1_values = Column(Text, nullable=False, default="[]")  # JSON array des valeurs level_1 mappées
+    start_date = Column(Date, nullable=True)  # Date de début d'amortissement (override, nullable)
+    duration = Column(Float, nullable=False, default=0.0)  # Durée d'amortissement en années (0 = non amortissable)
+    annual_amount = Column(Float, nullable=True)  # Annuité d'amortissement (override, nullable)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_amortization_type_level_2', 'level_2_value'),
+    )
+
+
+class AmortizationResult(Base):
+    """Résultats d'amortissement par transaction, année et catégorie."""
+    __tablename__ = "amortization_results"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)  # Année d'amortissement (ex: 2021, 2022)
+    category = Column(String(255), nullable=False, index=True)  # Nom du type d'amortissement (ex: "Immobilisation terrain")
+    amount = Column(Float, nullable=False)  # Montant amorti pour cette année (négatif)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relation
+    transaction = relationship("Transaction", backref="amortization_results")
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_amortization_result_year_category', 'year', 'category'),
+        Index('idx_amortization_result_transaction', 'transaction_id'),
+    )
+
