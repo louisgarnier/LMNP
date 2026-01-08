@@ -45,6 +45,20 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   const [uniqueLevel2s, setUniqueLevel2s] = useState<string[]>([]);
   const [uniqueLevel3s, setUniqueLevel3s] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<number | null>(null);
+  
+  // États pour les dropdowns filtrés (valeurs autorisées)
+  const [allowedLevel1List, setAllowedLevel1List] = useState<string[]>([]);
+  const [editingLevel1, setEditingLevel1] = useState<string>('');
+  const [editingLevel2, setEditingLevel2] = useState<string>('');
+  const [editingLevel3, setEditingLevel3] = useState<string>('');
+  const [availableLevel1, setAvailableLevel1] = useState<string[]>([]);
+  const [availableLevel2, setAvailableLevel2] = useState<string[]>([]);
+  const [availableLevel3, setAvailableLevel3] = useState<string[]>([]);
+  
+  // États pour la modal de création
+  const [createAvailableLevel1, setCreateAvailableLevel1] = useState<string[]>([]);
+  const [createAvailableLevel2, setCreateAvailableLevel2] = useState<string[]>([]);
+  const [createAvailableLevel3, setCreateAvailableLevel3] = useState<string[]>([]);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
@@ -173,6 +187,22 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     loadUniqueValues();
   }, []);
 
+  // Charger les valeurs autorisées pour les dropdowns (Step 5.6)
+  useEffect(() => {
+    const loadAllowedValues = async () => {
+      try {
+        const level1Response = await mappingsAPI.getAllowedLevel1();
+        const level1List = level1Response.level_1 || [];
+        setAllowedLevel1List(level1List);
+        setAvailableLevel1(level1List);
+        setCreateAvailableLevel1(level1List);
+      } catch (err) {
+        console.error('Error loading allowed level_1:', err);
+      }
+    };
+    loadAllowedValues();
+  }, []);
+
   const handleSort = useCallback((column: SortColumn) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -231,6 +261,8 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
         is_prefix_match: true,
         priority: 0,
       });
+      setCreateAvailableLevel2([]);
+      setCreateAvailableLevel3([]);
       loadMappings();
       onMappingChange?.();
     } catch (err: any) {
@@ -299,13 +331,156 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   };
 
   const handleEdit = (mapping: Mapping) => {
+    handleStartEdit(mapping);
+  };
+
+  // Handlers pour les dropdowns dans l'édition (Step 5.6)
+  const handleEditLevel1Change = async (mapping: Mapping, value: string) => {
+    setEditingLevel1(value);
+    setEditingLevel2('');
+    setEditingLevel3('');
+    setAvailableLevel2([]);
+    setAvailableLevel3([]);
+    
+    let selectedLevel2: string | undefined = undefined;
+    let selectedLevel3: string | undefined = undefined;
+    
+    if (value) {
+      try {
+        const level2Response = await mappingsAPI.getAllowedLevel2(value);
+        const level2List = level2Response.level_2 || [];
+        setAvailableLevel2(level2List);
+        
+        // Si un seul level_2, pré-remplir automatiquement
+        if (level2List.length === 1) {
+          selectedLevel2 = level2List[0];
+          setEditingLevel2(selectedLevel2);
+          const level3Response = await mappingsAPI.getAllowedLevel3(value, selectedLevel2);
+          const level3List = level3Response.level_3 || [];
+          setAvailableLevel3(level3List);
+          if (level3List.length === 1) {
+            selectedLevel3 = level3List[0];
+            setEditingLevel3(selectedLevel3);
+          }
+        }
+      } catch (err) {
+        console.error('Error loading allowed level_2:', err);
+      }
+    }
+    
+    // Sauvegarder immédiatement avec toutes les valeurs pré-remplies
+    await handleSaveEdit(mapping, { 
+      level_1: value || undefined,
+      level_2: selectedLevel2 || undefined,
+      level_3: selectedLevel3 || undefined
+    });
+  };
+
+  const handleEditLevel2Change = async (mapping: Mapping, value: string) => {
+    setEditingLevel2(value);
+    setEditingLevel3('');
+    setAvailableLevel3([]);
+    
+    const level_1 = editingLevel1 || mapping.level_1;
+    
+    if (value && level_1) {
+      try {
+        const level3Response = await mappingsAPI.getAllowedLevel3(level_1, value);
+        const level3List = level3Response.level_3 || [];
+        setAvailableLevel3(level3List);
+        
+        // Si un seul level_3, pré-remplir automatiquement
+        if (level3List.length === 1) {
+          setEditingLevel3(level3List[0]);
+          // Sauvegarder avec level_3 aussi
+          await handleSaveEdit(mapping, { level_2: value || undefined, level_3: level3List[0] || undefined });
+          return;
+        }
+      } catch (err) {
+        console.error('Error loading allowed level_3:', err);
+      }
+    }
+    
+    // Sauvegarder immédiatement
+    await handleSaveEdit(mapping, { level_2: value || undefined });
+  };
+
+  const handleEditLevel3Change = async (mapping: Mapping, value: string) => {
+    setEditingLevel3(value);
+    // Sauvegarder immédiatement
+    await handleSaveEdit(mapping, { level_3: value || undefined });
+  };
+
+  // Handlers pour la modal de création (Step 5.6)
+  const handleCreateLevel1Change = async (value: string) => {
+    setNewMapping({ ...newMapping, level_1: value, level_2: '', level_3: '' });
+    setCreateAvailableLevel2([]);
+    setCreateAvailableLevel3([]);
+    
+    if (value) {
+      try {
+        const level2Response = await mappingsAPI.getAllowedLevel2(value);
+        const level2List = level2Response.level_2 || [];
+        setCreateAvailableLevel2(level2List);
+      } catch (err) {
+        console.error('Error loading allowed level_2:', err);
+      }
+    }
+  };
+
+  const handleCreateLevel2Change = async (value: string) => {
+    setNewMapping({ ...newMapping, level_2: value, level_3: '' });
+    setCreateAvailableLevel3([]);
+    
+    const level_1 = newMapping.level_1;
+    if (value && level_1) {
+      try {
+        const level3Response = await mappingsAPI.getAllowedLevel3(level_1, value);
+        const level3List = level3Response.level_3 || [];
+        setCreateAvailableLevel3(level3List);
+      } catch (err) {
+        console.error('Error loading allowed level_3:', err);
+      }
+    }
+  };
+
+  const handleCreateLevel3Change = (value: string) => {
+    setNewMapping({ ...newMapping, level_3: value || undefined });
+  };
+
+  // Handler pour démarrer l'édition d'un mapping
+  const handleStartEdit = (mapping: Mapping) => {
     setEditingId(mapping.id);
+    setEditingLevel1(mapping.level_1 || '');
+    setEditingLevel2(mapping.level_2 || '');
+    setEditingLevel3(mapping.level_3 || '');
+    setAvailableLevel1(allowedLevel1List);
+    
+    // Charger les valeurs disponibles pour ce mapping
+    if (mapping.level_1) {
+      mappingsAPI.getAllowedLevel2(mapping.level_1).then(response => {
+        setAvailableLevel2(response.level_2 || []);
+        if (mapping.level_2) {
+          mappingsAPI.getAllowedLevel3(mapping.level_1, mapping.level_2).then(response => {
+            setAvailableLevel3(response.level_3 || []);
+          }).catch(err => console.error('Error loading level_3:', err));
+        }
+      }).catch(err => console.error('Error loading level_2:', err));
+    } else {
+      setAvailableLevel2([]);
+      setAvailableLevel3([]);
+    }
   };
 
   const handleSaveEdit = async (mapping: Mapping, updates: MappingUpdate) => {
     try {
       await mappingsAPI.update(mapping.id, updates);
       setEditingId(null);
+      setEditingLevel1('');
+      setEditingLevel2('');
+      setEditingLevel3('');
+      setAvailableLevel2([]);
+      setAvailableLevel3([]);
       loadMappings();
       onMappingChange?.();
     } catch (err: any) {
@@ -416,7 +591,11 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
             </>
           )}
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              setShowCreateModal(true);
+              setCreateAvailableLevel2([]);
+              setCreateAvailableLevel3([]);
+            }}
             style={{
               padding: '8px 16px',
               fontSize: '14px',
@@ -793,48 +972,50 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
                 </td>
                 <td style={{ padding: '12px' }}>
                   {editingId === mapping.id ? (
-                    <input
-                      type="text"
-                      defaultValue={mapping.level_1}
-                      onBlur={(e) => {
-                        if (e.target.value !== mapping.level_1) {
-                          handleSaveEdit(mapping, { level_1: e.target.value });
-                        }
-                      }}
+                    <select
+                      value={editingLevel1}
+                      onChange={(e) => handleEditLevel1Change(mapping, e.target.value)}
                       style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                    />
+                    >
+                      <option value="">-- Sélectionner --</option>
+                      {availableLevel1.map((val) => (
+                        <option key={val} value={val}>{val}</option>
+                      ))}
+                    </select>
                   ) : (
                     mapping.level_1
                   )}
                 </td>
                 <td style={{ padding: '12px' }}>
                   {editingId === mapping.id ? (
-                    <input
-                      type="text"
-                      defaultValue={mapping.level_2}
-                      onBlur={(e) => {
-                        if (e.target.value !== mapping.level_2) {
-                          handleSaveEdit(mapping, { level_2: e.target.value });
-                        }
-                      }}
+                    <select
+                      value={editingLevel2}
+                      onChange={(e) => handleEditLevel2Change(mapping, e.target.value)}
+                      disabled={!editingLevel1 && !mapping.level_1}
                       style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                    />
+                    >
+                      <option value="">-- Sélectionner --</option>
+                      {availableLevel2.map((val) => (
+                        <option key={val} value={val}>{val}</option>
+                      ))}
+                    </select>
                   ) : (
                     mapping.level_2
                   )}
                 </td>
                 <td style={{ padding: '12px' }}>
                   {editingId === mapping.id ? (
-                    <input
-                      type="text"
-                      defaultValue={mapping.level_3 || ''}
-                      onBlur={(e) => {
-                        if (e.target.value !== (mapping.level_3 || '')) {
-                          handleSaveEdit(mapping, { level_3: e.target.value || undefined });
-                        }
-                      }}
+                    <select
+                      value={editingLevel3}
+                      onChange={(e) => handleEditLevel3Change(mapping, e.target.value)}
+                      disabled={!editingLevel2 && !mapping.level_2}
                       style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                    />
+                    >
+                      <option value="">-- Sélectionner (optionnel) --</option>
+                      {availableLevel3.map((val) => (
+                        <option key={val} value={val}>{val}</option>
+                      ))}
+                    </select>
                   ) : (
                     mapping.level_3 || '-'
                   )}
@@ -845,7 +1026,14 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
                 <td style={{ padding: '12px', textAlign: 'center', display: 'flex', gap: '8px', justifyContent: 'center' }}>
                   {editingId === mapping.id ? (
                     <button
-                      onClick={() => setEditingId(null)}
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditingLevel1('');
+                        setEditingLevel2('');
+                        setEditingLevel3('');
+                        setAvailableLevel2([]);
+                        setAvailableLevel3([]);
+                      }}
                       style={{
                         padding: '4px 8px',
                         fontSize: '12px',
@@ -1007,30 +1195,44 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 1 *</label>
-                <input
-                  type="text"
+                <select
                   value={newMapping.level_1}
-                  onChange={(e) => setNewMapping({ ...newMapping, level_1: e.target.value })}
+                  onChange={(e) => handleCreateLevel1Change(e.target.value)}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                />
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {createAvailableLevel1.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 2 *</label>
-                <input
-                  type="text"
+                <select
                   value={newMapping.level_2}
-                  onChange={(e) => setNewMapping({ ...newMapping, level_2: e.target.value })}
+                  onChange={(e) => handleCreateLevel2Change(e.target.value)}
+                  disabled={!newMapping.level_1}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                />
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {createAvailableLevel2.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '4px', fontWeight: '500' }}>Level 3</label>
-                <input
-                  type="text"
+                <select
                   value={newMapping.level_3 || ''}
-                  onChange={(e) => setNewMapping({ ...newMapping, level_3: e.target.value })}
+                  onChange={(e) => handleCreateLevel3Change(e.target.value)}
+                  disabled={!newMapping.level_2}
                   style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                />
+                >
+                  <option value="">-- Sélectionner (optionnel) --</option>
+                  {createAvailableLevel3.map((val) => (
+                    <option key={val} value={val}>{val}</option>
+                  ))}
+                </select>
               </div>
               <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
                 <button
