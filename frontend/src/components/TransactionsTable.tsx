@@ -565,8 +565,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   };
 
   const handleLevel1Change = async (value: string) => {
-    // Step 5.5.3: Option "Unassigned" pour retirer le mapping
-    if (value === '' || value === '__UNASSIGNED__') {
+    // Step 5.5.3: Valeur vide pour retirer le mapping
+    if (value === '') {
       setEditingClassificationValues({ 
         ...editingClassificationValues, 
         level_1: undefined, 
@@ -1290,7 +1290,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                             style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
                           >
                             <option value="">-- Sélectionner --</option>
-                            <option value="__UNASSIGNED__">Unassigned</option>
                             {(allowedLevel1List.length > 0 ? allowedLevel1List : availableLevel1)
                               .filter(val => val && val !== 'Unassigned' && val !== 'unassigned')
                               .map((val) => (
