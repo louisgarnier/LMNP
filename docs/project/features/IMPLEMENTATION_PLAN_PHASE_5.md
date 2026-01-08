@@ -682,39 +682,43 @@
 
 ### Step 5.6 : Frontend - Dropdowns filtrés dans l'onglet Mapping
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Modifier l'onglet Mapping pour utiliser des dropdowns filtrés au lieu d'inputs texte libres.
 
 **Tasks**:
 
-- [ ] Identifier l'onglet/composant Mapping dans le frontend
+- [x] Identifier l'onglet/composant Mapping dans le frontend (`MappingTable.tsx`)
 
-- [ ] Remplacer les inputs texte level_1, level_2, level_3 par des dropdowns
+- [x] Remplacer les inputs texte level_1, level_2, level_3 par des dropdowns
 
-- [ ] Implémenter le même filtrage hiérarchique que Step 5.5
+- [x] Implémenter le même filtrage hiérarchique que Step 5.5
 
-- [ ] Charger les valeurs prédéfinies depuis l'API
+- [x] Charger les valeurs prédéfinies depuis l'API
 
-- [ ] Permettre la modification des mappings existants (avec validation)
+- [x] Permettre la modification des mappings existants (avec validation)
 
-- [ ] Permettre la suppression des mappings (comme actuellement)
+- [x] Remplacer les inputs texte dans la modal de création par des dropdowns
 
-- [ ] **Tester la modification et suppression de mappings**
+- [x] Permettre la suppression des mappings (comme actuellement)
+
+- [x] **Tester la modification et suppression de mappings**
 
 **Deliverables**:
 
-- Mise à jour du composant Mapping frontend - Dropdowns filtrés
+- Mise à jour `frontend/src/components/MappingTable.tsx` - Dropdowns avec valeurs autorisées
 
 **Acceptance Criteria**:
 
-- [ ] Les inputs texte sont remplacés par des dropdowns
+- [x] Les inputs texte sont remplacés par des dropdowns (tableau et modal de création)
 
-- [ ] Filtrage hiérarchique fonctionne
+- [x] Filtrage hiérarchique fonctionne (level_1 → level_2 → level_3)
 
-- [ ] Modification de mapping fonctionne avec validation
+- [x] Pré-remplissage automatique quand combinaison unique
 
-- [ ] Suppression de mapping fonctionne (transactions retournent à "unassigned")
+- [x] Modification de mapping fonctionne avec validation
+
+- [x] Suppression de mapping fonctionne (transactions retournent à "unassigned")
 
 - [ ] **Test visuel dans navigateur validé**
 
