@@ -291,3 +291,24 @@ def get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3:
     ).order_by(AllowedMapping.level_1).all()
     return [v[0] for v in values if v[0]]
 
+
+def get_allowed_level3_for_level2(db: Session, level_2: str) -> List[str]:
+    """
+    Retourne les valeurs level_3 autorisées pour un level_2 donné (distinct).
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_2 est sélectionné en premier,
+    on peut trouver le level_3 unique (si unique) pour pré-remplir automatiquement.
+    
+    Args:
+        db: Session de base de données
+        level_2: Valeur de level_2
+    
+    Returns:
+        Liste des valeurs level_3 uniques pour ce level_2, triées
+    """
+    values = db.query(distinct(AllowedMapping.level_3)).filter(
+        AllowedMapping.level_2 == level_2,
+        AllowedMapping.level_3.isnot(None)
+    ).order_by(AllowedMapping.level_3).all()
+    return [v[0] for v in values if v[0]]
+

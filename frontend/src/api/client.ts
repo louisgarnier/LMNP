@@ -509,6 +509,17 @@ export const mappingsAPI = {
   },
 
   /**
+   * Récupérer les valeurs level_3 autorisées pour un level_2 donné (depuis allowed_mappings)
+   * Utilisé pour le scénario 2 : quand level_2 est sélectionné en premier
+   */
+  async getAllowedLevel3ForLevel2(level_2: string): Promise<{ level_3: string[] }> {
+    const params = new URLSearchParams({
+      level_2,
+    });
+    return fetchAPI<{ level_3: string[] }>(`/api/mappings/allowed-level3-for-level2?${params.toString()}`);
+  },
+
+  /**
    * Récupérer les valeurs level_2 autorisées pour un level_3 donné (filtrage bidirectionnel)
    * Utilisé quand level_3 est sélectionné en premier
    */

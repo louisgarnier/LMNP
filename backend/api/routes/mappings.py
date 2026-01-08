@@ -39,6 +39,7 @@ from backend.api.services.mapping_obligatoire_service import (
     get_allowed_level2_for_level3,
     get_allowed_level1_for_level2,
     get_allowed_level1_for_level2_and_level3,
+    get_allowed_level3_for_level2,
     validate_mapping,
     validate_level3_value
 )
@@ -1021,6 +1022,28 @@ async def get_allowed_level1_for_level2_and_level3_endpoint(
     """
     values = get_allowed_level1_for_level2_and_level3(db, level_2, level_3)
     return {"level_1": values}
+
+
+@router.get("/mappings/allowed-level3-for-level2")
+async def get_allowed_level3_for_level2_endpoint(
+    level_2: str = Query(..., description="Valeur de level_2"),
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer les valeurs level_3 autorisées pour un level_2 donné.
+    
+    Utilisé pour le filtrage bidirectionnel : quand level_2 est sélectionné en premier,
+    on peut trouver le level_3 unique (si unique) pour pré-remplir automatiquement.
+    
+    Args:
+        level_2: Valeur de level_2
+        db: Session de base de données
+    
+    Returns:
+        Liste des valeurs level_3 uniques pour ce level_2, triées
+    """
+    values = get_allowed_level3_for_level2(db, level_2)
+    return {"level_3": values}
 
 
 @router.get("/mappings/combinations")

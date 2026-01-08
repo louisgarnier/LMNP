@@ -645,48 +645,85 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   };
 
   const handleLevel2Change = async (value: string) => {
-    if (value === '__CUSTOM__') {
-      setCustomLevel2(true);
-      setEditingClassificationValues({ ...editingClassificationValues, level_2: '', level_3: undefined });
-      // Charger TOUS les level_3 disponibles dès qu'on passe en mode custom
-      try {
-        const combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
-        const level3List = combinations.level_3 || [];
-        console.log('🔍 [Combinations] All level_3 loaded (custom level_2):', level3List);
-        setAvailableLevel3(level3List);
-      } catch (err) {
-        console.error('Error loading level_3 combinations:', err);
-      }
+    // Step 5.5.4: Valeur vide pour retirer le mapping
+    if (value === '') {
+      setEditingClassificationValues({ 
+        ...editingClassificationValues, 
+        level_2: undefined,
+        level_3: undefined
+      });
+      setAvailableLevel3([]);
+      setCustomLevel2(false);
       return;
     }
-    
+
+    // Step 5.5.4: Plus de mode custom pour level_2 - utiliser uniquement les valeurs autorisées
     setCustomLevel2(false);
+    
     const level_1 = editingClassificationValues.level_1;
-    const currentLevel3 = editingClassificationValues.level_3;
-    if (!level_1) return;
     
-    // Ne pas supprimer level_3, seulement mettre à jour level_2
-    setEditingClassificationValues({ ...editingClassificationValues, level_2: value });
-    
-    // Charger les level_3 possibles pour cette combinaison level_1 + level_2
-    if (value) {
+    // Step 5.5.4: Scénario 2 - Si level_1 n'est pas encore sélectionné
+    if (!level_1 && value) {
       try {
-        const combinations = await mappingsAPI.getCombinations(level_1, value);
-        const level3List = combinations.level_3 || [];
-        // Ajouter la valeur actuelle si elle n'est pas déjà dans la liste
-        if (currentLevel3 && !level3List.includes(currentLevel3)) {
-          level3List.push(currentLevel3);
+        // Charger les level_3 possibles pour ce level_2
+        const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(value);
+        const level3List = level3Response.level_3 || [];
+        setAvailableLevel3(level3List);
+        
+        // Step 5.5.4: Si un seul level_3, pré-remplir automatiquement
+        let selectedLevel3: string | undefined = undefined;
+        if (level3List.length === 1) {
+          selectedLevel3 = level3List[0];
         }
-        // Si la liste est vide, charger TOUS les level_3 disponibles
-        if (level3List.length === 0) {
-          const allLevel3Combinations = await mappingsAPI.getCombinations(undefined, undefined, false, true);
-          const allLevel3List = allLevel3Combinations.level_3 || [];
-          setAvailableLevel3(allLevel3List);
-        } else {
-          setAvailableLevel3(level3List);
+        
+        // Charger les level_1 autorisés pour ce level_2
+        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2(value);
+        const level1List = level1Response.level_1 || [];
+        setAvailableLevel1(level1List);
+        
+        // Mettre à jour les valeurs
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_2: value,
+          level_3: selectedLevel3
+        });
+      } catch (err) {
+        console.error('Error loading allowed combinations for level_2:', err);
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_2: value,
+          level_3: undefined
+        });
+        setAvailableLevel3([]);
+      }
+    } 
+    // Si level_1 est déjà sélectionné, utiliser la logique normale
+    else if (level_1 && value) {
+      try {
+        // Charger les level_3 possibles pour cette combinaison level_1 + level_2
+        const level3Response = await mappingsAPI.getAllowedLevel3(level_1, value);
+        const level3List = level3Response.level_3 || [];
+        setAvailableLevel3(level3List);
+        
+        // Si un seul level_3, pré-remplir automatiquement
+        let selectedLevel3: string | undefined = undefined;
+        if (level3List.length === 1) {
+          selectedLevel3 = level3List[0];
         }
+        
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_2: value,
+          level_3: selectedLevel3
+        });
       } catch (err) {
         console.error('Error loading level_3 combinations:', err);
+        setEditingClassificationValues({ 
+          ...editingClassificationValues, 
+          level_2: value,
+          level_3: undefined
+        });
+        setAvailableLevel3([]);
       }
     }
   };
