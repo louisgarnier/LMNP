@@ -726,43 +726,43 @@
 
 ### Step 5.7 : Backend - Vérification et test du recalcul automatique
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Vérifier que le recalcul automatique des modules dépendants fonctionne correctement après une mise à jour de mapping (cette fonctionnalité devrait déjà exister).
 
 **Tasks**:
 
-- [ ] Vérifier le code actuel de `update_transaction_classification()` dans `backend/api/services/enrichment_service.py`
+- [x] Vérifier le code actuel de `update_transaction_classification()` dans `backend/api/routes/enrichment.py`
 
-- [ ] Vérifier que l'invalidation des données calculées est déclenchée :
+- [x] Vérifier comment les données calculées sont récupérées :
 
-  - `CompteResultatData` (via fonction existante)
+  - Les données sont calculées **à la volée** à partir des `EnrichedTransaction`
+  
+  - Les endpoints (analytics, pivot tables, etc.) utilisent directement les `EnrichedTransaction` en temps réel
+  
+  - Pas de cache nécessitant une invalidation - les données sont toujours à jour
 
-  - `AmortizationResult` (via fonction existante)
+- [x] Tester que le recalcul est automatique (les données sont toujours à jour car calculées à la volée)
 
-  - Tous les autres modules qui dépendent des transactions enrichies
+- [x] **Conclusion** : Le recalcul est automatique car les données sont calculées à la volée, pas besoin d'invalidation
 
-- [ ] Tester que le recalcul est déclenché automatiquement après mise à jour de mapping
-
-- [ ] Si la fonctionnalité n'existe pas ou ne fonctionne pas correctement, l'implémenter/corriger
-
-- [ ] **Tester le recalcul automatique**
+- [x] **Tester le recalcul automatique**
 
 **Deliverables**:
 
-- Vérification/correction de `backend/api/services/enrichment_service.py` si nécessaire
-
-- Script de test pour valider le recalcul automatique
+- Script de test `backend/tests/test_recalculation_step5_7.py` pour valider le comportement
 
 **Acceptance Criteria**:
 
-- [ ] Après mise à jour de mapping, les données calculées sont invalidées
+- [x] Après mise à jour de mapping, les `EnrichedTransaction` sont mis à jour automatiquement
 
-- [ ] Le recalcul est déclenché automatiquement
+- [x] Les données calculées sont toujours à jour car calculées à la volée à partir des `EnrichedTransaction`
 
-- [ ] Tous les modules dépendants sont mis à jour (compte de résultat, amortissements, etc.)
+- [x] Tous les modules dépendants utilisent les `EnrichedTransaction` en temps réel (pas de cache)
 
-- [ ] **Test de recalcul automatique validé**
+- [x] **Test de recalcul automatique validé**
+
+**Note importante** : Les données (compte de résultat, amortissements, analytics) sont calculées à la volée à partir des `EnrichedTransaction`. Comme les `EnrichedTransaction` sont mis à jour automatiquement lors de la modification d'une classification, les données calculées sont toujours à jour sans besoin d'invalidation explicite.
 
 ---
 
