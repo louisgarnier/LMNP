@@ -35,6 +35,7 @@ from backend.api.services.enrichment_service import enrich_transaction, transact
 from backend.api.services.mapping_obligatoire_service import (
     get_allowed_level1_values,
     get_allowed_level2_values,
+    get_all_allowed_level2_values,
     get_allowed_level3_values,
     get_allowed_level2_for_level3,
     get_allowed_level1_for_level2,
@@ -918,20 +919,26 @@ async def get_allowed_level1(
 
 @router.get("/mappings/allowed-level2")
 async def get_allowed_level2(
-    level_1: str = Query(..., description="Valeur de level_1"),
+    level_1: Optional[str] = Query(None, description="Valeur de level_1 (optionnel, si non fourni retourne tous les level_2)"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer les valeurs level_2 autorisées pour un level_1 donné.
+    Récupérer les valeurs level_2 autorisées.
+    
+    Si level_1 est fourni, retourne les level_2 pour ce level_1.
+    Si level_1 n'est pas fourni, retourne tous les level_2 autorisés (pour scénario 2).
     
     Args:
-        level_1: Valeur de level_1
+        level_1: Valeur de level_1 (optionnel)
         db: Session de base de données
     
     Returns:
-        Liste des valeurs level_2 uniques pour ce level_1, triées
+        Liste des valeurs level_2 uniques, triées
     """
-    values = get_allowed_level2_values(db, level_1)
+    if level_1:
+        values = get_allowed_level2_values(db, level_1)
+    else:
+        values = get_all_allowed_level2_values(db)
     return {"level_2": values}
 
 

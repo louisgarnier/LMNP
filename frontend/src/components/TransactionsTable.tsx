@@ -531,11 +531,17 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         setAvailableLevel1(allowedLevel1List);
       }
       
-      // Step 5.5.3: Ne pas charger level_2 et level_3 au début (seront chargés quand level_1 sera sélectionné)
-      setAvailableLevel2([]);
-      setAvailableLevel3([]);
+      // Step 5.5.4: Charger tous les level_2 disponibles pour permettre le scénario 2 (level_2 avant level_1)
+      try {
+        const level2Response = await mappingsAPI.getAllowedLevel2();
+        const level2List = level2Response.level_2 || [];
+        setAvailableLevel2(level2List);
+      } catch (err) {
+        console.error('Error loading allowed level_2:', err);
+        setAvailableLevel2([]);
+      }
       
-      // Step 5.5.3: Si level_1 existe, charger les level_2 et level_3 autorisés
+      // Step 5.5.3: Si level_1 existe, charger les level_2 spécifiques et level_3 autorisés
       if (currentLevel1) {
         try {
           const level2Response = await mappingsAPI.getAllowedLevel2(currentLevel1);
@@ -555,8 +561,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
           console.error('Error loading allowed combinations:', err);
         }
       } else {
-        // Si level_1 n'existe pas, ne pas charger level_2 et level_3
-        setAvailableLevel2([]);
+        // Si level_1 n'existe pas, ne pas charger level_3 (sera chargé quand level_2 ou level_3 sera sélectionné)
         setAvailableLevel3([]);
       }
     } catch (err) {

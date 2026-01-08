@@ -164,6 +164,24 @@ def get_allowed_level2_values(db: Session, level_1: str) -> List[str]:
     return [v[0] for v in values if v[0]]
 
 
+def get_all_allowed_level2_values(db: Session) -> List[str]:
+    """
+    Retourne toutes les valeurs level_2 autorisées (distinct, sans filtre level_1).
+    
+    Utilisé pour le scénario 2 : quand on peut sélectionner level_2 avant level_1.
+    
+    Args:
+        db: Session de base de données
+    
+    Returns:
+        Liste de toutes les valeurs level_2 uniques, triées
+    """
+    values = db.query(distinct(AllowedMapping.level_2)).filter(
+        AllowedMapping.level_2.isnot(None)
+    ).order_by(AllowedMapping.level_2).all()
+    return [v[0] for v in values if v[0]]
+
+
 def get_allowed_level3_values(db: Session, level_1: str, level_2: str) -> List[str]:
     """
     Retourne les valeurs level_3 autorisées pour un couple (level_1, level_2) (distinct).

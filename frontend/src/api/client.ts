@@ -488,12 +488,15 @@ export const mappingsAPI = {
   },
 
   /**
-   * Récupérer les valeurs level_2 autorisées pour un level_1 donné (depuis allowed_mappings)
+   * Récupérer les valeurs level_2 autorisées (depuis allowed_mappings)
+   * Si level_1 est fourni, retourne les level_2 pour ce level_1
+   * Si level_1 n'est pas fourni, retourne tous les level_2 autorisés (pour scénario 2)
    */
-  async getAllowedLevel2(level_1: string): Promise<{ level_2: string[] }> {
-    const params = new URLSearchParams({
-      level_1,
-    });
+  async getAllowedLevel2(level_1?: string): Promise<{ level_2: string[] }> {
+    const params = new URLSearchParams();
+    if (level_1) {
+      params.append('level_1', level_1);
+    }
     return fetchAPI<{ level_2: string[] }>(`/api/mappings/allowed-level2?${params.toString()}`);
   },
 
