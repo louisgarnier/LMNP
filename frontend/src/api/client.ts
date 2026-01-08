@@ -394,6 +394,29 @@ export interface MappingImportHistory {
   errors_count: number;
 }
 
+// Allowed Mappings types (Step 5.8)
+export interface AllowedMapping {
+  id: number;
+  level_1: string;
+  level_2: string;
+  level_3?: string;
+  is_hardcoded: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AllowedMappingListResponse {
+  mappings: AllowedMapping[];
+  total: number;
+}
+
+export interface AllowedMappingResetResponse {
+  message: string;
+  deleted_allowed: number;
+  deleted_mappings: number;
+  unassigned_transactions: number;
+}
+
 // Mapping API
 export const mappingsAPI = {
   /**
@@ -662,6 +685,59 @@ export const mappingsAPI = {
   deleteAllImports: async (): Promise<void> => {
     return fetchAPI<void>('/api/mappings/imports', {
       method: 'DELETE',
+    });
+  },
+
+  // ============================================================================
+  // Allowed Mappings API (Step 5.8)
+  // ============================================================================
+
+  /**
+   * Récupérer tous les mappings autorisés avec pagination
+   */
+  getAllowedMappings: async (skip: number = 0, limit: number = 100): Promise<AllowedMappingListResponse> => {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    return fetchAPI<AllowedMappingListResponse>(`/api/mappings/allowed?${params.toString()}`);
+  },
+
+  /**
+   * Créer un nouveau mapping autorisé
+   */
+  createAllowedMapping: async (
+    level_1: string,
+    level_2: string,
+    level_3?: string
+  ): Promise<AllowedMapping> => {
+    const params = new URLSearchParams({
+      level_1,
+      level_2,
+    });
+    if (level_3) {
+      params.append('level_3', level_3);
+    }
+    return fetchAPI<AllowedMapping>(`/api/mappings/allowed?${params.toString()}`, {
+      method: 'POST',
+    });
+  },
+
+  /**
+   * Supprimer un mapping autorisé (uniquement si is_hardcoded = False)
+   */
+  deleteAllowedMapping: async (mappingId: number): Promise<void> => {
+    return fetchAPI<void>(`/api/mappings/allowed/${mappingId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Reset les mappings autorisés : supprime uniquement les combinaisons ajoutées manuellement
+   */
+  resetAllowedMappings: async (): Promise<AllowedMappingResetResponse> => {
+    return fetchAPI<AllowedMappingResetResponse>('/api/mappings/allowed/reset', {
+      method: 'POST',
     });
   },
 };
