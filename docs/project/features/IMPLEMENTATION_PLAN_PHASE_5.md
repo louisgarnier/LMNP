@@ -484,13 +484,13 @@
 
 #### Step 5.5.4 : Frontend - Scénario 2 : Sélection level_2 → level_3 automatique, level_1 manuel
 
-**Status**: ⏳ EN ATTENTE
+**Status**: ✅ COMPLÉTÉ
 
 **Description**: Implémenter le scénario où level_2 est sélectionné en premier, level_3 est automatiquement sélectionné, level_1 doit être sélectionné manuellement.
 
 **Tasks**:
 
-- [ ] Modifier `TransactionsTable.tsx` :
+- [x] Modifier `TransactionsTable.tsx` :
 
   - Quand level_2 est sélectionné (sans level_1) :
 
@@ -500,11 +500,15 @@
 
     - Charger les level_1 autorisés pour ce level_2 (appel à `getAllowedLevel1ForLevel2`)
 
-    - Afficher ces level_1 dans le dropdown level_1
+    - Afficher ces level_1 dans le dropdown level_1 (filtrer le dropdown level_1)
 
-  - Ajouter option "Unassigned" dans le dropdown level_2
+  - Utiliser valeur vide ("-- Sélectionner --") pour retirer le mapping (pas d'option "Unassigned")
 
-- [ ] **Tester le scénario 2 dans le navigateur**
+- [x] **Tester le scénario 2 dans le navigateur**
+
+- [x] **Corriger : charger tous les level_2 au démarrage de l'édition pour permettre le scénario 2**
+
+- [x] **Corriger : filtrer le dropdown level_1 par level_2 sélectionné**
 
 **Deliverables**:
 
@@ -512,13 +516,13 @@
 
 **Acceptance Criteria**:
 
-- [ ] Sélection level_2 → level_3 est automatiquement sélectionné
+- [x] Sélection level_2 → level_3 est automatiquement sélectionné (si unique)
 
-- [ ] Dropdown level_1 affiche les level_1 autorisés pour ce level_2
+- [x] Dropdown level_1 affiche uniquement les level_1 autorisés pour ce level_2 (filtré)
 
-- [ ] Option "Unassigned" permet de retirer le mapping
+- [x] Valeur vide ("-- Sélectionner --") permet de retirer le mapping
 
-- [ ] **Test visuel dans navigateur validé**
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
