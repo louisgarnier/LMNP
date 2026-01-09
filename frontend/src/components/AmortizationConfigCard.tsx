@@ -41,6 +41,10 @@ export default function AmortizationConfigCard({
   const [editingNameValue, setEditingNameValue] = useState<string>('');
   const [isResetting, setIsResetting] = useState<boolean>(false); // Flag pour éviter la duplication lors de la réinitialisation
   
+  // États pour l'édition de la date de début
+  const [editingStartDateId, setEditingStartDateId] = useState<number | null>(null);
+  const [editingStartDateValue, setEditingStartDateValue] = useState<string>('');
+  
   // États pour la colonne "Level 1 (valeurs)"
   const [level1Values, setLevel1Values] = useState<string[]>([]);
   const [loadingLevel1Values, setLoadingLevel1Values] = useState<boolean>(false);
@@ -452,6 +456,89 @@ export default function AmortizationConfigCard({
   // Gérer la suppression d'une valeur Level 1 (via le tag)
   const handleLevel1Remove = async (typeId: number, level1Value: string) => {
     await handleLevel1Toggle(typeId, level1Value);
+  };
+
+  // Gérer le début de l'édition de la date de début
+  const handleStartDateEditStart = (type: AmortizationType) => {
+    setEditingStartDateId(type.id);
+    // Convertir la date en format YYYY-MM-DD pour l'input date
+    if (type.start_date) {
+      const date = new Date(type.start_date);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      setEditingStartDateValue(`${year}-${month}-${day}`);
+    } else {
+      setEditingStartDateValue('');
+    }
+  };
+
+  // Sauvegarder la date de début
+  const handleStartDateEditSave = async (typeId: number) => {
+    try {
+      // Convertir la chaîne en date ou null
+      let startDate: string | null = null;
+      if (editingStartDateValue.trim()) {
+        // Valider le format de date
+        const date = new Date(editingStartDateValue);
+        if (isNaN(date.getTime())) {
+          alert('Date invalide. Format attendu : YYYY-MM-DD');
+          return;
+        }
+        startDate = editingStartDateValue.trim();
+      }
+
+      await amortizationTypesAPI.update(typeId, {
+        start_date: startDate || null,
+      });
+      
+      // Recharger les types pour avoir la valeur à jour
+      await loadAmortizationTypes();
+      
+      setEditingStartDateId(null);
+      setEditingStartDateValue('');
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la sauvegarde de la date de début:', err);
+      alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Supprimer la date de début
+  const handleStartDateRemove = async (typeId: number) => {
+    try {
+      await amortizationTypesAPI.update(typeId, {
+        start_date: null,
+      });
+      
+      // Recharger les types pour avoir la valeur à jour
+      await loadAmortizationTypes();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la suppression de la date de début:', err);
+      alert(`Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Annuler l'édition de la date de début
+  const handleStartDateEditCancel = () => {
+    setEditingStartDateId(null);
+    setEditingStartDateValue('');
+  };
+
+  // Gérer les touches dans le champ d'édition de la date
+  const handleStartDateEditKeyDown = (e: React.KeyboardEvent, typeId: number) => {
+    if (e.key === 'Enter') {
+      handleStartDateEditSave(typeId);
+    } else if (e.key === 'Escape') {
+      handleStartDateEditCancel();
+    }
   };
 
   // Fonction interne de réinitialisation (utilisée par le bouton et le changement de Level 2)
@@ -951,6 +1038,122 @@ export default function AmortizationConfigCard({
                         <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
                           {transactionCounts[type.id] ?? '-'}
                         </span>
+                      )}
+                    </td>
+                    {/* Colonne "Date de début" */}
+                    <td style={{ padding: '12px' }}>
+                      {editingStartDateId === type.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <input
+                            type="date"
+                            value={editingStartDateValue}
+                            onChange={(e) => setEditingStartDateValue(e.target.value)}
+                            onBlur={() => handleStartDateEditSave(type.id)}
+                            onKeyDown={(e) => handleStartDateEditKeyDown(e, type.id)}
+                            autoFocus
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '14px',
+                              border: '1px solid #3b82f6',
+                              borderRadius: '4px',
+                              outline: 'none',
+                              width: '140px',
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleStartDateEditCancel}
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '12px',
+                              color: '#6b7280',
+                              backgroundColor: 'transparent',
+                              border: '1px solid #d1d5db',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                            }}
+                            title="Annuler"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          {type.start_date ? (
+                            <>
+                              <span
+                                onClick={() => handleStartDateEditStart(type)}
+                                style={{
+                                  cursor: 'pointer',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  display: 'inline-block',
+                                  fontSize: '14px',
+                                  color: '#374151',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                                title="Cliquer pour éditer"
+                              >
+                                {new Date(type.start_date).toLocaleDateString('fr-FR', {
+                                  day: '2-digit',
+                                  month: '2-digit',
+                                  year: 'numeric'
+                                })}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleStartDateRemove(type.id)}
+                                style={{
+                                  padding: '2px 6px',
+                                  fontSize: '12px',
+                                  color: '#dc2626',
+                                  backgroundColor: 'transparent',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  borderRadius: '4px',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#fee2e2';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
+                                title="Supprimer la date"
+                              >
+                                ×
+                              </button>
+                            </>
+                          ) : (
+                            <span
+                              onClick={() => handleStartDateEditStart(type)}
+                              style={{
+                                cursor: 'pointer',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                display: 'inline-block',
+                                fontSize: '14px',
+                                color: '#9ca3af',
+                                fontStyle: 'italic',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                e.currentTarget.style.color = '#374151';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                                e.currentTarget.style.color = '#9ca3af';
+                              }}
+                              title="Cliquer pour ajouter une date"
+                            >
+                              Ajouter une date
+                            </span>
+                          )}
+                        </div>
                       )}
                     </td>
                     {/* Autres colonnes vides pour l'instant */}
