@@ -46,6 +46,10 @@ export default function AmortizationConfigCard({
   const [loadingLevel1Values, setLoadingLevel1Values] = useState<boolean>(false);
   const [openLevel1DropdownId, setOpenLevel1DropdownId] = useState<number | null>(null);
   const [level1DropdownPosition, setLevel1DropdownPosition] = useState<'bottom' | 'top'>('bottom');
+  
+  // États pour la colonne "Nombre de transactions"
+  const [transactionCounts, setTransactionCounts] = useState<Record<number, number>>({});
+  const [loadingTransactionCounts, setLoadingTransactionCounts] = useState<Record<number, boolean>>({});
 
   // Charger les valeurs Level 2 depuis l'API
   const loadLevel2Values = async () => {
@@ -200,12 +204,74 @@ export default function AmortizationConfigCard({
     }
   };
 
+  // Charger le nombre de transactions pour tous les types
+  const loadTransactionCounts = async () => {
+    if (!selectedLevel2Value || amortizationTypes.length === 0) {
+      setTransactionCounts({});
+      return;
+    }
+
+    try {
+      // Marquer tous les types comme en cours de chargement
+      const loadingState: Record<number, boolean> = {};
+      amortizationTypes.forEach(type => {
+        loadingState[type.id] = true;
+      });
+      setLoadingTransactionCounts(loadingState);
+
+      // Charger les compteurs pour tous les types en parallèle
+      const countPromises = amortizationTypes.map(async (type) => {
+        try {
+          const response = await amortizationTypesAPI.getTransactionCount(type.id);
+          return { typeId: type.id, count: response.transaction_count };
+        } catch (err: any) {
+          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après une réinitialisation)
+          // Ne pas logger pour éviter le spam dans la console
+          if (err.status === 404 || err.message?.includes('404') || err.message?.includes('non trouvé')) {
+            return { typeId: type.id, count: 0 };
+          }
+          // Logger seulement les autres erreurs
+          console.error(`Erreur lors du chargement du nombre de transactions pour le type ${type.id}:`, err);
+          return { typeId: type.id, count: 0 };
+        }
+      });
+
+      const results = await Promise.all(countPromises);
+      
+      // Mettre à jour les compteurs
+      const newCounts: Record<number, number> = {};
+      results.forEach(({ typeId, count }) => {
+        newCounts[typeId] = count;
+      });
+      setTransactionCounts(newCounts);
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des nombres de transactions:', err);
+    } finally {
+      // Marquer tous les types comme terminés
+      setLoadingTransactionCounts({});
+    }
+  };
+
   // Charger les types quand selectedLevel2Value change
   useEffect(() => {
     loadAmortizationTypes();
     loadLevel1Values(); // Recharger les valeurs Level 1 quand le Level 2 change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLevel2Value]);
+
+  // Recharger les compteurs quand les types ou les valeurs Level 1 changent
+  useEffect(() => {
+    // Attendre un peu pour s'assurer que les types sont bien chargés et persistés en base
+    if (amortizationTypes.length > 0 && selectedLevel2Value && !loadingTypes) {
+      // Petit délai pour s'assurer que les types sont bien en base après création
+      const timeoutId = setTimeout(() => {
+        loadTransactionCounts();
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amortizationTypes, selectedLevel2Value, loadingTypes]);
 
   // Fermer le dropdown Level 2 si on clique en dehors
   useEffect(() => {
@@ -370,6 +436,9 @@ export default function AmortizationConfigCard({
       
       // Recharger les types pour avoir la valeur à jour
       await loadAmortizationTypes();
+      
+      // Recharger les compteurs de transactions après modification des Level 1
+      await loadTransactionCounts();
       
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -874,8 +943,17 @@ export default function AmortizationConfigCard({
                         )}
                       </div>
                     </td>
+                    {/* Colonne "Nombre de transactions" */}
+                    <td style={{ padding: '12px' }}>
+                      {loadingTransactionCounts[type.id] ? (
+                        <span style={{ color: '#6b7280', fontSize: '14px' }}>⏳...</span>
+                      ) : (
+                        <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
+                          {transactionCounts[type.id] ?? '-'}
+                        </span>
+                      )}
+                    </td>
                     {/* Autres colonnes vides pour l'instant */}
-                    <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>

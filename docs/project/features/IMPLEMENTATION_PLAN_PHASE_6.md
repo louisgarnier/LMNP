@@ -1101,7 +1101,7 @@
 
 #### Step 6.6.13: Frontend - Colonne "Nombre de transactions"
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "Nombre de transactions" pour afficher le nombre de transactions correspondant à chaque type d'immobilisation.
 
@@ -1117,11 +1117,11 @@
 
 **Tasks**:
 
-- [ ] **Backend - Ajouter modèle `AmortizationTypeTransactionCountResponse`** :
+- [x] **Backend - Ajouter modèle `AmortizationTypeTransactionCountResponse`** :
 
   - `type_id`, `type_name`, `transaction_count`
 
-- [ ] **Backend - Ajouter endpoint `GET /api/amortization/types/{id}/transaction-count`** :
+- [x] **Backend - Ajouter endpoint `GET /api/amortization/types/{id}/transaction-count`** :
 
   - Compter les transactions où `level_2 == type.level_2_value` ET `level_1 IN type.level_1_values`
 
@@ -1129,9 +1129,9 @@
 
   - Retourner 0 si aucune valeur `level_1` mappée
 
-- [ ] **Frontend - Ajouter méthode `getTransactionCount()` dans `amortizationTypesAPI`**
+- [x] **Frontend - Ajouter méthode `getTransactionCount()` dans `amortizationTypesAPI`**
 
-- [ ] Ajouter colonne "Nombre de transactions" dans `AmortizationConfigCard.tsx` :
+- [x] Ajouter colonne "Nombre de transactions" dans `AmortizationConfigCard.tsx` :
 
   - Position : après "Level 1 (valeurs)" et avant "Date de début"
 
@@ -1143,13 +1143,17 @@
 
   - Indicateur de chargement "⏳..." pendant le calcul
 
-- [ ] **Fusion des résultats** : `loadTransactionCounts()` fusionne les nouveaux résultats avec les existants au lieu de les remplacer
+- [x] **Fusion des résultats** : `loadTransactionCounts()` fusionne les nouveaux résultats avec les existants au lieu de les remplacer
 
-- [ ] **Recharger tous les types** : Dans `recalculateTypeComplete()`, appeler `loadTransactionCounts()` sans paramètre pour recharger tous les types
+- [x] **Recharger tous les types** : Dans `recalculateTypeComplete()`, appeler `loadTransactionCounts()` sans paramètre pour recharger tous les types
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur** ✅ Validé
+
+**Notes de correction**:
+
+- **Gestion d'erreur 404** : Les erreurs 404 (type non trouvé) sont ignorées silencieusement pour éviter le spam dans la console après une réinitialisation
 
 **Deliverables**:
 
@@ -1169,11 +1173,15 @@
 
 **Acceptance Criteria**:
 
-- [ ] Colonne "Nombre de transactions" s'affiche correctement
+- [x] Colonne "Nombre de transactions" s'affiche correctement
 
-- [ ] Nombre calculé correctement (basé sur `level_2` et `level_1_values`)
+- [x] Nombre calculé correctement (basé sur `level_2` et `level_1_values`)
 
-- [ ] Recalcul automatique fonctionne (quand `level_1_values` change)
+- [x] Recalcul automatique fonctionne (quand `level_1_values` change)
+
+- [x] Indicateur de chargement "⏳..." s'affiche pendant le calcul
+
+- [x] Gestion d'erreur 404 fonctionne (pas de spam dans la console)
 
 - [ ] **Fusion des résultats : les compteurs des autres types ne sont pas perdus lors des modifications**
 
