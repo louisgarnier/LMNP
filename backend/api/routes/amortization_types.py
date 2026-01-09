@@ -216,6 +216,32 @@ async def update_amortization_type(
     )
 
 
+@router.delete("/amortization/types/all", status_code=200)
+async def delete_all_amortization_types(
+    db: Session = Depends(get_db)
+):
+    """
+    Supprime TOUS les types d'amortissement de TOUS les Level 2 (toute la table).
+    
+    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les types d'amortissement.
+    Supprime également tous les AmortizationResult associés pour éviter les erreurs de contrainte.
+    
+    Returns:
+        Nombre de types supprimés
+    """
+    # Compter les types avant suppression
+    count_before = db.query(AmortizationType).count()
+    
+    # Supprimer tous les résultats d'amortissement associés
+    db.query(AmortizationResult).delete()
+    
+    # Supprimer tous les types
+    db.query(AmortizationType).delete()
+    db.commit()
+    
+    return {"deleted_count": count_before}
+
+
 @router.delete("/amortization/types/{type_id}", status_code=204)
 async def delete_amortization_type(
     type_id: int,

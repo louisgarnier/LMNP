@@ -264,6 +264,7 @@ async def get_transaction_unique_values(
     column: str = Query(..., description="Nom de la colonne (nom, level_1, level_2, level_3)"),
     start_date: Optional[date] = Query(None, description="Date de début (filtre optionnel)"),
     end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel)"),
+    filter_level_2: Optional[str] = Query(None, description="Filtrer par level_2 (optionnel, pour filtrer les level_1 par level_2)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -272,6 +273,7 @@ async def get_transaction_unique_values(
     - **column**: Nom de la colonne (nom, level_1, level_2, level_3)
     - **start_date**: Filtrer par date de début (optionnel)
     - **end_date**: Filtrer par date de fin (optionnel)
+    - **filter_level_2**: Filtrer par level_2 (optionnel, utile pour filtrer les level_1 par level_2)
     
     Returns:
         Liste des valeurs uniques (non null, triées)
@@ -281,6 +283,12 @@ async def get_transaction_unique_values(
         query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
     else:
         query = db.query(Transaction)
+    
+    # Filtre par level_2 si fourni (utile pour filtrer les level_1 par level_2)
+    if filter_level_2:
+        if column in ["level_1", "level_2", "level_3"]:
+            query = query.filter(EnrichedTransaction.level_2 == filter_level_2)
+        # Note: pour les autres colonnes (nom, date, etc.), on ne filtre pas par level_2 car elles ne sont pas dans EnrichedTransaction
     
     # Filtres par date si fournis
     if start_date:

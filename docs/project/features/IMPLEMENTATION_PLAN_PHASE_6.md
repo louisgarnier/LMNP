@@ -55,7 +55,7 @@
 
   - Créer 7 types initiaux si la table est vide
 
-  - Noms par défaut : "Immobilisation terrain", "Immobilisation structure/GO", "Immobilisation mobilier", "Immobilisation IGT", "Immobilisation agencements", "Immobilisation Facade/Toiture", "Immobilisation travaux"
+  - Noms par défaut : "Part terrain", "Immobilisation structure/GO", "Immobilisation mobilier", "Immobilisation IGT", "Immobilisation agencements", "Immobilisation Facade/Toiture", "Immobilisation travaux"
 
 - [x] Exécuter script et valider
 
@@ -446,7 +446,9 @@
 
 **Objectifs**:
 
-- Dropdown pour sélectionner la valeur `level_2`
+- Dropdown avec checkboxes pour sélectionner la valeur `level_2`
+
+- **IMPORTANT : Une seule sélection possible à la fois** (checkboxes mais comportement radio - une seule checkbox peut être cochée)
 
 - Charger les valeurs uniques depuis l'API
 
@@ -456,15 +458,19 @@
 
 - **Persistance du Level 2 sélectionné via localStorage**
 
+- **IMPORTANT : Il ne peut y avoir qu'un seul Level 2 sélectionné à la fois pour les amortissements**
+
 **Tasks**:
 
 - [x] Ajouter champ "Level 2" dans `AmortizationConfigCard.tsx` :
 
-  - Dropdown avec valeurs uniques de `level_2`
+  - Dropdown avec checkboxes pour valeurs uniques de `level_2`
+
+  - **IMPORTANT : Une seule checkbox peut être cochée à la fois** (comportement radio)
 
   - Utiliser `transactionsAPI.getUniqueValues('level_2')`
 
-  - État local pour la valeur sélectionnée
+  - État local pour la valeur sélectionnée (une seule valeur, pas un array)
 
   - **Option "-- Sélectionner une valeur --" affichée uniquement si aucun Level 2 n'est sélectionné**
 
@@ -502,7 +508,7 @@
 
 #### Step 6.6.4: Frontend - Tableau (structure vide)
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer la structure du tableau dans la card.
 
@@ -514,19 +520,19 @@
 
 **Tasks**:
 
-- [ ] Ajouter tableau dans `AmortizationConfigCard.tsx` :
+- [x] Ajouter tableau dans `AmortizationConfigCard.tsx` :
 
   - En-têtes : Type d'immobilisation, Level 1 (valeurs), **Nombre de transactions**, Date de début, Montant, Durée, Annuité, Cumulé, VNC
 
   - Structure `<table>` avec `<thead>` et `<tbody>` vide
 
-- [ ] Style cohérent avec le reste de l'app
+- [x] Style cohérent avec le reste de l'app
 
-- [ ] **Masquer le tableau quand `level2Values.length === 0`** (ajouté dans Step 6.6.2)
+- [x] **Masquer le tableau quand `selectedLevel2Value` n'est pas sélectionné** (ajouté dans Step 6.6.2)
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -534,19 +540,19 @@
 
 **Acceptance Criteria**:
 
-- [ ] Tableau s'affiche avec en-têtes
+- [x] Tableau s'affiche avec en-têtes
 
-- [ ] Style correct
+- [x] Style correct
 
-- [ ] Structure prête pour les données
+- [x] Structure prête pour les données
 
-- [ ] **Tableau masqué quand aucune valeur Level 2 n'est disponible**
+- [x] **Tableau masqué quand aucune valeur Level 2 n'est disponible**
 
 ---
 
 #### Step 6.6.5: Frontend - Colonne "Type d'immobilisation"
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "Type d'immobilisation" avec les 7 types initiaux.
 
@@ -558,19 +564,21 @@
 
 - Charger depuis l'API au démarrage
 
+- **IMPORTANT : Les 7 types par défaut sont créés automatiquement UNIQUEMENT pour Level 2 = "Immobilisations"**
+
 **Tasks**:
 
-- [ ] Ajouter logique pour charger les types depuis `GET /api/amortization/types`
+- [x] Ajouter logique pour charger les types depuis `GET /api/amortization/types`
 
-- [ ] Afficher les 7 types initiaux (créés automatiquement si inexistants)
+- [x] Afficher les 7 types initiaux (créés automatiquement si inexistants pour "Immobilisations" uniquement)
 
-- [ ] Colonne "Type d'immobilisation" : champ texte éditable (clic pour éditer)
+- [x] Colonne "Type d'immobilisation" : champ texte éditable (clic pour éditer)
 
-- [ ] Sauvegarde automatique sur `onBlur` (ou Enter/Escape)
+- [x] Sauvegarde automatique sur `onBlur` (ou Enter/Escape)
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -578,19 +586,141 @@
 
 - Mise à jour `frontend/src/api/client.ts` - Méthode `amortizationTypesAPI.getAll()`
 
+- Test : `frontend/tests/TEST_STEP_6_6_5.md`
+
 **Acceptance Criteria**:
 
-- [ ] 7 types initiaux s'affichent (créés automatiquement si inexistants)
+- [x] 7 types initiaux s'affichent (créés automatiquement si inexistants pour "Immobilisations" uniquement)
 
-- [ ] Édition du nom fonctionne (clic pour éditer, onBlur/Enter pour sauvegarder)
+- [x] Édition du nom fonctionne (clic pour éditer, onBlur/Enter pour sauvegarder)
 
-- [ ] Sauvegarde automatique fonctionne
+- [x] Sauvegarde automatique fonctionne
+
+- [x] Aucun type n'est créé automatiquement pour les autres Level 2 (ex: "Assurance")
+
+---
+
+#### Step 6.6.5.1: Frontend - Bouton "Réinitialiser aux valeurs par défaut"
+
+**Status**: ✅ COMPLÉTÉ  
+
+**Description**: Ajouter un bouton pour remettre les 7 types par défaut (template par défaut).
+
+**Objectifs**:
+
+- Bouton pour réinitialiser les types d'amortissement aux valeurs par défaut
+
+- **IMPORTANT : Le bouton ne fonctionne que si des types existent déjà pour le Level 2 sélectionné**
+
+- **Supprime TOUS les types de TOUS les Level 2 (toute la table `amortization_types`)**
+
+- **Réinitialise toutes les lignes (tous les types) pour le Level 2 sélectionné**
+
+- **Recrée les 7 types par défaut avec des valeurs vides** (level_1_values = [], duration = 0.0, etc.)
+
+- **Popup d'avertissement** : avertir l'utilisateur que toutes les données vont être supprimées
+
+- **IMPORTANT : Il ne peut y avoir qu'un seul Level 2 sélectionné à la fois pour les amortissements**
+
+**Tasks**:
+
+- [x] Ajouter bouton "Réinitialiser aux valeurs par défaut" dans la card de configuration :
+
+  - Position : à côté du titre ou dans une zone d'actions
+
+  - Style : bouton secondaire (gris) avec icône de réinitialisation
+
+- [x] Implémenter la logique de réinitialisation :
+
+  - **Vérifier que des types existent déjà pour le Level 2 sélectionné** (sinon désactiver le bouton)
+
+  - **Popup d'avertissement** : "Attention, toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Êtes-vous sûr ?"
+
+  - Si confirmé : **supprimer TOUS les types de TOUS les Level 2 (toute la table `amortization_types`)**
+
+  - **Recréer les 7 types par défaut avec des valeurs vides** pour le Level 2 sélectionné :
+
+  - Créer les 7 types par défaut avec les noms suivants :
+
+    - "Part terrain"
+
+    - "Immobilisation structure/GO"
+
+    - "Immobilisation mobilier"
+
+    - "Immobilisation IGT"
+
+    - "Immobilisation agencements"
+
+    - "Immobilisation Facade/Toiture"
+
+    - "Immobilisation travaux"
+
+  - Valeurs par défaut pour chaque type :
+
+    - `level_2_value` : valeur sélectionnée dans le dropdown Level 2
+
+    - `level_1_values` : `[]` (vide)
+
+    - `start_date` : `null`
+
+    - `duration` : `0.0`
+
+    - `annual_amount` : `null`
+
+- [x] Recharger le tableau après réinitialisation
+
+- [x] Gestion d'erreur si la réinitialisation échoue (alert avec message d'erreur)
+
+- [x] **Créer test visuel dans navigateur**
+
+- [x] **Valider avec l'utilisateur** ✅ Validé
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
+
+- Endpoint backend `DELETE /api/amortization/types/all` créé dans `backend/api/routes/amortization_types.py`
+
+- Méthode `amortizationTypesAPI.deleteAll()` ajoutée dans `frontend/src/api/client.ts`
+
+- Utilisation de `amortizationTypesAPI.deleteAll()` et `amortizationTypesAPI.create()`
+
+**Notes de correction**:
+
+- Correction de l'ordre des routes FastAPI (route `/all` avant route `/{type_id}`)
+- Correction de la duplication lors du changement de Level 2 (flag `isResetting` et paramètre `skipAutoCreate`)
+- Correction de la création de types uniquement pour "Immobilisations" (pas pour les autres Level 2)
+- Correction du chargement des types après réinitialisation (paramètre `level2ValueOverride`)
+- **Ajout d'un popup de confirmation lors du changement de Level 2** : Si des types existent pour le Level 2 actuel (celui qu'on quitte), un popup s'affiche pour confirmer la perte des modifications. Le changement n'est effectué qu'après confirmation. Le popup s'affiche toujours, même si on change vers "Immobilisations".
+
+**Acceptance Criteria**:
+
+- [x] Bouton "↻ Réinitialiser" s'affiche
+
+- [x] **Bouton désactivé si aucun Level 2 n'est sélectionné**
+
+- [x] **Bouton désactivé si aucun type n'existe pour le Level 2 sélectionné**
+
+- [x] **Popup d'avertissement s'affiche avant action** : "Attention, toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Êtes-vous sûr ?"
+
+- [x] **TOUS les types de TOUS les Level 2 sont supprimés (toute la table)**
+
+- [x] **Les 7 types par défaut sont créés avec des valeurs vides** (level_1_values = [], duration = 0.0, start_date = null, annual_amount = null)
+
+- [x] Les 7 types par défaut sont créés avec les bons noms
+
+- [x] Le tableau se recharge automatiquement après réinitialisation
+
+- [x] Gestion d'erreur fonctionne correctement
+
+- [x] **Popup de confirmation lors du changement de Level 2** : Si des types existent pour le Level 2 actuel (celui qu'on quitte), un popup s'affiche pour confirmer la perte des modifications. Le changement n'est effectué qu'après confirmation. Le popup s'affiche toujours, même si on change vers "Immobilisations".
 
 ---
 
 #### Step 6.6.6: Frontend - Colonne "Level 1 (valeurs)"
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "Level 1 (valeurs)" avec multi-select.
 
@@ -606,7 +736,7 @@
 
 **Tasks**:
 
-- [ ] Ajouter colonne "Level 1 (valeurs)" :
+- [x] Ajouter colonne "Level 1 (valeurs)" :
 
   - Multi-select dropdown
 
@@ -618,17 +748,22 @@
 
   - Bouton "×" sur chaque tag pour supprimer
 
-- [ ] **Backend - Ajouter paramètre `filter_level_2` à `/api/transactions/unique-values`**
+- [x] **Backend - Ajouter paramètre `filter_level_2` à `/api/transactions/unique-values`**
 
-- [ ] **Frontend - Filtrer les valeurs `level_1` par `level2Value`**
+- [x] **Frontend - Filtrer les valeurs `level_1` par `level2Value`**
 
-- [ ] **Recharger automatiquement les valeurs `level_1` quand `level2Value` change**
+- [x] **Recharger automatiquement les valeurs `level_1` quand `level2Value` change**
 
-- [ ] Sauvegarde automatique sur changement
+- [x] Sauvegarde automatique sur changement
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur** ✅ Validé
+
+**Notes de correction**:
+
+- **Positionnement dynamique du dropdown** : Le dropdown s'affiche vers le haut pour les rangées du bas (détection automatique de la position dans la viewport)
+- **Filtrage global des valeurs Level 1** : Les valeurs Level 1 déjà sélectionnées pour n'importe quel type n'apparaissent plus dans le dropdown "Ajouter" des autres types (évite les doublons)
 
 **Deliverables**:
 
@@ -640,13 +775,17 @@
 
 **Acceptance Criteria**:
 
-- [ ] Multi-select fonctionne
+- [x] Multi-select fonctionne
 
-- [ ] Ajout/suppression de valeurs fonctionne
+- [x] Ajout/suppression de valeurs fonctionne
 
-- [ ] **Filtrage par `level_2` fonctionne (seules les valeurs `level_1` associées au `level_2` sélectionné sont affichées)**
+- [x] **Filtrage par `level_2` fonctionne (seules les valeurs `level_1` associées au `level_2` sélectionné sont affichées)**
 
-- [ ] Sauvegarde automatique fonctionne
+- [x] Sauvegarde automatique fonctionne
+
+- [x] **Positionnement dynamique du dropdown** (vers le haut pour les rangées du bas)
+
+- [x] **Filtrage global des valeurs Level 1** (les valeurs déjà sélectionnées pour n'importe quel type n'apparaissent plus dans les autres dropdowns)
 
 ---
 
@@ -1378,19 +1517,21 @@
 
 **Status**: ⏳ EN ATTENTE  
 
-**Description**: Réinitialiser (vider) tous les `level_1_values` des types d'amortissement quand l'utilisateur change le Level 2 sélectionné dans le dropdown.
+**Description**: Réinitialiser tous les types d'amortissement quand l'utilisateur change le Level 2 sélectionné dans le dropdown.
 
 **Objectifs**:
 
-- S'assurer que chaque Level 2 a ses propres types d'amortissement complètement indépendants
+- **IMPORTANT : Même comportement que le bouton "Réinitialiser aux valeurs par défaut" (Step 6.6.5.1)**
 
-- Éviter que des mappings Level 1 d'un Level 2 précédent polluent les types d'un nouveau Level 2
+- **IMPORTANT : Il ne peut y avoir qu'un seul Level 2 sélectionné à la fois pour les amortissements**
+
+- **Supprimer TOUS les types de TOUS les Level 2 (toute la table `amortization_types`) lors du changement**
+
+- **Recréer automatiquement les 7 types par défaut avec des valeurs vides pour le nouveau Level 2 sélectionné**
+
+- **Popup d'avertissement** : avertir l'utilisateur que toutes les données vont être supprimées (sauf première sélection)
 
 - Garantir que seules les données liées au Level 2 sélectionné sont affichées et sauvegardées
-
-- **Supprimer tous les types d'amortissement pour TOUS les Level 2 lors du changement**
-
-- **Créer automatiquement les 7 types par défaut pour le nouveau Level 2 sélectionné**
 
 **Problème actuel**:
 
@@ -1418,15 +1559,15 @@
 
   1. **Si changement de Level 2 (pas première sélection)** :
 
-     - Afficher popup de confirmation "Clear previous amortisations?"
+     - **Afficher popup d'avertissement** : "Attention, toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Êtes-vous sûr ?"
 
      - Si confirmé :
 
        - Supprimer TOUS les résultats d'amortissement (`DELETE /api/amortization/results`)
 
-       - Supprimer TOUS les types d'amortissement pour TOUS les Level 2
+       - **Supprimer TOUS les types d'amortissement pour TOUS les Level 2 (toute la table)**
 
-       - Créer les 7 types par défaut pour le nouveau Level 2 sélectionné
+       - **Recréer les 7 types par défaut avec des valeurs vides** pour le nouveau Level 2 sélectionné
 
      - Si annulé : revenir au Level 2 précédent
 
@@ -1434,7 +1575,7 @@
 
      - Vérifier si des types existent déjà pour ce Level 2
 
-     - Si non, créer automatiquement les 7 types par défaut
+     - Si non, **créer automatiquement les 7 types par défaut avec des valeurs vides** (sans popup)
 
   3. Filtrer les types d'amortissement par le Level 2 sélectionné
 
@@ -1486,13 +1627,13 @@
 
 **Acceptance Criteria**:
 
-- [ ] Changement de Level 2 = "ammortissements" vers "Produit" → popup de confirmation affiché
+- [ ] Changement de Level 2 = "ammortissements" vers "Produit" → **popup d'avertissement affiché** : "Attention, toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Êtes-vous sûr ?"
 
-- [ ] Si confirmé : tous les types pour tous les Level 2 sont supprimés, 7 types par défaut créés pour "Produit"
+- [ ] Si confirmé : **tous les types pour tous les Level 2 sont supprimés (toute la table)**, **7 types par défaut créés avec des valeurs vides** pour "Produit"
 
 - [ ] Si annulé : retour au Level 2 précédent
 
-- [ ] Première sélection d'un Level 2 → création automatique des 7 types par défaut (sans popup)
+- [ ] Première sélection d'un Level 2 → **création automatique des 7 types par défaut avec des valeurs vides** (sans popup)
 
 - [ ] Les types affichés dans la card ne contiennent que des données liées au Level 2 sélectionné
 

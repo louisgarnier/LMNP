@@ -21,9 +21,9 @@ from backend.database.connection import SessionLocal, init_database
 from backend.database.models import AmortizationType
 
 
-# Les 7 types initiaux
+# Les 7 types initiaux (template par défaut)
 INITIAL_TYPES = [
-    "Immobilisation terrain",
+    "Part terrain",
     "Immobilisation structure/GO",
     "Immobilisation mobilier",
     "Immobilisation IGT",

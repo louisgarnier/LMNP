@@ -206,13 +206,15 @@ export const transactionsAPI = {
   getUniqueValues: async (
     column: string,
     startDate?: string,
-    endDate?: string
+    endDate?: string,
+    filterLevel2?: string
   ): Promise<{ column: string; values: string[] }> => {
     const params = new URLSearchParams({
       column,
     });
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
+    if (filterLevel2) params.append('filter_level_2', filterLevel2);
     
     return fetchAPI<{ column: string; values: string[] }>(`/api/transactions/unique-values?${params}`);
   },
@@ -1171,6 +1173,15 @@ export const amortizationTypesAPI = {
    */
   delete: async (id: number): Promise<void> => {
     return fetchAPI<void>(`/api/amortization/types/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Supprime TOUS les types d'amortissement (toute la table)
+   */
+  deleteAll: async (): Promise<{ deleted_count: number }> => {
+    return fetchAPI<{ deleted_count: number }>('/api/amortization/types/all', {
       method: 'DELETE',
     });
   },
