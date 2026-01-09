@@ -791,7 +791,7 @@
 
 #### Step 6.6.7: Frontend - Colonne "Date de début"
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "Date de début" (input date).
 
@@ -807,7 +807,7 @@
 
 **Tasks**:
 
-- [ ] Ajouter colonne "Date de début" :
+- [x] Ajouter colonne "Date de début" :
 
   - Input type="date"
 
@@ -817,15 +817,15 @@
 
   - Bouton "×" pour supprimer la date
 
-- [ ] **Backend - Modifier `update_amortization_type` pour accepter `start_date: null`**
+- [x] **Backend - Modifier `update_amortization_type` pour accepter `start_date: null`**
 
   - Utiliser `model_dump(exclude_unset=True)` pour distinguer "champ non fourni" vs "champ = None"
 
-- [ ] Sauvegarde automatique sur `onBlur` ou `Enter`
+- [x] Sauvegarde automatique sur `onBlur` ou `Enter`
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur** ✅ Validé
 
 **Deliverables**:
 
@@ -835,21 +835,27 @@
 
 **Acceptance Criteria**:
 
-- [ ] Champ date s'affiche
+- [x] Champ date s'affiche
 
-- [ ] Édition fonctionne
+- [x] Édition fonctionne
 
-- [ ] Valeur NULL gérée correctement (peut être définie et supprimée)
+- [x] Valeur NULL gérée correctement (peut être définie et supprimée)
 
-- [ ] Bouton "×" supprime la date correctement
+- [x] Bouton "×" supprime la date correctement
 
-- [ ] Sauvegarde automatique fonctionne
+- [x] Sauvegarde automatique fonctionne
+
+- [x] Format d'affichage DD/MM/YYYY correct
+
+- [x] Format d'input YYYY-MM-DD (format HTML5 natif)
+
+- [x] Annulation avec Escape ou bouton ✕ fonctionne
 
 ---
 
 #### Step 6.6.8: Frontend - Colonne "Montant d'immobilisation" (calculé)
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "Montant d'immobilisation" avec calcul automatique.
 
@@ -863,7 +869,7 @@
 
 **Tasks**:
 
-- [ ] Ajouter colonne "Montant d'immobilisation" :
+- [x] Ajouter colonne "Montant d'immobilisation" :
 
   - Champ en lecture seule (calculé)
 
@@ -873,13 +879,13 @@
 
   - Indicateur de chargement "⏳ Calcul..." pendant le calcul
 
-- [ ] Afficher formatage monétaire (2 décimales, EUR)
+- [x] Afficher formatage monétaire (2 décimales, EUR)
 
-- [ ] Gérer état de chargement
+- [x] Gérer état de chargement
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur** ✅ Validé
 
 **Deliverables**:
 
@@ -887,9 +893,15 @@
 
 **Acceptance Criteria**:
 
-- [ ] Montant s'affiche correctement
+- [x] Montant s'affiche correctement
 
-- [ ] Recalcul automatique fonctionne (quand types chargés, level2Value change, level_1_values modifiés)
+- [x] Recalcul automatique fonctionne (quand types chargés, level2Value change, level_1_values modifiés)
+
+- [x] Formatage monétaire EUR avec 2 décimales correct
+
+- [x] Indicateur de chargement "⏳ Calcul..." s'affiche pendant le calcul
+
+- [x] Gestion des erreurs (404 silencieux)
 
 - [ ] Formatage correct (EUR, 2 décimales)
 
@@ -897,7 +909,7 @@
 
 #### Step 6.6.9: Frontend - Colonne "Durée d'amortissement"
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "Durée d'amortissement" (input nombre).
 
@@ -913,7 +925,7 @@
 
 **Tasks**:
 
-- [ ] Ajouter colonne "Durée d'amortissement" :
+- [x] Ajouter colonne "Durée d'amortissement" :
 
   - Input type="number" avec `min="0"` et `step="0.1"`
 
@@ -925,25 +937,35 @@
 
 - [ ] Recalculer annuité quand durée change : `Annuité = Montant / Durée` (si montant > 0 et durée > 0)
 
-- [ ] **Créer test visuel dans navigateur**
+  - **Note**: Le recalcul de l'annuité sera fait dans Step 6.6.10
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Créer test visuel dans navigateur**
+
+- [x] **Valider avec l'utilisateur** ✅ Validé
 
 **Deliverables**:
 
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
+- Mise à jour `backend/scripts/check_amortization_state.py` (affichage des nouvelles colonnes)
+
 **Acceptance Criteria**:
 
-- [ ] Champ durée s'affiche
+- [x] Champ durée s'affiche
 
-- [ ] Édition fonctionne (clic sur la cellule)
+- [x] Édition fonctionne (clic sur la cellule)
 
-- [ ] Validation obligatoire fonctionne (nombre positif)
+- [x] Validation obligatoire fonctionne (nombre positif)
 
-- [ ] Recalcul annuité fonctionne (automatique si montant disponible)
+- [ ] Recalcul annuité fonctionne (automatique si montant disponible) - **À faire dans Step 6.6.10**
 
-- [ ] Sauvegarde automatique fonctionne
+- [x] Sauvegarde automatique fonctionne
+
+- [x] Format d'affichage "X.X ans" correct
+
+- [x] Bouton "✕" pour annuler l'édition fonctionne
+
+- [x] Gestion des touches Enter (sauvegarder) et Escape (annuler)
 
 ---
 

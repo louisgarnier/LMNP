@@ -13,7 +13,8 @@ project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from backend.database.connection import SessionLocal, init_database
-from backend.database.models import AmortizationType, AmortizationResult
+from backend.database.models import AmortizationType, AmortizationResult, Transaction, EnrichedTransaction
+from sqlalchemy import func, and_
 
 
 def main():
@@ -39,6 +40,32 @@ def main():
                 level_1_str = ', '.join(level_1_values[:3])
                 if len(level_1_values) > 3:
                     level_1_str += '...'
+                
+                # Calculer le montant d'immobilisation (somme des transactions)
+                amount = 0.0
+                transaction_count = 0
+                if level_1_values:
+                    # Montant total
+                    amount_result = db.query(func.sum(Transaction.quantite)).join(
+                        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+                    ).filter(
+                        and_(
+                            EnrichedTransaction.level_2 == t.level_2_value,
+                            EnrichedTransaction.level_1.in_(level_1_values)
+                        )
+                    ).scalar()
+                    amount = abs(amount_result) if amount_result else 0.0
+                    
+                    # Nombre de transactions
+                    transaction_count = db.query(func.count(Transaction.id)).join(
+                        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+                    ).filter(
+                        and_(
+                            EnrichedTransaction.level_2 == t.level_2_value,
+                            EnrichedTransaction.level_1.in_(level_1_values)
+                        )
+                    ).scalar() or 0
+                
                 print(f'\nID {t.id}: {t.name}')
                 print(f'  - Level 2: {t.level_2_value}')
                 print(f'  - Level 1 values: {len(level_1_values)} valeur(s)')
@@ -47,6 +74,8 @@ def main():
                 print(f'  - Start date: {t.start_date or "(null)"}')
                 print(f'  - Duration: {t.duration} années')
                 print(f'  - Annual amount: {t.annual_amount or "(null)"}')
+                print(f'  - Montant d\'immobilisation: {amount:,.2f} €')
+                print(f'  - Nombre de transactions: {transaction_count}')
         
         # Compter les résultats
         results_count = db.query(AmortizationResult).count()
@@ -62,7 +91,6 @@ def main():
         # Statistiques par Level 2
         print('\n📊 Statistiques par Level 2 :')
         print('-' * 60)
-        from sqlalchemy import func
         stats = db.query(
             AmortizationType.level_2_value,
             func.count(AmortizationType.id).label('count')

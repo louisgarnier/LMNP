@@ -45,6 +45,10 @@ export default function AmortizationConfigCard({
   const [editingStartDateId, setEditingStartDateId] = useState<number | null>(null);
   const [editingStartDateValue, setEditingStartDateValue] = useState<string>('');
   
+  // États pour la colonne "Durée d'amortissement"
+  const [editingDurationId, setEditingDurationId] = useState<number | null>(null);
+  const [editingDurationValue, setEditingDurationValue] = useState<string>('');
+  
   // États pour la colonne "Level 1 (valeurs)"
   const [level1Values, setLevel1Values] = useState<string[]>([]);
   const [loadingLevel1Values, setLoadingLevel1Values] = useState<boolean>(false);
@@ -54,6 +58,10 @@ export default function AmortizationConfigCard({
   // États pour la colonne "Nombre de transactions"
   const [transactionCounts, setTransactionCounts] = useState<Record<number, number>>({});
   const [loadingTransactionCounts, setLoadingTransactionCounts] = useState<Record<number, boolean>>({});
+  
+  // États pour la colonne "Montant d'immobilisation"
+  const [amounts, setAmounts] = useState<Record<number, number>>({});
+  const [loadingAmounts, setLoadingAmounts] = useState<Record<number, boolean>>({});
 
   // Charger les valeurs Level 2 depuis l'API
   const loadLevel2Values = async () => {
@@ -82,7 +90,7 @@ export default function AmortizationConfigCard({
               onLevel2Change(validValue);
             }
           }
-          } catch (e) {
+        } catch (e) {
           // Si ce n'est pas du JSON, utiliser comme string simple
           if (values.includes(savedLevel2)) {
             setSelectedLevel2Value(savedLevel2);
@@ -153,7 +161,7 @@ export default function AmortizationConfigCard({
       setAmortizationTypes([]);
       return;
     }
-
+    
     try {
       setLoadingTypes(true);
       // Charger les types pour le Level 2 sélectionné (une seule valeur)
@@ -170,7 +178,7 @@ export default function AmortizationConfigCard({
           if (newResponse && newResponse.items) {
             const sortedTypes = [...newResponse.items].sort((a, b) => a.name.localeCompare(b.name));
             setAmortizationTypes(sortedTypes);
-          } else {
+      } else {
             setAmortizationTypes([]);
           }
         } else {
@@ -178,7 +186,7 @@ export default function AmortizationConfigCard({
           const sortedTypes = [...response.items].sort((a, b) => a.name.localeCompare(b.name));
           setAmortizationTypes(sortedTypes);
         }
-      } else {
+    } else {
         setAmortizationTypes([]);
       }
     } catch (err: any) {
@@ -212,8 +220,8 @@ export default function AmortizationConfigCard({
   const loadTransactionCounts = async () => {
     if (!selectedLevel2Value || amortizationTypes.length === 0) {
       setTransactionCounts({});
-      return;
-    }
+        return;
+      }
 
     try {
       // Marquer tous les types comme en cours de chargement
@@ -263,6 +271,52 @@ export default function AmortizationConfigCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLevel2Value]);
 
+  // Charger le montant d'immobilisation pour tous les types
+  const loadAmounts = async () => {
+    if (!selectedLevel2Value || amortizationTypes.length === 0) {
+      setAmounts({});
+      return;
+    }
+
+    try {
+      // Marquer tous les types comme en cours de chargement
+      const loadingState: Record<number, boolean> = {};
+      amortizationTypes.forEach(type => {
+        loadingState[type.id] = true;
+      });
+      setLoadingAmounts(loadingState);
+
+      // Charger les montants pour tous les types en parallèle
+      const amountPromises = amortizationTypes.map(async (type) => {
+        try {
+          const response = await amortizationTypesAPI.getAmount(type.id);
+          return { typeId: type.id, amount: response.amount };
+        } catch (err: any) {
+          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après une réinitialisation)
+          if (err.status === 404 || err.message?.includes('404') || err.message?.includes('non trouvé')) {
+            return { typeId: type.id, amount: 0 };
+          }
+          console.error(`Erreur lors du chargement du montant pour le type ${type.id}:`, err);
+          return { typeId: type.id, amount: 0 };
+        }
+      });
+
+      const results = await Promise.all(amountPromises);
+      
+      // Mettre à jour les montants
+      const newAmounts: Record<number, number> = {};
+      results.forEach(({ typeId, amount }) => {
+        newAmounts[typeId] = amount;
+      });
+      setAmounts(newAmounts);
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des montants:', err);
+    } finally {
+      // Marquer tous les types comme terminés
+      setLoadingAmounts({});
+    }
+  };
+
   // Recharger les compteurs quand les types ou les valeurs Level 1 changent
   useEffect(() => {
     // Attendre un peu pour s'assurer que les types sont bien chargés et persistés en base
@@ -270,6 +324,7 @@ export default function AmortizationConfigCard({
       // Petit délai pour s'assurer que les types sont bien en base après création
       const timeoutId = setTimeout(() => {
         loadTransactionCounts();
+        loadAmounts(); // Charger aussi les montants
       }, 100);
       
       return () => clearTimeout(timeoutId);
@@ -323,7 +378,7 @@ export default function AmortizationConfigCard({
       
       // Si on change de Level 2 ET qu'il existe des types pour le Level 2 actuel, demander confirmation
       if (isChangingLevel2 && amortizationTypes.length > 0) {
-        const confirmed = window.confirm(
+    const confirmed = window.confirm(
           `Vous allez perdre les modifications sur "${previousValue}". Toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Continuer ?`
         );
         
@@ -350,18 +405,18 @@ export default function AmortizationConfigCard({
         await resetAllTypesForLevel2(value, false); // Pas de popup car déjà fait si nécessaire
       } else {
         // Sinon, juste recharger les types
-        await loadAmortizationTypes();
+      await loadAmortizationTypes();
       }
       
       if (onConfigUpdated) {
         onConfigUpdated();
       }
-    } else {
+      } else {
       // Empêcher la désélection si c'est la valeur actuellement sélectionnée
       // (comportement radio : on ne peut pas décocher la seule valeur sélectionnée)
       if (selectedLevel2Value === value) {
         // Ne rien faire - on ne peut pas décocher la seule valeur sélectionnée
-        return;
+      return;
       }
     }
   };
@@ -420,7 +475,7 @@ export default function AmortizationConfigCard({
   const handleLevel1Toggle = async (typeId: number, level1Value: string) => {
     const type = amortizationTypes.find(t => t.id === typeId);
     if (!type) return;
-
+    
     const currentValues = type.level_1_values || [];
     const isSelected = currentValues.includes(level1Value);
     
@@ -443,6 +498,9 @@ export default function AmortizationConfigCard({
       
       // Recharger les compteurs de transactions après modification des Level 1
       await loadTransactionCounts();
+      
+      // Recharger les montants après modification des Level 1
+      await loadAmounts();
       
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -483,11 +541,11 @@ export default function AmortizationConfigCard({
         const date = new Date(editingStartDateValue);
         if (isNaN(date.getTime())) {
           alert('Date invalide. Format attendu : YYYY-MM-DD');
-          return;
+        return;
         }
         startDate = editingStartDateValue.trim();
       }
-
+      
       await amortizationTypesAPI.update(typeId, {
         start_date: startDate || null,
       });
@@ -541,6 +599,61 @@ export default function AmortizationConfigCard({
     }
   };
 
+  // Démarrer l'édition de la durée
+  const handleDurationEditStart = (typeId: number, currentDuration: number) => {
+    setEditingDurationId(typeId);
+    setEditingDurationValue(currentDuration.toString());
+  };
+
+  // Sauvegarder la durée
+  const handleDurationEditSave = async (typeId: number) => {
+    try {
+      const durationValue = parseFloat(editingDurationValue);
+      
+      // Validation : nombre positif obligatoire
+      if (isNaN(durationValue) || durationValue < 0) {
+        alert('La durée doit être un nombre positif (0 ou plus)');
+        handleDurationEditCancel();
+        return;
+      }
+      
+      await amortizationTypesAPI.update(typeId, {
+        duration: durationValue,
+      });
+      
+      // Recharger les types pour avoir la valeur à jour
+      await loadAmortizationTypes();
+      
+      // Recalculer l'annuité si nécessaire (sera fait dans une étape ultérieure)
+      // Pour l'instant, on recharge juste les types
+      
+      setEditingDurationId(null);
+      setEditingDurationValue('');
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la sauvegarde de la durée:', err);
+      alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Annuler l'édition de la durée
+  const handleDurationEditCancel = () => {
+    setEditingDurationId(null);
+    setEditingDurationValue('');
+  };
+
+  // Gérer les touches dans le champ d'édition de la durée
+  const handleDurationEditKeyDown = (e: React.KeyboardEvent, typeId: number) => {
+    if (e.key === 'Enter') {
+      handleDurationEditSave(typeId);
+    } else if (e.key === 'Escape') {
+      handleDurationEditCancel();
+    }
+  };
+
   // Fonction interne de réinitialisation (utilisée par le bouton et le changement de Level 2)
   const resetAllTypesForLevel2 = async (level2Value: string, showConfirmation: boolean = true) => {
     if (!level2Value) {
@@ -552,17 +665,17 @@ export default function AmortizationConfigCard({
       // Vérifier qu'il existe des types pour le Level 2 sélectionné
       if (amortizationTypes.length === 0) {
         alert('Aucun type d\'amortissement à réinitialiser pour ce Level 2.');
-        return;
-      }
+      return;
+    }
 
       // Popup d'avertissement
-      const confirmed = window.confirm(
+    const confirmed = window.confirm(
         'Attention, toutes les données d\'amortissement vont être supprimées. Cette action est irréversible. Êtes-vous sûr ?'
-      );
+    );
 
-      if (!confirmed) {
-        return;
-      }
+    if (!confirmed) {
+      return;
+    }
     }
 
     try {
@@ -598,7 +711,7 @@ export default function AmortizationConfigCard({
 
         await Promise.all(createPromises);
         console.log('[AmortizationConfigCard] ✓ 7 types par défaut recréés avec valeurs vides pour Immobilisations');
-      } else {
+          } else {
         console.log(`[AmortizationConfigCard] Level 2 "${level2Value}" n'est pas "Immobilisations", aucun type par défaut créé`);
       }
 
@@ -638,13 +751,13 @@ export default function AmortizationConfigCard({
         <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', margin: 0 }}>
           Configuration des amortissements
         </h2>
-        <button
+          <button
           type="button"
           onClick={handleResetToDefault}
           disabled={!selectedLevel2Value || amortizationTypes.length === 0}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
+            style={{
+              display: 'flex',
+              alignItems: 'center',
             gap: '6px',
             padding: '8px 16px',
             fontSize: '14px',
@@ -655,21 +768,21 @@ export default function AmortizationConfigCard({
             borderRadius: '6px',
             cursor: !selectedLevel2Value || amortizationTypes.length === 0 ? 'not-allowed' : 'pointer',
             transition: 'all 0.2s',
-          }}
-          onMouseEnter={(e) => {
+            }}
+            onMouseEnter={(e) => {
             if (selectedLevel2Value && amortizationTypes.length > 0) {
               e.currentTarget.style.backgroundColor = '#f3f4f6';
             }
-          }}
-          onMouseLeave={(e) => {
+            }}
+            onMouseLeave={(e) => {
             if (selectedLevel2Value && amortizationTypes.length > 0) {
               e.currentTarget.style.backgroundColor = '#f9fafb';
             }
-          }}
-        >
+            }}
+          >
           <span>↻</span>
           <span>Réinitialiser</span>
-        </button>
+          </button>
       </div>
       
       {/* Champ Level 2 - Dropdown avec checkboxes */}
@@ -819,7 +932,7 @@ export default function AmortizationConfigCard({
               <tr>
                   <td colSpan={9} style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
                     Aucun type d'amortissement trouvé pour le Level 2 sélectionné
-                  </td>
+                </td>
               </tr>
             ) : (
               amortizationTypes.map((type) => (
@@ -868,48 +981,48 @@ export default function AmortizationConfigCard({
                       >
                         {type.name}
                         </span>
-                      )}
+                    )}
                   </td>
                     {/* Colonne "Level 1 (valeurs)" - Multi-select */}
                     <td style={{ padding: '12px' }}>
                       <div style={{ position: 'relative' }}>
-                        {/* Tags des valeurs sélectionnées */}
+                      {/* Tags des valeurs sélectionnées */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px' }}>
                           {(type.level_1_values || []).map((value) => (
-                            <span
-                              key={value}
-                              style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
+                          <span
+                            key={value}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
                                 gap: '4px',
                                 padding: '4px 8px',
-                                backgroundColor: '#3b82f6',
-                                color: '#ffffff',
-                                borderRadius: '4px',
+                              backgroundColor: '#3b82f6',
+                              color: '#ffffff',
+                              borderRadius: '4px',
                                 fontSize: '12px',
                                 fontWeight: '500',
-                              }}
-                            >
-                              {value}
-                              <button
+                            }}
+                          >
+                            {value}
+                            <button
                                 type="button"
-                                onClick={() => handleLevel1Remove(type.id, value)}
-                                style={{
-                                  background: 'none',
-                                  border: 'none',
-                                  color: '#ffffff',
-                                  cursor: 'pointer',
-                                  padding: '0',
-                                  marginLeft: '4px',
+                              onClick={() => handleLevel1Remove(type.id, value)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#ffffff',
+                                cursor: 'pointer',
+                                padding: '0',
+                                marginLeft: '4px',
                                   fontSize: '14px',
-                                  lineHeight: '1',
+                                lineHeight: '1',
                                   fontWeight: 'bold',
-                                }}
-                                title="Supprimer"
-                              >
-                                ×
-                              </button>
-                            </span>
+                              }}
+                              title="Supprimer"
+                            >
+                              ×
+                            </button>
+                          </span>
                           ))}
                         </div>
                         
@@ -949,7 +1062,7 @@ export default function AmortizationConfigCard({
                         {openLevel1DropdownId === type.id && (
                           <div
                             data-level1-dropdown
-                            style={{
+                          style={{
                               position: 'absolute',
                               ...(level1DropdownPosition === 'top' 
                                 ? { bottom: '100%', marginBottom: '4px' }
@@ -957,7 +1070,7 @@ export default function AmortizationConfigCard({
                               ),
                               left: 0,
                               backgroundColor: '#ffffff',
-                              border: '1px solid #d1d5db',
+                            border: '1px solid #d1d5db',
                               borderRadius: '6px',
                               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
                               zIndex: 1000,
@@ -969,7 +1082,7 @@ export default function AmortizationConfigCard({
                             {loadingLevel1Values ? (
                               <div style={{ padding: '12px', color: '#6b7280', fontSize: '14px' }}>
                                 Chargement...
-                              </div>
+                    </div>
                             ) : level1Values.length === 0 ? (
                               <div style={{ padding: '12px', color: '#6b7280', fontSize: '14px' }}>
                                 Aucune valeur disponible
@@ -990,46 +1103,46 @@ export default function AmortizationConfigCard({
                                 return (
                                   <div style={{ padding: '12px', color: '#6b7280', fontSize: '14px' }}>
                                     Toutes les valeurs sont déjà sélectionnées
-                                  </div>
+                      </div>
                                 );
                               }
                               
                               return availableValues.map((value) => (
                                 <label
                                   key={value}
-                                  style={{
+                          style={{
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px',
                                     padding: '8px 12px',
-                                    cursor: 'pointer',
+                            cursor: 'pointer',
                                     backgroundColor: 'transparent',
-                                  }}
-                                  onMouseEnter={(e) => {
+                          }}
+                          onMouseEnter={(e) => {
                                     e.currentTarget.style.backgroundColor = '#f9fafb';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
                                 >
                                   <input
                                     type="checkbox"
                                     checked={false}
                                     onChange={() => handleLevel1Toggle(type.id, value)}
-                                    style={{
+                            style={{
                                       width: '16px',
                                       height: '16px',
-                                      cursor: 'pointer',
-                                    }}
+                              cursor: 'pointer',
+                            }}
                                   />
                                   <span style={{ fontSize: '14px', color: '#374151' }}>{value}</span>
                                 </label>
                               ));
                             })()}
-                          </div>
-                        )}
                       </div>
-                    </td>
+                    )}
+                      </div>
+                  </td>
                     {/* Colonne "Nombre de transactions" */}
                     <td style={{ padding: '12px' }}>
                       {loadingTransactionCounts[type.id] ? (
@@ -1037,25 +1150,25 @@ export default function AmortizationConfigCard({
                       ) : (
                         <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
                           {transactionCounts[type.id] ?? '-'}
-                        </span>
-                      )}
-                    </td>
+                      </span>
+                    )}
+                  </td>
                     {/* Colonne "Date de début" */}
                     <td style={{ padding: '12px' }}>
                       {editingStartDateId === type.id ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input
+                      <input
                             type="date"
                             value={editingStartDateValue}
                             onChange={(e) => setEditingStartDateValue(e.target.value)}
                             onBlur={() => handleStartDateEditSave(type.id)}
                             onKeyDown={(e) => handleStartDateEditKeyDown(e, type.id)}
-                            autoFocus
-                            style={{
+                        autoFocus
+                        style={{
                               padding: '4px 8px',
                               fontSize: '14px',
-                              border: '1px solid #3b82f6',
-                              borderRadius: '4px',
+                          border: '1px solid #3b82f6',
+                          borderRadius: '4px',
                               outline: 'none',
                               width: '140px',
                             }}
@@ -1063,102 +1176,186 @@ export default function AmortizationConfigCard({
                           <button
                             type="button"
                             onClick={handleStartDateEditCancel}
-                            style={{
+                        style={{
                               padding: '4px 8px',
                               fontSize: '12px',
                               color: '#6b7280',
                               backgroundColor: 'transparent',
                               border: '1px solid #d1d5db',
-                              borderRadius: '4px',
+                          borderRadius: '4px',
                               cursor: 'pointer',
                             }}
                             title="Annuler"
                           >
                             ✕
                           </button>
-                        </div>
+                      </div>
                       ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           {type.start_date ? (
                             <>
                               <span
                                 onClick={() => handleStartDateEditStart(type)}
-                                style={{
-                                  cursor: 'pointer',
+                        style={{
+                          cursor: 'pointer',
                                   padding: '4px 8px',
-                                  borderRadius: '4px',
+                          borderRadius: '4px',
                                   display: 'inline-block',
                                   fontSize: '14px',
                                   color: '#374151',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'transparent';
-                                }}
-                                title="Cliquer pour éditer"
-                              >
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                        title="Cliquer pour éditer"
+                      >
                                 {new Date(type.start_date).toLocaleDateString('fr-FR', {
                                   day: '2-digit',
                                   month: '2-digit',
                                   year: 'numeric'
                                 })}
-                              </span>
-                              <button
+                      </span>
+                <button
                                 type="button"
                                 onClick={() => handleStartDateRemove(type.id)}
-                                style={{
+                  style={{
                                   padding: '2px 6px',
                                   fontSize: '12px',
-                                  color: '#dc2626',
-                                  backgroundColor: 'transparent',
-                                  border: 'none',
-                                  cursor: 'pointer',
+              color: '#dc2626',
+              backgroundColor: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
                                   borderRadius: '4px',
-                                }}
-                                onMouseEnter={(e) => {
+            }}
+            onMouseEnter={(e) => {
                                   e.currentTarget.style.backgroundColor = '#fee2e2';
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'transparent';
-                                }}
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
                                 title="Supprimer la date"
-                              >
-                                ×
-                              </button>
+              >
+                ×
+              </button>
                             </>
                           ) : (
                             <span
                               onClick={() => handleStartDateEditStart(type)}
-                              style={{
+                style={{
                                 cursor: 'pointer',
                                 padding: '4px 8px',
                                 borderRadius: '4px',
                                 display: 'inline-block',
-                                fontSize: '14px',
+                  fontSize: '14px',
                                 color: '#9ca3af',
                                 fontStyle: 'italic',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f3f4f6';
                                 e.currentTarget.style.color = '#374151';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
                                 e.currentTarget.style.color = '#9ca3af';
                               }}
                               title="Cliquer pour ajouter une date"
                             >
                               Ajouter une date
                             </span>
-                          )}
+                  )}
+                </div>
+              )}
+                    </td>
+                    {/* Colonne "Montant d'immobilisation" */}
+                    <td style={{ padding: '12px' }}>
+                      {loadingAmounts[type.id] ? (
+                        <span style={{ color: '#6b7280', fontSize: '14px' }}>⏳ Calcul...</span>
+                      ) : (
+                        <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
+                          {amounts[type.id] !== undefined 
+                            ? new Intl.NumberFormat('fr-FR', { 
+                                style: 'currency', 
+                                currency: 'EUR',
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              }).format(amounts[type.id])
+                            : '-'
+                          }
+                        </span>
+                      )}
+                    </td>
+                    {/* Colonne "Durée d'amortissement" */}
+                    <td style={{ padding: '12px' }}>
+                      {editingDurationId === type.id ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={editingDurationValue}
+                            onChange={(e) => setEditingDurationValue(e.target.value)}
+                            onBlur={() => handleDurationEditSave(type.id)}
+                            onKeyDown={(e) => handleDurationEditKeyDown(e, type.id)}
+                            autoFocus
+                            style={{
+                              padding: '4px 8px',
+                              fontSize: '14px',
+                              border: '1px solid #3b82f6',
+                              borderRadius: '4px',
+                              width: '80px',
+                            }}
+                          />
+                          <span style={{ fontSize: '14px', color: '#6b7280' }}>ans</span>
+                          <button
+                            type="button"
+                            onClick={handleDurationEditCancel}
+                            style={{
+                              padding: '2px 6px',
+                              fontSize: '12px',
+                              color: '#6b7280',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#f3f4f6';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title="Annuler (Escape)"
+                          >
+                            ✕
+                          </button>
                         </div>
+                      ) : (
+                        <span
+                          onClick={() => handleDurationEditStart(type.id, type.duration)}
+                          style={{
+                            cursor: 'pointer',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            display: 'inline-block',
+                            fontSize: '14px',
+                            color: '#374151',
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          title="Cliquer pour éditer"
+                        >
+                          {type.duration.toFixed(1)} ans
+                        </span>
                       )}
                     </td>
                     {/* Autres colonnes vides pour l'instant */}
-                    <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
-                    <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
