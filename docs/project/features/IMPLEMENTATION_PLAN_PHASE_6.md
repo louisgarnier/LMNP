@@ -384,7 +384,7 @@
 
 #### Step 6.6.2: Frontend - Card de configuration (structure de base)
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer la card de configuration au-dessus du tableau année par année.
 
@@ -398,27 +398,27 @@
 
 **Tasks**:
 
-- [ ] Créer composant `AmortizationConfigCard.tsx` :
+- [x] Créer composant `AmortizationConfigCard.tsx` :
 
   - Card avec titre "Configuration des amortissements"
 
   - Structure de base (vide pour l'instant)
 
-- [ ] Modifier `frontend/app/dashboard/amortissements/page.tsx` :
+- [x] Modifier `frontend/app/dashboard/amortissements/page.tsx` :
 
   - Afficher `AmortizationConfigCard` au-dessus de `AmortizationTable`
 
   - Supprimer `AmortizationConfigPanel` (panneau latéral)
 
-- [ ] **Masquer le tableau quand `level2Values.length === 0`** :
+- [x] **Masquer le tableau quand `level2Values.length === 0`** :
 
-  - Condition `{level2Values.length > 0 && (...)}` autour du tableau
+  - Condition `{level2ValuesCount > 0 && (...)}` autour du tableau
 
   - Aucun affichage si "Aucune valeur disponible" est affiché dans le dropdown
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -428,19 +428,19 @@
 
 **Acceptance Criteria**:
 
-- [ ] Card s'affiche au-dessus du tableau
+- [x] Card s'affiche au-dessus du tableau
 
-- [ ] Panneau latéral supprimé
+- [x] Panneau latéral supprimé
 
-- [ ] Layout correct
+- [x] Layout correct
 
-- [ ] **Tableau masqué quand aucune valeur Level 2 n'est disponible**
+- [x] **Tableau masqué quand aucune valeur Level 2 n'est disponible**
 
 ---
 
 #### Step 6.6.3: Frontend - Champ Level 2
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter le champ "Level 2" en haut de la card.
 
@@ -458,11 +458,9 @@
 
 **Tasks**:
 
-- [ ] Ajouter champ "Level 2" dans `AmortizationConfigCard.tsx` :
+- [x] Ajouter champ "Level 2" dans `AmortizationConfigCard.tsx` :
 
   - Dropdown avec valeurs uniques de `level_2`
-
-  - Il faut que ce soit des checkbox pour sélectionner un seul level 2 possible
 
   - Utiliser `transactionsAPI.getUniqueValues('level_2')`
 
@@ -472,15 +470,15 @@
 
   - **Option masquée une fois qu'un Level 2 est sélectionné**
 
-- [ ] Sauvegarde automatique sur changement (`onChange`)
+- [x] Sauvegarde automatique sur changement (`onChange`)
 
-- [ ] **Persistance dans localStorage** : sauvegarder et restaurer le Level 2 sélectionné
+- [x] **Persistance dans localStorage** : sauvegarder et restaurer le Level 2 sélectionné
 
-- [ ] **Empêcher la désélection** : ignorer toute tentative de sélectionner une valeur vide si un Level 2 est déjà sélectionné
+- [x] **Empêcher la désélection** : ignorer toute tentative de sélectionner une valeur vide si un Level 2 est déjà sélectionné
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -488,17 +486,17 @@
 
 **Acceptance Criteria**:
 
-- [ ] Dropdown s'affiche avec les valeurs
+- [x] Dropdown s'affiche avec les valeurs
 
-- [ ] Sélection fonctionne
+- [x] Sélection fonctionne
 
-- [ ] **Option "-- Sélectionner une valeur --" masquée une fois qu'un Level 2 est sélectionné**
+- [x] **Option "-- Sélectionner une valeur --" masquée une fois qu'un Level 2 est sélectionné**
 
-- [ ] **Impossible de revenir à "-- Sélectionner une valeur --" après sélection**
+- [x] **Impossible de revenir à "-- Sélectionner une valeur --" après sélection**
 
-- [ ] **Persistance du Level 2 sélectionné via localStorage**
+- [x] **Persistance du Level 2 sélectionné via localStorage**
 
-- [ ] État local géré (sauvegarde dans types d'amortissement à venir)
+- [x] État local géré (sauvegarde dans types d'amortissement à venir)
 
 ---
 
