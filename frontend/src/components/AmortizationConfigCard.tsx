@@ -70,6 +70,13 @@ export default function AmortizationConfigCard({
   // États pour la colonne "Montant cumulé"
   const [cumulatedAmounts, setCumulatedAmounts] = useState<Record<number, number>>({});
   const [loadingCumulatedAmounts, setLoadingCumulatedAmounts] = useState<Record<number, boolean>>({});
+  
+  // État pour la création d'un nouveau type
+  const [isCreatingType, setIsCreatingType] = useState<boolean>(false);
+  
+  // États pour le menu contextuel (clic droit)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; typeId: number } | null>(null);
+  const [isDeletingType, setIsDeletingType] = useState<number | null>(null);
 
   // Charger les valeurs Level 2 depuis l'API
   const loadLevel2Values = async () => {
@@ -245,11 +252,19 @@ export default function AmortizationConfigCard({
           const response = await amortizationTypesAPI.getTransactionCount(type.id);
           return { typeId: type.id, count: response.transaction_count };
         } catch (err: any) {
-          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après une réinitialisation)
-          // Ne pas logger pour éviter le spam dans la console
-          if (err.status === 404 || err.message?.includes('404') || err.message?.includes('non trouvé')) {
+          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
+          // Vérifier le statut ou le message d'erreur
+          const errorMessage = err?.message || err?.toString() || '';
+          const is404 = err?.status === 404 || 
+                       errorMessage.includes('404') || 
+                       errorMessage.includes('non trouvé') ||
+                       errorMessage.includes('Type d\'amortissement non trouvé');
+          
+          if (is404) {
+            // Type supprimé ou non trouvé - retourner 0 sans logger
             return { typeId: type.id, count: 0 };
           }
+          
           // Logger seulement les autres erreurs
           console.error(`Erreur lors du chargement du nombre de transactions pour le type ${type.id}:`, err);
           return { typeId: type.id, count: 0 };
@@ -300,8 +315,14 @@ export default function AmortizationConfigCard({
           const response = await amortizationTypesAPI.getAmount(type.id);
           return { typeId: type.id, amount: response.amount };
         } catch (err: any) {
-          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après une réinitialisation)
-          if (err.status === 404 || err.message?.includes('404') || err.message?.includes('non trouvé')) {
+          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
+          const errorMessage = err?.message || err?.toString() || '';
+          const is404 = errorMessage.includes('404') || 
+                       errorMessage.includes('non trouvé') ||
+                       errorMessage.includes('Type d\'amortissement non trouvé') ||
+                       err?.status === 404;
+          
+          if (is404) {
             return { typeId: type.id, amount: 0 };
           }
           console.error(`Erreur lors du chargement du montant pour le type ${type.id}:`, err);
@@ -346,8 +367,14 @@ export default function AmortizationConfigCard({
           const response = await amortizationTypesAPI.getCumulated(type.id);
           return { typeId: type.id, cumulatedAmount: response.cumulated_amount };
         } catch (err: any) {
-          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après une réinitialisation)
-          if (err.status === 404 || err.message?.includes('404') || err.message?.includes('non trouvé')) {
+          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
+          const errorMessage = err?.message || err?.toString() || '';
+          const is404 = errorMessage.includes('404') || 
+                       errorMessage.includes('non trouvé') ||
+                       errorMessage.includes('Type d\'amortissement non trouvé') ||
+                       err?.status === 404;
+          
+          if (is404) {
             return { typeId: type.id, cumulatedAmount: 0 };
           }
           console.error(`Erreur lors du chargement du montant cumulé pour le type ${type.id}:`, err);
@@ -371,6 +398,131 @@ export default function AmortizationConfigCard({
       setLoadingCumulatedAmounts({});
     }
   };
+
+  // Fonction pour créer un nouveau type d'amortissement
+  const handleCreateNewType = async () => {
+    if (!selectedLevel2Value || isCreatingType) {
+      return;
+    }
+
+    try {
+      setIsCreatingType(true);
+      
+      // Créer le nouveau type avec valeurs par défaut
+      const newType = await amortizationTypesAPI.create({
+        name: 'Nouveau type',
+        level_2_value: selectedLevel2Value,
+        level_1_values: [],
+        start_date: null,
+        duration: 0,
+        annual_amount: null,
+      });
+
+      console.log('[AmortizationConfigCard] Nouveau type créé:', newType);
+
+      // Recharger les types et les montants
+      await loadAmortizationTypes();
+      await loadTransactionCounts();
+      await loadAmounts();
+      await loadCumulatedAmounts();
+
+      // Notifier le parent si nécessaire
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la création du nouveau type:', err);
+      alert('Erreur lors de la création du nouveau type. Veuillez réessayer.');
+    } finally {
+      setIsCreatingType(false);
+    }
+  };
+
+  // Fonction pour gérer le clic droit (menu contextuel)
+  const handleContextMenu = (e: React.MouseEvent, typeId: number) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      typeId: typeId,
+    });
+  };
+
+  // Fonction pour fermer le menu contextuel
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // Fonction pour supprimer un type
+  const handleDeleteType = async (typeId: number) => {
+    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce type d\'amortissement ?')) {
+      return;
+    }
+
+    try {
+      setIsDeletingType(typeId);
+      closeContextMenu();
+
+      await amortizationTypesAPI.delete(typeId);
+
+      console.log('[AmortizationConfigCard] Type supprimé:', typeId);
+
+      // Nettoyer immédiatement les données du type supprimé des états
+      setAmortizationTypes(prev => prev.filter(t => t.id !== typeId));
+      setTransactionCounts(prev => {
+        const newCounts = { ...prev };
+        delete newCounts[typeId];
+        return newCounts;
+      });
+      setAmounts(prev => {
+        const newAmounts = { ...prev };
+        delete newAmounts[typeId];
+        return newAmounts;
+      });
+      setCumulatedAmounts(prev => {
+        const newCumulated = { ...prev };
+        delete newCumulated[typeId];
+        return newCumulated;
+      });
+
+      // Recharger les types depuis le serveur (pour avoir la liste complète à jour)
+      await loadAmortizationTypes();
+      
+      // Ensuite recharger les montants (qui utiliseront la nouvelle liste de types)
+      // Petit délai pour s'assurer que les types sont bien mis à jour
+      setTimeout(() => {
+        loadTransactionCounts();
+        loadAmounts();
+        loadCumulatedAmounts();
+      }, 100);
+
+      // Notifier le parent si nécessaire
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la suppression du type:', err);
+      alert('Erreur lors de la suppression du type. Veuillez réessayer.');
+    } finally {
+      setIsDeletingType(null);
+    }
+  };
+
+  // Fermer le menu contextuel quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu) {
+        closeContextMenu();
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
+    }
+  }, [contextMenu]);
 
   // Recharger les compteurs quand les types ou les valeurs Level 1 changent
   useEffect(() => {
@@ -1065,8 +1217,10 @@ export default function AmortizationConfigCard({
               amortizationTypes.map((type) => (
                 <tr 
                   key={type.id} 
-                    style={{
+                  onContextMenu={(e) => handleContextMenu(e, type.id)}
+                  style={{
                       borderBottom: '1px solid #e5e7eb',
+                      cursor: 'context-menu',
                     }}
                 >
                     {/* Colonne "Type d'immobilisation" - Éditable */}
@@ -1618,8 +1772,113 @@ export default function AmortizationConfigCard({
                 </tr>
               ))
             )}
+            {/* Ligne pour le bouton "+" Ajouter un type */}
+            <tr>
+              <td colSpan={9} style={{ padding: '12px', textAlign: 'center', borderTop: '2px solid #e5e7eb' }}>
+                <button
+                  onClick={handleCreateNewType}
+                  disabled={!selectedLevel2Value || isCreatingType}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: selectedLevel2Value && !isCreatingType ? '#3b82f6' : '#9ca3af',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: selectedLevel2Value && !isCreatingType ? 'pointer' : 'not-allowed',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (selectedLevel2Value && !isCreatingType) {
+                      e.currentTarget.style.backgroundColor = '#2563eb';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (selectedLevel2Value && !isCreatingType) {
+                      e.currentTarget.style.backgroundColor = '#3b82f6';
+                    }
+                  }}
+                >
+                  {isCreatingType ? (
+                    <>
+                      <span>⏳</span>
+                      <span>Création...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>+</span>
+                      <span>Ajouter un type</span>
+                    </>
+                  )}
+                </button>
+              </td>
+            </tr>
           </tbody>
         </table>
+        
+        {/* Menu contextuel (clic droit) */}
+        {contextMenu && (
+          <div
+            style={{
+              position: 'fixed',
+              top: `${contextMenu.y}px`,
+              left: `${contextMenu.x}px`,
+              backgroundColor: 'white',
+              border: '1px solid #e5e7eb',
+              borderRadius: '6px',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+              zIndex: 1000,
+              minWidth: '150px',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => handleDeleteType(contextMenu.typeId)}
+              disabled={isDeletingType === contextMenu.typeId}
+              style={{
+                width: '100%',
+                padding: '10px 16px',
+                textAlign: 'left',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: isDeletingType === contextMenu.typeId ? 'not-allowed' : 'pointer',
+                color: isDeletingType === contextMenu.typeId ? '#9ca3af' : '#dc2626',
+                fontSize: '14px',
+                fontWeight: '500',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                if (isDeletingType !== contextMenu.typeId) {
+                  e.currentTarget.style.backgroundColor = '#fef2f2';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (isDeletingType !== contextMenu.typeId) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              {isDeletingType === contextMenu.typeId ? (
+                <>
+                  <span>⏳</span>
+                  <span>Suppression...</span>
+                </>
+              ) : (
+                <>
+                  <span>🗑️</span>
+                  <span>Supprimer</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
         </div>
       )}
     </div>

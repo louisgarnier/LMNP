@@ -1286,7 +1286,7 @@
 
 #### Step 6.6.14: Frontend - Bouton "+" Ajouter un type
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter le bouton "+" pour créer un nouveau type d'amortissement.
 
@@ -1300,7 +1300,7 @@
 
 **Tasks**:
 
-- [ ] Ajouter bouton "+" dans le tableau :
+- [x] Ajouter bouton "+" dans le tableau :
 
   - Position : après la dernière ligne (ligne dédiée avec colspan)
 
@@ -1324,7 +1324,7 @@
 
   - Bouton désactivé si `level2Value` n'est pas sélectionné
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
 - [ ] **Valider avec l'utilisateur**
 
@@ -1336,21 +1336,21 @@
 
 **Acceptance Criteria**:
 
-- [ ] Bouton "+" s'affiche (après toutes les lignes)
+- [x] Bouton "+" s'affiche (après toutes les lignes)
 
-- [ ] Création d'un nouveau type fonctionne
+- [x] Création d'un nouveau type fonctionne
 
-- [ ] Nouveau type apparaît dans le tableau
+- [x] Nouveau type apparaît dans le tableau
 
-- [ ] Bouton désactivé si Level 2 non sélectionné
+- [x] Bouton désactivé si Level 2 non sélectionné
 
-- [ ] Rechargement automatique des types et montants après création
+- [x] Rechargement automatique des types et montants après création
 
 ---
 
 #### Step 6.6.15: Frontend - Suppression de type (clic droit)
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la fonctionnalité de suppression via clic droit.
 
@@ -1366,7 +1366,7 @@
 
 **Tasks**:
 
-- [ ] Ajouter menu contextuel :
+- [x] Ajouter menu contextuel :
 
   - Clic droit sur une ligne du tableau (`onContextMenu`)
 
@@ -1380,7 +1380,7 @@
 
   - Fermer le menu après action ou clic ailleurs
 
-- [ ] **Backend - Modifier endpoint `DELETE /api/amortization/types/{id}`** :
+- [x] **Backend - Modifier endpoint `DELETE /api/amortization/types/{id}`** :
 
   - Supprimer automatiquement tous les `AmortizationResult` associés au type avant de supprimer le type
 
@@ -1388,7 +1388,7 @@
 
   - Plus d'erreur de contrainte de clé étrangère
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
 - [ ] **Valider avec l'utilisateur**
 
@@ -1396,21 +1396,27 @@
 
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
-- Mise à jour `backend/api/routes/amortization_types.py` - Endpoint `delete_amortization_type`
+- Mise à jour `backend/api/routes/amortization_types.py` - Endpoint `delete_amortization_type` (déjà implémenté)
 
 - Méthode `delete()` déjà disponible dans `frontend/src/api/client.ts`
 
+- Amélioration gestion erreurs 404 dans `frontend/src/api/client.ts` et `AmortizationConfigCard.tsx`
+
 **Acceptance Criteria**:
 
-- [ ] Menu contextuel s'affiche à la position du clic
+- [x] Menu contextuel s'affiche à la position du clic
 
-- [ ] Confirmation fonctionne (window.confirm)
+- [x] Confirmation fonctionne (window.confirm)
 
-- [ ] Suppression fonctionne (appel API DELETE)
+- [x] Suppression fonctionne (appel API DELETE)
 
-- [ ] **Suppression automatique des résultats d'amortissement associés (plus d'erreur de contrainte)**
+- [x] **Suppression automatique des résultats d'amortissement associés (plus d'erreur de contrainte)**
 
-- [ ] **On peut supprimer un type même s'il est utilisé dans des résultats d'amortissement**
+- [x] **On peut supprimer un type même s'il est utilisé dans des résultats d'amortissement**
+
+- [x] Nettoyage immédiat des données du type supprimé (évite erreurs 404)
+
+- [x] Gestion silencieuse des erreurs 404 (pas de logs dans la console)
 
 ---
 

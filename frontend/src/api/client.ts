@@ -57,8 +57,15 @@ async function fetchAPI<T>(
         errorMessage = error.message;
       }
       
-      console.error(`❌ [API] Erreur ${response.status} (${endpoint}):`, error);
-      throw new Error(errorMessage);
+      // Ne pas logger les erreurs 404 (souvent attendues, comme pour vérifier si une ressource existe)
+      if (response.status !== 404) {
+        console.error(`❌ [API] Erreur ${response.status} (${endpoint}):`, error);
+      }
+      
+      // Créer une erreur avec le statut pour faciliter la détection
+      const apiError: any = new Error(errorMessage);
+      apiError.status = response.status;
+      throw apiError;
     }
 
     // Handle 204 No Content
@@ -75,7 +82,18 @@ async function fetchAPI<T>(
       throw new Error(`Impossible de se connecter au serveur. Vérifiez que le backend est démarré sur ${API_BASE_URL}`);
     }
     
-    console.error(`❌ [API] Erreur lors de l'appel (${endpoint}):`, error);
+    // Ne pas logger les erreurs 404 dans le catch général non plus
+    // Vérifier si c'est une erreur avec status 404 ou message contenant "non trouvé"
+    const is404Error = (error as any)?.status === 404 || 
+                       (error instanceof Error && (
+                         error.message?.includes('404') || 
+                         error.message?.includes('non trouvé') ||
+                         error.message?.includes('Type d\'amortissement non trouvé')
+                       ));
+    
+    if (!is404Error) {
+      console.error(`❌ [API] Erreur lors de l'appel (${endpoint}):`, error);
+    }
     throw error;
   }
 }
