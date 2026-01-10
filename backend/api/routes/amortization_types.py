@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime
 
 from backend.database import get_db
 from backend.database.models import (
@@ -27,6 +27,7 @@ from backend.api.models import (
     AmortizationTypeCumulatedResponse,
     AmortizationTypeTransactionCountResponse
 )
+from backend.api.services.amortization_service import calculate_yearly_amounts
 
 router = APIRouter()
 
@@ -358,7 +359,12 @@ async def get_amortization_type_cumulated(
     """
     Calcule le montant cumulé d'amortissement pour un type donné.
     
-    Le montant cumulé est la somme des AmortizationResult pour ce type.
+    Le montant cumulé est calculé dynamiquement en fonction des transactions :
+    - Pour chaque transaction du type, calculer le montant cumulé jusqu'à aujourd'hui
+    - Utiliser la convention 30/360 avec prorata pour l'année de la transaction
+    - Si start_date est renseignée dans le type, utiliser cette date pour toutes les transactions
+    - Sinon, utiliser la date de chaque transaction individuellement
+    - Sommer tous les montants cumulés de toutes les transactions
     
     Args:
         type_id: ID du type
@@ -375,17 +381,96 @@ async def get_amortization_type_cumulated(
     if not atype:
         raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
     
-    # Calculer la somme des résultats d'amortissement pour ce type
-    result = db.query(func.sum(func.abs(AmortizationResult.amount))).filter(
-        AmortizationResult.category == atype.name
-    ).scalar()
+    # Cas particuliers
+    if atype.duration <= 0:
+        return AmortizationTypeCumulatedResponse(
+            type_id=atype.id,
+            type_name=atype.name,
+            cumulated_amount=0.0
+        )
     
-    cumulated_amount = result if result else 0.0
+    level_1_values = json.loads(atype.level_1_values or "[]")
+    
+    if not level_1_values:
+        return AmortizationTypeCumulatedResponse(
+            type_id=atype.id,
+            type_name=atype.name,
+            cumulated_amount=0.0
+        )
+    
+    # Récupérer toutes les transactions correspondantes au type
+    transactions = db.query(Transaction).join(
+        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+    ).filter(
+        and_(
+            EnrichedTransaction.level_2 == atype.level_2_value,
+            EnrichedTransaction.level_1.in_(level_1_values)
+        )
+    ).all()
+    
+    if not transactions:
+        return AmortizationTypeCumulatedResponse(
+            type_id=atype.id,
+            type_name=atype.name,
+            cumulated_amount=0.0
+        )
+    
+    # Date d'aujourd'hui
+    today = date.today()
+    
+    # Calculer l'annuité du type (si définie, sinon sera calculée par transaction)
+    annual_amount = atype.annual_amount if atype.annual_amount is not None and atype.annual_amount != 0 else None
+    
+    # Calculer le montant cumulé pour chaque transaction
+    total_cumulated = 0.0
+    
+    for transaction in transactions:
+        # Déterminer la date de début
+        # Si start_date est renseignée dans le type, utiliser cette date (override)
+        # Sinon, utiliser la date de la transaction
+        start_date = atype.start_date if atype.start_date else transaction.date
+        
+        # Vérifier si la date de début est dans le futur
+        if start_date > today:
+            continue  # Montant cumulé = 0 pour cette transaction
+        
+        # Montant de la transaction
+        transaction_amount = abs(transaction.quantite)
+        
+        # Calculer l'annuité pour cette transaction
+        # Si annual_amount est définie dans le type, l'utiliser
+        # Sinon, calculer : abs(Montant transaction) / duration
+        if annual_amount is None:
+            transaction_annual_amount = transaction_amount / atype.duration
+        else:
+            transaction_annual_amount = annual_amount
+        
+        # Calculer les montants par année avec calculate_yearly_amounts
+        yearly_amounts = calculate_yearly_amounts(
+            start_date=start_date,
+            total_amount=-transaction_amount,  # Négatif car convention
+            duration=atype.duration,
+            annual_amount=transaction_annual_amount
+        )
+        
+        # Sommer les montants jusqu'à l'année en cours (incluse)
+        # Logique :
+        # - Année d'achat : prorata (déjà calculé par calculate_yearly_amounts)
+        # - Années complètes suivantes : annuité complète
+        # - Année en cours : annuité complète (pas de prorata jusqu'à aujourd'hui)
+        transaction_cumulated = 0.0
+        
+        for year, amount in yearly_amounts.items():
+            if year <= today.year:
+                # Prendre le montant complet de l'année (pas de prorata pour l'année en cours)
+                transaction_cumulated += abs(amount)
+        
+        total_cumulated += transaction_cumulated
     
     return AmortizationTypeCumulatedResponse(
         type_id=atype.id,
         type_name=atype.name,
-        cumulated_amount=cumulated_amount
+        cumulated_amount=total_cumulated
     )
 
 

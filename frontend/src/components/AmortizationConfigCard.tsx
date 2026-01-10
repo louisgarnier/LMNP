@@ -66,6 +66,10 @@ export default function AmortizationConfigCard({
   // États pour la colonne "Montant d'immobilisation"
   const [amounts, setAmounts] = useState<Record<number, number>>({});
   const [loadingAmounts, setLoadingAmounts] = useState<Record<number, boolean>>({});
+  
+  // États pour la colonne "Montant cumulé"
+  const [cumulatedAmounts, setCumulatedAmounts] = useState<Record<number, number>>({});
+  const [loadingCumulatedAmounts, setLoadingCumulatedAmounts] = useState<Record<number, boolean>>({});
 
   // Charger les valeurs Level 2 depuis l'API
   const loadLevel2Values = async () => {
@@ -321,6 +325,53 @@ export default function AmortizationConfigCard({
     }
   };
 
+  // Charger le montant cumulé d'amortissement pour tous les types
+  const loadCumulatedAmounts = async () => {
+    if (!selectedLevel2Value || amortizationTypes.length === 0) {
+      setCumulatedAmounts({});
+      return;
+    }
+
+    try {
+      // Marquer tous les types comme en cours de chargement
+      const loadingState: Record<number, boolean> = {};
+      amortizationTypes.forEach(type => {
+        loadingState[type.id] = true;
+      });
+      setLoadingCumulatedAmounts(loadingState);
+
+      // Charger les montants cumulés pour tous les types en parallèle
+      const cumulatedPromises = amortizationTypes.map(async (type) => {
+        try {
+          const response = await amortizationTypesAPI.getCumulated(type.id);
+          return { typeId: type.id, cumulatedAmount: response.cumulated_amount };
+        } catch (err: any) {
+          // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après une réinitialisation)
+          if (err.status === 404 || err.message?.includes('404') || err.message?.includes('non trouvé')) {
+            return { typeId: type.id, cumulatedAmount: 0 };
+          }
+          console.error(`Erreur lors du chargement du montant cumulé pour le type ${type.id}:`, err);
+          return { typeId: type.id, cumulatedAmount: 0 };
+        }
+      });
+
+      const results = await Promise.all(cumulatedPromises);
+      
+      // Mettre à jour les montants cumulés
+      const newCumulatedAmounts: Record<number, number> = {};
+      results.forEach(({ typeId, cumulatedAmount }) => {
+        newCumulatedAmounts[typeId] = cumulatedAmount;
+      });
+      setCumulatedAmounts(newCumulatedAmounts);
+      console.log('[AmortizationConfigCard] Montants cumulés chargés:', newCumulatedAmounts);
+    } catch (err: any) {
+      console.error('Erreur lors du chargement des montants cumulés:', err);
+    } finally {
+      // Marquer tous les types comme terminés
+      setLoadingCumulatedAmounts({});
+    }
+  };
+
   // Recharger les compteurs quand les types ou les valeurs Level 1 changent
   useEffect(() => {
     // Attendre un peu pour s'assurer que les types sont bien chargés et persistés en base
@@ -329,6 +380,7 @@ export default function AmortizationConfigCard({
       const timeoutId = setTimeout(() => {
         loadTransactionCounts();
         loadAmounts(); // Charger aussi les montants
+        loadCumulatedAmounts(); // Charger aussi les montants cumulés
       }, 100);
       
       return () => clearTimeout(timeoutId);
@@ -1515,8 +1567,25 @@ export default function AmortizationConfigCard({
                         );
                       })()}
                     </td>
+                    {/* Colonne "Montant cumulé" */}
+                    <td style={{ padding: '12px' }}>
+                      {loadingCumulatedAmounts[type.id] ? (
+                        <span style={{ color: '#6b7280', fontSize: '14px' }}>⏳ Calcul...</span>
+                      ) : (
+                        <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
+                          {cumulatedAmounts[type.id] !== undefined 
+                            ? new Intl.NumberFormat('fr-FR', { 
+                                style: 'currency', 
+                                currency: 'EUR',
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                              }).format(cumulatedAmounts[type.id])
+                            : '0,00 €'
+                          }
+                        </span>
+                      )}
+                    </td>
                     {/* Autres colonnes vides pour l'instant */}
-                    <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                 </tr>

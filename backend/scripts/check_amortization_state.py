@@ -14,7 +14,9 @@ sys.path.insert(0, str(project_root))
 
 from backend.database.connection import SessionLocal, init_database
 from backend.database.models import AmortizationType, AmortizationResult, Transaction, EnrichedTransaction
+from backend.api.services.amortization_service import calculate_yearly_amounts
 from sqlalchemy import func, and_
+from datetime import date
 
 
 def main():
@@ -89,6 +91,68 @@ def main():
                 
                 print(f'  - Montant d\'immobilisation: {amount:,.2f} €')
                 print(f'  - Nombre de transactions: {transaction_count}')
+                
+                # Calculer le montant cumulé d'amortissement dynamiquement
+                # (même logique que l'endpoint backend)
+                cumulated_amount = 0.0
+                if t.duration > 0 and level_1_values:
+                    today = date.today()
+                    
+                    # Récupérer toutes les transactions correspondantes
+                    transactions = db.query(Transaction).join(
+                        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+                    ).filter(
+                        and_(
+                            EnrichedTransaction.level_2 == t.level_2_value,
+                            EnrichedTransaction.level_1.in_(level_1_values)
+                        )
+                    ).all()
+                    
+                    # Calculer l'annuité du type (si définie)
+                    annual_amount = t.annual_amount if t.annual_amount is not None and t.annual_amount != 0 else None
+                    
+                    # Pour chaque transaction, calculer le montant cumulé
+                    for transaction in transactions:
+                        # Déterminer la date de début
+                        start_date = t.start_date if t.start_date else transaction.date
+                        
+                        # Vérifier si la date de début est dans le futur
+                        if start_date > today:
+                            continue
+                        
+                        # Montant de la transaction
+                        transaction_amount = abs(transaction.quantite)
+                        
+                        # Calculer l'annuité pour cette transaction
+                        if annual_amount is None:
+                            transaction_annual_amount = transaction_amount / t.duration
+                        else:
+                            transaction_annual_amount = annual_amount
+                        
+                        # Calculer les montants par année
+                        yearly_amounts = calculate_yearly_amounts(
+                            start_date=start_date,
+                            total_amount=-transaction_amount,
+                            duration=t.duration,
+                            annual_amount=transaction_annual_amount
+                        )
+                        
+                        # Sommer les montants jusqu'à l'année en cours (incluse)
+                        transaction_cumulated = 0.0
+                        for year, amount in yearly_amounts.items():
+                            if year <= today.year:
+                                # Prendre le montant complet de l'année (pas de prorata pour l'année en cours)
+                                transaction_cumulated += abs(amount)
+                        
+                        cumulated_amount += transaction_cumulated
+                
+                print(f'  - Montant cumulé d\'amortissement: {cumulated_amount:,.2f} €')
+                
+                # Afficher le nombre de résultats d'amortissement pour ce type
+                result_count = db.query(func.count(AmortizationResult.id)).filter(
+                    AmortizationResult.category == t.name
+                ).scalar() or 0
+                print(f'  - Nombre de résultats d\'amortissement: {result_count}')
         
         # Compter les résultats
         results_count = db.query(AmortizationResult).count()

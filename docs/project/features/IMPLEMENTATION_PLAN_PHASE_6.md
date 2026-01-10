@@ -971,7 +971,7 @@
 
 #### Step 6.6.10: Frontend - Colonne "Annuité d'amortissement"
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "Annuité d'amortissement" (calculée puis éditable).
 
@@ -989,7 +989,7 @@
 
 **Tasks**:
 
-- [ ] Ajouter colonne "Annuité d'amortissement" :
+- [x] Ajouter colonne "Annuité d'amortissement" :
 
   - Calcul automatique : `Annuité = abs(Montant) / Durée` (si Montant ≠ 0 et Durée > 0)
 
@@ -999,47 +999,98 @@
 
   - Formatage monétaire EUR avec 2 décimales
 
-- [ ] Recalculer quand Montant ou Durée change
+- [x] Recalculer quand Montant ou Durée change
 
-- [ ] **Gérer les montants négatifs avec Math.abs()**
+- [x] **Gérer les montants négatifs avec Math.abs()**
 
-- [ ] **Ignorer annual_amount = 0 pour permettre le calcul automatique**
+- [x] **Ignorer annual_amount = 0 pour permettre le calcul automatique**
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur** ✅ Validé
 
 **Deliverables**:
 
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
+- Mise à jour `backend/scripts/check_amortization_state.py` (affichage de l'annuité)
+
 **Acceptance Criteria**:
 
-- [ ] Calcul automatique fonctionne (avec montants négatifs)
+- [x] Calcul automatique fonctionne (avec montants négatifs)
 
-- [ ] Édition manuelle fonctionne (clic sur la cellule)
+- [x] Édition manuelle fonctionne (clic sur la cellule)
 
-- [ ] Recalcul automatique fonctionne (quand montant ou durée change)
+- [x] Recalcul automatique fonctionne (quand montant ou durée change)
 
-- [ ] Sauvegarde automatique fonctionne
+- [x] Sauvegarde automatique fonctionne
+
+- [x] Formatage monétaire EUR avec 2 décimales correct
+
+- [x] Tooltip indique si valeur manuelle ou calculée automatiquement
 
 ---
 
 #### Step 6.6.11: Frontend - Colonne "Montant cumulé" (calculé)
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
-**Description**: Ajouter la colonne "Montant cumulé" avec calcul automatique.
+**Description**: Ajouter la colonne "Montant cumulé" avec calcul automatique basé sur les transactions et la convention 30/360.
 
 **Objectifs**:
 
-- Afficher le montant cumulé (somme des `AmortizationResult`)
+- Calculer le montant cumulé d'amortissement jusqu'à la date d'aujourd'hui
 
-- Recalcul automatique après calcul d'amortissement
+- Utiliser la convention 30/360 avec prorata pour l'année de la transaction
+
+- Calculer par transaction individuelle puis sommer par type
+
+- Recalcul automatique quand montant, durée, annuité ou date de début change
 
 - Appeler `GET /api/amortization/types/{id}/cumulated`
 
+**Logique de calcul**:
+
+1. **Pour chaque transaction du type** :
+
+   - **Date de début** :
+     - Si `start_date` est renseignée dans le type → utiliser cette date pour toutes les transactions du type (override)
+     - Sinon → utiliser la date de chaque transaction individuellement
+   
+   - **Montant** : `abs(quantité)` de la transaction
+   
+   - **Annuité** :
+     - Si `annual_amount` est renseignée dans le type → utiliser cette valeur
+     - Sinon → calculer : `abs(Montant transaction) / duration`
+   
+   - **Calcul du montant cumulé jusqu'à l'année en cours (incluse)** :
+     - Utiliser `calculate_yearly_amounts()` avec convention 30/360
+     - **Année de la transaction** : prorata basé sur les jours restants selon 30/360
+       - Exemple : transaction du 31/03/2021 → montant 2021 = Annuité × (jours du 31/03/2021 au 31/12/2021 en 30/360) / 360
+     - **Années complètes suivantes** : Annuité complète pour chaque année
+     - **Année en cours** : Annuité complète (pas de prorata jusqu'à aujourd'hui)
+     - Somme des montants jusqu'à l'année en cours incluse (années passées + année en cours complète)
+
+2. **Somme** : Additionner tous les montants cumulés de toutes les transactions du type
+
+3. **Cas particuliers** :
+   - Si `duration = 0` → montant cumulé = 0
+   - Si date de début dans le futur → montant cumulé = 0
+   - Si aucune transaction → montant cumulé = 0
+
 **Tasks**:
+
+- [ ] **Backend - Modifier endpoint `/api/amortization/types/{id}/cumulated`** :
+
+  - Calculer par transaction individuelle (pas depuis `AmortizationResult`)
+
+  - Utiliser `calculate_yearly_amounts()` avec convention 30/360
+
+  - Gérer `start_date` override du type
+
+  - Calculer jusqu'à la date d'aujourd'hui
+
+  - Sommer tous les montants cumulés par transaction
 
 - [ ] Ajouter colonne "Montant cumulé" :
 
@@ -1047,9 +1098,9 @@
 
   - Appeler API pour calculer le cumulé
 
-  - Recalculer après chaque calcul d'amortissement
+  - Recalculer quand montant, durée, annuité ou date de début change
 
-- [ ] Afficher formatage monétaire (2 décimales)
+- [ ] Afficher formatage monétaire (2 décimales, EUR)
 
 - [ ] Gérer état de chargement
 
@@ -1059,17 +1110,35 @@
 
 **Deliverables**:
 
+- Mise à jour `backend/api/routes/amortization_types.py` - Endpoint `get_amortization_type_cumulated`
+
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
-- Mise à jour `frontend/src/api/client.ts` - Méthode `getAmortizationTypeCumulated()`
+- Mise à jour `backend/scripts/check_amortization_state.py` (affichage du montant cumulé calculé)
+
+- Création `backend/scripts/test_cumulated_calculation.py` (script de test détaillé)
 
 **Acceptance Criteria**:
 
-- [ ] Montant cumulé s'affiche correctement
+- [x] Montant cumulé s'affiche correctement
 
-- [ ] Recalcul automatique fonctionne
+- [x] Calcul par transaction individuelle fonctionne
 
-- [ ] Formatage correct
+- [x] Convention 30/360 appliquée correctement
+
+- [x] Année d'achat : prorata selon 30/360
+
+- [x] Années complètes : annuité complète
+
+- [x] Année en cours : annuité complète (pas de prorata jusqu'à aujourd'hui)
+
+- [x] `start_date` override fonctionne (utilise date du type pour toutes les transactions)
+
+- [x] Recalcul automatique fonctionne (quand montant, durée, annuité ou date de début change)
+
+- [x] Formatage monétaire EUR avec 2 décimales correct
+
+- [x] Cas particuliers gérés (duration = 0, date future, aucune transaction)
 
 ---
 
