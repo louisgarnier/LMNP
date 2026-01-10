@@ -12,7 +12,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { transactionsAPI, amortizationTypesAPI, AmortizationType } from '@/api/client';
+import { transactionsAPI, amortizationTypesAPI, amortizationAPI, AmortizationType } from '@/api/client';
 
 interface AmortizationConfigCardProps {
   onConfigUpdated?: () => void;
@@ -70,13 +70,16 @@ export default function AmortizationConfigCard({
   // États pour la colonne "Montant cumulé"
   const [cumulatedAmounts, setCumulatedAmounts] = useState<Record<number, number>>({});
   const [loadingCumulatedAmounts, setLoadingCumulatedAmounts] = useState<Record<number, boolean>>({});
-  
+    
   // État pour la création d'un nouveau type
   const [isCreatingType, setIsCreatingType] = useState<boolean>(false);
-  
+      
   // États pour le menu contextuel (clic droit)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; typeId: number } | null>(null);
   const [isDeletingType, setIsDeletingType] = useState<number | null>(null);
+  
+  // État pour le recalcul automatique
+  const [isAutoRecalculating, setIsAutoRecalculating] = useState<boolean>(false);
 
   // Charger les valeurs Level 2 depuis l'API
   const loadLevel2Values = async () => {
@@ -86,7 +89,7 @@ export default function AmortizationConfigCard({
       const values = response.values || [];
       setLevel2Values(values);
       setLevel2ValuesLoaded(true);
-      
+
       // Notifier le parent du nombre de valeurs disponibles
       if (onLevel2ValuesLoaded) {
         onLevel2ValuesLoaded(values.length);
@@ -105,7 +108,7 @@ export default function AmortizationConfigCard({
               onLevel2Change(validValue);
             }
           }
-        } catch (e) {
+          } catch (e) {
           // Si ce n'est pas du JSON, utiliser comme string simple
           if (values.includes(savedLevel2)) {
             setSelectedLevel2Value(savedLevel2);
@@ -161,10 +164,10 @@ export default function AmortizationConfigCard({
 
       await Promise.all(createPromises);
       console.log(`[AmortizationConfigCard] ✓ 7 types initiaux créés avec succès`);
-    } catch (err: any) {
+        } catch (err: any) {
       console.error('Erreur lors de la création des types initiaux:', err);
       throw err;
-    }
+        }
   };
 
   // Charger les types d'amortissement
@@ -187,7 +190,7 @@ export default function AmortizationConfigCard({
         if (response.items.length === 0 && level2ValueToUse === "Immobilisations" && !skipAutoCreate && !isResetting) {
           console.log(`[AmortizationConfigCard] Aucun type trouvé pour Level 2 "Immobilisations", création des 7 types initiaux...`);
           await createInitialTypes(level2ValueToUse);
-          
+        
           // Recharger les types après création
           const newResponse = await amortizationTypesAPI.getAll(level2ValueToUse);
           if (newResponse && newResponse.items) {
@@ -201,17 +204,17 @@ export default function AmortizationConfigCard({
           const sortedTypes = [...response.items].sort((a, b) => a.name.localeCompare(b.name));
           setAmortizationTypes(sortedTypes);
         }
-    } else {
+      } else {
         setAmortizationTypes([]);
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement des types d\'amortissement:', err);
-      setAmortizationTypes([]);
+    setAmortizationTypes([]);
     } finally {
       setLoadingTypes(false);
     }
   };
-
+    
   // Charger les valeurs Level 1 filtrées par Level 2
   const loadLevel1Values = async () => {
     if (!selectedLevel2Value) {
@@ -235,8 +238,8 @@ export default function AmortizationConfigCard({
   const loadTransactionCounts = async () => {
     if (!selectedLevel2Value || amortizationTypes.length === 0) {
       setTransactionCounts({});
-        return;
-      }
+      return;
+    }
 
     try {
       // Marquer tous les types comme en cours de chargement
@@ -245,13 +248,13 @@ export default function AmortizationConfigCard({
         loadingState[type.id] = true;
       });
       setLoadingTransactionCounts(loadingState);
-
+      
       // Charger les compteurs pour tous les types en parallèle
       const countPromises = amortizationTypes.map(async (type) => {
-        try {
+          try {
           const response = await amortizationTypesAPI.getTransactionCount(type.id);
           return { typeId: type.id, count: response.transaction_count };
-        } catch (err: any) {
+          } catch (err: any) {
           // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
           // Vérifier le statut ou le message d'erreur
           const errorMessage = err?.message || err?.toString() || '';
@@ -263,12 +266,12 @@ export default function AmortizationConfigCard({
           if (is404) {
             // Type supprimé ou non trouvé - retourner 0 sans logger
             return { typeId: type.id, count: 0 };
-          }
-          
+      }
+      
           // Logger seulement les autres erreurs
           console.error(`Erreur lors du chargement du nombre de transactions pour le type ${type.id}:`, err);
           return { typeId: type.id, count: 0 };
-        }
+    }
       });
 
       const results = await Promise.all(countPromises);
@@ -299,9 +302,9 @@ export default function AmortizationConfigCard({
     if (!selectedLevel2Value || amortizationTypes.length === 0) {
       setAmounts({});
       return;
-    }
+      }
 
-    try {
+      try {
       // Marquer tous les types comme en cours de chargement
       const loadingState: Record<number, boolean> = {};
       amortizationTypes.forEach(type => {
@@ -311,10 +314,10 @@ export default function AmortizationConfigCard({
 
       // Charger les montants pour tous les types en parallèle
       const amountPromises = amortizationTypes.map(async (type) => {
-        try {
+    try {
           const response = await amortizationTypesAPI.getAmount(type.id);
           return { typeId: type.id, amount: response.amount };
-        } catch (err: any) {
+    } catch (err: any) {
           // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
           const errorMessage = err?.message || err?.toString() || '';
           const is404 = errorMessage.includes('404') || 
@@ -327,7 +330,7 @@ export default function AmortizationConfigCard({
           }
           console.error(`Erreur lors du chargement du montant pour le type ${type.id}:`, err);
           return { typeId: type.id, amount: 0 };
-        }
+    }
       });
 
       const results = await Promise.all(amountPromises);
@@ -350,9 +353,9 @@ export default function AmortizationConfigCard({
   const loadCumulatedAmounts = async () => {
     if (!selectedLevel2Value || amortizationTypes.length === 0) {
       setCumulatedAmounts({});
-      return;
-    }
-
+        return;
+      }
+      
     try {
       // Marquer tous les types comme en cours de chargement
       const loadingState: Record<number, boolean> = {};
@@ -360,13 +363,13 @@ export default function AmortizationConfigCard({
         loadingState[type.id] = true;
       });
       setLoadingCumulatedAmounts(loadingState);
-
+      
       // Charger les montants cumulés pour tous les types en parallèle
       const cumulatedPromises = amortizationTypes.map(async (type) => {
         try {
           const response = await amortizationTypesAPI.getCumulated(type.id);
           return { typeId: type.id, cumulatedAmount: response.cumulated_amount };
-        } catch (err: any) {
+    } catch (err: any) {
           // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
           const errorMessage = err?.message || err?.toString() || '';
           const is404 = errorMessage.includes('404') || 
@@ -417,15 +420,15 @@ export default function AmortizationConfigCard({
         duration: 0,
         annual_amount: null,
       });
-
+      
       console.log('[AmortizationConfigCard] Nouveau type créé:', newType);
-
+      
       // Recharger les types et les montants
       await loadAmortizationTypes();
       await loadTransactionCounts();
       await loadAmounts();
       await loadCumulatedAmounts();
-
+      
       // Notifier le parent si nécessaire
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -466,7 +469,7 @@ export default function AmortizationConfigCard({
       await amortizationTypesAPI.delete(typeId);
 
       console.log('[AmortizationConfigCard] Type supprimé:', typeId);
-
+      
       // Nettoyer immédiatement les données du type supprimé des états
       setAmortizationTypes(prev => prev.filter(t => t.id !== typeId));
       setTransactionCounts(prev => {
@@ -484,7 +487,7 @@ export default function AmortizationConfigCard({
         delete newCumulated[typeId];
         return newCumulated;
       });
-
+      
       // Recharger les types depuis le serveur (pour avoir la liste complète à jour)
       await loadAmortizationTypes();
       
@@ -556,7 +559,7 @@ export default function AmortizationConfigCard({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isDropdownOpen]);
-
+        
   // Fermer le dropdown Level 1 si on clique en dehors
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -565,8 +568,8 @@ export default function AmortizationConfigCard({
       const isClickInsideDropdown = (target as Element).closest('[data-level1-dropdown]');
       if (!isClickInsideDropdown) {
         setOpenLevel1DropdownId(null);
-      }
-    };
+    }
+  };
 
     if (openLevel1DropdownId !== null) {
       document.addEventListener('mousedown', handleClickOutside);
@@ -588,22 +591,22 @@ export default function AmortizationConfigCard({
       if (isChangingLevel2 && amortizationTypes.length > 0) {
     const confirmed = window.confirm(
           `Vous allez perdre les modifications sur "${previousValue}". Toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Continuer ?`
-        );
-        
-        if (!confirmed) {
+    );
+
+    if (!confirmed) {
           // Annuler le changement : ne pas mettre à jour selectedLevel2Value
-          return;
-        }
+      return;
+    }
       }
       
       // Comportement radio : cocher une checkbox décoche automatiquement les autres
       setSelectedLevel2Value(value);
-      
+
       // Sauvegarder dans localStorage (string simple, pas array)
       localStorage.setItem(STORAGE_KEY_LEVEL2, value);
       
       // Notifier le parent
-      if (onLevel2Change) {
+        if (onLevel2Change) {
         onLevel2Change(value);
       }
       
@@ -619,7 +622,7 @@ export default function AmortizationConfigCard({
       if (onConfigUpdated) {
         onConfigUpdated();
       }
-      } else {
+        } else {
       // Empêcher la désélection si c'est la valeur actuellement sélectionnée
       // (comportement radio : on ne peut pas décocher la seule valeur sélectionnée)
       if (selectedLevel2Value === value) {
@@ -648,7 +651,7 @@ export default function AmortizationConfigCard({
       await amortizationTypesAPI.update(typeId, {
         name: editingNameValue.trim(),
       });
-      
+          
       // Recharger les types pour avoir la valeur à jour
       await loadAmortizationTypes();
       
@@ -661,7 +664,7 @@ export default function AmortizationConfigCard({
     } catch (err: any) {
       console.error('Erreur lors de la sauvegarde du nom:', err);
       alert(`❌ Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
-    }
+        }
   };
 
   // Annuler l'édition du nom
@@ -679,6 +682,29 @@ export default function AmortizationConfigCard({
     }
   };
 
+  // Fonction utilitaire pour déclencher le recalcul automatique
+  const triggerAutoRecalculate = async () => {
+    try {
+      setIsAutoRecalculating(true);
+      
+      // Appel à l'API de recalcul
+      await amortizationAPI.recalculate();
+      
+      // Recharger les montants cumulés après le recalcul
+      await loadCumulatedAmounts();
+      
+      // Rafraîchir le tableau d'amortissements
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      // Gestion silencieuse des erreurs (pas d'alerte, juste un log)
+      console.error('Erreur lors du recalcul automatique des amortissements:', err);
+    } finally {
+      setIsAutoRecalculating(false);
+    }
+  };
+
   // Gérer l'ajout/suppression d'une valeur Level 1
   const handleLevel1Toggle = async (typeId: number, level1Value: string) => {
     const type = amortizationTypes.find(t => t.id === typeId);
@@ -691,7 +717,7 @@ export default function AmortizationConfigCard({
     if (isSelected) {
       // Supprimer la valeur
       newValues = currentValues.filter(v => v !== level1Value);
-    } else {
+      } else {
       // Ajouter la valeur
       newValues = [...currentValues, level1Value];
     }
@@ -710,9 +736,8 @@ export default function AmortizationConfigCard({
       // Recharger les montants après modification des Level 1
       await loadAmounts();
       
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('Erreur lors de la mise à jour des valeurs level_1:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -749,8 +774,8 @@ export default function AmortizationConfigCard({
         const date = new Date(editingStartDateValue);
         if (isNaN(date.getTime())) {
           alert('Date invalide. Format attendu : YYYY-MM-DD');
-        return;
-        }
+      return;
+    }
         startDate = editingStartDateValue.trim();
       }
       
@@ -764,9 +789,8 @@ export default function AmortizationConfigCard({
       setEditingStartDateId(null);
       setEditingStartDateValue('');
       
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('Erreur lors de la sauvegarde de la date de début:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -783,9 +807,8 @@ export default function AmortizationConfigCard({
       // Recharger les types pour avoir la valeur à jour
       await loadAmortizationTypes();
       
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('Erreur lors de la suppression de la date de début:', err);
       alert(`Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
@@ -838,9 +861,8 @@ export default function AmortizationConfigCard({
       setEditingDurationId(null);
       setEditingDurationValue('');
       
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
     } catch (err: any) {
       console.error('Erreur lors de la sauvegarde de la durée:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
@@ -892,27 +914,26 @@ export default function AmortizationConfigCard({
         if (isNaN(parsedValue) || parsedValue < 0) {
           alert('L\'annuité doit être un nombre positif');
           handleAnnualAmountEditCancel();
-          return;
-        }
-        
+      return;
+    }
+    
         // Si la valeur est 0, on la considère comme "non définie" (calcul automatique)
         annualAmountValue = parsedValue === 0 ? null : parsedValue;
-      }
+        }
       
       await amortizationTypesAPI.update(typeId, {
         annual_amount: annualAmountValue,
       });
-      
+    
       // Recharger les types pour avoir la valeur à jour
       await loadAmortizationTypes();
       
       setEditingAnnualAmountId(null);
       setEditingAnnualAmountValue('');
       
-      if (onConfigUpdated) {
-        onConfigUpdated();
-      }
-    } catch (err: any) {
+      // Déclencher le recalcul automatique des amortissements
+      await triggerAutoRecalculate();
+      } catch (err: any) {
       console.error('Erreur lors de la sauvegarde de l\'annuité:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
@@ -932,7 +953,7 @@ export default function AmortizationConfigCard({
       handleAnnualAmountEditCancel();
     }
   };
-
+    
   // Fonction interne de réinitialisation (utilisée par le bouton et le changement de Level 2)
   const resetAllTypesForLevel2 = async (level2Value: string, showConfirmation: boolean = true) => {
     if (!level2Value) {
@@ -953,8 +974,8 @@ export default function AmortizationConfigCard({
     );
 
     if (!confirmed) {
-      return;
-    }
+        return;
+      }
     }
 
     try {
@@ -990,7 +1011,7 @@ export default function AmortizationConfigCard({
 
         await Promise.all(createPromises);
         console.log('[AmortizationConfigCard] ✓ 7 types par défaut recréés avec valeurs vides pour Immobilisations');
-          } else {
+      } else {
         console.log(`[AmortizationConfigCard] Level 2 "${level2Value}" n'est pas "Immobilisations", aucun type par défaut créé`);
       }
 
@@ -1029,6 +1050,11 @@ export default function AmortizationConfigCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', margin: 0 }}>
           Configuration des amortissements
+          {isAutoRecalculating && (
+            <span style={{ marginLeft: '12px', fontSize: '14px', color: '#6b7280', fontWeight: '400' }}>
+              ⏳ Recalcul en cours...
+            </span>
+          )}
         </h2>
           <button
           type="button"
@@ -1138,8 +1164,8 @@ export default function AmortizationConfigCard({
                 }}
                 onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = '#ffffff';
-                    }}
-                  >
+                }}
+              >
                     <input
                       type="checkbox"
                       checked={selectedLevel2Value === value}
@@ -1350,7 +1376,7 @@ export default function AmortizationConfigCard({
                                 : { top: '100%', marginTop: '4px' }
                               ),
                               left: 0,
-                              backgroundColor: '#ffffff',
+                            backgroundColor: '#ffffff',
                             border: '1px solid #d1d5db',
                               borderRadius: '6px',
                               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
@@ -1386,7 +1412,7 @@ export default function AmortizationConfigCard({
                                     Toutes les valeurs sont déjà sélectionnées
                       </div>
                                 );
-                              }
+                            }
                               
                               return availableValues.map((value) => (
                                 <label
@@ -1421,14 +1447,14 @@ export default function AmortizationConfigCard({
                               ));
                             })()}
                       </div>
-                    )}
-                      </div>
+                      )}
+                    </div>
                   </td>
                     {/* Colonne "Nombre de transactions" */}
                     <td style={{ padding: '12px' }}>
-                      {loadingTransactionCounts[type.id] ? (
+                    {loadingTransactionCounts[type.id] ? (
                         <span style={{ color: '#6b7280', fontSize: '14px' }}>⏳...</span>
-                      ) : (
+                    ) : (
                         <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
                           {transactionCounts[type.id] ?? '-'}
                       </span>
@@ -1437,78 +1463,78 @@ export default function AmortizationConfigCard({
                     {/* Colonne "Date de début" */}
                     <td style={{ padding: '12px' }}>
                       {editingStartDateId === type.id ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input
-                            type="date"
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <input
+                          type="date"
                             value={editingStartDateValue}
                             onChange={(e) => setEditingStartDateValue(e.target.value)}
                             onBlur={() => handleStartDateEditSave(type.id)}
                             onKeyDown={(e) => handleStartDateEditKeyDown(e, type.id)}
-                        autoFocus
-                        style={{
+                          autoFocus
+                          style={{
                               padding: '4px 8px',
                               fontSize: '14px',
-                          border: '1px solid #3b82f6',
-                          borderRadius: '4px',
+                            border: '1px solid #3b82f6',
+                            borderRadius: '4px',
                               outline: 'none',
                               width: '140px',
-                            }}
-                          />
-                          <button
+                          }}
+                        />
+                        <button
                             type="button"
                             onClick={handleStartDateEditCancel}
-                        style={{
+                          style={{
                               padding: '4px 8px',
                               fontSize: '12px',
                               color: '#6b7280',
                               backgroundColor: 'transparent',
                               border: '1px solid #d1d5db',
-                          borderRadius: '4px',
-                              cursor: 'pointer',
-                            }}
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                          }}
                             title="Annuler"
-                          >
+                        >
                             ✕
-                          </button>
+                        </button>
                       </div>
-                      ) : (
+                    ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                           {type.start_date ? (
                             <>
                               <span
                                 onClick={() => handleStartDateEditStart(type)}
-                        style={{
-                          cursor: 'pointer',
+                          style={{
+                            cursor: 'pointer',
                                   padding: '4px 8px',
-                          borderRadius: '4px',
+                            borderRadius: '4px',
                                   display: 'inline-block',
                                   fontSize: '14px',
                                   color: '#374151',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#f3f4f6';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                        title="Cliquer pour éditer"
-                      >
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                          title="Cliquer pour éditer"
+                        >
                                 {new Date(type.start_date).toLocaleDateString('fr-FR', {
                                   day: '2-digit',
                                   month: '2-digit',
                                   year: 'numeric'
                                 })}
                       </span>
-                <button
+                          <button
                                 type="button"
                                 onClick={() => handleStartDateRemove(type.id)}
-                  style={{
-                                  padding: '2px 6px',
+                            style={{
+                              padding: '2px 6px',
                                   fontSize: '12px',
-              color: '#dc2626',
+                              color: '#dc2626',
               backgroundColor: 'transparent',
               border: 'none',
-              cursor: 'pointer',
+                              cursor: 'pointer',
                                   borderRadius: '4px',
             }}
             onMouseEnter={(e) => {
@@ -1516,11 +1542,11 @@ export default function AmortizationConfigCard({
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.backgroundColor = 'transparent';
-            }}
-                                title="Supprimer la date"
-              >
-                ×
-              </button>
+                            }}
+                            title="Supprimer la date"
+                          >
+                            ×
+                          </button>
                             </>
                           ) : (
                             <span
@@ -1546,46 +1572,46 @@ export default function AmortizationConfigCard({
                             >
                               Ajouter une date
                             </span>
-                  )}
-                </div>
-              )}
-                    </td>
+                        )}
+                      </div>
+                    )}
+                  </td>
                     {/* Colonne "Montant d'immobilisation" */}
                     <td style={{ padding: '12px' }}>
-                      {loadingAmounts[type.id] ? (
+                    {loadingAmounts[type.id] ? (
                         <span style={{ color: '#6b7280', fontSize: '14px' }}>⏳ Calcul...</span>
-                      ) : (
+                    ) : (
                         <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
-                          {amounts[type.id] !== undefined 
-                            ? new Intl.NumberFormat('fr-FR', { 
-                                style: 'currency', 
-                                currency: 'EUR',
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
+                        {amounts[type.id] !== undefined 
+                          ? new Intl.NumberFormat('fr-FR', { 
+                              style: 'currency', 
+                              currency: 'EUR',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
                               }).format(amounts[type.id])
                             : '-'
                           }
-                        </span>
-                      )}
-                    </td>
+                      </span>
+                    )}
+                  </td>
                     {/* Colonne "Durée d'amortissement" */}
                     <td style={{ padding: '12px' }}>
-                      {editingDurationId === type.id ? (
+                    {editingDurationId === type.id ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <input
-                            type="number"
+                      <input
+                        type="number"
                             min="0"
                             step="0.1"
-                            value={editingDurationValue}
-                            onChange={(e) => setEditingDurationValue(e.target.value)}
-                            onBlur={() => handleDurationEditSave(type.id)}
+                        value={editingDurationValue}
+                        onChange={(e) => setEditingDurationValue(e.target.value)}
+                        onBlur={() => handleDurationEditSave(type.id)}
                             onKeyDown={(e) => handleDurationEditKeyDown(e, type.id)}
-                            autoFocus
-                            style={{
+                        autoFocus
+                        style={{
                               padding: '4px 8px',
                               fontSize: '14px',
-                              border: '1px solid #3b82f6',
-                              borderRadius: '4px',
+                          border: '1px solid #3b82f6',
+                          borderRadius: '4px',
                               width: '80px',
                             }}
                           />
@@ -1613,29 +1639,29 @@ export default function AmortizationConfigCard({
                             ✕
                           </button>
                         </div>
-                      ) : (
+                    ) : (
                         <span
                           onClick={() => handleDurationEditStart(type.id, type.duration)}
-                          style={{
-                            cursor: 'pointer',
+                        style={{
+                          cursor: 'pointer',
                             padding: '4px 8px',
-                            borderRadius: '4px',
+                          borderRadius: '4px',
                             display: 'inline-block',
                             fontSize: '14px',
                             color: '#374151',
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#f3f4f6';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                          title="Cliquer pour éditer"
-                        >
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                        title="Cliquer pour éditer"
+                      >
                           {type.duration.toFixed(1)} ans
                         </span>
-                      )}
-                    </td>
+                    )}
+                  </td>
                     {/* Colonne "Annuité d'amortissement" */}
                     <td style={{ padding: '12px' }}>
                       {(() => {
@@ -1646,20 +1672,20 @@ export default function AmortizationConfigCard({
                         
                         return editingAnnualAmountId === type.id ? (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <input
-                              type="number"
+                      <input
+                        type="number"
                               min="0"
                               step="0.01"
-                              value={editingAnnualAmountValue}
-                              onChange={(e) => setEditingAnnualAmountValue(e.target.value)}
-                              onBlur={() => handleAnnualAmountEditSave(type.id)}
+                        value={editingAnnualAmountValue}
+                        onChange={(e) => setEditingAnnualAmountValue(e.target.value)}
+                        onBlur={() => handleAnnualAmountEditSave(type.id)}
                               onKeyDown={(e) => handleAnnualAmountEditKeyDown(e, type.id)}
-                              autoFocus
-                              style={{
+                        autoFocus
+                        style={{
                                 padding: '4px 8px',
                                 fontSize: '14px',
-                                border: '1px solid #3b82f6',
-                                borderRadius: '4px',
+                          border: '1px solid #3b82f6',
+                          borderRadius: '4px',
                                 width: '100px',
                               }}
                             />
@@ -1687,61 +1713,61 @@ export default function AmortizationConfigCard({
                               ✕
                             </button>
                           </div>
-                        ) : (
+                    ) : (
                           <span
                             onClick={() => handleAnnualAmountEditStart(type.id, type.annual_amount, calculatedAmount)}
-                            style={{
-                              cursor: 'pointer',
+                        style={{
+                          cursor: 'pointer',
                               padding: '4px 8px',
-                              borderRadius: '4px',
+                          borderRadius: '4px',
                               display: 'inline-block',
                               fontSize: '14px',
                               color: '#374151',
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#f3f4f6';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
                             title={type.annual_amount !== null && type.annual_amount !== 0 
                               ? "Cliquer pour éditer (valeur manuelle)" 
                               : "Cliquer pour éditer (calculée automatiquement)"}
                           >
                             {displayAmount !== null 
                               ? new Intl.NumberFormat('fr-FR', { 
-                                  style: 'currency', 
-                                  currency: 'EUR',
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
+                              style: 'currency',
+                              currency: 'EUR',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
                                 }).format(displayAmount)
                               : '-'
-                            }
+                          }
                           </span>
                         );
-                      })()}
-                    </td>
+                        })()}
+                  </td>
                     {/* Colonne "Montant cumulé" */}
                     <td style={{ padding: '12px' }}>
-                      {loadingCumulatedAmounts[type.id] ? (
+                    {loadingCumulatedAmounts[type.id] ? (
                         <span style={{ color: '#6b7280', fontSize: '14px' }}>⏳ Calcul...</span>
-                      ) : (
+                    ) : (
                         <span style={{ color: '#374151', fontSize: '14px', fontWeight: '500' }}>
-                          {cumulatedAmounts[type.id] !== undefined 
-                            ? new Intl.NumberFormat('fr-FR', { 
-                                style: 'currency', 
-                                currency: 'EUR',
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
+                        {cumulatedAmounts[type.id] !== undefined 
+                          ? new Intl.NumberFormat('fr-FR', { 
+                              style: 'currency', 
+                              currency: 'EUR',
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2
                               }).format(cumulatedAmounts[type.id])
                             : '0,00 €'
                           }
-                        </span>
-                      )}
-                    </td>
+                      </span>
+                    )}
+                  </td>
                     {/* Colonne "VNC" (Valeur Nette Comptable) */}
                     <td style={{ padding: '12px' }}>
-                      {(() => {
+                    {(() => {
                         // Calculer VNC = abs(Montant) - abs(Cumulé)
                         const amount = amounts[type.id] || 0;
                         const cumulated = cumulatedAmounts[type.id] || 0;
@@ -1749,10 +1775,10 @@ export default function AmortizationConfigCard({
                         
                         // Formatage monétaire
                         const formattedVNC = new Intl.NumberFormat('fr-FR', { 
-                          style: 'currency', 
-                          currency: 'EUR',
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
+                            style: 'currency', 
+                            currency: 'EUR',
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2
                         }).format(vnc);
                         
                         // Couleur : rouge si négatif, noir sinon
@@ -1765,10 +1791,10 @@ export default function AmortizationConfigCard({
                             fontWeight: '500' 
                           }}>
                             {formattedVNC}
-                          </span>
-                        );
-                      })()}
-                    </td>
+                        </span>
+                      );
+                    })()}
+                  </td>
                 </tr>
               ))
             )}
@@ -1810,8 +1836,8 @@ export default function AmortizationConfigCard({
                     </>
                   ) : (
                     <>
-                      <span>+</span>
-                      <span>Ajouter un type</span>
+                  <span>+</span>
+                  <span>Ajouter un type</span>
                     </>
                   )}
                 </button>
@@ -1819,52 +1845,52 @@ export default function AmortizationConfigCard({
             </tr>
           </tbody>
         </table>
-        
+
         {/* Menu contextuel (clic droit) */}
-        {contextMenu && (
-          <div
-            style={{
-              position: 'fixed',
-              top: `${contextMenu.y}px`,
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: `${contextMenu.y}px`,
               left: `${contextMenu.x}px`,
               backgroundColor: 'white',
-              border: '1px solid #e5e7eb',
-              borderRadius: '6px',
+            border: '1px solid #e5e7eb',
+            borderRadius: '6px',
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-              zIndex: 1000,
-              minWidth: '150px',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => handleDeleteType(contextMenu.typeId)}
+            zIndex: 1000,
+            minWidth: '150px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            onClick={() => handleDeleteType(contextMenu.typeId)}
               disabled={isDeletingType === contextMenu.typeId}
-              style={{
-                width: '100%',
-                padding: '10px 16px',
-                textAlign: 'left',
-                backgroundColor: 'transparent',
-                border: 'none',
+            style={{
+              width: '100%',
+              padding: '10px 16px',
+              textAlign: 'left',
+              backgroundColor: 'transparent',
+              border: 'none',
                 cursor: isDeletingType === contextMenu.typeId ? 'not-allowed' : 'pointer',
                 color: isDeletingType === contextMenu.typeId ? '#9ca3af' : '#dc2626',
-                fontSize: '14px',
-                fontWeight: '500',
-                display: 'flex',
-                alignItems: 'center',
+                  fontSize: '14px',
+                  fontWeight: '500',
+            display: 'flex',
+            alignItems: 'center',
                 gap: '8px',
                 transition: 'background-color 0.2s',
-              }}
-              onMouseEnter={(e) => {
+                    }}
+                    onMouseEnter={(e) => {
                 if (isDeletingType !== contextMenu.typeId) {
                   e.currentTarget.style.backgroundColor = '#fef2f2';
-                }
-              }}
-              onMouseLeave={(e) => {
+                      }
+                    }}
+                    onMouseLeave={(e) => {
                 if (isDeletingType !== contextMenu.typeId) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
-              }}
-            >
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }
+                    }}
+                  >
               {isDeletingType === contextMenu.typeId ? (
                 <>
                   <span>⏳</span>
@@ -1876,9 +1902,9 @@ export default function AmortizationConfigCard({
                   <span>Supprimer</span>
                 </>
               )}
-            </button>
-          </div>
-        )}
+              </button>
+        </div>
+      )}
         </div>
       )}
     </div>

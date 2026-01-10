@@ -1422,7 +1422,7 @@
 
 #### Step 6.6.15.1: Frontend - Vérification affichage tableau d'amortissements
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Vérifier que le tableau croisé d'amortissements (`AmortizationTable`) s'affiche correctement avec des données.
 
@@ -1438,7 +1438,7 @@
 
 **Tasks**:
 
-- [ ] Vérifier l'affichage du tableau avec des données :
+- [x] Vérifier l'affichage du tableau avec des données :
 
   - Générer des `AmortizationResult` en base (via script ou bouton de test)
 
@@ -1446,7 +1446,7 @@
 
   - Vérifier le formatage des montants (2 décimales, négatifs en rouge)
 
-- [ ] Vérifier les totaux :
+- [x] Vérifier les totaux :
 
   - Ligne Total en bas
 
@@ -1454,15 +1454,21 @@
 
   - Ligne Cumulé (somme progressive)
 
-- [ ] Vérifier que les cellules sont cliquables (sauf totaux)
+- [x] Vérifier que les cellules sont cliquables (sauf totaux)
 
-- [ ] Supprimer la référence au bouton "🔄 Calculer les amortissements" dans le message d'absence de résultats
+- [x] Supprimer la référence au bouton "🔄 Calculer les amortissements" dans le message d'absence de résultats
 
-- [ ] Mettre à jour le message pour indiquer que le recalcul est automatique
+- [x] Mettre à jour le message pour indiquer que le recalcul est automatique
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] Améliorer le formatage des montants (ajout EUR avec `Intl.NumberFormat`)
 
-- [ ] **Valider avec l'utilisateur**
+- [x] Corriger l'accès aux données (`totals_by_category` et `totals_by_year` au lieu de `row_totals` et `column_totals`)
+
+- [x] Créer script `display_amortization_table.py` pour afficher les données en base
+
+- [x] **Créer test visuel dans navigateur**
+
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -1472,21 +1478,28 @@
 
 **Acceptance Criteria**:
 
-- [ ] Tableau s'affiche correctement avec des données en base
+- [x] Tableau s'affiche correctement avec des données en base
 
-- [ ] Formatage correct (montants, totaux, cumulé)
+- [x] Formatage correct (montants, totaux, cumulé) avec EUR
 
-- [ ] Cellules cliquables fonctionnent (sauf totaux)
+- [x] Cellules cliquables fonctionnent (sauf totaux)
 
-- [ ] Message d'absence de résultats ne mentionne plus le bouton manuel
+- [x] Message d'absence de résultats ne mentionne plus le bouton manuel
 
-- [ ] Message indique que le recalcul est automatique
+- [x] Message indique que le recalcul est automatique
+
+**Notes de correction**:
+
+- Correction de l'accès aux données : utilisation de `totals_by_category` et `totals_by_year` (dictionnaires) convertis en tableaux `rowTotals` et `columnTotals`
+- Ajout de vérifications de sécurité pour éviter les erreurs `undefined`
+- Amélioration du formatage avec `Intl.NumberFormat` pour afficher les montants avec EUR
+- Création du script `display_amortization_table.py` pour visualiser les données en base
 
 ---
 
 #### Step 6.6.16: Frontend - Recalcul automatique des amortissements
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Améliorer la fluidité en déclenchant automatiquement le recalcul des amortissements après modification des paramètres.
 
@@ -1510,7 +1523,7 @@
 
 **Tasks**:
 
-- [ ] Identifier les champs qui impactent les amortissements :
+- [x] Identifier les champs qui impactent les amortissements :
 
   - `start_date` (date de début)
 
@@ -1520,23 +1533,29 @@
 
   - `level_1_values` (valeurs level_1 mappées)
 
-- [ ] Après sauvegarde de ces champs, déclencher automatiquement :
+- [x] Après sauvegarde de ces champs, déclencher automatiquement :
 
   - Appel à `amortizationAPI.recalculate()` (recalcul complet)
 
   - Afficher un indicateur de chargement pendant le recalcul
 
-- [ ] Après le recalcul, recharger automatiquement :
+- [x] Après le recalcul, recharger automatiquement :
 
   - `loadCumulatedAmounts()` (montants cumulés)
 
   - Rafraîchir le tableau d'amortissements (via `onConfigUpdated()`)
 
-- [ ] Gérer les erreurs potentielles lors du recalcul automatique (silencieux, pas d'alerte)
+- [x] Gérer les erreurs potentielles lors du recalcul automatique (silencieux, pas d'alerte)
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] Créer fonction utilitaire `triggerAutoRecalculate()` pour centraliser la logique
 
-- [ ] **Valider avec l'utilisateur**
+- [x] Ajouter état `isAutoRecalculating` pour gérer le chargement
+
+- [x] Modifier toutes les fonctions de sauvegarde pour déclencher le recalcul
+
+- [x] **Créer test visuel dans navigateur**
+
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -1558,23 +1577,31 @@
 
 **Acceptance Criteria**:
 
-- [ ] Modification de `start_date` → recalcul automatique → montant cumulé mis à jour
+- [x] Modification de `start_date` → recalcul automatique → montant cumulé mis à jour
 
-- [ ] Modification de `duration` → recalcul automatique → montant cumulé mis à jour
+- [x] Modification de `duration` → recalcul automatique → montant cumulé mis à jour
 
-- [ ] Modification de `annual_amount` → recalcul automatique → montant cumulé mis à jour
+- [x] Modification de `annual_amount` → recalcul automatique → montant cumulé mis à jour
 
-- [ ] Modification de `level_1_values` → recalcul automatique → montant cumulé mis à jour
+- [x] Modification de `level_1_values` → recalcul automatique → montant cumulé mis à jour
 
-- [ ] Indicateur de chargement visible pendant le recalcul ("⏳ Recalcul en cours..." dans le titre)
+- [x] Indicateur de chargement visible pendant le recalcul ("⏳ Recalcul en cours..." dans le titre)
 
-- [ ] Pas besoin de rafraîchir la page manuellement
+- [x] Pas besoin de rafraîchir la page manuellement
 
-- [ ] Recalcul automatique des `AmortizationResult` en base après modification des paramètres
+- [x] Recalcul automatique des `AmortizationResult` en base après modification des paramètres
 
-- [ ] Tableau d'amortissements se met à jour automatiquement avec les nouvelles données
+- [x] Tableau d'amortissements se met à jour automatiquement avec les nouvelles données
 
-- [ ] Gestion d'erreur si le recalcul échoue (silencieux, log dans la console)
+- [x] Gestion d'erreur si le recalcul échoue (silencieux, log dans la console)
+
+**Notes de correction**:
+
+- Fonction `triggerAutoRecalculate()` créée pour centraliser la logique de recalcul
+- État `isAutoRecalculating` ajouté pour gérer le chargement
+- Toutes les fonctions de sauvegarde (`handleStartDateEditSave`, `handleStartDateRemove`, `handleDurationEditSave`, `handleAnnualAmountEditSave`, `handleLevel1Toggle`) modifiées pour déclencher le recalcul automatique
+- Indicateur visuel "⏳ Recalcul en cours..." ajouté dans le titre de la card
+- Import de `amortizationAPI` ajouté pour accéder à l'API de recalcul
 
 ---
 

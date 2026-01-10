@@ -59,7 +59,7 @@ async function fetchAPI<T>(
       
       // Ne pas logger les erreurs 404 (souvent attendues, comme pour vérifier si une ressource existe)
       if (response.status !== 404) {
-        console.error(`❌ [API] Erreur ${response.status} (${endpoint}):`, error);
+      console.error(`❌ [API] Erreur ${response.status} (${endpoint}):`, error);
       }
       
       // Créer une erreur avec le statut pour faciliter la détection
@@ -92,7 +92,7 @@ async function fetchAPI<T>(
                        ));
     
     if (!is404Error) {
-      console.error(`❌ [API] Erreur lors de l'appel (${endpoint}):`, error);
+    console.error(`❌ [API] Erreur lors de l'appel (${endpoint}):`, error);
     }
     throw error;
   }

@@ -58,7 +58,12 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
   };
 
   const formatAmount = (amount: number): string => {
-    return amount.toFixed(2);
+    return new Intl.NumberFormat('fr-FR', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
   };
 
   if (loading) {
@@ -103,6 +108,10 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
       </div>
     );
   }
+
+  // Convertir les dictionnaires en tableaux pour faciliter l'accès
+  const rowTotals = data.categories.map(category => data.totals_by_category[category] || 0);
+  const columnTotals = data.years.map(year => data.totals_by_year[year] || 0);
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -157,54 +166,57 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
           </tr>
         </thead>
         <tbody>
-          {data.categories.map((category, rowIndex) => (
-            <tr key={category}>
-              <td
-                style={{
-                  padding: '12px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e5e7eb',
-                  fontWeight: '600',
-                  color: '#111827',
-                }}
-              >
-                {category.charAt(0).toUpperCase() + category.slice(1)}
-              </td>
-              {data.years.map((year, colIndex) => {
-                const amount = data.data[rowIndex][colIndex];
-                const isNegative = amount < 0;
-                return (
-                  <td
-                    key={year}
-                    onClick={() => onCellClick && onCellClick(year, category)}
-                    style={{
-                      padding: '12px',
-                      textAlign: 'right',
-                      backgroundColor: '#ffffff',
-                      border: '1px solid #e5e7eb',
-                      color: isNegative ? '#dc2626' : '#111827',
-                      cursor: onCellClick ? 'pointer' : 'default',
-                    }}
-                    title={onCellClick ? `Cliquer pour voir les détails` : undefined}
-                  >
-                    {formatAmount(amount)}
-                  </td>
-                );
-              })}
-              <td
-                style={{
-                  padding: '12px',
-                  textAlign: 'right',
-                  backgroundColor: '#f9fafb',
-                  border: '1px solid #e5e7eb',
-                  fontWeight: '600',
-                  color: data.row_totals[rowIndex] < 0 ? '#dc2626' : '#111827',
-                }}
-              >
-                {formatAmount(data.row_totals[rowIndex])}
-              </td>
-            </tr>
-          ))}
+          {data.categories.map((category, rowIndex) => {
+            const rowData = data.data[rowIndex] || [];
+            return (
+              <tr key={category}>
+                <td
+                  style={{
+                    padding: '12px',
+                    backgroundColor: '#ffffff',
+                    border: '1px solid #e5e7eb',
+                    fontWeight: '600',
+                    color: '#111827',
+                  }}
+                >
+                  {category.charAt(0).toUpperCase() + category.slice(1)}
+                </td>
+                {data.years.map((year, colIndex) => {
+                  const amount = rowData[colIndex] || 0;
+                  const isNegative = amount < 0;
+                  return (
+                    <td
+                      key={year}
+                      onClick={() => onCellClick && onCellClick(year, category)}
+                      style={{
+                        padding: '12px',
+                        textAlign: 'right',
+                        backgroundColor: '#ffffff',
+                        border: '1px solid #e5e7eb',
+                        color: isNegative ? '#dc2626' : '#111827',
+                        cursor: onCellClick ? 'pointer' : 'default',
+                      }}
+                      title={onCellClick ? `Cliquer pour voir les détails` : undefined}
+                    >
+                      {formatAmount(amount)}
+                    </td>
+                  );
+                })}
+                <td
+                  style={{
+                    padding: '12px',
+                    textAlign: 'right',
+                    backgroundColor: '#f9fafb',
+                    border: '1px solid #e5e7eb',
+                    fontWeight: '600',
+                    color: rowTotals[rowIndex] < 0 ? '#dc2626' : '#111827',
+                  }}
+                >
+                  {formatAmount(rowTotals[rowIndex])}
+                </td>
+              </tr>
+            );
+          })}
           {/* Ligne Total */}
           <tr>
             <td
@@ -219,7 +231,7 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
               Total
             </td>
             {data.years.map((year, colIndex) => {
-              const amount = data.column_totals[colIndex];
+              const amount = columnTotals[colIndex] || 0;
               return (
                 <td
                   key={year}
@@ -264,7 +276,7 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
             </td>
             {data.years.map((year, colIndex) => {
               // Calculer le cumul : somme de toutes les années jusqu'à l'année actuelle (inclusive)
-              const cumulativeAmount = data.column_totals
+              const cumulativeAmount = columnTotals
                 .slice(0, colIndex + 1)
                 .reduce((sum, amount) => sum + amount, 0);
               return (

@@ -32,7 +32,7 @@ export default function AmortissementsPage() {
 
   return (
     <div style={{ padding: '24px' }}>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Card de configuration */}
         <AmortizationConfigCard
           onConfigUpdated={handleConfigUpdated}
