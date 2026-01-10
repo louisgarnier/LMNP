@@ -49,6 +49,10 @@ export default function AmortizationConfigCard({
   const [editingDurationId, setEditingDurationId] = useState<number | null>(null);
   const [editingDurationValue, setEditingDurationValue] = useState<string>('');
   
+  // États pour la colonne "Annuité d'amortissement"
+  const [editingAnnualAmountId, setEditingAnnualAmountId] = useState<number | null>(null);
+  const [editingAnnualAmountValue, setEditingAnnualAmountValue] = useState<string>('');
+  
   // États pour la colonne "Level 1 (valeurs)"
   const [level1Values, setLevel1Values] = useState<string[]>([]);
   const [loadingLevel1Values, setLoadingLevel1Values] = useState<boolean>(false);
@@ -624,8 +628,8 @@ export default function AmortizationConfigCard({
       // Recharger les types pour avoir la valeur à jour
       await loadAmortizationTypes();
       
-      // Recalculer l'annuité si nécessaire (sera fait dans une étape ultérieure)
-      // Pour l'instant, on recharge juste les types
+      // Recharger les montants pour recalculer l'annuité automatiquement
+      await loadAmounts();
       
       setEditingDurationId(null);
       setEditingDurationValue('');
@@ -651,6 +655,77 @@ export default function AmortizationConfigCard({
       handleDurationEditSave(typeId);
     } else if (e.key === 'Escape') {
       handleDurationEditCancel();
+    }
+  };
+
+  // Calculer l'annuité automatiquement : Annuité = abs(Montant) / Durée
+  const calculateAnnualAmount = (amount: number, duration: number): number | null => {
+    if (amount === 0 || duration <= 0) {
+      return null; // Pas de calcul si montant = 0 ou durée <= 0
+    }
+    return Math.abs(amount) / duration;
+  };
+
+  // Démarrer l'édition de l'annuité
+  const handleAnnualAmountEditStart = (typeId: number, currentAnnualAmount: number | null, calculatedAmount: number | null) => {
+    setEditingAnnualAmountId(typeId);
+    // Si annual_amount est défini et non nul, utiliser cette valeur, sinon utiliser le calcul automatique
+    const valueToEdit = currentAnnualAmount !== null && currentAnnualAmount !== 0 
+      ? currentAnnualAmount.toString() 
+      : (calculatedAmount !== null ? calculatedAmount.toString() : '');
+    setEditingAnnualAmountValue(valueToEdit);
+  };
+
+  // Sauvegarder l'annuité
+  const handleAnnualAmountEditSave = async (typeId: number) => {
+    try {
+      let annualAmountValue: number | null = null;
+      
+      if (editingAnnualAmountValue.trim()) {
+        const parsedValue = parseFloat(editingAnnualAmountValue);
+        
+        // Validation : nombre positif
+        if (isNaN(parsedValue) || parsedValue < 0) {
+          alert('L\'annuité doit être un nombre positif');
+          handleAnnualAmountEditCancel();
+          return;
+        }
+        
+        // Si la valeur est 0, on la considère comme "non définie" (calcul automatique)
+        annualAmountValue = parsedValue === 0 ? null : parsedValue;
+      }
+      
+      await amortizationTypesAPI.update(typeId, {
+        annual_amount: annualAmountValue,
+      });
+      
+      // Recharger les types pour avoir la valeur à jour
+      await loadAmortizationTypes();
+      
+      setEditingAnnualAmountId(null);
+      setEditingAnnualAmountValue('');
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la sauvegarde de l\'annuité:', err);
+      alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Annuler l'édition de l'annuité
+  const handleAnnualAmountEditCancel = () => {
+    setEditingAnnualAmountId(null);
+    setEditingAnnualAmountValue('');
+  };
+
+  // Gérer les touches dans le champ d'édition de l'annuité
+  const handleAnnualAmountEditKeyDown = (e: React.KeyboardEvent, typeId: number) => {
+    if (e.key === 'Enter') {
+      handleAnnualAmountEditSave(typeId);
+    } else if (e.key === 'Escape') {
+      handleAnnualAmountEditCancel();
     }
   };
 
@@ -1355,8 +1430,92 @@ export default function AmortizationConfigCard({
                         </span>
                       )}
                     </td>
+                    {/* Colonne "Annuité d'amortissement" */}
+                    <td style={{ padding: '12px' }}>
+                      {(() => {
+                        const calculatedAmount = calculateAnnualAmount(amounts[type.id] || 0, type.duration);
+                        const displayAmount = type.annual_amount !== null && type.annual_amount !== 0 
+                          ? type.annual_amount 
+                          : calculatedAmount;
+                        
+                        return editingAnnualAmountId === type.id ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={editingAnnualAmountValue}
+                              onChange={(e) => setEditingAnnualAmountValue(e.target.value)}
+                              onBlur={() => handleAnnualAmountEditSave(type.id)}
+                              onKeyDown={(e) => handleAnnualAmountEditKeyDown(e, type.id)}
+                              autoFocus
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '14px',
+                                border: '1px solid #3b82f6',
+                                borderRadius: '4px',
+                                width: '100px',
+                              }}
+                            />
+                            <span style={{ fontSize: '14px', color: '#6b7280' }}>€</span>
+                            <button
+                              type="button"
+                              onClick={handleAnnualAmountEditCancel}
+                              style={{
+                                padding: '2px 6px',
+                                fontSize: '12px',
+                                color: '#6b7280',
+                                backgroundColor: 'transparent',
+                                border: 'none',
+                                cursor: 'pointer',
+                                borderRadius: '4px',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                              title="Annuler (Escape)"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ) : (
+                          <span
+                            onClick={() => handleAnnualAmountEditStart(type.id, type.annual_amount, calculatedAmount)}
+                            style={{
+                              cursor: 'pointer',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              display: 'inline-block',
+                              fontSize: '14px',
+                              color: '#374151',
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = '#f3f4f6';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title={type.annual_amount !== null && type.annual_amount !== 0 
+                              ? "Cliquer pour éditer (valeur manuelle)" 
+                              : "Cliquer pour éditer (calculée automatiquement)"}
+                          >
+                            {displayAmount !== null 
+                              ? new Intl.NumberFormat('fr-FR', { 
+                                  style: 'currency', 
+                                  currency: 'EUR',
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                }).format(displayAmount)
+                              : '-'
+                            }
+                          </span>
+                        );
+                      })()}
+                    </td>
                     {/* Autres colonnes vides pour l'instant */}
-                    <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
                     <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>

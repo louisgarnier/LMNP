@@ -73,7 +73,20 @@ def main():
                     print(f'    → {level_1_str}')
                 print(f'  - Start date: {t.start_date or "(null)"}')
                 print(f'  - Duration: {t.duration} années')
-                print(f'  - Annual amount: {t.annual_amount or "(null)"}')
+                print(f'  - Annual amount (manuel): {t.annual_amount if t.annual_amount is not None and t.annual_amount != 0 else "(null - calcul automatique)"}')
+                
+                # Calculer l'annuité automatique : abs(Montant) / Durée
+                calculated_annual_amount = None
+                if amount != 0 and t.duration > 0:
+                    calculated_annual_amount = abs(amount) / t.duration
+                
+                # Afficher l'annuité effective (manuelle si définie, sinon calculée)
+                effective_annual_amount = t.annual_amount if t.annual_amount is not None and t.annual_amount != 0 else calculated_annual_amount
+                if effective_annual_amount is not None:
+                    print(f'  - Annuité effective: {effective_annual_amount:,.2f} €')
+                else:
+                    print(f'  - Annuité effective: (non calculable)')
+                
                 print(f'  - Montant d\'immobilisation: {amount:,.2f} €')
                 print(f'  - Nombre de transactions: {transaction_count}')
         
