@@ -1080,7 +1080,7 @@
 
 **Tasks**:
 
-- [ ] **Backend - Modifier endpoint `/api/amortization/types/{id}/cumulated`** :
+- [x] **Backend - Modifier endpoint `/api/amortization/types/{id}/cumulated`** :
 
   - Calculer par transaction individuelle (pas depuis `AmortizationResult`)
 
@@ -1088,11 +1088,11 @@
 
   - Gérer `start_date` override du type
 
-  - Calculer jusqu'à la date d'aujourd'hui
+  - Calculer jusqu'à l'année en cours (incluse, montant complet pour l'année en cours)
 
   - Sommer tous les montants cumulés par transaction
 
-- [ ] Ajouter colonne "Montant cumulé" :
+- [x] Ajouter colonne "Montant cumulé" :
 
   - Champ en lecture seule (calculé)
 
@@ -1100,13 +1100,13 @@
 
   - Recalculer quand montant, durée, annuité ou date de début change
 
-- [ ] Afficher formatage monétaire (2 décimales, EUR)
+- [x] Afficher formatage monétaire (2 décimales, EUR)
 
-- [ ] Gérer état de chargement
+- [x] Gérer état de chargement
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur** ✅ Validé
 
 **Deliverables**:
 
