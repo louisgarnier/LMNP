@@ -97,8 +97,8 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
       <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
         <div style={{ marginBottom: '8px', fontSize: '16px', fontWeight: '600' }}>ℹ️ Aucun résultat d'amortissement</div>
         <div style={{ fontSize: '14px', marginBottom: '16px' }}>
-          Configurez les amortissements dans le panneau de configuration (bouton CONFIG à droite),<br />
-          puis cliquez sur "🔄 Calculer les amortissements" en haut à droite pour générer les résultats.
+          Configurez les amortissements dans le panneau de configuration ci-dessus.<br />
+          Les résultats seront calculés automatiquement après configuration.
         </div>
       </div>
     );

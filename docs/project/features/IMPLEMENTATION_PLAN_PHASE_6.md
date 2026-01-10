@@ -1420,6 +1420,70 @@
 
 ---
 
+#### Step 6.6.15.1: Frontend - Vérification affichage tableau d'amortissements
+
+**Status**: ⏳ EN ATTENTE  
+
+**Description**: Vérifier que le tableau croisé d'amortissements (`AmortizationTable`) s'affiche correctement avec des données.
+
+**Objectifs**:
+
+- Vérifier que le tableau s'affiche correctement quand il y a des `AmortizationResult` en base
+
+- Vérifier le formatage des montants, totaux et cumulé
+
+- Vérifier que les cellules sont cliquables (préparation pour drill-down)
+
+- Supprimer la référence au bouton manuel "🔄 Calculer les amortissements" (non nécessaire, recalcul automatique)
+
+**Tasks**:
+
+- [ ] Vérifier l'affichage du tableau avec des données :
+
+  - Générer des `AmortizationResult` en base (via script ou bouton de test)
+
+  - Vérifier que le tableau s'affiche avec les catégories et années
+
+  - Vérifier le formatage des montants (2 décimales, négatifs en rouge)
+
+- [ ] Vérifier les totaux :
+
+  - Ligne Total en bas
+
+  - Colonne Total à droite
+
+  - Ligne Cumulé (somme progressive)
+
+- [ ] Vérifier que les cellules sont cliquables (sauf totaux)
+
+- [ ] Supprimer la référence au bouton "🔄 Calculer les amortissements" dans le message d'absence de résultats
+
+- [ ] Mettre à jour le message pour indiquer que le recalcul est automatique
+
+- [ ] **Créer test visuel dans navigateur**
+
+- [ ] **Valider avec l'utilisateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/AmortizationTable.tsx` - Message d'absence de résultats
+
+- Vérification que `frontend/app/dashboard/amortissements/page.tsx` affiche correctement le tableau
+
+**Acceptance Criteria**:
+
+- [ ] Tableau s'affiche correctement avec des données en base
+
+- [ ] Formatage correct (montants, totaux, cumulé)
+
+- [ ] Cellules cliquables fonctionnent (sauf totaux)
+
+- [ ] Message d'absence de résultats ne mentionne plus le bouton manuel
+
+- [ ] Message indique que le recalcul est automatique
+
+---
+
 #### Step 6.6.16: Frontend - Recalcul automatique des amortissements
 
 **Status**: ⏳ EN ATTENTE  
@@ -1436,13 +1500,13 @@
 
 **Problème actuel**:
 
-- Après modification de la date de début (ou autres paramètres), l'utilisateur doit :
+- Après modification de la date de début (ou autres paramètres), les `AmortizationResult` en base ne sont pas recalculés automatiquement
 
-  1. Cliquer manuellement sur "🔄 Calculer les amortissements"
+- Le tableau d'amortissements (`AmortizationTable`) affiche donc des données obsolètes
 
-  2. Rafraîchir la page pour que le "montant cumulé" se mette à jour
+- Le "montant cumulé" dans la card de configuration se met à jour (calcul dynamique), mais le tableau croisé non
 
-- Ce n'est pas fluide et nécessite des actions manuelles
+- Ce n'est pas fluide et nécessite un recalcul manuel des `AmortizationResult`
 
 **Tasks**:
 
@@ -1506,7 +1570,9 @@
 
 - [ ] Pas besoin de rafraîchir la page manuellement
 
-- [ ] Pas besoin de cliquer sur "🔄 Calculer les amortissements" manuellement
+- [ ] Recalcul automatique des `AmortizationResult` en base après modification des paramètres
+
+- [ ] Tableau d'amortissements se met à jour automatiquement avec les nouvelles données
 
 - [ ] Gestion d'erreur si le recalcul échoue (silencieux, log dans la console)
 
