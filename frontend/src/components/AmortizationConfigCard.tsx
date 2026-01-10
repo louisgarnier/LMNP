@@ -1585,9 +1585,36 @@ export default function AmortizationConfigCard({
                         </span>
                       )}
                     </td>
-                    {/* Autres colonnes vides pour l'instant */}
-                    <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
-                    <td style={{ padding: '12px', color: '#9ca3af' }}>-</td>
+                    {/* Colonne "VNC" (Valeur Nette Comptable) */}
+                    <td style={{ padding: '12px' }}>
+                      {(() => {
+                        // Calculer VNC = abs(Montant) - abs(Cumulé)
+                        const amount = amounts[type.id] || 0;
+                        const cumulated = cumulatedAmounts[type.id] || 0;
+                        const vnc = Math.abs(amount) - Math.abs(cumulated);
+                        
+                        // Formatage monétaire
+                        const formattedVNC = new Intl.NumberFormat('fr-FR', { 
+                          style: 'currency', 
+                          currency: 'EUR',
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        }).format(vnc);
+                        
+                        // Couleur : rouge si négatif, noir sinon
+                        const vncColor = vnc < 0 ? '#dc2626' : '#374151';
+                        
+                        return (
+                          <span style={{ 
+                            color: vncColor, 
+                            fontSize: '14px', 
+                            fontWeight: '500' 
+                          }}>
+                            {formattedVNC}
+                          </span>
+                        );
+                      })()}
+                    </td>
                 </tr>
               ))
             )}

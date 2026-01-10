@@ -1144,7 +1144,7 @@
 
 #### Step 6.6.12: Frontend - Colonne "VNC" (calculé)
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter la colonne "VNC" avec calcul automatique.
 
@@ -1156,21 +1156,21 @@
 
 **Tasks**:
 
-- [ ] Ajouter colonne "VNC" :
+- [x] Ajouter colonne "VNC" :
 
   - Champ en lecture seule (calculé)
 
   - Calcul : `VNC = abs(Montant) - abs(Cumulé)`
 
-  - Recalculer quand Montant ou Cumulé change
+  - Recalculer quand Montant ou Cumulé change (automatique via `amounts` et `cumulatedAmounts`)
 
-- [ ] Afficher formatage monétaire (2 décimales)
+- [x] Afficher formatage monétaire (2 décimales)
 
-- [ ] Affichage conditionnel : couleur rouge si VNC < 0, noir sinon
+- [x] Affichage conditionnel : couleur rouge si VNC < 0, noir sinon
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur** ✅ Validé
 
 **Deliverables**:
 
@@ -1178,15 +1178,15 @@
 
 **Acceptance Criteria**:
 
-- [ ] VNC s'affiche correctement
+- [x] VNC s'affiche correctement
 
-- [ ] Calcul automatique fonctionne (VNC = abs(Montant) - abs(Cumulé))
+- [x] Calcul automatique fonctionne (VNC = abs(Montant) - abs(Cumulé))
 
-- [ ] Recalcul automatique fonctionne (quand Montant ou Cumulé change)
+- [x] Recalcul automatique fonctionne (quand Montant ou Cumulé change)
 
-- [ ] Formatage correct (monétaire, 2 décimales)
+- [x] Formatage correct (monétaire, 2 décimales)
 
-- [ ] Affichage conditionnel (rouge si négatif)
+- [x] Affichage conditionnel (rouge si négatif)
 
 ---
 

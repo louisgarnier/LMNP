@@ -139,14 +139,18 @@ def main():
                         
                         # Sommer les montants jusqu'à l'année en cours (incluse)
                         transaction_cumulated = 0.0
-                        for year, amount in yearly_amounts.items():
+                        for year, yearly_amount in yearly_amounts.items():
                             if year <= today.year:
                                 # Prendre le montant complet de l'année (pas de prorata pour l'année en cours)
-                                transaction_cumulated += abs(amount)
+                                transaction_cumulated += abs(yearly_amount)
                         
                         cumulated_amount += transaction_cumulated
                 
                 print(f'  - Montant cumulé d\'amortissement: {cumulated_amount:,.2f} €')
+                
+                # Calculer le VNC (Valeur Nette Comptable) : VNC = abs(Montant) - abs(Cumulé)
+                vnc = abs(amount) - abs(cumulated_amount)
+                print(f'  - VNC (Valeur Nette Comptable): {vnc:,.2f} €')
                 
                 # Afficher le nombre de résultats d'amortissement pour ce type
                 result_count = db.query(func.count(AmortizationResult.id)).filter(
