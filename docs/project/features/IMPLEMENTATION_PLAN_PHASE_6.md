@@ -1176,6 +1176,8 @@
 
 - Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
 
+- Mise à jour `backend/scripts/check_amortization_state.py` (affichage du VNC calculé)
+
 **Acceptance Criteria**:
 
 - [x] VNC s'affiche correctement
