@@ -115,25 +115,39 @@ async def update_transaction_classifications(
         all_transactions = db.query(Transaction).filter(
             Transaction.nom == transaction.nom
         ).all()
+        
+        # Liste des IDs de transactions à recalculer (incluant la transaction modifiée)
+        transaction_ids_to_recalculate = [transaction_id]
+        
         for other_transaction in all_transactions:
             if other_transaction.id != transaction.id:  # Ne pas re-enrichir la transaction qu'on vient de modifier
                 enrich_transaction(other_transaction, db)
+                # Ajouter cette transaction à la liste des transactions à recalculer
+                transaction_ids_to_recalculate.append(other_transaction.id)
         
         db.commit()
     
     # Recharger la transaction avec les données enrichies
     db.refresh(transaction)
     
-    # Recalculer les amortissements après modification du mapping
+    # Recalculer les amortissements pour TOUTES les transactions affectées
+    # (la transaction modifiée + toutes les transactions re-enrichies avec le même nom)
     # (gestion silencieuse des erreurs pour ne pas bloquer la modification)
     try:
         from backend.api.services.amortization_service import recalculate_transaction_amortization
-        recalculate_transaction_amortization(db, transaction_id)
+        for tid in transaction_ids_to_recalculate:
+            try:
+                recalculate_transaction_amortization(db, tid)
+            except Exception as e:
+                # Log l'erreur pour cette transaction spécifique mais continue avec les autres
+                import traceback
+                error_details = traceback.format_exc()
+                print(f"⚠️ [update_transaction_classifications] Erreur lors du recalcul des amortissements pour transaction {tid}: {error_details}")
     except Exception as e:
-        # Log l'erreur mais ne bloque pas la modification
+        # Log l'erreur globale mais ne bloque pas la modification
         import traceback
         error_details = traceback.format_exc()
-        print(f"⚠️ [update_transaction_classifications] Erreur lors du recalcul des amortissements pour transaction {transaction_id}: {error_details}")
+        print(f"⚠️ [update_transaction_classifications] Erreur lors du recalcul des amortissements: {error_details}")
     
     # Construire la réponse avec les données enrichies
     enriched_data = db.query(EnrichedTransaction).filter(

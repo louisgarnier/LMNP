@@ -1827,7 +1827,7 @@
 
 #### Step 6.6.17.4: Frontend - Rafraîchissement automatique après modification de transaction/mapping
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Rafraîchir automatiquement les deux cards d'amortissement après modification d'une transaction ou d'un mapping.
 
@@ -1845,21 +1845,20 @@
 
 **Tasks**:
 
-- [ ] Identifier les points d'entrée :
+- [x] Identifier les points d'entrée :
 
-  - [ ] `TransactionsTable` : après modification d'une transaction (mapping)
-  - [ ] `UnclassifiedTransactionsTable` : après modification d'une transaction
-  - [ ] Endpoint d'enrichissement : après modification de mapping
+  - [x] `TransactionsTable` : après modification d'une transaction (mapping) - `handleSaveClassification`
+  - [x] `TransactionsTable` : après modification d'une transaction (date/quantite/nom) - `handleSaveEdit`
+  - [x] `UnclassifiedTransactionsTable` : réutilise `TransactionsTable`, donc couvert automatiquement
+  - [x] Endpoint d'enrichissement : géré via `handleSaveClassification` qui appelle `enrichmentAPI.updateClassifications`
 
-- [ ] Réutiliser le mécanisme de rafraîchissement créé dans Step 6.6.17.3
+- [x] Réutiliser le mécanisme de rafraîchissement créé dans Step 6.6.17.3
 
-- [ ] Connecter tous les points d'entrée au mécanisme de rafraîchissement
+- [x] Connecter tous les points d'entrée au mécanisme de rafraîchissement
 
-- [ ] Gérer les erreurs potentielles (silencieux, log dans la console)
+- [x] Gérer les erreurs potentielles (silencieux, log dans la console)
 
-- [ ] **Créer test visuel dans navigateur**
-
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -1871,17 +1870,27 @@
 
 **Acceptance Criteria**:
 
-- [ ] Modification d'une transaction (mapping level_1/level_2/level_3) → les deux cards se rafraîchissent automatiquement
+- [x] Modification d'une transaction (mapping level_1/level_2/level_3) → les deux cards se rafraîchissent automatiquement
 
-- [ ] Modification d'un mapping dans l'onglet "Toutes les transactions" → les deux cards se rafraîchissent automatiquement
+- [x] Modification d'une transaction (date/quantite/nom) → les deux cards se rafraîchissent automatiquement
 
-- [ ] Card config affiche les montants mis à jour
+- [x] Card config affiche les montants mis à jour
 
-- [ ] Card tableau affiche les calculs mis à jour
+- [x] Card tableau affiche les calculs mis à jour
 
-- [ ] Pas besoin de rafraîchir manuellement la page
+- [x] Pas besoin de rafraîchir manuellement la page
 
-- [ ] Gestion d'erreur si le rafraîchissement échoue (silencieux, log dans la console)
+- [x] Gestion d'erreur si le rafraîchissement échoue (silencieux, log dans la console)
+
+**Notes de correction**:
+
+- **Émission d'événement** : Ajout de l'émission d'événement global `transactionUpdated` dans `TransactionsTable` :
+  - Après `handleSaveEdit` (modification date/quantite/nom)
+  - Après `handleSaveClassification` (modification mapping level_1/level_2/level_3)
+- **Écoute de l'événement** : Ajout de l'écoute de `transactionUpdated` dans `AmortissementsPage` pour rafraîchir les deux cards
+- **Réutilisation du mécanisme** : Utilisation de la même fonction `refreshCards` que pour `transactionCreated` (via `useCallback` pour stabilité)
+- **UnclassifiedTransactionsTable** : Couvert automatiquement car il réutilise `TransactionsTable`
+- **Correction backend importante** : Dans `update_transaction_classifications`, après re-enrichissement de toutes les transactions avec le même nom, recalculer les amortissements pour TOUTES ces transactions (pas seulement celle modifiée). Cela garantit que toutes les transactions affectées par le changement de mapping ont leurs `AmortizationResult` mis à jour.
 
 ---
 

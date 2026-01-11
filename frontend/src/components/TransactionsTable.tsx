@@ -484,6 +484,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         if (onDelete) {
           onDelete();
         }
+        
+        // Émettre un événement global pour notifier les autres pages (ex: Amortissements)
+        // que la transaction a été modifiée
+        window.dispatchEvent(new CustomEvent('transactionUpdated', {
+          detail: { transactionId: transaction.id }
+        }));
+        console.log('📢 [TransactionsTable] Événement transactionUpdated émis');
       } else {
         // Aucune modification, juste annuler l'édition
         setEditingId(null);
@@ -852,6 +859,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       if (onUpdate) {
         onUpdate();
       }
+      
+      // Émettre un événement global pour notifier les autres pages (ex: Amortissements)
+      // que la transaction a été modifiée (mapping)
+      window.dispatchEvent(new CustomEvent('transactionUpdated', {
+        detail: { transactionId: transaction.id }
+      }));
+      console.log('📢 [TransactionsTable] Événement transactionUpdated émis (mapping modifié)');
     } catch (err: any) {
       console.error('Error updating classification:', err);
       alert(`Erreur lors de la modification: ${err.message || 'Erreur inconnue'}`);

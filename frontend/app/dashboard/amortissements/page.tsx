@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import AmortizationConfigCard from '@/components/AmortizationConfigCard';
 import AmortizationTable from '@/components/AmortizationTable';
 
@@ -36,25 +36,29 @@ export default function AmortissementsPage() {
     refreshConfigCardRef.current = refreshFn;
   };
 
+  // Fonction utilitaire pour rafraîchir les cards (utilise useCallback pour stabilité)
+  const refreshCards = useCallback(async () => {
+    // Rafraîchir la card de configuration
+    if (refreshConfigCardRef.current) {
+      try {
+        await refreshConfigCardRef.current();
+        console.log('✅ [AmortissementsPage] Card config rafraîchie');
+      } catch (err) {
+        console.error('❌ [AmortissementsPage] Erreur lors du rafraîchissement de la card config:', err);
+      }
+    }
+    
+    // Rafraîchir le tableau
+    setRefreshKey(prev => prev + 1);
+    console.log('✅ [AmortissementsPage] Tableau rafraîchi');
+  }, []);
+
   // Écouter l'événement transactionCreated pour rafraîchir automatiquement les cards
   useEffect(() => {
     const handleTransactionCreated = async (event: Event) => {
       const customEvent = event as CustomEvent;
       console.log('📢 [AmortissementsPage] Événement transactionCreated reçu:', customEvent.detail);
-      
-      // Rafraîchir la card de configuration
-      if (refreshConfigCardRef.current) {
-        try {
-          await refreshConfigCardRef.current();
-          console.log('✅ [AmortissementsPage] Card config rafraîchie');
-        } catch (err) {
-          console.error('❌ [AmortissementsPage] Erreur lors du rafraîchissement de la card config:', err);
-        }
-      }
-      
-      // Rafraîchir le tableau
-      setRefreshKey(prev => prev + 1);
-      console.log('✅ [AmortissementsPage] Tableau rafraîchi');
+      await refreshCards();
     };
 
     window.addEventListener('transactionCreated', handleTransactionCreated);
@@ -62,7 +66,22 @@ export default function AmortissementsPage() {
     return () => {
       window.removeEventListener('transactionCreated', handleTransactionCreated);
     };
-  }, []);
+  }, [refreshCards]);
+
+  // Écouter l'événement transactionUpdated pour rafraîchir automatiquement les cards
+  useEffect(() => {
+    const handleTransactionUpdated = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('📢 [AmortissementsPage] Événement transactionUpdated reçu:', customEvent.detail);
+      await refreshCards();
+    };
+
+    window.addEventListener('transactionUpdated', handleTransactionUpdated);
+    
+    return () => {
+      window.removeEventListener('transactionUpdated', handleTransactionUpdated);
+    };
+  }, [refreshCards]);
 
   return (
     <div style={{ padding: '24px' }}>
