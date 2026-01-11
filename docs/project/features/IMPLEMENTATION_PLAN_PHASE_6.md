@@ -1607,24 +1607,24 @@
 
 #### Step 6.6.17: Frontend - Rafraîchissement automatique des amortissements
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Rafraîchir automatiquement l'affichage des amortissements après modification de transactions ou mappings.
 
-**Note**: Ce step est divisé en 4 sous-steps pour tester et valider progressivement :
-- Step 6.6.17.1 : Backend - Recalcul automatique après création de transaction
-- Step 6.6.17.2 : Backend - Recalcul automatique après modification de transaction/mapping
-- Step 6.6.17.3 : Frontend - Rafraîchissement automatique après création de transaction
-- Step 6.6.17.4 : Frontend - Rafraîchissement automatique après modification de transaction/mapping
+**Note**: Ce step a été divisé en 4 sous-steps qui sont tous complétés :
+- Step 6.6.17.1 : Backend - Recalcul automatique après création de transaction ✅
+- Step 6.6.17.2 : Backend - Recalcul automatique après modification de transaction/mapping ✅
+- Step 6.6.17.3 : Frontend - Rafraîchissement automatique après création de transaction ✅
+- Step 6.6.17.4 : Frontend - Rafraîchissement automatique après modification de transaction/mapping ✅
 
-**Problème actuel**:
+**Résultat**:
 
-- **Card de configuration (AmortizationConfigCard)** : Se rafraîchit correctement après ajout/suppression de transaction ✅
+- **Card de configuration (AmortizationConfigCard)** : Se rafraîchit correctement après ajout/suppression/modification de transaction ✅
 
 - **Card tableau (AmortizationTable)** : 
   - ✅ Se rafraîchit correctement après **suppression** de transaction
-  - ❌ **Ne se rafraîchit PAS** après **ajout** de transaction
-  - ❌ Ne se rafraîchit pas après modification d'un mapping (level_1, level_2, level_3)
+  - ✅ Se rafraîchit correctement après **ajout** de transaction
+  - ✅ Se rafraîchit correctement après **modification** d'un mapping (level_1, level_2, level_3)
 
 ---
 
@@ -1894,184 +1894,50 @@
 
 ---
 
-**Notes de correction**:
-
-- **Backend** : Correction de `delete_transaction()` dans `backend/api/routes/transactions.py` pour supprimer explicitement les `AmortizationResult` associés (ajout de la suppression avant suppression de la transaction)
-- **Comportement actuel confirmé** :
-  - Card config : Se rafraîchit correctement après ajout/suppression ✅
-  - Card tableau : Se rafraîchit correctement après suppression ✅, mais PAS après ajout ❌
-
----
-
-#### Step 6.6.18: Frontend - Réinitialisation des Level 1 lors du changement de Level 2
-
-**Status**: ⏳ EN ATTENTE  
-
-**Description**: Réinitialiser tous les types d'amortissement quand l'utilisateur change le Level 2 sélectionné dans le dropdown.
-
-**Objectifs**:
-
-- **IMPORTANT : Même comportement que le bouton "Réinitialiser aux valeurs par défaut" (Step 6.6.5.1)**
-
-- **IMPORTANT : Il ne peut y avoir qu'un seul Level 2 sélectionné à la fois pour les amortissements**
-
-- **Supprimer TOUS les types de TOUS les Level 2 (toute la table `amortization_types`) lors du changement**
-
-- **Recréer automatiquement les 7 types par défaut avec des valeurs vides pour le nouveau Level 2 sélectionné**
-
-- **Popup d'avertissement** : avertir l'utilisateur que toutes les données vont être supprimées (sauf première sélection)
-
-- Garantir que seules les données liées au Level 2 sélectionné sont affichées et sauvegardées
-
-**Problème actuel**:
-
-- Quand l'utilisateur change le Level 2 dans le dropdown "Level 2 (Valeur à considérer comme amortissement)" :
-
-  - Les types d'amortissement sont bien filtrés par le nouveau Level 2 (déjà corrigé)
-
-  - MAIS les `level_1_values` de ces types peuvent contenir des valeurs qui ne correspondent pas aux transactions du nouveau Level 2
-
-  - Ces valeurs Level 1 proviennent d'un mapping précédent fait pour un autre Level 2
-
-  - Exemple : Level 2 = "ammortissements" → Type "Part terrain" a Level 1 = ["Caution entree"]
-
-    - L'utilisateur change Level 2 = "Produit"
-
-    - Le type "Part terrain" pour "Produit" affiche encore Level 1 = ["Caution entree"]
-
-    - Cette valeur ne correspond pas aux transactions de "Produit"
-
-    - Le montant d'immobilisation ne se calcule pas correctement
-
-**Solution**:
-
-- Quand `level2Value` change dans le dropdown :
-
-  1. **Si changement de Level 2 (pas première sélection)** :
-
-     - **Afficher popup d'avertissement** : "Attention, toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Êtes-vous sûr ?"
-
-     - Si confirmé :
-
-       - Supprimer TOUS les résultats d'amortissement (`DELETE /api/amortization/results`)
-
-       - **Supprimer TOUS les types d'amortissement pour TOUS les Level 2 (toute la table)**
-
-       - **Recréer les 7 types par défaut avec des valeurs vides** pour le nouveau Level 2 sélectionné
-
-     - Si annulé : revenir au Level 2 précédent
-
-  2. **Si première sélection** :
-
-     - Vérifier si des types existent déjà pour ce Level 2
-
-     - Si non, **créer automatiquement les 7 types par défaut avec des valeurs vides** (sans popup)
-
-  3. Filtrer les types d'amortissement par le Level 2 sélectionné
-
-  4. Vider les cards (types, montants, montants cumulés)
-
-**Tasks**:
-
-- [ ] Modifier `handleLevel2Change()` dans `AmortizationConfigCard.tsx` :
-
-  - Gérer le changement de Level 2 avec popup de confirmation
-
-  - Supprimer tous les résultats d'amortissement avant de supprimer les types
-
-  - Supprimer tous les types d'amortissement pour tous les Level 2
-
-  - Créer les 7 types par défaut pour le nouveau Level 2
-
-  - Vider les cards (types, montants, montants cumulés)
-
-- [ ] **Backend - Ajouter endpoint `DELETE /api/amortization/results`** :
-
-  - Supprimer tous les résultats d'amortissement
-
-  - Utilisé avant la suppression des types pour éviter les erreurs de contrainte
-
-- [ ] Gérer le cas où plusieurs types doivent être créés (faire les appels en parallèle)
-
-- [ ] Recharger les montants après la réinitialisation (`loadAmounts()`)
-
-- [ ] Gérer les erreurs potentielles (alert si erreur critique)
-
-- [ ] **Créer test visuel dans navigateur**
-
-- [ ] **Valider avec l'utilisateur**
-
-**Deliverables**:
-
-- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx`
-
-  - Modifier `handleLevel2Change()` pour supprimer tous les types et créer les 7 types par défaut
-
-  - Ajouter fonction `createInitialTypes()` pour créer les 7 types par défaut
-
-  - Ajouter fonction `resetTypesForLevel2()` pour réinitialiser les types pour un Level 2 donné
-
-- Mise à jour `backend/api/routes/amortization.py` - Endpoint `DELETE /api/amortization/results`
-
-- Mise à jour `frontend/src/api/client.ts` - Méthode `deleteAllResults()`
-
-**Acceptance Criteria**:
-
-- [ ] Changement de Level 2 = "ammortissements" vers "Produit" → **popup d'avertissement affiché** : "Attention, toutes les données d'amortissement vont être supprimées. Cette action est irréversible. Êtes-vous sûr ?"
-
-- [ ] Si confirmé : **tous les types pour tous les Level 2 sont supprimés (toute la table)**, **7 types par défaut créés avec des valeurs vides** pour "Produit"
-
-- [ ] Si annulé : retour au Level 2 précédent
-
-- [ ] Première sélection d'un Level 2 → **création automatique des 7 types par défaut avec des valeurs vides** (sans popup)
-
-- [ ] Les types affichés dans la card ne contiennent que des données liées au Level 2 sélectionné
-
-- [ ] Après réinitialisation, l'utilisateur peut ajouter de nouveaux Level 1 qui correspondent aux transactions du nouveau Level 2
-
-- [ ] Les montants d'immobilisation se calculent correctement après réinitialisation et ajout de nouveaux Level 1
-
-- [ ] Pas de données "fantômes" d'un Level 2 précédent qui polluent l'affichage
-
-- [ ] Gestion d'erreur si la réinitialisation échoue (alert avec message d'erreur)
-
----
 
 #### Step 6.6.19 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
 
-**Status**: ⏸️ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter un bouton pin/unpin à côté du titre "Configuration des amortissements" pour replier/déplier la card.
 
 **Tasks**:
 
-- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+- [x] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
 
-- [ ] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration des amortissements"
+- [x] Ajouter un bouton pin/unpin (📌/📍) à côté du titre "Configuration des amortissements"
 
-- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
+- [x] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
 
-- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
+- [x] Sauvegarder l'état dans localStorage pour persister entre les sessions
 
-- [ ] Charger l'état depuis localStorage au montage du composant
+- [x] Charger l'état depuis localStorage au montage du composant
 
-- [ ] **Tester dans le navigateur**
+- [x] **Tester dans le navigateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx` :
+  - Ajout de l'état `isCollapsed` avec localStorage (`STORAGE_KEY_COLLAPSED`)
+  - Ajout du bouton pin/unpin à côté du titre
+  - Conditionnement de l'affichage du contenu (Level 2 dropdown + tableau) selon `isCollapsed`
+  - Fonction `handleToggleCollapse()` pour toggle l'état et sauvegarder dans localStorage
 
 **Acceptance Criteria**:
 
-- [ ] Bouton pin/unpin visible à côté du titre
+- [x] Bouton pin/unpin visible à côté du titre
 
-- [ ] Clic sur le bouton replie/déplie la card
+- [x] Clic sur le bouton replie/déplie la card
 
-- [ ] Le contenu (tableau, boutons) est masqué quand la card est repliée
+- [x] Le contenu (tableau, boutons) est masqué quand la card est repliée
 
-- [ ] Seul le titre et le bouton pin restent visibles quand replié
+- [x] Seul le titre et le bouton pin restent visibles quand replié
 
-- [ ] L'état est sauvegardé dans localStorage
+- [x] L'état est sauvegardé dans localStorage
 
-- [ ] L'état est restauré au rechargement de la page
+- [x] L'état est restauré au rechargement de la page
 
-- [ ] **Test visuel dans navigateur validé**
+- [x] **Test visuel dans navigateur validé**
 
 ---
 

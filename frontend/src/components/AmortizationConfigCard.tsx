@@ -22,6 +22,7 @@ interface AmortizationConfigCardProps {
 }
 
 const STORAGE_KEY_LEVEL2 = 'amortization_config_level2';
+const STORAGE_KEY_COLLAPSED = 'amortization_config_collapsed';
 
 export default function AmortizationConfigCard({
   onConfigUpdated,
@@ -82,6 +83,9 @@ export default function AmortizationConfigCard({
   
   // État pour le recalcul automatique
   const [isAutoRecalculating, setIsAutoRecalculating] = useState<boolean>(false);
+  
+  // État pour le repli/dépli de la card
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   // Charger les valeurs Level 2 depuis l'API
   const loadLevel2Values = async () => {
@@ -119,6 +123,12 @@ export default function AmortizationConfigCard({
             }
           }
         }
+      }
+      
+      // Restaurer l'état collapsed depuis localStorage
+      const savedCollapsed = localStorage.getItem(STORAGE_KEY_COLLAPSED);
+      if (savedCollapsed !== null) {
+        setIsCollapsed(savedCollapsed === 'true');
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_2:', err);
@@ -786,7 +796,7 @@ export default function AmortizationConfigCard({
   const handleStartDateEditStart = (type: AmortizationType) => {
     setEditingStartDateId(type.id);
     // Convertir la date en format YYYY-MM-DD pour l'input date
-    if (type.start_date) {
+              if (type.start_date) {
       const date = new Date(type.start_date);
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -878,9 +888,9 @@ export default function AmortizationConfigCard({
       if (isNaN(durationValue) || durationValue < 0) {
         alert('La durée doit être un nombre positif (0 ou plus)');
         handleDurationEditCancel();
-        return;
-      }
-      
+      return;
+    }
+    
       await amortizationTypesAPI.update(typeId, {
         duration: durationValue,
       });
@@ -896,7 +906,7 @@ export default function AmortizationConfigCard({
       
       // Déclencher le recalcul automatique des amortissements
       await triggerAutoRecalculate();
-    } catch (err: any) {
+      } catch (err: any) {
       console.error('Erreur lors de la sauvegarde de la durée:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
@@ -990,9 +1000,9 @@ export default function AmortizationConfigCard({
   // Fonction interne de réinitialisation (utilisée par le bouton et le changement de Level 2)
   const resetAllTypesForLevel2 = async (level2Value: string, showConfirmation: boolean = true) => {
     if (!level2Value) {
-      return;
-    }
-
+        return;
+      }
+      
     // Si confirmation demandée, vérifier qu'il existe des types
     if (showConfirmation) {
       // Vérifier qu'il existe des types pour le Level 2 sélectionné
@@ -1069,6 +1079,13 @@ export default function AmortizationConfigCard({
     }
     await resetAllTypesForLevel2(selectedLevel2Value, true);
   };
+  
+  // Toggle collapse/expand de la card
+  const handleToggleCollapse = () => {
+    const newCollapsed = !isCollapsed;
+    setIsCollapsed(newCollapsed);
+    localStorage.setItem(STORAGE_KEY_COLLAPSED, String(newCollapsed));
+  };
 
   return (
     <div
@@ -1081,14 +1098,45 @@ export default function AmortizationConfigCard({
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', margin: 0 }}>
-          Configuration des amortissements
-          {isAutoRecalculating && (
-            <span style={{ marginLeft: '12px', fontSize: '14px', color: '#6b7280', fontWeight: '400' }}>
-              ⏳ Recalcul en cours...
-            </span>
-          )}
-        </h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#111827', margin: 0 }}>
+            Configuration des amortissements
+            {isAutoRecalculating && (
+              <span style={{ marginLeft: '12px', fontSize: '14px', color: '#6b7280', fontWeight: '400' }}>
+                ⏳ Recalcul en cours...
+              </span>
+            )}
+          </h2>
+          <button
+            type="button"
+            onClick={handleToggleCollapse}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              padding: '0',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              backgroundColor: '#ffffff',
+              cursor: 'pointer',
+              fontSize: '16px',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f9fafb';
+              e.currentTarget.style.borderColor = '#9ca3af';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
+            title={isCollapsed ? 'Déplier la card' : 'Replier la card'}
+          >
+            {isCollapsed ? '📍' : '📌'}
+          </button>
+        </div>
           <button
           type="button"
           onClick={handleResetToDefault}
@@ -1123,6 +1171,9 @@ export default function AmortizationConfigCard({
           </button>
       </div>
       
+      {/* Contenu de la card (masqué si collapsed) */}
+      {!isCollapsed && (
+        <>
       {/* Champ Level 2 - Dropdown avec checkboxes */}
       <div style={{ marginBottom: '24px' }}>
         <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', color: '#374151', marginBottom: '8px' }}>
@@ -1939,6 +1990,8 @@ export default function AmortizationConfigCard({
         </div>
       )}
         </div>
+      )}
+        </>
       )}
     </div>
   );
