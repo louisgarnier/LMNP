@@ -18,6 +18,7 @@ interface AmortizationConfigCardProps {
   onConfigUpdated?: () => void;
   onLevel2Change?: (level2Value: string) => void;
   onLevel2ValuesLoaded?: (count: number) => void;
+  onRefreshRequested?: (refreshFn: () => Promise<void>) => void; // Callback pour exposer la fonction refreshAll
 }
 
 const STORAGE_KEY_LEVEL2 = 'amortization_config_level2';
@@ -26,6 +27,7 @@ export default function AmortizationConfigCard({
   onConfigUpdated,
   onLevel2Change,
   onLevel2ValuesLoaded,
+  onRefreshRequested,
 }: AmortizationConfigCardProps) {
   const [selectedLevel2Value, setSelectedLevel2Value] = useState<string>('');
   const [level2Values, setLevel2Values] = useState<string[]>([]);
@@ -401,6 +403,37 @@ export default function AmortizationConfigCard({
       setLoadingCumulatedAmounts({});
     }
   };
+
+  // Fonction pour rafraîchir toutes les données (montants, cumulés, compteurs)
+  const refreshAll = async () => {
+    if (!selectedLevel2Value || amortizationTypes.length === 0) {
+      return;
+    }
+    
+    try {
+      // Recharger toutes les données en parallèle
+      await Promise.all([
+        loadAmounts(),
+        loadCumulatedAmounts(),
+        loadTransactionCounts(),
+      ]);
+      
+      // Notifier le parent pour rafraîchir le tableau
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors du rafraîchissement des données:', err);
+    }
+  };
+
+  // Exposer la fonction refreshAll via le callback onRefreshRequested
+  useEffect(() => {
+    if (onRefreshRequested) {
+      onRefreshRequested(refreshAll);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onRefreshRequested, selectedLevel2Value, amortizationTypes.length]);
 
   // Fonction pour créer un nouveau type d'amortissement
   const handleCreateNewType = async () => {

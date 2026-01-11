@@ -1611,105 +1611,286 @@
 
 **Description**: Rafraîchir automatiquement l'affichage des amortissements après modification de transactions ou mappings.
 
-**Objectifs**:
-
-- Rafraîchissement automatique de l'affichage des amortissements après modification de transactions
-
-- Rafraîchissement automatique après modification de mappings dans l'onglet "Toutes les transactions"
-
-- Améliorer l'expérience utilisateur (pas besoin de rafraîchir manuellement la page)
+**Note**: Ce step est divisé en 4 sous-steps pour tester et valider progressivement :
+- Step 6.6.17.1 : Backend - Recalcul automatique après création de transaction
+- Step 6.6.17.2 : Backend - Recalcul automatique après modification de transaction/mapping
+- Step 6.6.17.3 : Frontend - Rafraîchissement automatique après création de transaction
+- Step 6.6.17.4 : Frontend - Rafraîchissement automatique après modification de transaction/mapping
 
 **Problème actuel**:
 
-- Après modification d'un mapping dans l'onglet "Toutes les transactions" → les amortissements ne se rafraîchissent pas automatiquement
+- **Card de configuration (AmortizationConfigCard)** : Se rafraîchit correctement après ajout/suppression de transaction ✅
 
-- Après ajout d'une transaction → les amortissements ne se rafraîchissent pas automatiquement
+- **Card tableau (AmortizationTable)** : 
+  - ✅ Se rafraîchit correctement après **suppression** de transaction
+  - ❌ **Ne se rafraîchit PAS** après **ajout** de transaction
+  - ❌ Ne se rafraîchit pas après modification d'un mapping (level_1, level_2, level_3)
 
-- Après suppression d'une transaction → les amortissements ne se rafraîchissent pas automatiquement
+---
 
-- L'utilisateur doit rafraîchir manuellement la page pour voir les changements
+#### Step 6.6.17.1: Backend - Recalcul automatique après création de transaction
 
-**Approche**:
+**Status**: ✅ COMPLÉTÉ  
 
-1. **D'abord tester** si le rafraîchissement fonctionne déjà
+**Description**: Ajouter le recalcul automatique des amortissements après création d'une transaction.
 
-2. Si ça marche → on saute l'implémentation
+**Objectifs**:
 
-3. Si ça ne marche pas → on code pour corriger
+- Recalculer automatiquement les amortissements après création d'une transaction
 
-**Tests à effectuer**:
+- Créer les `AmortizationResult` si la transaction correspond à un `AmortizationType`
 
-- [ ] **Test 1** : Modifier un mapping (level_1, level_2, level_3) dans l'onglet "Toutes les transactions"
+**Problème actuel**:
 
-  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+- Après création d'une transaction via `POST /api/transactions`, les amortissements ne sont pas recalculés automatiquement
 
-  - Vérifier si les montants sont mis à jour
+- Les `AmortizationResult` ne sont pas créés pour la nouvelle transaction
 
-- [ ] **Test 2** : Créer une nouvelle transaction avec level_2 = "ammortissements"
+**Tasks**:
 
-  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+- [x] Modifier `create_transaction()` dans `backend/api/routes/transactions.py` :
 
-  - Vérifier si la nouvelle transaction apparaît dans les calculs
+  - [x] Après création de la transaction, appeler `enrich_transaction()` pour enrichir la transaction
 
-- [ ] **Test 3** : Supprimer une transaction qui était dans les amortissements
+  - [x] Après enrichissement, appeler `recalculate_transaction_amortization(transaction_id)` pour recalculer les amortissements
 
-  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+  - [x] Gérer les erreurs silencieusement (ne pas faire échouer la création de transaction si le recalcul échoue)
 
-  - Vérifier si la transaction disparaît des calculs
+- [x] **Créer test backend** pour vérifier que les `AmortizationResult` sont créés après création d'une transaction
 
-- [ ] **Test 4** : Modifier une transaction (level_1, level_2) dans l'onglet "Toutes les transactions"
+- [x] **Valider avec l'utilisateur**
 
-  - Vérifier si l'onglet "Amortissements" se rafraîchit automatiquement
+**Deliverables**:
 
-  - Vérifier si les montants sont mis à jour
+- Mise à jour `backend/api/routes/transactions.py` - Fonction `create_transaction()`
 
-**Si les tests échouent - Tasks**:
+**Acceptance Criteria**:
 
-- [ ] Identifier les composants qui doivent être rafraîchis :
+- [x] Création d'une transaction avec `level_2 = "Immobilisations"` et `level_1` correspondant à un `AmortizationType` → les `AmortizationResult` sont créés automatiquement
 
-  - `AmortizationTable` (tableau année par année)
+- [x] Création d'une transaction sans correspondance avec un `AmortizationType` → pas d'erreur, pas de `AmortizationResult` créés
 
-  - `AmortizationConfigCard` (montants cumulés)
+- [x] Gestion d'erreur si le recalcul échoue (silencieux, log dans la console, ne bloque pas la création de transaction)
 
-- [ ] Implémenter mécanisme de rafraîchissement :
+**Notes de correction**:
 
-  - Option A : Polling périodique (vérifier les changements toutes les X secondes)
+- Modification de `create_transaction()` pour appeler `recalculate_transaction_amortization()` dans tous les cas (pas seulement si `enriched.level_2` existe)
+- La fonction `recalculate_transaction_amortization()` gère déjà le cas où il n'y a pas de `level_2` (supprime simplement les anciens résultats)
+- Ajout d'un appel au recalcul même si l'enrichissement échoue (au cas où la transaction aurait déjà un enrichissement existant)
+- Test créé : `backend/scripts/test_create_transaction_amortization.py` - Test réussi ✅
 
-  - Option B : Événements/callbacks entre composants
+---
 
-  - Option C : Rechargement automatique après actions dans TransactionsTable
+#### Step 6.6.17.2: Backend - Recalcul automatique après modification de transaction/mapping
 
-- [ ] Ajouter état de chargement pendant le rafraîchissement
+**Status**: ✅ COMPLÉTÉ  
 
-- [ ] Gérer les erreurs potentielles
+**Description**: Ajouter le recalcul automatique des amortissements après modification d'une transaction ou d'un mapping.
+
+**Objectifs**:
+
+- Recalculer automatiquement les amortissements après modification d'une transaction (mapping level_1/level_2/level_3)
+
+- Recalculer automatiquement les amortissements après modification via l'endpoint d'enrichissement
+
+**Problème actuel**:
+
+- Après modification d'une transaction via `PUT /api/transactions/{id}`, les amortissements ne sont pas recalculés automatiquement
+
+- Après modification d'un mapping via `PUT /api/enrichment/classifications/{id}`, les amortissements ne sont pas recalculés automatiquement
+
+**Tasks**:
+
+- [x] Modifier `update_transaction()` dans `backend/api/routes/transactions.py` :
+
+  - [x] Détecter si les champs impactants (quantite, date) ont été modifiés
+
+  - [x] Si oui, appeler `recalculate_transaction_amortization(transaction_id)` après la mise à jour
+
+  - [x] Gérer les erreurs silencieusement
+
+- [x] Modifier `update_transaction_classifications()` dans `backend/api/routes/enrichment.py` :
+
+  - [x] Après modification du mapping, appeler `recalculate_transaction_amortization(transaction_id)`
+
+  - [x] Gérer les erreurs silencieusement
+
+- [x] **Créer test backend** pour vérifier que les `AmortizationResult` sont mis à jour après modification
+
+- [x] **Valider avec l'utilisateur**
+
+**Deliverables**:
+
+- Mise à jour `backend/api/routes/transactions.py` - Fonction `update_transaction()`
+
+- Mise à jour `backend/api/routes/enrichment.py` - Fonction `update_transaction_classifications()`
+
+**Acceptance Criteria**:
+
+- [x] Modification d'une transaction (quantite, date) → les `AmortizationResult` sont recalculés automatiquement
+
+- [x] Modification via l'endpoint d'enrichissement → les `AmortizationResult` sont recalculés automatiquement
+
+- [x] Modification sans impact sur les amortissements → pas d'erreur, pas de recalcul inutile
+
+- [x] Gestion d'erreur si le recalcul échoue (silencieux, log dans la console, ne bloque pas la modification)
+
+**Notes de correction**:
+
+- Modification de `update_transaction()` pour détecter les changements de `quantite` et `date` (champs qui impactent les amortissements)
+- Appel de `recalculate_transaction_amortization()` uniquement si ces champs ont été modifiés
+- Modification de `update_transaction_classifications()` pour appeler `recalculate_transaction_amortization()` après modification du mapping
+- Test créé : `backend/scripts/test_update_transaction_amortization.py` - Tous les tests réussis ✅
+  - TEST 1 : Modification de la quantité → AmortizationResult mis à jour ✅
+  - TEST 2 : Modification de la date → AmortizationResult mis à jour ✅
+  - TEST 3 : Modification du mapping (level_1) → AmortizationResult mis à jour ✅
+
+---
+
+#### Step 6.6.17.3: Frontend - Rafraîchissement automatique après création de transaction
+
+**Status**: ✅ COMPLÉTÉ  
+
+**Description**: Rafraîchir automatiquement les deux cards d'amortissement après création d'une transaction.
+
+**Objectifs**:
+
+- Rafraîchir automatiquement `AmortizationConfigCard` après création de transaction
+
+- Rafraîchir automatiquement `AmortizationTable` après création de transaction
+
+**Problème actuel**:
+
+- Après création d'une transaction dans l'onglet "Toutes les transactions" :
+  - ✅ Card config se rafraîchit correctement
+  - ❌ Card tableau ne se rafraîchit PAS automatiquement
+
+**Tasks**:
+
+- [x] Identifier le point d'entrée : `ColumnMappingModal` après import CSV (création de transactions)
+
+- [x] Implémenter mécanisme de rafraîchissement :
+
+  - [x] Option B : Événement global (window.dispatchEvent) - **Option choisie**
+
+- [x] Dans `AmortissementsPage` :
+
+  - [x] Créer fonction `handleTransactionCreated()` qui :
+    - Incrémente `refreshKey` pour rafraîchir `AmortizationTable`
+    - Appelle une fonction de rafraîchissement de `AmortizationConfigCard` (via callback `onRefreshRequested`)
+
+- [x] Dans `AmortizationConfigCard` :
+
+  - [x] Exposer une fonction `refreshAll()` via callback `onRefreshRequested`
+
+  - [x] `refreshAll()` doit recharger : `loadAmounts()`, `loadCumulatedAmounts()`, `loadTransactionCounts()`
+
+- [x] Connecter `ColumnMappingModal` au mécanisme de rafraîchissement (émission d'événement `transactionCreated`)
+
+- [x] Gérer les erreurs potentielles (silencieux, log dans la console)
+
+- [x] **Corriger le backend** : Ajouter le recalcul automatique dans `import_file()` pour créer les `AmortizationResult` lors de l'import CSV
+
+- [x] **Valider avec l'utilisateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/app/dashboard/amortissements/page.tsx` - Fonction `handleTransactionCreated()`
+
+- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx` - Fonction `refreshAll()`
+
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Émission d'événement/callback après création
+
+**Acceptance Criteria**:
+
+- [x] Création d'une transaction avec `level_2 = "Immobilisations"` → les deux cards se rafraîchissent automatiquement
+
+- [x] Card config affiche les nouveaux montants, cumulés, compteurs
+
+- [x] Card tableau affiche la nouvelle transaction dans les calculs
+
+- [x] Pas besoin de rafraîchir manuellement la page
+
+**Notes de correction**:
+
+- **Problème identifié** : La card config utilise un calcul dynamique (toujours à jour), tandis que la card table lit les `AmortizationResult` stockés en base (dépend du recalcul automatique)
+- **Solution backend** : Ajout du recalcul automatique dans `import_file()` (ligne 978-988) pour créer les `AmortizationResult` lors de l'import CSV
+- **Solution frontend** : 
+  - Émission d'événement global `transactionCreated` dans `ColumnMappingModal` après import réussi
+  - Écoute de l'événement dans `AmortissementsPage` pour rafraîchir les deux cards
+  - Exposition de `refreshAll()` dans `AmortizationConfigCard` via callback `onRefreshRequested`
+- **Synchronisation** : Les deux scripts `check_amortization_state.py` et `display_amortization_table.py` doivent donner des résultats identiques après correction
+
+- [ ] Gestion d'erreur si le rafraîchissement échoue (silencieux, log dans la console)
+
+---
+
+#### Step 6.6.17.4: Frontend - Rafraîchissement automatique après modification de transaction/mapping
+
+**Status**: ⏳ EN ATTENTE  
+
+**Description**: Rafraîchir automatiquement les deux cards d'amortissement après modification d'une transaction ou d'un mapping.
+
+**Objectifs**:
+
+- Rafraîchir automatiquement `AmortizationConfigCard` après modification de transaction/mapping
+
+- Rafraîchir automatiquement `AmortizationTable` après modification de transaction/mapping
+
+**Problème actuel**:
+
+- Après modification d'une transaction (mapping level_1/level_2/level_3) → les cards ne se rafraîchissent pas automatiquement
+
+- Après modification d'un mapping dans l'onglet "Toutes les transactions" → les cards ne se rafraîchissent pas automatiquement
+
+**Tasks**:
+
+- [ ] Identifier les points d'entrée :
+
+  - [ ] `TransactionsTable` : après modification d'une transaction (mapping)
+  - [ ] `UnclassifiedTransactionsTable` : après modification d'une transaction
+  - [ ] Endpoint d'enrichissement : après modification de mapping
+
+- [ ] Réutiliser le mécanisme de rafraîchissement créé dans Step 6.6.17.3
+
+- [ ] Connecter tous les points d'entrée au mécanisme de rafraîchissement
+
+- [ ] Gérer les erreurs potentielles (silencieux, log dans la console)
 
 - [ ] **Créer test visuel dans navigateur**
 
 - [ ] **Valider avec l'utilisateur**
 
-**Deliverables** (si nécessaire):
+**Deliverables**:
 
-- Mise à jour `frontend/src/components/AmortizationTable.tsx` - Rafraîchissement automatique
+- Mise à jour `frontend/src/components/TransactionsTable.tsx` - Émission d'événement/callback après modification
 
-- Mise à jour `frontend/src/components/AmortizationConfigCard.tsx` - Rafraîchissement automatique
+- Mise à jour `frontend/src/components/UnclassifiedTransactionsTable.tsx` - Émission d'événement/callback après modification
 
-- Mise à jour `frontend/app/dashboard/amortissements/page.tsx` - Gestion des événements
-
-- Possiblement : Mise à jour `frontend/src/components/TransactionsTable.tsx` - Émission d'événements
+- Mise à jour `frontend/app/dashboard/amortissements/page.tsx` - Fonction `handleTransactionModified()`
 
 **Acceptance Criteria**:
 
-- [ ] Modification de mapping → rafraîchissement automatique des amortissements
+- [ ] Modification d'une transaction (mapping level_1/level_2/level_3) → les deux cards se rafraîchissent automatiquement
 
-- [ ] Création de transaction → rafraîchissement automatique des amortissements
+- [ ] Modification d'un mapping dans l'onglet "Toutes les transactions" → les deux cards se rafraîchissent automatiquement
 
-- [ ] Suppression de transaction → rafraîchissement automatique des amortissements
+- [ ] Card config affiche les montants mis à jour
 
-- [ ] Modification de transaction → rafraîchissement automatique des amortissements
+- [ ] Card tableau affiche les calculs mis à jour
 
 - [ ] Pas besoin de rafraîchir manuellement la page
 
-- [ ] Indicateur de chargement visible pendant le rafraîchissement (si nécessaire)
+- [ ] Gestion d'erreur si le rafraîchissement échoue (silencieux, log dans la console)
+
+---
+
+**Notes de correction**:
+
+- **Backend** : Correction de `delete_transaction()` dans `backend/api/routes/transactions.py` pour supprimer explicitement les `AmortizationResult` associés (ajout de la suppression avant suppression de la transaction)
+- **Comportement actuel confirmé** :
+  - Card config : Se rafraîchit correctement après ajout/suppression ✅
+  - Card tableau : Se rafraîchit correctement après suppression ✅, mais PAS après ajout ❌
 
 ---
 

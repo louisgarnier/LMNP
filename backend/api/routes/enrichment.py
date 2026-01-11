@@ -124,6 +124,17 @@ async def update_transaction_classifications(
     # Recharger la transaction avec les données enrichies
     db.refresh(transaction)
     
+    # Recalculer les amortissements après modification du mapping
+    # (gestion silencieuse des erreurs pour ne pas bloquer la modification)
+    try:
+        from backend.api.services.amortization_service import recalculate_transaction_amortization
+        recalculate_transaction_amortization(db, transaction_id)
+    except Exception as e:
+        # Log l'erreur mais ne bloque pas la modification
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_transaction_classifications] Erreur lors du recalcul des amortissements pour transaction {transaction_id}: {error_details}")
+    
     # Construire la réponse avec les données enrichies
     enriched_data = db.query(EnrichedTransaction).filter(
         EnrichedTransaction.transaction_id == transaction.id

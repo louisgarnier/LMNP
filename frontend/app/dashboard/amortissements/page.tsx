@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AmortizationConfigCard from '@/components/AmortizationConfigCard';
 import AmortizationTable from '@/components/AmortizationTable';
 
@@ -14,6 +14,7 @@ export default function AmortissementsPage() {
   const [level2Value, setLevel2Value] = useState<string>('');
   const [level2ValuesCount, setLevel2ValuesCount] = useState<number>(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const refreshConfigCardRef = useRef<(() => Promise<void>) | null>(null);
 
   const handleConfigUpdated = () => {
     // Forcer le rechargement du tableau
@@ -30,6 +31,39 @@ export default function AmortissementsPage() {
     setLevel2ValuesCount(count);
   };
 
+  // Exposer la fonction refreshAll depuis AmortizationConfigCard
+  const handleRefreshRequested = (refreshFn: () => Promise<void>) => {
+    refreshConfigCardRef.current = refreshFn;
+  };
+
+  // Écouter l'événement transactionCreated pour rafraîchir automatiquement les cards
+  useEffect(() => {
+    const handleTransactionCreated = async (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('📢 [AmortissementsPage] Événement transactionCreated reçu:', customEvent.detail);
+      
+      // Rafraîchir la card de configuration
+      if (refreshConfigCardRef.current) {
+        try {
+          await refreshConfigCardRef.current();
+          console.log('✅ [AmortissementsPage] Card config rafraîchie');
+        } catch (err) {
+          console.error('❌ [AmortissementsPage] Erreur lors du rafraîchissement de la card config:', err);
+        }
+      }
+      
+      // Rafraîchir le tableau
+      setRefreshKey(prev => prev + 1);
+      console.log('✅ [AmortissementsPage] Tableau rafraîchi');
+    };
+
+    window.addEventListener('transactionCreated', handleTransactionCreated);
+    
+    return () => {
+      window.removeEventListener('transactionCreated', handleTransactionCreated);
+    };
+  }, []);
+
   return (
     <div style={{ padding: '24px' }}>
     <div className="space-y-6">
@@ -38,6 +72,7 @@ export default function AmortissementsPage() {
           onConfigUpdated={handleConfigUpdated}
           onLevel2Change={handleLevel2Change}
           onLevel2ValuesLoaded={handleLevel2ValuesLoaded}
+          onRefreshRequested={handleRefreshRequested}
         />
 
         {/* Tableau croisé - Masqué si aucune valeur Level 2 disponible */}

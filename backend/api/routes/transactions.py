@@ -411,11 +411,53 @@ async def create_transaction(
 ):
     """
     Créer une nouvelle transaction.
+    Note: Enrichit automatiquement la transaction et recalcule les amortissements si applicable.
     """
+    from backend.api.services.amortization_service import recalculate_transaction_amortization
+    from backend.api.utils.balance_utils import recalculate_balances_from_date
+    
     db_transaction = Transaction(**transaction.dict())
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
+    
+    # Enrichir automatiquement la transaction
+    try:
+        enriched = enrich_transaction(db_transaction, db)
+        
+        # Recalculer les amortissements après enrichissement
+        # (gestion silencieuse des erreurs pour ne pas bloquer la création de transaction)
+        # La fonction recalculate_transaction_amortization gère déjà le cas où il n'y a pas de level_2
+        try:
+            recalculate_transaction_amortization(db, db_transaction.id)
+        except Exception as e:
+            # Log l'erreur mais ne bloque pas la création de transaction
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"⚠️ [create_transaction] Erreur lors du recalcul des amortissements pour transaction {db_transaction.id}: {error_details}")
+    except Exception as e:
+        # Log l'erreur d'enrichissement mais ne bloque pas la création de transaction
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [create_transaction] Erreur lors de l'enrichissement de la transaction {db_transaction.id}: {error_details}")
+        
+        # Même si l'enrichissement échoue, essayer de recalculer les amortissements
+        # (au cas où la transaction aurait déjà un enrichissement existant)
+        try:
+            recalculate_transaction_amortization(db, db_transaction.id)
+        except Exception as e2:
+            # Log l'erreur mais ne bloque pas la création de transaction
+            import traceback
+            error_details2 = traceback.format_exc()
+            print(f"⚠️ [create_transaction] Erreur lors du recalcul des amortissements (après échec enrichissement) pour transaction {db_transaction.id}: {error_details2}")
+    
+    # Recalculer les soldes à partir de la date de la transaction
+    try:
+        recalculate_balances_from_date(db, db_transaction.date)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [create_transaction] Erreur lors du recalcul des soldes: {error_details}")
     
     return TransactionResponse.from_orm(db_transaction)
 
@@ -439,6 +481,7 @@ async def update_transaction(
     
     # Sauvegarder la date avant modification pour recalculer les soldes
     old_date = db_transaction.date
+    old_quantite = db_transaction.quantite
     
     # Mettre à jour uniquement les champs fournis
     update_data = transaction_update.dict(exclude_unset=True)
@@ -459,6 +502,15 @@ async def update_transaction(
     # Déterminer la date minimale pour recalculer les soldes
     min_date = min(old_date, new_date)
     
+    # Détecter si les champs qui impactent les amortissements ont été modifiés
+    # - quantite : impacte le montant d'immobilisation
+    # - date : impacte la date de début si start_date n'est pas défini dans le type
+    should_recalculate_amortization = False
+    if 'quantite' in update_data and update_data['quantite'] != old_quantite:
+        should_recalculate_amortization = True
+    if 'date' in update_data and new_date != old_date:
+        should_recalculate_amortization = True
+    
     for field, value in update_data.items():
         setattr(db_transaction, field, value)
     
@@ -474,6 +526,18 @@ async def update_transaction(
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Erreur lors du recalcul des soldes: {str(e)}")
     
+    # Recalculer les amortissements si les champs impactants ont été modifiés
+    # (gestion silencieuse des erreurs pour ne pas bloquer la modification)
+    if should_recalculate_amortization:
+        try:
+            from backend.api.services.amortization_service import recalculate_transaction_amortization
+            recalculate_transaction_amortization(db, transaction_id)
+        except Exception as e:
+            # Log l'erreur mais ne bloque pas la modification
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"⚠️ [update_transaction] Erreur lors du recalcul des amortissements pour transaction {transaction_id}: {error_details}")
+    
     db.refresh(db_transaction)
     
     return TransactionResponse.model_validate(db_transaction)
@@ -486,9 +550,9 @@ async def delete_transaction(
 ):
     """
     Supprimer une transaction.
-    Note: Supprime également les données enrichies associées et recalcule les soldes.
+    Note: Supprime également les données enrichies associées, les résultats d'amortissement et recalcule les soldes.
     """
-    from backend.database.models import EnrichedTransaction, Amortization
+    from backend.database.models import EnrichedTransaction, Amortization, AmortizationResult
     from backend.api.utils.balance_utils import recalculate_balances_from_date
     
     db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
@@ -506,6 +570,11 @@ async def delete_transaction(
     
     db.query(Amortization).filter(
         Amortization.transaction_id == transaction_id
+    ).delete()
+    
+    # Supprimer les résultats d'amortissement associés
+    db.query(AmortizationResult).filter(
+        AmortizationResult.transaction_id == transaction_id
     ).delete()
     
     # Supprimer la transaction
@@ -905,10 +974,21 @@ async def import_file(
             # Enrichir automatiquement toutes les transactions insérées
             # Charger les mappings une seule fois pour optimiser
             from backend.database.models import Mapping
+            from backend.api.services.amortization_service import recalculate_transaction_amortization
             mappings = db.query(Mapping).all()
             for transaction in transactions_to_insert:
                 # Enrichir la transaction (elle a déjà un ID après flush)
                 enrich_transaction(transaction, db, mappings)
+                
+                # Recalculer les amortissements après enrichissement
+                # (gestion silencieuse des erreurs pour ne pas bloquer l'import)
+                try:
+                    recalculate_transaction_amortization(db, transaction.id)
+                except Exception as e:
+                    # Log l'erreur mais ne bloque pas l'import
+                    import traceback
+                    error_details = traceback.format_exc()
+                    print(f"⚠️ [import_file] Erreur lors du recalcul des amortissements pour transaction {transaction.id}: {error_details}")
         
         db.commit()
         

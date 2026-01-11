@@ -194,6 +194,13 @@ export default function ColumnMappingModal({
         console.log('🔄 [ColumnMappingModal] Appel onImportComplete...');
         onImportComplete();
       }
+      
+      // Émettre un événement global pour notifier les autres pages (ex: Amortissements)
+      // que des transactions ont été créées
+      window.dispatchEvent(new CustomEvent('transactionCreated', {
+        detail: { importedCount: result.imported_count }
+      }));
+      console.log('📢 [ColumnMappingModal] Événement transactionCreated émis');
     } catch (error) {
       console.error('❌ [ColumnMappingModal] Erreur lors de l\'import:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue lors de l\'import';
