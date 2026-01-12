@@ -23,10 +23,6 @@
 
 3. **Frontend** : Vue tableau croisé (Step 6.6)
 
-4. **Backend** : Recalcul automatique (Step 6.8)
-
-5. **Frontend** : Intégration et tests finaux (Step 6.7)
-
 ---
 
 ### Step 6.1 : Backend - Table AmortizationType
@@ -258,15 +254,17 @@
 
 ### Step 6.6 : Frontend - Vue amortissements (tableau croisé)
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer page et composant pour afficher les amortissements en tableau croisé.
 
+**Note**: Cette fonctionnalité a été implémentée via les sous-steps 6.6.1 à 6.6.16, notamment Step 6.6.15.1 qui vérifie l'affichage du tableau.
+
 **Tasks**:
 
-- [ ] Créer page `frontend/app/dashboard/amortissements/page.tsx`
+- [x] Créer page `frontend/app/dashboard/amortissements/page.tsx`
 
-- [ ] Créer composant `AmortizationTable.tsx` :
+- [x] Créer composant `AmortizationTable.tsx` :
 
   - Tableau croisé : années en colonnes, catégories en lignes
 
@@ -276,41 +274,41 @@
 
   - Formatage montants : 2 décimales, négatifs en rouge
 
-- [ ] Appeler API `GET /api/amortization/results/aggregated`
+- [x] Appeler API `GET /api/amortization/results/aggregated`
 
-- [ ] Gérer état de chargement
+- [x] Gérer état de chargement
 
-- [ ] Afficher message si aucune configuration
+- [x] Afficher message si aucune configuration
 
-- [ ] Afficher message si aucun résultat
+- [x] Afficher message si aucun résultat
 
-- [ ] Rendre les cellules cliquables (sauf totaux) - handler prêt pour Step 6.6.1
+- [x] Rendre les cellules cliquables (sauf totaux) - handler prêt pour Step 6.6.1
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
-- `frontend/app/dashboard/amortissements/page.tsx` - Page amortissements
+- `frontend/app/dashboard/amortissements/page.tsx` - Page amortissements ✅
 
-- `frontend/src/components/AmortizationTable.tsx` - Tableau amortissements
+- `frontend/src/components/AmortizationTable.tsx` - Tableau amortissements ✅
 
-- Mise à jour `frontend/src/api/client.ts` - Méthodes API amortissements
+- Mise à jour `frontend/src/api/client.ts` - Méthodes API amortissements ✅
 
 **Acceptance Criteria**:
 
-- [ ] Tableau des amortissements s'affiche
+- [x] Tableau des amortissements s'affiche
 
-- [ ] Répartition par catégorie et année visible
+- [x] Répartition par catégorie et année visible
 
-- [ ] Ligne Total et colonne Total correctes
+- [x] Ligne Total et colonne Total correctes
 
-- [ ] Formatage montants correct (2 décimales, négatifs en rouge)
+- [x] Formatage montants correct (2 décimales, négatifs en rouge)
 
-- [ ] Cellules cliquables (sauf totaux) - handler prêt pour drill-down
+- [x] Cellules cliquables (sauf totaux) - handler prêt pour drill-down
 
-- [ ] **Utilisateur confirme que la vue fonctionne**
+- [x] **Utilisateur confirme que la vue fonctionne**
 
 ---
 
@@ -1938,130 +1936,6 @@
 - [x] L'état est restauré au rechargement de la page
 
 - [x] **Test visuel dans navigateur validé**
-
----
-
-### Step 6.8 : Backend - Recalcul automatique
-
-**Status**: ⏳ EN ATTENTE  
-
-**Description**: Implémenter le recalcul automatique des amortissements après modification de transactions.
-
-**Objectifs**:
-
-- Déclencher recalcul automatique après modification de transaction
-
-- Déclencher recalcul après modification de mapping
-
-- Optimiser les performances (recalcul incrémental)
-
-**Tasks**:
-
-- [ ] Intégrer recalcul automatique dans `PUT /api/transactions/{id}`
-
-- [ ] Intégrer recalcul automatique dans `PUT /api/enrichment/transactions/{id}`
-
-- [ ] Optimiser recalcul (uniquement pour transactions impactées)
-
-- [ ] Gérer les erreurs de recalcul (logging, pas de blocage)
-
-- [ ] **Créer test de recalcul automatique**
-
-- [ ] **Valider avec l'utilisateur**
-
-**Deliverables**:
-
-- Mise à jour `backend/api/routes/transactions.py` - Recalcul automatique
-
-- Mise à jour `backend/api/routes/enrichment.py` - Recalcul automatique
-
-- `backend/tests/test_amortization_auto_recalc.py` - Tests recalcul automatique
-
-**Acceptance Criteria**:
-
-- [ ] Modification transaction → recalcul automatique des amortissements
-
-- [ ] Modification mapping → recalcul automatique des amortissements
-
-- [ ] Recalcul optimisé (uniquement transactions impactées)
-
-- [ ] Gestion d'erreur correcte (pas de blocage)
-
-- [ ] **Utilisateur confirme que le recalcul automatique fonctionne**
-
----
-
-### Step 6.7 : Frontend - Intégration et tests finaux
-
-**Status**: ⏳ EN ATTENTE  
-
-**Description**: Intégrer tous les composants et tester le workflow complet.
-
-**Tasks**:
-
-- [ ] Ajouter onglet "Amortissements" dans la navigation
-
-- [ ] Tester workflow complet :
-
-  - Configuration initiale
-
-  - Ajout transaction avec level_2/level_3 d'amortissement
-
-  - Vérification recalcul automatique
-
-  - Affichage résultats dans tableau
-
-  - Modification configuration
-
-  - Vérification recalcul après changement config
-
-- [ ] Tester cas limites :
-
-  - Transaction modifiée (montant, date, level_2/level_3)
-
-  - Transaction supprimée
-
-  - Plusieurs transactions même catégorie
-
-  - Transactions sur plusieurs années
-
-- [ ] Vérifier validation somme = montant initial
-
-- [ ] **Créer test visuel complet dans navigateur**
-
-- [ ] **Valider avec l'utilisateur**
-
-**Deliverables**:
-
-- Tests manuels complets
-
-- Documentation si nécessaire
-
-**Acceptance Criteria**:
-
-- [ ] Workflow complet fonctionnel
-
-- [ ] Recalcul automatique fonctionne
-
-- [ ] Tableau affiche résultats corrects
-
-- [ ] Configuration sauvegardée et appliquée
-
-- [ ] Validation somme = montant initial
-
-- [ ] **Utilisateur confirme que tout fonctionne parfaitement**
-
-**Impact Frontend**: 
-
-- [ ] Onglet Amortissements fonctionnel
-
-- [ ] Card de configuration avec pin/unpin
-
-- [ ] Tableau croisé avec répartition visible
-
-- [ ] Totaux validés
-
-- [ ] Recalcul automatique
 
 ---
 
