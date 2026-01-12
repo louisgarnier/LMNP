@@ -63,7 +63,7 @@ export default function DashboardPage() {
         </p>
         <div style={{ fontSize: '14px', color: '#6b7280' }}>
           <div>• <strong>Transactions</strong> : Visualiser et gérer toutes vos transactions bancaires</div>
-          <div>• <strong>Bilan</strong> : Consulter votre bilan actif et passif</div>
+          <div>• <strong>États financiers</strong> : Consulter vos états financiers (Compte de résultat, Bilan, Liasse fiscale, Crédit)</div>
           <div>• <strong>Amortissements</strong> : Suivre vos amortissements par catégorie</div>
           <div>• <strong>Cashflow</strong> : Analyser l'évolution de votre solde bancaire</div>
         </div>

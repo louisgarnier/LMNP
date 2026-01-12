@@ -13,7 +13,7 @@ const navItems = [
   { name: 'Vue d\'ensemble', href: '/dashboard' },
   { name: 'Transactions', href: '/dashboard/transactions' },
   { name: 'Tableau croisé dynamique', href: '/dashboard/pivot' },
-  { name: 'Bilan', href: '/dashboard/bilan' },
+  { name: 'États financiers', href: '/dashboard/etats-financiers' },
   { name: 'Amortissements', href: '/dashboard/amortissements' },
   { name: 'Cashflow', href: '/dashboard/cashflow' },
 ];
