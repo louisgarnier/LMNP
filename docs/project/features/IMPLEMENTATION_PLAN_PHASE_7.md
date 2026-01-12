@@ -1,7 +1,7 @@
 # Plan d'Implémentation - Phase 7 : Structure États financiers et crédit
 
-**Status**: ⏳ EN ATTENTE  
-**Dernière mise à jour**: 2025-01-XX
+**Status**: 🚧 EN COURS  
+**Dernière mise à jour**: 2025-01-27
 
 ## Vue d'ensemble
 
@@ -20,21 +20,21 @@
 
 ### Step 7.1 : Frontend - Restructuration de l'onglet États financiers
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Renommer l'onglet Bilan, créer la structure avec sous-onglets et checkbox crédit.
 
 **Tasks**:
 
-- [ ] Renommer onglet "Bilan" → "États financiers" dans `frontend/src/components/Header.tsx`
+- [x] Renommer onglet "Bilan" → "États financiers" dans `frontend/src/components/Header.tsx`
 
-- [ ] Changer URL `/dashboard/bilan` → `/dashboard/etats-financiers`
+- [x] Changer URL `/dashboard/bilan` → `/dashboard/etats-financiers`
 
-- [ ] Renommer/move `frontend/app/dashboard/bilan/page.tsx` → `frontend/app/dashboard/etats-financiers/page.tsx`
+- [x] Renommer/move `frontend/app/dashboard/bilan/page.tsx` → `frontend/app/dashboard/etats-financiers/page.tsx`
 
-- [ ] Supprimer l'ancien contenu de la page Bilan (rebuild complet)
+- [x] Supprimer l'ancien contenu de la page Bilan (rebuild complet)
 
-- [ ] Créer système de sous-onglets horizontaux (comme dans Transactions avec `Navigation.tsx`) :
+- [x] Créer système de sous-onglets horizontaux (comme dans Transactions avec `Navigation.tsx`) :
 
   - Sous-onglet 1 : "Compte de résultat" → URL `/dashboard/etats-financiers?tab=compte-resultat` (par défaut)
 
@@ -44,21 +44,21 @@
 
   - Sous-onglet 4 : "Crédit" → URL `/dashboard/etats-financiers?tab=credit` (conditionnel, affiché si checkbox activée)
 
-- [ ] Ajouter checkbox "J'ai un crédit" en dessous des sous-onglets
+- [x] Ajouter checkbox "J'ai un crédit" en dessous des sous-onglets
 
-- [ ] Persister état checkbox dans localStorage
+- [x] Persister état checkbox dans localStorage
 
-- [ ] Gérer comportement checkbox :
+- [x] Gérer comportement checkbox :
 
   - Si activée → onglet "Crédit" apparaît immédiatement
 
   - Si désactivée → popup confirmation "Les données de crédit (si il y en a) vont être écrasées" → si confirmé : onglet disparaît et retour au dernier onglet actif parmi les 3 de base
 
-- [ ] Définir onglet par défaut au chargement (Compte de résultat)
+- [x] Définir onglet par défaut au chargement (Compte de résultat)
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -72,23 +72,23 @@
 
 **Acceptance Criteria**:
 
-- [ ] Onglet renommé dans la navigation
+- [x] Onglet renommé dans la navigation
 
-- [ ] URL changée et fonctionnelle (`/dashboard/etats-financiers`)
+- [x] URL changée et fonctionnelle (`/dashboard/etats-financiers`)
 
-- [ ] 3 sous-onglets de base affichés avec URLs distinctes (`?tab=compte-resultat`, `?tab=bilan`, `?tab=liasse-fiscale`)
+- [x] 3 sous-onglets de base affichés avec URLs distinctes (`?tab=compte-resultat`, `?tab=bilan`, `?tab=liasse-fiscale`)
 
-- [ ] Checkbox "J'ai un crédit" visible en dessous des onglets
+- [x] Checkbox "J'ai un crédit" visible en dessous des onglets
 
-- [ ] État checkbox persisté dans localStorage
+- [x] État checkbox persisté dans localStorage
 
-- [ ] Onglet "Crédit" apparaît/disparaît selon checkbox avec URL `/dashboard/etats-financiers?tab=credit`
+- [x] Onglet "Crédit" apparaît/disparaît selon checkbox avec URL `/dashboard/etats-financiers?tab=credit`
 
-- [ ] Confirmation affichée si désactivation avec données existantes
+- [x] Confirmation affichée si désactivation avec données existantes
 
-- [ ] Navigation entre sous-onglets fonctionne (URLs changent)
+- [x] Navigation entre sous-onglets fonctionne (URLs changent)
 
-- [ ] Onglet par défaut = Compte de résultat (si pas de `?tab=` dans l'URL)
+- [x] Onglet par défaut = Compte de résultat (si pas de `?tab=` dans l'URL)
 
 ---
 
