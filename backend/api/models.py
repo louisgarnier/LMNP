@@ -411,3 +411,95 @@ class AmortizationTypeTransactionCountResponse(BaseModel):
     type_id: int
     type_name: str
     transaction_count: int = Field(..., description="Nombre de transactions correspondant au type")
+
+
+# Loan Payment models
+
+class LoanPaymentBase(BaseModel):
+    """Base model for loan payment."""
+    date: date
+    capital: float
+    interest: float
+    insurance: float
+    total: float
+    loan_name: str = Field(..., max_length=255)
+
+
+class LoanPaymentCreate(LoanPaymentBase):
+    """Model for creating a loan payment."""
+    pass
+
+
+class LoanPaymentUpdate(BaseModel):
+    """Model for updating a loan payment."""
+    date: Optional[date] = None
+    capital: Optional[float] = None
+    interest: Optional[float] = None
+    insurance: Optional[float] = None
+    total: Optional[float] = None
+    loan_name: Optional[str] = Field(None, max_length=255)
+    
+    class Config:
+        from_attributes = True
+
+
+class LoanPaymentResponse(LoanPaymentBase):
+    """Model for loan payment response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoanPaymentListResponse(BaseModel):
+    """Model for list of loan payments response."""
+    items: List[LoanPaymentResponse]
+    total: int
+    page: int = 1
+    page_size: int = 100
+
+
+# Loan Config models
+
+class LoanConfigBase(BaseModel):
+    """Base model for loan configuration."""
+    name: str = Field(..., max_length=255)
+    credit_amount: float
+    interest_rate: float
+    duration_years: int
+    initial_deferral_months: int = 0
+
+
+class LoanConfigCreate(LoanConfigBase):
+    """Model for creating a loan configuration."""
+    pass
+
+
+class LoanConfigUpdate(BaseModel):
+    """Model for updating a loan configuration."""
+    name: Optional[str] = Field(None, max_length=255)
+    credit_amount: Optional[float] = None
+    interest_rate: Optional[float] = None
+    duration_years: Optional[int] = None
+    initial_deferral_months: Optional[int] = None
+    
+    class Config:
+        from_attributes = True
+
+
+class LoanConfigResponse(LoanConfigBase):
+    """Model for loan configuration response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LoanConfigListResponse(BaseModel):
+    """Model for list of loan configurations response."""
+    items: List[LoanConfigResponse]
+    total: int

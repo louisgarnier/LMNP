@@ -108,3 +108,7 @@
 
 **This document serves as a permanent reminder. These rules must be followed EVERY TIME, without exception. If you find yourself checking [x] after creating code, STOP and follow the workflow above.**
 
+## Related Documents
+
+- [ERROR_INVESTIGATION.md](./ERROR_INVESTIGATION.md) - Best practices pour investiguer et résoudre les erreurs
+- [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) - Workflow Git du projet

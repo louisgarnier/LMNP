@@ -17,7 +17,9 @@ from .models import (
     PivotConfig,
     AllowedMapping,
     AmortizationType,
-    AmortizationResult
+    AmortizationResult,
+    LoanPayment,
+    LoanConfig
 )
 
 __all__ = [
@@ -37,6 +39,8 @@ __all__ = [
     "AllowedMapping",
     "AmortizationType",
     "AmortizationResult",
+    "LoanPayment",
+    "LoanConfig",
 ]
 
 

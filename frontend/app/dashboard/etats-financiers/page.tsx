@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import LoanConfigCard from '@/components/LoanConfigCard';
 
 export default function EtatsFinanciersPage() {
   const searchParams = useSearchParams();
@@ -193,12 +194,7 @@ export default function EtatsFinanciersPage() {
 
         {activeTab === 'credit' && hasCredit && (
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', marginBottom: '16px' }}>
-              Crédit
-            </h2>
-            <p style={{ color: '#6b7280' }}>
-              Cette section sera implémentée dans les prochaines phases (Step 7.6-7.8).
-            </p>
+            <LoanConfigCard />
           </div>
         )}
       </div>

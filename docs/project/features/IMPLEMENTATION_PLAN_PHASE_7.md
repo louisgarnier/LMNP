@@ -94,13 +94,13 @@
 
 ### Step 7.2 : Backend - Table et modèles pour les mensualités
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer la structure pour stocker les mensualités de crédit (capital, intérêt, assurance).
 
 **Tasks**:
 
-- [ ] Créer table `loan_payments` avec colonnes :
+- [x] Créer table `loan_payments` avec colonnes :
 
   - `id` (PK)
 
@@ -118,13 +118,13 @@
 
   - `created_at`, `updated_at`
 
-- [ ] Créer modèle SQLAlchemy `LoanPayment` dans `backend/database/models.py`
+- [x] Créer modèle SQLAlchemy `LoanPayment` dans `backend/database/models.py`
 
-- [ ] Créer modèles Pydantic dans `backend/api/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py`
 
-- [ ] **Créer test unitaire pour le modèle**
+- [x] **Créer test unitaire pour le modèle**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -138,19 +138,19 @@
 
 **Acceptance Criteria**:
 
-- [ ] Table créée en BDD
+- [x] Table créée en BDD
 
-- [ ] Modèle SQLAlchemy fonctionnel
+- [x] Modèle SQLAlchemy fonctionnel
 
-- [ ] Modèles Pydantic créés et validés
+- [x] Modèles Pydantic créés et validés
 
-- [ ] Tests unitaires passent
+- [x] Tests unitaires passent
 
 ---
 
 ### Step 7.3 : Backend - Endpoints API pour les mensualités
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer les endpoints API pour gérer les mensualités de crédit.
 
@@ -210,13 +210,13 @@
 
 **Tasks**:
 
-- [ ] Créer fichier `backend/api/routes/loan_payments.py`
+- [x] Créer fichier `backend/api/routes/loan_payments.py`
 
-- [ ] Créer endpoint `GET /api/loan-payments` : Liste des mensualités (filtrées par date, prêt, etc.)
+- [x] Créer endpoint `GET /api/loan-payments` : Liste des mensualités (filtrées par date, prêt, etc.)
 
-- [ ] Créer endpoint `POST /api/loan-payments` : Créer une mensualité
+- [x] Créer endpoint `POST /api/loan-payments` : Créer une mensualité
 
-- [ ] Créer endpoint `POST /api/loan-payments/preview` : Preview du fichier Excel (comme transactions/mappings)
+- [x] Créer endpoint `POST /api/loan-payments/preview` : Preview du fichier Excel (comme transactions/mappings)
 
   - Afficher les colonnes détectées (structure du fichier Excel)
 
@@ -224,7 +224,7 @@
 
   - Afficher les années détectées et montants extraits
 
-- [ ] Créer endpoint `POST /api/loan-payments/import` : Importer depuis Excel
+- [x] Créer endpoint `POST /api/loan-payments/import` : Importer depuis Excel
 
   - Parser le fichier Excel avec structure : colonne `annee` + colonnes années
 
@@ -240,15 +240,15 @@
 
   - `loan_name` = "Prêt principal" par défaut
 
-- [ ] Créer endpoint `PUT /api/loan-payments/{id}` : Mettre à jour une mensualité
+- [x] Créer endpoint `PUT /api/loan-payments/{id}` : Mettre à jour une mensualité
 
-- [ ] Créer endpoint `DELETE /api/loan-payments/{id}` : Supprimer une mensualité
+- [x] Créer endpoint `DELETE /api/loan-payments/{id}` : Supprimer une mensualité
 
-- [ ] Enregistrer router dans `backend/api/main.py`
+- [x] Enregistrer router dans `backend/api/main.py`
 
-- [ ] **Créer test manuel pour les endpoints**
+- [x] **Créer test manuel pour les endpoints**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -258,31 +258,31 @@
 
 **Acceptance Criteria**:
 
-- [ ] Tous les endpoints fonctionnent correctement
+- [x] Tous les endpoints fonctionnent correctement
 
-- [ ] Preview du fichier Excel fonctionne (affiche structure détectée)
+- [x] Preview du fichier Excel fonctionne (affiche structure détectée)
 
-- [ ] Import depuis Excel fonctionne (parse correctement la structure)
+- [x] Import depuis Excel fonctionne (parse correctement la structure)
 
-- [ ] Création de 1 enregistrement par année avec date = 01/01/année
+- [x] Création de 1 enregistrement par année avec date = 01/01/année
 
-- [ ] Extraction correcte de capital, interest, insurance, total
+- [x] Extraction correcte de capital, interest, insurance, total
 
-- [ ] Gestion d'erreur correcte
+- [x] Gestion d'erreur correcte
 
-- [ ] Tests manuels passent
+- [x] Tests manuels passent
 
 ---
 
 ### Step 7.4 : Backend - Table et modèles pour les configurations de crédit
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer la structure pour stocker les configurations de crédit (plusieurs lignes de crédit possibles).
 
 **Tasks**:
 
-- [ ] Créer table `loan_configs` avec colonnes :
+- [x] Créer table `loan_configs` avec colonnes :
 
   - `id` (PK)
 
@@ -298,13 +298,13 @@
 
   - `created_at`, `updated_at`
 
-- [ ] Créer modèle SQLAlchemy `LoanConfig` dans `backend/database/models.py`
+- [x] Créer modèle SQLAlchemy `LoanConfig` dans `backend/database/models.py`
 
-- [ ] Créer modèles Pydantic dans `backend/api/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py`
 
-- [ ] **Créer test unitaire pour le modèle**
+- [x] **Créer test unitaire pour le modèle**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -318,41 +318,41 @@
 
 **Acceptance Criteria**:
 
-- [ ] Table créée en BDD
+- [x] Table créée en BDD
 
-- [ ] Modèle SQLAlchemy fonctionnel
+- [x] Modèle SQLAlchemy fonctionnel
 
-- [ ] Modèles Pydantic créés et validés
+- [x] Modèles Pydantic créés et validés
 
-- [ ] Tests unitaires passent
+- [x] Tests unitaires passent
 
 ---
 
 ### Step 7.5 : Backend - Endpoints API pour les configurations de crédit
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer les endpoints API pour gérer les configurations de crédit.
 
 **Tasks**:
 
-- [ ] Créer fichier `backend/api/routes/loan_configs.py`
+- [x] Créer fichier `backend/api/routes/loan_configs.py`
 
-- [ ] Créer endpoint `GET /api/loan-configs` : Liste des configurations de crédit
+- [x] Créer endpoint `GET /api/loan-configs` : Liste des configurations de crédit
 
-- [ ] Créer endpoint `GET /api/loan-configs/{id}` : Récupérer une configuration par ID
+- [x] Créer endpoint `GET /api/loan-configs/{id}` : Récupérer une configuration par ID
 
-- [ ] Créer endpoint `POST /api/loan-configs` : Créer une configuration
+- [x] Créer endpoint `POST /api/loan-configs` : Créer une configuration
 
-- [ ] Créer endpoint `PUT /api/loan-configs/{id}` : Mettre à jour une configuration
+- [x] Créer endpoint `PUT /api/loan-configs/{id}` : Mettre à jour une configuration
 
-- [ ] Créer endpoint `DELETE /api/loan-configs/{id}` : Supprimer une configuration
+- [x] Créer endpoint `DELETE /api/loan-configs/{id}` : Supprimer une configuration
 
-- [ ] Enregistrer router dans `backend/api/main.py`
+- [x] Enregistrer router dans `backend/api/main.py`
 
-- [ ] **Créer test manuel pour les endpoints**
+- [x] **Créer test manuel pour les endpoints**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
@@ -364,23 +364,23 @@
 
 **Acceptance Criteria**:
 
-- [ ] Tous les endpoints fonctionnent correctement
+- [x] Tous les endpoints fonctionnent correctement
 
-- [ ] Gestion d'erreur correcte
+- [x] Gestion d'erreur correcte
 
-- [ ] Tests manuels passent
+- [x] Tests manuels passent
 
 ---
 
 ### Step 7.6 : Frontend - Card de configuration des crédits
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Créer la card de configuration des crédits dans l'onglet Crédit.
 
 **Tasks**:
 
-- [ ] Créer composant `LoanConfigCard.tsx` avec :
+- [x] Créer composant `LoanConfigCard.tsx` avec :
 
   - Card en haut de la page avec plusieurs champs de saisie
 
@@ -402,11 +402,11 @@
 
   - Sauvegarde automatique au blur (tous les champs)
 
-- [ ] Intégrer le composant dans `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Crédit)
+- [x] Intégrer le composant dans `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Crédit)
 
-- [ ] Créer API client dans `frontend/src/api/client.ts` pour les configurations de crédit
+- [x] Créer API client dans `frontend/src/api/client.ts` pour les configurations de crédit
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
 - [ ] **Valider avec l'utilisateur**
 
@@ -420,19 +420,19 @@
 
 **Acceptance Criteria**:
 
-- [ ] Card affichée en haut de l'onglet Crédit
+- [x] Card affichée en haut de l'onglet Crédit
 
-- [ ] Tous les champs sont éditables avec les bonnes unités (€, %, ans, mois)
+- [x] Tous les champs sont éditables avec les bonnes unités (€, %, ans, mois)
 
-- [ ] Possibilité d'ajouter plusieurs lignes de crédit
+- [x] Possibilité d'ajouter plusieurs lignes de crédit
 
-- [ ] Possibilité de supprimer une ligne de crédit
+- [x] Possibilité de supprimer une ligne de crédit
 
-- [ ] Sauvegarde fonctionne (backend) - sauvegarde automatique au blur
+- [x] Sauvegarde fonctionne (backend) - sauvegarde automatique au blur
 
-- [ ] Données persistées et rechargées au chargement de la page
+- [x] Données persistées et rechargées au chargement de la page
 
-- [ ] Interface intuitive et cohérente avec le reste de l'application
+- [x] Interface intuitive et cohérente avec le reste de l'application
 
 ---
 
@@ -494,7 +494,7 @@
 
 ### Step 7.8 : Frontend - Multi-crédits avec sous-onglets dans LoanPaymentTable
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ⏳ EN ATTENTE
 
 **Description**: Transformer LoanPaymentTable pour supporter plusieurs crédits avec sous-onglets, synchronisation avec LoanConfigCard.
 
@@ -595,6 +595,52 @@
 - Utiliser `useEffect` pour recharger la liste des crédits quand LoanConfigCard change
 
 - Implémenter la confirmation de suppression avec message détaillé
+
+---
+
+### Step 7.9 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
+
+**Status**: ⏳ EN ATTENTE  
+
+**Description**: Ajouter un bouton pin/unpin à côté du titre "Configurations de crédit" pour replier/déplier la card.
+
+**Tasks**:
+
+- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+
+- [ ] Ajouter un bouton pin/unpin (📌/📍) à côté du titre "Configurations de crédit"
+
+- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (formulaires, boutons)
+
+- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
+
+- [ ] Charger l'état depuis localStorage au montage du composant
+
+- [ ] **Tester dans le navigateur**
+
+**Deliverables**:
+
+- Mise à jour `frontend/src/components/LoanConfigCard.tsx` :
+  - Ajout de l'état `isCollapsed` avec localStorage (`STORAGE_KEY_LOAN_CONFIG_COLLAPSED`)
+  - Ajout du bouton pin/unpin à côté du titre
+  - Conditionnement de l'affichage du contenu (formulaires, bouton "Ajouter un crédit") selon `isCollapsed`
+  - Fonction `handleToggleCollapse()` pour toggle l'état et sauvegarder dans localStorage
+
+**Acceptance Criteria**:
+
+- [ ] Bouton pin/unpin visible à côté du titre
+
+- [ ] Clic sur le bouton replie/déplie la card
+
+- [ ] Le contenu (formulaires, boutons) est masqué quand la card est repliée
+
+- [ ] Seul le titre et le bouton pin restent visibles quand replié
+
+- [ ] L'état est sauvegardé dans localStorage
+
+- [ ] L'état est restauré au rechargement de la page
+
+- [ ] **Test visuel dans navigateur validé**
 
 ---
 

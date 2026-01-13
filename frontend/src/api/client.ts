@@ -1226,3 +1226,81 @@ export const amortizationTypesAPI = {
   },
 };
 
+
+// Loan Config interfaces and API
+export interface LoanConfig {
+  id: number;
+  name: string;
+  credit_amount: number;
+  interest_rate: number;
+  duration_years: number;
+  initial_deferral_months: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanConfigCreate {
+  name: string;
+  credit_amount: number;
+  interest_rate: number;
+  duration_years: number;
+  initial_deferral_months: number;
+}
+
+export interface LoanConfigUpdate {
+  name?: string;
+  credit_amount?: number;
+  interest_rate?: number;
+  duration_years?: number;
+  initial_deferral_months?: number;
+}
+
+export interface LoanConfigListResponse {
+  items: LoanConfig[];
+  total: number;
+}
+
+export const loanConfigsAPI = {
+  /**
+   * Récupère la liste des configurations de crédit
+   */
+  getAll: async (): Promise<LoanConfigListResponse> => {
+    return fetchAPI<LoanConfigListResponse>('/api/loan-configs');
+  },
+
+  /**
+   * Récupère une configuration par son ID
+   */
+  getById: async (id: number): Promise<LoanConfig> => {
+    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}`);
+  },
+
+  /**
+   * Crée une nouvelle configuration
+   */
+  create: async (config: LoanConfigCreate): Promise<LoanConfig> => {
+    return fetchAPI<LoanConfig>('/api/loan-configs', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    });
+  },
+
+  /**
+   * Met à jour une configuration
+   */
+  update: async (id: number, config: LoanConfigUpdate): Promise<LoanConfig> => {
+    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  },
+
+  /**
+   * Supprime une configuration
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/loan-configs/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};

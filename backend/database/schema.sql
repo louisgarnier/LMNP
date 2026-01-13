@@ -173,3 +173,34 @@ CREATE TABLE IF NOT EXISTS pivot_configs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_pivot_configs_name ON pivot_configs(name);
+
+-- Loan payments table - Mensualités de crédit (capital, intérêt, assurance)
+CREATE TABLE IF NOT EXISTS loan_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date DATE NOT NULL,
+    capital REAL NOT NULL,
+    interest REAL NOT NULL,
+    insurance REAL NOT NULL,
+    total REAL NOT NULL,
+    loan_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_loan_payment_date ON loan_payments(date);
+CREATE INDEX IF NOT EXISTS idx_loan_payment_loan_name ON loan_payments(loan_name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_loan_payment_loan_name_date ON loan_payments(loan_name, date);
+
+-- Loan configs table - Configurations de crédit (multi-crédits possibles)
+CREATE TABLE IF NOT EXISTS loan_configs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    credit_amount REAL NOT NULL,
+    interest_rate REAL NOT NULL,
+    duration_years INTEGER NOT NULL,
+    initial_deferral_months INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_loan_config_name ON loan_configs(name);
