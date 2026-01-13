@@ -80,6 +80,8 @@ async def get_loan_configs(
             interest_rate=c.interest_rate,
             duration_years=c.duration_years,
             initial_deferral_months=c.initial_deferral_months,
+            loan_start_date=c.loan_start_date,
+            loan_end_date=c.loan_end_date,
             created_at=c.created_at,
             updated_at=c.updated_at
         )
@@ -120,6 +122,8 @@ async def create_loan_config(
         interest_rate=db_config.interest_rate,
         duration_years=db_config.duration_years,
         initial_deferral_months=db_config.initial_deferral_months,
+        loan_start_date=db_config.loan_start_date,
+        loan_end_date=db_config.loan_end_date,
         created_at=db_config.created_at,
         updated_at=db_config.updated_at
     )
@@ -145,6 +149,8 @@ async def get_loan_config(
         interest_rate=config.interest_rate,
         duration_years=config.duration_years,
         initial_deferral_months=config.initial_deferral_months,
+        loan_start_date=config.loan_start_date,
+        loan_end_date=config.loan_end_date,
         created_at=config.created_at,
         updated_at=config.updated_at
     )
@@ -192,6 +198,8 @@ async def update_loan_config(
         interest_rate=config.interest_rate,
         duration_years=config.duration_years,
         initial_deferral_months=config.initial_deferral_months,
+        loan_start_date=config.loan_start_date,
+        loan_end_date=config.loan_end_date,
         created_at=config.created_at,
         updated_at=config.updated_at
     )

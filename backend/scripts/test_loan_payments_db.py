@@ -6,7 +6,7 @@ Usage: python3 backend/scripts/test_loan_payments_db.py
 
 import sys
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date
 
 # Add project root to path
 project_root = Path(__file__).parent.parent.parent
@@ -15,6 +15,57 @@ sys.path.insert(0, str(project_root))
 from backend.database import init_database, SessionLocal, engine
 from backend.database.models import LoanConfig, LoanPayment
 from sqlalchemy import inspect, text, func
+
+def yearfrac(date1: date | None, date2: date | None) -> float | None:
+    """
+    Fonction équivalente à YEARFRAC(date1, date2, 3) d'Excel
+    Base 3 = année réelle/365 (nombre réel de jours dans l'année)
+    """
+    if not date1 or not date2:
+        return None
+    diff_days = (date2 - date1).days
+    return diff_days / 365.0
+
+def calculate_months_elapsed(start_date: date | None) -> int | None:
+    """
+    Calcule le nombre de mois écoulés depuis la date d'emprunt
+    ROUND(YEARFRAC(date_emprunt, date_du_jour, 3) * 12, 0)
+    """
+    if not start_date:
+        return None
+    today = date.today()
+    years = yearfrac(start_date, today)
+    if years is None:
+        return None
+    return round(years * 12)
+
+def calculate_months_remaining(end_date: date | None) -> int | None:
+    """
+    Calcule le nombre de mois restants jusqu'à la date de fin
+    ROUND(YEARFRAC(date_du_jour, date_fin, 3) * 12, 0)
+    """
+    if not end_date:
+        return None
+    today = date.today()
+    years = yearfrac(today, end_date)
+    if years is None:
+        return None
+    return round(years * 12)
+
+def format_remaining_duration(months: int | None) -> str:
+    """
+    Formate la durée restante en "X ans et Y mois"
+    """
+    if months is None or months < 0:
+        return '-'
+    years = months // 12
+    remaining_months = round(((months / 12) - (months // 12)) * 12)
+    if years == 0:
+        return f"{remaining_months} mois"
+    elif remaining_months == 0:
+        return f"{years} ans"
+    else:
+        return f"{years} ans et {remaining_months} mois"
 
 def print_section(title):
     """Affiche une section."""
@@ -72,6 +123,35 @@ def test_list_all_loans():
             print(f"   - Taux fixe: {config.interest_rate} %")
             print(f"   - Durée: {config.duration_years} ans")
             print(f"   - Décalage initial: {config.initial_deferral_months} mois")
+            if config.loan_start_date:
+                print(f"   - Date d'emprunt: {config.loan_start_date.strftime('%d/%m/%Y')}")
+            else:
+                print(f"   - Date d'emprunt: (non définie)")
+            if config.loan_end_date:
+                print(f"   - Date de fin prévisionnelle: {config.loan_end_date.strftime('%d/%m/%Y')}")
+            else:
+                print(f"   - Date de fin prévisionnelle: (non définie)")
+            
+            # Calculs automatiques
+            if config.loan_start_date and config.loan_end_date:
+                duration_years = yearfrac(config.loan_start_date, config.loan_end_date)
+                duration_years_with_deferral = duration_years - (config.initial_deferral_months / 12) if duration_years else None
+                months_elapsed = calculate_months_elapsed(config.loan_start_date)
+                months_remaining = calculate_months_remaining(config.loan_end_date)
+                remaining_duration = format_remaining_duration(months_remaining)
+                
+                print(f"\n   📈 Calculs automatiques:")
+                if duration_years is not None:
+                    print(f"   - Durée crédit (années): {duration_years:.2f} ans")
+                if duration_years_with_deferral is not None:
+                    print(f"   - Durée crédit (années) incluant différé: {duration_years_with_deferral:.2f} ans")
+                if months_elapsed is not None:
+                    print(f"   - Nombre de mois écoulés: {months_elapsed} mois")
+                if months_remaining is not None:
+                    print(f"   - Nombre de mois restants: {months_remaining} mois")
+                if remaining_duration != '-':
+                    print(f"   - Durée restante: {remaining_duration}")
+            
             print(f"   - Créé le: {config.created_at}")
             
             # Récupérer les mensualités pour ce crédit

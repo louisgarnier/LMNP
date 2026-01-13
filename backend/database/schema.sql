@@ -199,6 +199,8 @@ CREATE TABLE IF NOT EXISTS loan_configs (
     interest_rate REAL NOT NULL,
     duration_years INTEGER NOT NULL,
     initial_deferral_months INTEGER NOT NULL DEFAULT 0,
+    loan_start_date DATE,
+    loan_end_date DATE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

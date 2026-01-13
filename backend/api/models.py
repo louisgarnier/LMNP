@@ -470,6 +470,8 @@ class LoanConfigBase(BaseModel):
     interest_rate: float
     duration_years: int
     initial_deferral_months: int = 0
+    loan_start_date: Optional[date] = None
+    loan_end_date: Optional[date] = None
 
 
 class LoanConfigCreate(LoanConfigBase):
@@ -484,6 +486,8 @@ class LoanConfigUpdate(BaseModel):
     interest_rate: Optional[float] = None
     duration_years: Optional[int] = None
     initial_deferral_months: Optional[int] = None
+    loan_start_date: Optional[date] = None
+    loan_end_date: Optional[date] = None
     
     class Config:
         from_attributes = True

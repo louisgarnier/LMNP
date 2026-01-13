@@ -1234,6 +1234,8 @@ export interface LoanConfig {
   interest_rate: number;
   duration_years: number;
   initial_deferral_months: number;
+  loan_start_date?: string | null;
+  loan_end_date?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -1244,6 +1246,8 @@ export interface LoanConfigCreate {
   interest_rate: number;
   duration_years: number;
   initial_deferral_months: number;
+  loan_start_date?: string | null;
+  loan_end_date?: string | null;
 }
 
 export interface LoanConfigUpdate {
@@ -1252,6 +1256,8 @@ export interface LoanConfigUpdate {
   interest_rate?: number;
   duration_years?: number;
   initial_deferral_months?: number;
+  loan_start_date?: string | null;
+  loan_end_date?: string | null;
 }
 
 export interface LoanConfigListResponse {

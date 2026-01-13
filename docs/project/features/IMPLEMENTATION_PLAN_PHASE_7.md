@@ -656,36 +656,36 @@
 
 ### Step 7.10 : Frontend - Champs supplémentaires dans la card de configuration
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter des champs input et calculés à la card de configuration de crédit pour afficher des informations dérivées (dates, durées, mois écoulés/restants).
 
 **Tasks**:
 
-- [ ] **7.10.1** - Ajouter deux champs input :
+- [x] **7.10.1** - Ajouter deux champs input :
   - Date d'emprunt (input date)
   - Date de fin prévisionnelle (input date)
   - Stocker ces dates dans la base de données (ajout de colonnes dans `loan_configs`)
 
-- [ ] **7.10.2** - Ajouter une colonne calculée "Durée crédit (années)" :
+- [x] **7.10.2** - Ajouter une colonne calculée "Durée crédit (années)" :
   - Calcul : `YEARFRAC(date_emprunt, date_fin, 3)` (base 3 = année réelle/365)
   - Affichage en lecture seule (calculé automatiquement)
 
-- [ ] **7.10.3** - Ajouter une colonne calculée "Durée crédit (années) incluant différé" :
+- [x] **7.10.3** - Ajouter une colonne calculée "Durée crédit (années) incluant différé" :
   - Calcul : `YEARFRAC(date_emprunt, date_fin, 3) - (Décalage initial (mois))/12`
   - Affichage en lecture seule
 
-- [ ] **7.10.5** - Ajouter un champ calculé "Nombre de mois écoulés" :
+- [x] **7.10.5** - Ajouter un champ calculé "Nombre de mois écoulés" :
   - Calcul : `ROUND(YEARFRAC(date_emprunt, date_du_jour, 3) * 12, 0)`
   - Mois depuis le début de l'emprunt jusqu'à aujourd'hui
   - Affichage en lecture seule (recalculé à chaque affichage)
 
-- [ ] **7.10.6** - Ajouter un champ calculé "Nombre de mois restants" :
+- [x] **7.10.6** - Ajouter un champ calculé "Nombre de mois restants" :
   - Calcul : `ROUND(YEARFRAC(date_du_jour, date_fin_previsionnelle, 3) * 12, 0)`
   - Mois restants jusqu'à la fin prévisionnelle
   - Affichage en lecture seule (recalculé à chaque affichage)
 
-- [ ] **7.10.7** - Ajouter un champ calculé "Durée restante" formatée :
+- [x] **7.10.7** - Ajouter un champ calculé "Durée restante" formatée :
   - Format : "10 ans et 3 mois"
   - Calcul : `INT(mois_restants/12) & " ans et " & ROUND(((mois_restants/12)-INT(mois_restants/12))*12, 0) & " mois"`
   - Affichage en lecture seule
@@ -711,23 +711,25 @@
 
 **Acceptance Criteria**:
 
-- [ ] Champs input "Date d'emprunt" et "Date de fin prévisionnelle" visibles et éditables
+- [x] Champs input "Date d'emprunt" et "Date de fin prévisionnelle" visibles et éditables
 
-- [ ] Les dates sont sauvegardées en base de données
+- [x] Les dates sont sauvegardées en base de données
 
-- [ ] Colonne "Durée crédit (années)" affiche le résultat de YEARFRAC(date_emprunt, date_fin, 3)
+- [x] Colonne "Durée crédit (années)" affiche le résultat de YEARFRAC(date_emprunt, date_fin, 3)
 
-- [ ] Colonne "Durée crédit (années) incluant différé" affiche le résultat correct
+- [x] Colonne "Durée crédit (années) incluant différé" affiche le résultat correct
 
-- [ ] Champ "Nombre de mois écoulés" affiche le nombre de mois depuis le début jusqu'à aujourd'hui
+- [x] Champ "Nombre de mois écoulés" affiche le nombre de mois depuis le début jusqu'à aujourd'hui
 
-- [ ] Champ "Nombre de mois restants" affiche le nombre de mois restants jusqu'à la fin
+- [x] Champ "Nombre de mois restants" affiche le nombre de mois restants jusqu'à la fin
 
-- [ ] Champ "Durée restante" affiche le format "X ans et Y mois"
+- [x] Champ "Durée restante" affiche le format "X ans et Y mois"
 
-- [ ] Tous les champs calculés sont en lecture seule et se mettent à jour automatiquement
+- [x] Tous les champs calculés sont en lecture seule et se mettent à jour automatiquement
 
-- [ ] Les calculs sont corrects (vérification avec Excel)
+- [x] Les calculs sont corrects (vérification avec Excel)
+
+- [x] Script de test `test_loan_payments_db.py` mis à jour pour afficher les calculs
 
 **Détails techniques**:
 
@@ -743,6 +745,159 @@
   - `Math.round((mois_restants / 12 - Math.floor(mois_restants / 12)) * 12)` pour les mois
 
 - **Stockage** : Seules les dates sont stockées en base, les autres champs sont calculés à l'affichage
+
+---
+
+### Step 7.11 : Restructuration de l'onglet Crédit avec sous-onglets par crédit
+
+**Status**: ⏳ EN ATTENTE  
+
+**Description**: Restructurer l'onglet Crédit pour afficher un sous-onglet par crédit, chacun contenant sa configuration et ses mensualités. Déplacer "J'ai un crédit" dans la barre de navigation principale.
+
+**Tasks**:
+
+- [ ] **7.11.1** - Déplacer "J'ai un crédit" dans la barre de navigation :
+  - Retirer la checkbox de sa position actuelle (sous la barre de navigation)
+  - Afficher "☑ J'ai un crédit" comme un élément de la barre de navigation principale
+  - Position : à droite des onglets (Compte de résultat, Bilan, Liasse fiscale, Crédit)
+  - Afficher uniquement quand la checkbox est cochée
+  - Conserver la fonctionnalité de toggle (clic pour activer/désactiver avec confirmation)
+
+- [ ] **7.11.2** - Créer la structure de sous-onglets crédit :
+  - Afficher une deuxième rangée d'onglets horizontaux sous l'onglet "Crédit" principal
+  - Visible uniquement quand l'onglet "Crédit" est actif ET "J'ai un crédit" est coché
+  - Style cohérent avec les onglets principaux mais visuellement distincts (légèrement plus petits)
+
+- [ ] **7.11.3** - Afficher un sous-onglet par crédit :
+  - Créer un sous-onglet pour chaque crédit existant en base de données
+  - Afficher le nom du crédit comme libellé de l'onglet
+  - Trier les crédits par date de création (du plus ancien au plus récent)
+  - Gérer la sélection de l'onglet actif (surlignage, état actif)
+
+- [ ] **7.11.4** - Ajouter le bouton "+ Ajouter un crédit" :
+  - Position : à droite de la barre des sous-onglets crédit
+  - Style : bouton distinct des onglets (ex: couleur différente, icône +)
+  - Visible uniquement dans la barre des sous-onglets crédit
+
+- [ ] **7.11.5** - Créer un nouveau crédit depuis le bouton "+ Ajouter un crédit" :
+  - Au clic, créer un nouveau crédit avec valeurs par défaut :
+    - Nom : "Nouveau crédit"
+    - Crédit accordé : 0 €
+    - Taux fixe : 0 %
+    - Durée : 0 ans
+    - Décalage initial : 0 mois
+    - Dates : null
+  - Créer automatiquement un nouvel onglet pour ce crédit
+  - Bascule automatiquement vers le nouvel onglet créé
+  - Recharger la liste des crédits après création
+
+- [ ] **7.11.6** - Afficher la card de configuration dans chaque sous-onglet :
+  - Créer un composant `LoanConfigSingleCard` (ou adapter `LoanConfigCard`) pour afficher UN seul crédit
+  - Afficher tous les champs de configuration (nom, montant, taux, durée, décalage, dates, calculs)
+  - Permettre l'édition inline avec auto-save (comme actuellement)
+  - Supprimer le bouton "Supprimer" de la card (la suppression se fera via le "x" de l'onglet)
+
+- [ ] **7.11.7** - Afficher le bouton "Load Mensualités" sur la même ligne que "Configurations de crédit" :
+  - Titre "Configurations de crédit" à gauche
+  - Bouton "📊 Load Mensualités" (`LoanPaymentFileUpload`) à droite, sur la même ligne
+  - Le bouton doit être associé au crédit de l'onglet actif
+  - Conserver la fonctionnalité actuelle (upload, prévisualisation, import)
+
+- [ ] **7.11.8** - Afficher le tableau des mensualités dans chaque sous-onglet :
+  - Afficher `LoanPaymentTable` en dessous de la card de configuration
+  - Filtrer automatiquement les mensualités pour le crédit de l'onglet actif
+  - Conserver toutes les fonctionnalités actuelles (édition inline, suppression, sélection multiple)
+
+- [ ] **7.11.9** - Ajouter le bouton "x" de suppression au survol de chaque sous-onglet :
+  - Afficher un petit "x" à droite du nom du crédit dans l'onglet
+  - Visible uniquement au survol de l'onglet (hover)
+  - Style discret mais visible (ex: gris, devient rouge au survol)
+
+- [ ] **7.11.10** - Gérer la suppression d'un crédit avec confirmation :
+  - Au clic sur le "x", afficher un popup de confirmation :
+    - Message : "Êtes-vous sûr de vouloir supprimer le crédit '[nom]' ?"
+    - Si des mensualités existent : "Toutes les mensualités associées seront également supprimées."
+  - Si confirmé :
+    - Supprimer toutes les mensualités associées au crédit
+    - Supprimer la configuration du crédit
+    - Supprimer l'onglet correspondant
+    - Si c'était le dernier crédit, afficher "Aucun crédit configuré"
+    - Si d'autres crédits existent, basculer vers le premier crédit disponible
+
+- [ ] **7.11.11** - Gérer le cas "Aucun crédit configuré" :
+  - Quand aucun crédit n'existe (après suppression du dernier ou initialement) :
+    - Afficher un message centré : "Aucun crédit configuré"
+    - Afficher le bouton "+ Ajouter un crédit" dans la barre des sous-onglets
+    - Permettre la création d'un premier crédit
+
+**Deliverables**:
+
+- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` :
+  - Déplacer "J'ai un crédit" dans la barre de navigation (7.11.1)
+  - Créer la structure de sous-onglets crédit (7.11.2, 7.11.3)
+  - Ajouter le bouton "+ Ajouter un crédit" (7.11.4, 7.11.5)
+  - Gérer la suppression avec "x" (7.11.9, 7.11.10)
+  - Gérer le cas "Aucun crédit configuré" (7.11.11)
+
+- Créer ou adapter `frontend/src/components/LoanConfigSingleCard.tsx` :
+  - Composant pour afficher UN seul crédit (7.11.6)
+  - Afficher tous les champs de configuration
+  - Permettre l'édition inline avec auto-save
+  - Intégrer le bouton "Load Mensualités" sur la même ligne que le titre (7.11.7)
+
+- Mise à jour de l'affichage dans chaque sous-onglet :
+  - Card de configuration (7.11.6, 7.11.7)
+  - Tableau des mensualités filtré par crédit (7.11.8)
+
+**Acceptance Criteria**:
+
+- [ ] "J'ai un crédit" est affiché dans la barre de navigation principale, à droite des onglets
+
+- [ ] Les sous-onglets crédit apparaissent uniquement quand l'onglet "Crédit" est actif ET "J'ai un crédit" est coché
+
+- [ ] Un sous-onglet est créé pour chaque crédit existant, affichant son nom
+
+- [ ] Les crédits sont triés par date de création (du plus ancien au plus récent)
+
+- [ ] Le bouton "+ Ajouter un crédit" est visible à droite de la barre des sous-onglets
+
+- [ ] Cliquer sur "+ Ajouter un crédit" crée un nouveau crédit et bascule vers son onglet
+
+- [ ] Chaque sous-onglet affiche :
+  - Titre "Configurations de crédit" à gauche, bouton "📊 Load Mensualités" à droite (même ligne)
+  - Card de configuration complète du crédit
+  - Tableau des mensualités filtré pour ce crédit
+
+- [ ] Le bouton "x" apparaît au survol de chaque sous-onglet crédit
+
+- [ ] Cliquer sur "x" affiche un popup de confirmation avant suppression
+
+- [ ] La suppression supprime le crédit, ses mensualités et l'onglet correspondant
+
+- [ ] Si aucun crédit n'existe, afficher "Aucun crédit configuré"
+
+- [ ] Toutes les fonctionnalités existantes (upload, édition, suppression de mensualités) fonctionnent dans chaque sous-onglet
+
+**Détails techniques**:
+
+- **Gestion de l'état** :
+  - Utiliser `useState` pour gérer l'onglet crédit actif
+  - Charger les crédits depuis l'API au montage et après chaque création/suppression
+  - Persister l'onglet actif dans l'URL (query param) ou localStorage
+
+- **Composant `LoanConfigSingleCard`** :
+  - Props : `loanConfig: LoanConfig`, `onConfigUpdated: () => void`
+  - Afficher tous les champs comme dans `LoanConfigCard` mais pour un seul crédit
+  - Intégrer `LoanPaymentFileUpload` dans le header (même ligne que le titre)
+
+- **Filtrage des mensualités** :
+  - `LoanPaymentTable` doit recevoir `loanName` comme prop pour filtrer automatiquement
+  - Ne pas afficher les sous-onglets dans `LoanPaymentTable` (déjà géré au niveau supérieur)
+
+- **Suppression** :
+  - Utiliser `loanConfigsAPI.delete(id)` pour supprimer la configuration
+  - Utiliser `loanPaymentsAPI.getAll({ loan_name })` puis `delete` pour chaque mensualité
+  - Ou créer un endpoint backend pour supprimer un crédit et toutes ses mensualités en cascade
 
 ---
 

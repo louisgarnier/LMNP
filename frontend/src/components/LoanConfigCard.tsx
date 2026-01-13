@@ -15,6 +15,80 @@ interface LoanConfigCardProps {
 
 const STORAGE_KEY_LOAN_CONFIG_COLLAPSED = 'loan_config_card_collapsed';
 
+/**
+ * Fonction équivalente à YEARFRAC(date1, date2, 3) d'Excel
+ * Base 3 = année réelle/365 (nombre réel de jours dans l'année)
+ */
+function yearfrac(date1: string | null | undefined, date2: string | null | undefined): number | null {
+  if (!date1 || !date2) return null;
+  
+  const d1 = new Date(date1);
+  const d2 = new Date(date2);
+  
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return null;
+  
+  // Différence en millisecondes
+  const diffMs = d2.getTime() - d1.getTime();
+  // Convertir en jours
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+  // Diviser par 365 (année réelle)
+  return diffDays / 365;
+}
+
+/**
+ * Calcule le nombre de mois écoulés depuis la date d'emprunt
+ * ROUND(YEARFRAC(date_emprunt, date_du_jour, 3) * 12, 0)
+ */
+function calculateMonthsElapsed(startDate: string | null | undefined): number | null {
+  if (!startDate) return null;
+  
+  const today = new Date();
+  const start = new Date(startDate);
+  
+  if (isNaN(start.getTime())) return null;
+  
+  const years = yearfrac(startDate, today.toISOString().split('T')[0]);
+  if (years === null) return null;
+  
+  return Math.round(years * 12);
+}
+
+/**
+ * Calcule le nombre de mois restants jusqu'à la date de fin
+ * ROUND(YEARFRAC(date_du_jour, date_fin, 3) * 12, 0)
+ */
+function calculateMonthsRemaining(endDate: string | null | undefined): number | null {
+  if (!endDate) return null;
+  
+  const today = new Date();
+  const end = new Date(endDate);
+  
+  if (isNaN(end.getTime())) return null;
+  
+  const years = yearfrac(today.toISOString().split('T')[0], endDate);
+  if (years === null) return null;
+  
+  return Math.round(years * 12);
+}
+
+/**
+ * Formate la durée restante en "X ans et Y mois"
+ */
+function formatRemainingDuration(months: number | null): string {
+  if (months === null || months < 0) return '-';
+  
+  const years = Math.floor(months / 12);
+  const remainingMonths = Math.round(((months / 12) - Math.floor(months / 12)) * 12);
+  
+  if (years === 0) {
+    return `${remainingMonths} mois`;
+  } else if (remainingMonths === 0) {
+    return `${years} ans`;
+  } else {
+    return `${years} ans et ${remainingMonths} mois`;
+  }
+}
+
 export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps) {
   const [configs, setConfigs] = useState<LoanConfig[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -104,7 +178,9 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
         credit_amount: 0,
         interest_rate: 0,
         duration_years: 0,
-        initial_deferral_months: 0
+        initial_deferral_months: 0,
+        loan_start_date: null,
+        loan_end_date: null
       };
 
       const created = await loanConfigsAPI.create(newConfig);
@@ -503,6 +579,209 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
                       }}
                     />
                     <span style={{ fontSize: '14px', color: '#6b7280' }}>mois</span>
+                  </div>
+                </div>
+
+                {/* Date d'emprunt */}
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '12px', 
+                    fontWeight: '500', 
+                    color: '#374151',
+                    marginBottom: '6px'
+                  }}>
+                    Date d'emprunt
+                  </label>
+                  <input
+                    type="date"
+                    value={config.loan_start_date || ''}
+                    onChange={(e) => handleFieldChange(config.id, 'loan_start_date', e.target.value || null)}
+                    onBlur={(e) => handleFieldBlur(config.id, 'loan_start_date', e.target.value || null)}
+                    disabled={saving[config.id]}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: saving[config.id] ? '#f3f4f6' : 'white'
+                    }}
+                  />
+                </div>
+
+                {/* Date de fin prévisionnelle */}
+                <div>
+                  <label style={{ 
+                    display: 'block', 
+                    fontSize: '12px', 
+                    fontWeight: '500', 
+                    color: '#374151',
+                    marginBottom: '6px'
+                  }}>
+                    Date de fin prévisionnelle
+                  </label>
+                  <input
+                    type="date"
+                    value={config.loan_end_date || ''}
+                    onChange={(e) => handleFieldChange(config.id, 'loan_end_date', e.target.value || null)}
+                    onBlur={(e) => handleFieldBlur(config.id, 'loan_end_date', e.target.value || null)}
+                    disabled={saving[config.id]}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: saving[config.id] ? '#f3f4f6' : 'white'
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Champs calculés */}
+              <div style={{ 
+                marginTop: '20px',
+                padding: '16px',
+                backgroundColor: '#f3f4f6',
+                borderRadius: '8px',
+                border: '1px solid #e5e7eb'
+              }}>
+                <h4 style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '600', 
+                  color: '#374151',
+                  marginBottom: '12px',
+                  marginTop: 0
+                }}>
+                  Calculs automatiques
+                </h4>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '16px'
+                }}>
+                  {/* Durée crédit (années) */}
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '12px', 
+                      fontWeight: '500', 
+                      color: '#6b7280',
+                      marginBottom: '6px'
+                    }}>
+                      Durée crédit (années)
+                    </label>
+                    <div style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: 'white',
+                      color: '#374151'
+                    }}>
+                      {yearfrac(config.loan_start_date, config.loan_end_date) !== null
+                        ? yearfrac(config.loan_start_date, config.loan_end_date)!.toFixed(2)
+                        : '-'} ans
+                    </div>
+                  </div>
+
+                  {/* Durée crédit (années) incluant différé */}
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '12px', 
+                      fontWeight: '500', 
+                      color: '#6b7280',
+                      marginBottom: '6px'
+                    }}>
+                      Durée crédit (années) incluant différé
+                    </label>
+                    <div style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: 'white',
+                      color: '#374151'
+                    }}>
+                      {yearfrac(config.loan_start_date, config.loan_end_date) !== null
+                        ? (yearfrac(config.loan_start_date, config.loan_end_date)! - (config.initial_deferral_months / 12)).toFixed(2)
+                        : '-'} ans
+                    </div>
+                  </div>
+
+                  {/* Nombre de mois écoulés */}
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '12px', 
+                      fontWeight: '500', 
+                      color: '#6b7280',
+                      marginBottom: '6px'
+                    }}>
+                      Nombre de mois écoulés
+                    </label>
+                    <div style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: 'white',
+                      color: '#374151'
+                    }}>
+                      {calculateMonthsElapsed(config.loan_start_date) !== null
+                        ? calculateMonthsElapsed(config.loan_start_date)
+                        : '-'} mois
+                    </div>
+                  </div>
+
+                  {/* Nombre de mois restants */}
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '12px', 
+                      fontWeight: '500', 
+                      color: '#6b7280',
+                      marginBottom: '6px'
+                    }}>
+                      Nombre de mois restants
+                    </label>
+                    <div style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: 'white',
+                      color: '#374151'
+                    }}>
+                      {calculateMonthsRemaining(config.loan_end_date) !== null
+                        ? calculateMonthsRemaining(config.loan_end_date)
+                        : '-'} mois
+                    </div>
+                  </div>
+
+                  {/* Durée restante */}
+                  <div>
+                    <label style={{ 
+                      display: 'block', 
+                      fontSize: '12px', 
+                      fontWeight: '500', 
+                      color: '#6b7280',
+                      marginBottom: '6px'
+                    }}>
+                      Durée restante
+                    </label>
+                    <div style={{
+                      padding: '8px 12px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '4px',
+                      fontSize: '14px',
+                      backgroundColor: 'white',
+                      color: '#374151'
+                    }}>
+                      {formatRemainingDuration(calculateMonthsRemaining(config.loan_end_date))}
+                    </div>
                   </div>
                 </div>
               </div>
