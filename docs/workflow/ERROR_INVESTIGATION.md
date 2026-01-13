@@ -259,7 +259,7 @@ git checkout <fichier>
 
 ### Script de Vérification Frontend
 
-Un script `scripts/check_frontend_errors.js` a été créé pour vérifier automatiquement :
+Un script `docs/workflow/check_frontend_errors.js` a été créé pour vérifier automatiquement :
 - ✅ Erreurs de compilation TypeScript
 - ✅ Erreurs ESLint
 - ✅ Exports manquants
@@ -268,7 +268,7 @@ Un script `scripts/check_frontend_errors.js` a été créé pour vérifier autom
 
 **Usage :**
 ```bash
-node scripts/check_frontend_errors.js
+node docs/workflow/check_frontend_errors.js
 ```
 
 **⚠️ IMPORTANT :** Toujours exécuter ce script avant de dire que le code est "OK". Ne jamais affirmer que tout fonctionne sans avoir vérifié.

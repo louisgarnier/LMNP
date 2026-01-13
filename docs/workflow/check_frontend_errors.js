@@ -7,7 +7,7 @@
  * - Exports manquants
  * - Erreurs de build Next.js
  * 
- * Usage: node scripts/check_frontend_errors.js
+ * Usage: node docs/workflow/check_frontend_errors.js
  */
 
 const { execSync } = require('child_process');
@@ -16,7 +16,7 @@ const path = require('path');
 const http = require('http');
 const https = require('https');
 
-const FRONTEND_DIR = path.join(__dirname, '..', 'frontend');
+const FRONTEND_DIR = path.join(__dirname, '..', '..', 'frontend');
 const RED = '\x1b[31m';
 const GREEN = '\x1b[32m';
 const YELLOW = '\x1b[33m';
