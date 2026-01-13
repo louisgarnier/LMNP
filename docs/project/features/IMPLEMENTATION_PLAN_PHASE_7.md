@@ -756,11 +756,11 @@
 
 **Tasks**:
 
-- [ ] **7.11.1** - Déplacer "J'ai un crédit" dans la barre de navigation :
+- [x] **7.11.1** - Déplacer "J'ai un crédit" dans la barre de navigation :
   - Retirer la checkbox de sa position actuelle (sous la barre de navigation)
-  - Afficher "☑ J'ai un crédit" comme un élément de la barre de navigation principale
+  - Afficher une vraie checkbox avec "J'ai un crédit" comme un élément de la barre de navigation principale
   - Position : à droite des onglets (Compte de résultat, Bilan, Liasse fiscale, Crédit)
-  - Afficher uniquement quand la checkbox est cochée
+  - Afficher toujours dans la barre (checkbox toujours visible, état visuel change selon coché/décoché)
   - Conserver la fonctionnalité de toggle (clic pour activer/désactiver avec confirmation)
 
 - [ ] **7.11.2** - Créer la structure de sous-onglets crédit :

@@ -193,79 +193,87 @@ export default function EtatsFinanciersPage() {
       {/* Sous-onglets horizontaux */}
       <nav style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', marginBottom: '24px' }}>
         <div style={{ padding: '0 24px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            {/* Onglets de base */}
-            {baseTabs.map((tab) => {
-              const isActive = activeTab === tab.tab;
-              return (
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {/* Onglets de base */}
+              {baseTabs.map((tab) => {
+                const isActive = activeTab === tab.tab;
+                return (
+                  <Link
+                    key={tab.tab}
+                    href={`/dashboard/etats-financiers?tab=${tab.tab}`}
+                    style={{
+                      padding: '12px 16px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: isActive ? '#1e3a5f' : '#6b7280',
+                      borderBottom: isActive ? '2px solid #1e3a5f' : '2px solid transparent',
+                      textDecoration: 'none',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {tab.name}
+                  </Link>
+                );
+              })}
+              
+              {/* Onglet Crédit (conditionnel) */}
+              {hasCredit && (
                 <Link
-                  key={tab.tab}
-                  href={`/dashboard/etats-financiers?tab=${tab.tab}`}
+                  key={creditTab.tab}
+                  href={`/dashboard/etats-financiers?tab=${creditTab.tab}`}
                   style={{
                     padding: '12px 16px',
                     fontSize: '14px',
                     fontWeight: '500',
-                    color: isActive ? '#1e3a5f' : '#6b7280',
-                    borderBottom: isActive ? '2px solid #1e3a5f' : '2px solid transparent',
+                    color: activeTab === creditTab.tab ? '#1e3a5f' : '#6b7280',
+                    borderBottom: activeTab === creditTab.tab ? '2px solid #1e3a5f' : '2px solid transparent',
                     textDecoration: 'none',
                     transition: 'all 0.2s',
                   }}
                 >
-                  {tab.name}
+                  {creditTab.name}
                 </Link>
-              );
-            })}
-            
-            {/* Onglet Crédit (conditionnel) */}
-            {hasCredit && (
-              <Link
-                key={creditTab.tab}
-                href={`/dashboard/etats-financiers?tab=${creditTab.tab}`}
+              )}
+            </div>
+
+            {/* "J'ai un crédit" dans la barre de navigation */}
+            <label
+              style={{
+                padding: '12px 16px',
+                fontSize: '14px',
+                fontWeight: '500',
+                color: hasCredit ? '#1e3a5f' : '#6b7280',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s',
+                borderRadius: '4px',
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title={hasCredit ? "Cliquer pour désactiver" : "Cliquer pour activer"}
+            >
+              <input
+                type="checkbox"
+                checked={hasCredit}
+                onChange={(e) => handleCreditCheckboxChange(e.target.checked)}
                 style={{
-                  padding: '12px 16px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: activeTab === creditTab.tab ? '#1e3a5f' : '#6b7280',
-                  borderBottom: activeTab === creditTab.tab ? '2px solid #1e3a5f' : '2px solid transparent',
-                  textDecoration: 'none',
-                  transition: 'all 0.2s',
+                  width: '16px',
+                  height: '16px',
+                  cursor: 'pointer',
                 }}
-              >
-                {creditTab.name}
-              </Link>
-            )}
+              />
+              <span>J'ai un crédit</span>
+            </label>
           </div>
         </div>
       </nav>
-
-      {/* Checkbox "J'ai un crédit" */}
-      <div style={{ 
-        padding: '16px 24px', 
-        backgroundColor: 'white', 
-        borderBottom: '1px solid #e5e7eb',
-        marginBottom: '24px'
-      }}>
-        <label style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '8px',
-          cursor: 'pointer',
-          fontSize: '14px',
-          color: '#374151'
-        }}>
-          <input
-            type="checkbox"
-            checked={hasCredit}
-            onChange={(e) => handleCreditCheckboxChange(e.target.checked)}
-            style={{
-              width: '16px',
-              height: '16px',
-              cursor: 'pointer',
-            }}
-          />
-          <span>J'ai un crédit</span>
-        </label>
-      </div>
 
       {/* Contenu selon l'onglet actif */}
       <div style={{ 
