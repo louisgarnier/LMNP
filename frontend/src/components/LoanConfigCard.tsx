@@ -7,21 +7,34 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { loanConfigsAPI, LoanConfig, LoanConfigCreate } from '@/api/client';
+import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI } from '@/api/client';
 
 interface LoanConfigCardProps {
   onConfigUpdated?: () => void;
 }
+
+const STORAGE_KEY_LOAN_CONFIG_COLLAPSED = 'loan_config_card_collapsed';
 
 export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps) {
   const [configs, setConfigs] = useState<LoanConfig[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<{ [key: number]: boolean }>({});
   const [errors, setErrors] = useState<{ [key: number]: string; global?: string }>({});
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
   // Charger les configurations au montage
   useEffect(() => {
     loadConfigs();
+    
+    // Charger l'état collapsed depuis localStorage
+    try {
+      const savedCollapsed = localStorage.getItem(STORAGE_KEY_LOAN_CONFIG_COLLAPSED);
+      if (savedCollapsed !== null) {
+        setIsCollapsed(savedCollapsed === 'true');
+      }
+    } catch (err) {
+      console.error('Erreur lors du chargement de l\'état collapsed:', err);
+    }
   }, []);
 
   const loadConfigs = async () => {
@@ -110,11 +123,42 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
   };
 
   const handleDeleteConfig = async (id: number) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer cette configuration de crédit ?')) {
+    const config = configs.find(c => c.id === id);
+    if (!config) return;
+
+    // Vérifier s'il y a des mensualités associées
+    let hasPayments = false;
+    try {
+      const paymentsResponse = await loanPaymentsAPI.getAll({ loan_name: config.name, limit: 1 });
+      hasPayments = paymentsResponse.items.length > 0;
+    } catch (err) {
+      console.error('Erreur lors de la vérification des mensualités:', err);
+    }
+
+    // Message de confirmation avec information sur les mensualités
+    const confirmMessage = hasPayments
+      ? `Êtes-vous sûr de vouloir supprimer le crédit "${config.name}" ?\n\nToutes les mensualités associées (${hasPayments ? 'au moins une' : 'aucune'}) seront également supprimées.`
+      : `Êtes-vous sûr de vouloir supprimer le crédit "${config.name}" ?`;
+
+    if (!window.confirm(confirmMessage)) {
       return;
     }
 
     try {
+      // Supprimer toutes les mensualités associées
+      if (hasPayments) {
+        try {
+          const allPayments = await loanPaymentsAPI.getAll({ loan_name: config.name, limit: 1000 });
+          const deletePromises = allPayments.items.map(payment => loanPaymentsAPI.delete(payment.id));
+          await Promise.all(deletePromises);
+          console.log(`✅ ${allPayments.items.length} mensualité(s) supprimée(s) pour le crédit "${config.name}"`);
+        } catch (err) {
+          console.error('Erreur lors de la suppression des mensualités:', err);
+          // Continuer quand même avec la suppression de la config
+        }
+      }
+
+      // Supprimer la configuration
       await loanConfigsAPI.delete(id);
       await loadConfigs();
       
@@ -138,6 +182,16 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
     );
   }
 
+  const handleToggleCollapse = () => {
+    const newCollapsed = !isCollapsed;
+    setIsCollapsed(newCollapsed);
+    try {
+      localStorage.setItem(STORAGE_KEY_LOAN_CONFIG_COLLAPSED, String(newCollapsed));
+    } catch (err) {
+      console.error('Erreur lors de la sauvegarde de l\'état collapsed:', err);
+    }
+  };
+
   return (
     <div style={{ 
       backgroundColor: 'white', 
@@ -149,61 +203,95 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        marginBottom: '24px'
+        marginBottom: isCollapsed ? '0' : '24px'
       }}>
-        <h3 style={{ 
-          fontSize: '18px', 
-          fontWeight: '600', 
-          color: '#1a1a1a',
-          margin: 0
-        }}>
-          Configurations de crédit
-        </h3>
-        <button
-          onClick={handleAddConfig}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#1e3a5f',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            fontSize: '14px',
-            fontWeight: '500',
-            cursor: 'pointer',
-            transition: 'background-color 0.2s'
-          }}
-          onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2d4a6f'}
-          onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
-        >
-          + Ajouter un crédit
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h3 style={{ 
+            fontSize: '18px', 
+            fontWeight: '600', 
+            color: '#1a1a1a',
+            margin: 0
+          }}>
+            Configurations de crédit
+          </h3>
+          <button
+            onClick={handleToggleCollapse}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              backgroundColor: 'transparent',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px',
+              transition: 'all 0.2s',
+              padding: 0
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.backgroundColor = '#f9fafb';
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.borderColor = '#e5e7eb';
+            }}
+            title={isCollapsed ? 'Déplier la card' : 'Replier la card'}
+          >
+            {isCollapsed ? '📍' : '📌'}
+          </button>
+        </div>
+        {!isCollapsed && (
+          <button
+            onClick={handleAddConfig}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: '#1e3a5f',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '14px',
+              fontWeight: '500',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2d4a6f'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#1e3a5f'}
+          >
+            + Ajouter un crédit
+          </button>
+        )}
       </div>
 
-      {errors.global && (
-        <div style={{
-          padding: '12px',
-          backgroundColor: '#fee2e2',
-          color: '#dc2626',
-          borderRadius: '4px',
-          marginBottom: '16px',
-          fontSize: '14px'
-        }}>
-          {errors.global}
-        </div>
-      )}
+      {!isCollapsed && (
+        <>
+          {errors.global && (
+            <div style={{
+              padding: '12px',
+              backgroundColor: '#fee2e2',
+              color: '#dc2626',
+              borderRadius: '4px',
+              marginBottom: '16px',
+              fontSize: '14px'
+            }}>
+              {errors.global}
+            </div>
+          )}
 
-      {configs.length === 0 ? (
-        <div style={{ 
-          padding: '24px', 
-          textAlign: 'center', 
-          color: '#6b7280',
-          fontSize: '14px'
-        }}>
-          Aucune configuration de crédit. Cliquez sur "Ajouter un crédit" pour en créer une.
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {configs.map((config) => (
+          {configs.length === 0 ? (
+            <div style={{ 
+              padding: '24px', 
+              textAlign: 'center', 
+              color: '#6b7280',
+              fontSize: '14px'
+            }}>
+              Aucune configuration de crédit. Cliquez sur "Ajouter un crédit" pour en créer une.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {configs.map((config) => (
             <div
               key={config.id}
               style={{
@@ -215,18 +303,10 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
             >
               <div style={{ 
                 display: 'flex', 
-                justifyContent: 'space-between', 
+                justifyContent: 'flex-end',
                 alignItems: 'center',
                 marginBottom: '16px'
               }}>
-                <h4 style={{ 
-                  fontSize: '16px', 
-                  fontWeight: '600', 
-                  color: '#1a1a1a',
-                  margin: 0
-                }}>
-                  Configuration #{config.id}
-                </h4>
                 <button
                   onClick={() => handleDeleteConfig(config.id)}
                   style={{
@@ -439,7 +519,9 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
               )}
             </div>
           ))}
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

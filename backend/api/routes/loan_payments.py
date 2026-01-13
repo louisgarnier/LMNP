@@ -237,7 +237,7 @@ async def preview_loan_payment_file(
     db: Session = Depends(get_db)
 ):
     """
-    Prévisualise un fichier Excel de mensualités de crédit.
+    Prévisualise un fichier Excel ou CSV de mensualités de crédit.
     
     Structure attendue :
     - Colonne "annee" : types ("capital", "interets", "assurance cred", "total")
@@ -251,49 +251,93 @@ async def preview_loan_payment_file(
         raise HTTPException(status_code=400, detail="Nom de fichier manquant")
     
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls')):
+    if not (filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls') or filename_lower.endswith('.csv')):
         raise HTTPException(
             status_code=400,
-            detail="Le fichier doit être un fichier Excel (.xlsx ou .xls)"
+            detail="Le fichier doit être un fichier Excel (.xlsx, .xls) ou CSV (.csv)"
         )
     
     # Lire le fichier
     file_content = await file.read()
     
     try:
-        # Lire Excel avec pandas
-        df = pd.read_excel(
-            io.BytesIO(file_content),
-            engine='openpyxl' if filename_lower.endswith('.xlsx') else None
-        )
+        # Lire le fichier selon son type
+        if filename_lower.endswith('.csv'):
+            # Lire CSV avec pandas - essayer plusieurs encodages et séparateurs
+            try:
+                df = pd.read_csv(
+                    io.BytesIO(file_content),
+                    encoding='utf-8-sig',  # Gérer BOM UTF-8
+                    sep=',',
+                    engine='python',
+                    on_bad_lines='skip'
+                )
+            except:
+                try:
+                    df = pd.read_csv(
+                        io.BytesIO(file_content),
+                        encoding='latin-1',
+                        sep=';',
+                        engine='python',
+                        on_bad_lines='skip'
+                    )
+                except:
+                    df = pd.read_csv(
+                        io.BytesIO(file_content),
+                        encoding='utf-8',
+                        sep=None,
+                        engine='python',
+                        on_bad_lines='skip'
+                    )
+        else:
+            # Lire Excel avec pandas
+            df = pd.read_excel(
+                io.BytesIO(file_content),
+                engine='openpyxl' if filename_lower.endswith('.xlsx') else None
+            )
         
         if df.empty:
-            raise HTTPException(status_code=400, detail="Le fichier Excel est vide")
+            file_type = "Excel" if not filename_lower.endswith('.csv') else "CSV"
+            raise HTTPException(status_code=400, detail=f"Le fichier {file_type} est vide")
         
-        # Vérifier que la colonne "annee" existe
-        if 'annee' not in df.columns:
+        # Normaliser les noms de colonnes (convertir en string et strip)
+        df.columns = [str(col).strip() for col in df.columns]
+        
+        # Vérifier que la colonne "annee" existe (insensible à la casse)
+        annee_col = None
+        for col in df.columns:
+            if col.lower() == 'annee':
+                annee_col = col
+                break
+        
+        if not annee_col:
             raise HTTPException(
                 status_code=400,
                 detail="Colonne 'annee' non trouvée. Le fichier doit contenir une colonne 'annee' avec les types (capital, interets, assurance cred, total)"
             )
         
         # Détecter les colonnes années (colonnes numériques sauf "annee")
-        year_columns = []
+        # Mapping: année (int) -> nom de colonne réel dans le DataFrame
+        year_columns_map = {}  # {année: nom_colonne_réel}
         invalid_columns = []
         
         for col in df.columns:
-            if col.lower() == 'annee':
+            # Convertir en string pour éviter l'erreur si col est un int
+            col_str = str(col).strip()
+            if col_str.lower() == 'annee':
                 continue
             try:
-                year = int(col)
+                # Essayer de convertir en int (peut être une string "2021" ou un int 2021)
+                year = int(float(col_str)) if '.' in col_str else int(col_str)
                 if 1900 <= year <= 2100:  # Années valides
-                    year_columns.append(col)
+                    year_columns_map[year] = col  # Garder le nom de colonne original
                 else:
-                    invalid_columns.append(col)
-            except ValueError:
-                invalid_columns.append(col)
+                    invalid_columns.append(col_str)
+            except (ValueError, TypeError):
+                invalid_columns.append(col_str)
         
-        year_columns.sort(key=int)  # Trier par année
+        # Trier par année et créer une liste des années
+        year_columns = sorted(year_columns_map.keys())
         
         # Extraire les données par type
         capital_row = None
@@ -302,7 +346,7 @@ async def preview_loan_payment_file(
         total_row = None
         
         for idx, row in df.iterrows():
-            annee_value = str(row['annee']).lower().strip()
+            annee_value = str(row[annee_col]).lower().strip()
             if 'capital' in annee_value:
                 capital_row = row
             elif 'interet' in annee_value or 'intérêt' in annee_value:
@@ -314,8 +358,8 @@ async def preview_loan_payment_file(
         
         # Préparer les données extraites
         extracted_data = []
-        for year_col in year_columns:
-            year = int(year_col)
+        for year in year_columns:
+            year_col = year_columns_map[year]  # Nom de colonne réel dans le DataFrame
             capital = float(capital_row[year_col]) if capital_row is not None and pd.notna(capital_row[year_col]) else 0.0
             interest = float(interest_row[year_col]) if interest_row is not None and pd.notna(interest_row[year_col]) else 0.0
             insurance = float(insurance_row[year_col]) if insurance_row is not None and pd.notna(insurance_row[year_col]) else 0.0
@@ -387,7 +431,7 @@ async def import_loan_payment_file(
     db: Session = Depends(get_db)
 ):
     """
-    Importer un fichier Excel de mensualités de crédit.
+    Importer un fichier Excel ou CSV de mensualités de crédit.
     
     Structure attendue :
     - Colonne "annee" : types ("capital", "interets", "assurance cred", "total")
@@ -402,45 +446,89 @@ async def import_loan_payment_file(
         raise HTTPException(status_code=400, detail="Nom de fichier manquant")
     
     filename_lower = file.filename.lower()
-    if not (filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls')):
+    if not (filename_lower.endswith('.xlsx') or filename_lower.endswith('.xls') or filename_lower.endswith('.csv')):
         raise HTTPException(
             status_code=400,
-            detail="Le fichier doit être un fichier Excel (.xlsx ou .xls)"
+            detail="Le fichier doit être un fichier Excel (.xlsx, .xls) ou CSV (.csv)"
         )
     
     # Lire le fichier
     file_content = await file.read()
     
     try:
-        # Lire Excel avec pandas
-        df = pd.read_excel(
-            io.BytesIO(file_content),
-            engine='openpyxl' if filename_lower.endswith('.xlsx') else None
-        )
+        # Lire le fichier selon son type
+        if filename_lower.endswith('.csv'):
+            # Lire CSV avec pandas - essayer plusieurs encodages et séparateurs
+            try:
+                df = pd.read_csv(
+                    io.BytesIO(file_content),
+                    encoding='utf-8-sig',  # Gérer BOM UTF-8
+                    sep=',',
+                    engine='python',
+                    on_bad_lines='skip'
+                )
+            except:
+                try:
+                    df = pd.read_csv(
+                        io.BytesIO(file_content),
+                        encoding='latin-1',
+                        sep=';',
+                        engine='python',
+                        on_bad_lines='skip'
+                    )
+                except:
+                    df = pd.read_csv(
+                        io.BytesIO(file_content),
+                        encoding='utf-8',
+                        sep=None,
+                        engine='python',
+                        on_bad_lines='skip'
+                    )
+        else:
+            # Lire Excel avec pandas
+            df = pd.read_excel(
+                io.BytesIO(file_content),
+                engine='openpyxl' if filename_lower.endswith('.xlsx') else None
+            )
         
         if df.empty:
-            raise HTTPException(status_code=400, detail="Le fichier Excel est vide")
+            file_type = "Excel" if not filename_lower.endswith('.csv') else "CSV"
+            raise HTTPException(status_code=400, detail=f"Le fichier {file_type} est vide")
         
-        # Vérifier que la colonne "annee" existe
-        if 'annee' not in df.columns:
+        # Normaliser les noms de colonnes (convertir en string et strip)
+        df.columns = [str(col).strip() for col in df.columns]
+        
+        # Vérifier que la colonne "annee" existe (insensible à la casse)
+        annee_col = None
+        for col in df.columns:
+            if col.lower() == 'annee':
+                annee_col = col
+                break
+        
+        if not annee_col:
             raise HTTPException(
                 status_code=400,
                 detail="Colonne 'annee' non trouvée. Le fichier doit contenir une colonne 'annee' avec les types (capital, interets, assurance cred, total)"
             )
         
         # Détecter les colonnes années
-        year_columns = []
+        # Mapping: année (int) -> nom de colonne réel dans le DataFrame
+        year_columns_map = {}  # {année: nom_colonne_réel}
+        
         for col in df.columns:
-            if col.lower() == 'annee':
+            col_str = str(col).strip()
+            if col_str.lower() == 'annee':
                 continue
             try:
-                year = int(col)
+                # Essayer de convertir en int (peut être une string "2021" ou un int 2021)
+                year = int(float(col_str)) if '.' in col_str else int(col_str)
                 if 1900 <= year <= 2100:
-                    year_columns.append(col)
-            except ValueError:
+                    year_columns_map[year] = col  # Garder le nom de colonne original
+            except (ValueError, TypeError):
                 pass
         
-        year_columns.sort(key=int)
+        # Trier par année et créer une liste des années
+        year_columns = sorted(year_columns_map.keys())
         
         if not year_columns:
             raise HTTPException(status_code=400, detail="Aucune colonne année valide détectée")
@@ -452,7 +540,7 @@ async def import_loan_payment_file(
         total_row = None
         
         for idx, row in df.iterrows():
-            annee_value = str(row['annee']).lower().strip()
+            annee_value = str(row[annee_col]).lower().strip()
             if 'capital' in annee_value:
                 capital_row = row
             elif 'interet' in annee_value or 'intérêt' in annee_value:
@@ -472,8 +560,8 @@ async def import_loan_payment_file(
         created_count = 0
         errors = []
         
-        for year_col in year_columns:
-            year = int(year_col)
+        for year in year_columns:
+            year_col = year_columns_map[year]  # Nom de colonne réel dans le DataFrame
             payment_date = date(year, 1, 1)  # 01/01/année
             
             # Extraire les valeurs
@@ -511,20 +599,22 @@ async def import_loan_payment_file(
             if total == 0.0 or abs(total - calculated_total) > 0.01:
                 total = calculated_total
             
-            # Créer l'enregistrement (même si toutes les valeurs sont à 0)
-            try:
-                payment = LoanPayment(
-                    date=payment_date,
-                    capital=capital,
-                    interest=interest,
-                    insurance=insurance,
-                    total=total,
-                    loan_name=loan_name
-                )
-                db.add(payment)
-                created_count += 1
-            except Exception as e:
-                errors.append(f"Erreur pour l'année {year}: {str(e)}")
+            # Ne créer un enregistrement que si au moins une valeur est non nulle
+            # (évite de créer des lignes vides pour les années sans données)
+            if capital > 0 or interest > 0 or insurance > 0 or total > 0:
+                try:
+                    payment = LoanPayment(
+                        date=payment_date,
+                        capital=capital,
+                        interest=interest,
+                        insurance=insurance,
+                        total=total,
+                        loan_name=loan_name
+                    )
+                    db.add(payment)
+                    created_count += 1
+                except Exception as e:
+                    errors.append(f"Erreur pour l'année {year}: {str(e)}")
         
         db.commit()
         

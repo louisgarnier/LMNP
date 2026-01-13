@@ -1226,7 +1226,6 @@ export const amortizationTypesAPI = {
   },
 };
 
-
 // Loan Config interfaces and API
 export interface LoanConfig {
   id: number;
@@ -1302,5 +1301,225 @@ export const loanConfigsAPI = {
     return fetchAPI<void>(`/api/loan-configs/${id}`, {
       method: 'DELETE',
     });
+  },
+};
+
+// Loan Payment interfaces and API
+export interface LoanPayment {
+  id: number;
+  date: string;
+  capital: number;
+  interest: number;
+  insurance: number;
+  total: number;
+  loan_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LoanPaymentCreate {
+  date: string;
+  capital: number;
+  interest: number;
+  insurance: number;
+  total: number;
+  loan_name: string;
+}
+
+export interface LoanPaymentUpdate {
+  date?: string;
+  capital?: number;
+  interest?: number;
+  insurance?: number;
+  total?: number;
+  loan_name?: string;
+}
+
+export interface LoanPaymentListResponse {
+  items: LoanPayment[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+export interface LoanPaymentPreviewResponse {
+  filename: string;
+  total_rows: number;
+  detected_columns: string[];
+  year_columns: string[];
+  invalid_columns: string[];
+  extracted_data: Array<{
+    year: number;
+    date: string;
+    capital: number;
+    interest: number;
+    insurance: number;
+    total: number;
+  }>;
+  preview: Array<Record<string, any>>;
+  warning?: string;
+  stats: {
+    years_detected: number;
+    records_to_create: number;
+    existing_records: number;
+  };
+}
+
+export interface LoanPaymentImportResponse {
+  message: string;
+  deleted_count: number;
+  created_count: number;
+  total_years: number;
+  loan_name: string;
+  errors?: string[];
+}
+
+export const loanPaymentsAPI = {
+  /**
+   * Récupère la liste des mensualités
+   */
+  getAll: async (params?: {
+    skip?: number;
+    limit?: number;
+    start_date?: string;
+    end_date?: string;
+    loan_name?: string;
+    sort_by?: string;
+    sort_direction?: string;
+  }): Promise<LoanPaymentListResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          queryParams.append(key, String(value));
+        }
+      });
+    }
+    const query = queryParams.toString();
+    return fetchAPI<LoanPaymentListResponse>(`/api/loan-payments${query ? `?${query}` : ''}`);
+  },
+
+  /**
+   * Récupère une mensualité par son ID
+   */
+  getById: async (id: number): Promise<LoanPayment> => {
+    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}`);
+  },
+
+  /**
+   * Crée une nouvelle mensualité
+   */
+  create: async (payment: LoanPaymentCreate): Promise<LoanPayment> => {
+    return fetchAPI<LoanPayment>('/api/loan-payments', {
+      method: 'POST',
+      body: JSON.stringify(payment),
+    });
+  },
+
+  /**
+   * Met à jour une mensualité
+   */
+  update: async (id: number, payment: LoanPaymentUpdate): Promise<LoanPayment> => {
+    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payment),
+    });
+  },
+
+  /**
+   * Supprime une mensualité
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/loan-payments/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Preview d'un fichier Excel de mensualités
+   */
+  preview: async (file: File): Promise<LoanPaymentPreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Ne pas utiliser fetchAPI car il ajoute 'Content-Type: application/json'
+    // Pour FormData, le navigateur doit définir automatiquement le Content-Type avec le boundary
+    const url = `${API_BASE_URL}/api/loan-payments/preview`;
+    console.log(`📤 [API] Appel POST ${url}`);
+    console.log(`📤 [API] Fichier: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      // Ne pas définir Content-Type - le navigateur le fait automatiquement pour FormData
+    });
+
+    console.log(`📥 [API] Réponse ${response.status} pour /api/loan-payments/preview`);
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      console.error(`❌ [API] Erreur ${response.status} (/api/loan-payments/preview):`, error);
+      // Formater l'erreur comme fetchAPI le fait
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      if (error.detail) {
+        if (Array.isArray(error.detail)) {
+          errorMessage = error.detail.map((e: any) => {
+            if (typeof e === 'string') return e;
+            return `${e.loc?.join('.') || 'field'}: ${e.msg || e}`;
+          }).join(', ');
+        } else if (typeof error.detail === 'string') {
+          errorMessage = error.detail;
+        } else {
+          errorMessage = JSON.stringify(error.detail);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const result = await response.json();
+    console.log('✅ [API] Preview réussi:', result);
+    return result;
+  },
+
+  /**
+   * Importe un fichier Excel de mensualités
+   */
+  import: async (file: File, loanName: string = 'Prêt principal'): Promise<LoanPaymentImportResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    // Ne pas utiliser fetchAPI car il ajoute 'Content-Type: application/json'
+    // Pour FormData, le navigateur doit définir automatiquement le Content-Type avec le boundary
+    const url = `${API_BASE_URL}/api/loan-payments/import?loan_name=${encodeURIComponent(loanName)}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      // Ne pas définir Content-Type - le navigateur le fait automatiquement pour FormData
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Unknown error' }));
+      // Formater l'erreur comme fetchAPI le fait
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      if (error.detail) {
+        if (Array.isArray(error.detail)) {
+          errorMessage = error.detail.map((e: any) => {
+            if (typeof e === 'string') return e;
+            return `${e.loc?.join('.') || 'field'}: ${e.msg || e}`;
+          }).join(', ');
+        } else if (typeof error.detail === 'string') {
+          errorMessage = error.detail;
+        } else {
+          errorMessage = JSON.stringify(error.detail);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
   },
 };

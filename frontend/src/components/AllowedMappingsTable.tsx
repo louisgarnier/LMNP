@@ -209,7 +209,7 @@ export default function AllowedMappingsTable() {
   };
 
   const handleCreateLevel3Change = (value: string) => {
-    setNewLevel3(value || undefined);
+    setNewLevel3(value || '');
   };
 
   const handleCreate = async () => {

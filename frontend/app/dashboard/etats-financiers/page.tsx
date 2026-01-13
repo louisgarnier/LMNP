@@ -6,10 +6,126 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LoanConfigCard from '@/components/LoanConfigCard';
+import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
+import LoanPaymentTable from '@/components/LoanPaymentTable';
+import { loanConfigsAPI, LoanConfig } from '@/api/client';
+
+function CreditTabContent() {
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
+  const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
+  const [activeLoanName, setActiveLoanName] = useState<string | null>(null);
+
+  // Charger les configurations de crédit au montage
+  useEffect(() => {
+    loadLoanConfigs();
+  }, []);
+
+  const loadLoanConfigs = async () => {
+    try {
+      setIsLoadingConfigs(true);
+      const response = await loanConfigsAPI.getAll();
+      const sortedConfigs = response.items.sort((a, b) => {
+        // Trier par created_at si disponible, sinon par id
+        const aDate = (a as any).created_at ? new Date((a as any).created_at).getTime() : a.id;
+        const bDate = (b as any).created_at ? new Date((b as any).created_at).getTime() : b.id;
+        return aDate - bDate;
+      });
+      setLoanConfigs(sortedConfigs);
+      
+      // Si des configurations existent et qu'aucun crédit n'est actif, utiliser le nom de la première
+      if (sortedConfigs.length > 0 && !activeLoanName) {
+        setActiveLoanName(sortedConfigs[0].name);
+      } else if (sortedConfigs.length === 0) {
+        setActiveLoanName(null);
+      } else if (activeLoanName) {
+        // Vérifier que le crédit actif existe toujours
+        const activeConfig = sortedConfigs.find(c => c.name === activeLoanName);
+        if (!activeConfig && sortedConfigs.length > 0) {
+          // Le crédit actif n'existe plus, sélectionner le premier
+          setActiveLoanName(sortedConfigs[0].name);
+        }
+      }
+    } catch (error) {
+      console.error('❌ [CreditTabContent] Erreur lors du chargement des configurations:', error);
+      setLoanConfigs([]);
+      setActiveLoanName(null);
+    } finally {
+      setIsLoadingConfigs(false);
+    }
+  };
+
+  const handleImportComplete = () => {
+    // Incrémenter le trigger pour forcer le rafraîchissement du tableau
+    setRefreshTrigger(prev => prev + 1);
+    // Recharger les configurations au cas où un nouveau crédit aurait été créé
+    loadLoanConfigs();
+  };
+
+  // Utiliser useCallback pour éviter les re-renders infinis
+  const handleConfigsChange = useCallback((configs: LoanConfig[]) => {
+    setLoanConfigs(prevConfigs => {
+      // Vérifier si les configs ont vraiment changé (comparer les IDs)
+      const prevIds = prevConfigs.map(c => c.id).sort().join(',');
+      const newIds = configs.map(c => c.id).sort().join(',');
+      if (prevIds === newIds) {
+        return prevConfigs; // Pas de changement, retourner l'ancien state
+      }
+      return configs;
+    });
+    
+    // Si le crédit actif n'existe plus, sélectionner le premier
+    setActiveLoanName(prevActive => {
+      if (prevActive && !configs.find(c => c.name === prevActive)) {
+        if (configs.length > 0) {
+          return configs[0].name;
+        } else {
+          return null;
+        }
+      } else if (!prevActive && configs.length > 0) {
+        return configs[0].name;
+      }
+      return prevActive; // Pas de changement
+    });
+  }, []);
+
+  return (
+    <div>
+      <LoanConfigCard onConfigUpdated={loadLoanConfigs} />
+      {isLoadingConfigs ? (
+        <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
+          Chargement des configurations de crédit...
+        </div>
+      ) : loanConfigs.length > 0 ? (
+        <>
+          <div style={{ marginTop: '32px' }}>
+            <LoanPaymentFileUpload 
+              loanName={activeLoanName || undefined} 
+              onImportComplete={handleImportComplete} 
+            />
+          </div>
+          <div style={{ marginTop: '24px' }}>
+            <LoanPaymentTable 
+              loanConfigs={loanConfigs}
+              refreshTrigger={refreshTrigger}
+              onActiveLoanChange={setActiveLoanName}
+              initialActiveLoanName={activeLoanName}
+              onUpdate={() => setRefreshTrigger(prev => prev + 1)}
+            />
+          </div>
+        </>
+      ) : (
+        <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
+          Aucune configuration de crédit trouvée. Créez-en une dans la card ci-dessus.
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function EtatsFinanciersPage() {
   const searchParams = useSearchParams();
@@ -193,9 +309,7 @@ export default function EtatsFinanciersPage() {
         )}
 
         {activeTab === 'credit' && hasCredit && (
-          <div>
-            <LoanConfigCard />
-          </div>
+          <CreditTabContent />
         )}
       </div>
     </div>

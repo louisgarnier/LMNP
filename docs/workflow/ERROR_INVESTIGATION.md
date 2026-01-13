@@ -255,6 +255,35 @@ git checkout <fichier>
 
 ---
 
+## 🔧 Outils de Vérification
+
+### Script de Vérification Frontend
+
+Un script `scripts/check_frontend_errors.js` a été créé pour vérifier automatiquement :
+- ✅ Erreurs de compilation TypeScript
+- ✅ Erreurs ESLint
+- ✅ Exports manquants
+- ✅ Composants manquants
+- ✅ Client API valide
+
+**Usage :**
+```bash
+node scripts/check_frontend_errors.js
+```
+
+**⚠️ IMPORTANT :** Toujours exécuter ce script avant de dire que le code est "OK". Ne jamais affirmer que tout fonctionne sans avoir vérifié.
+
+### Script de Vérification des Exports
+
+Un script `scripts/verify_exports.js` vérifie que tous les imports correspondent à des exports existants.
+
+**Usage :**
+```bash
+node scripts/verify_exports.js
+```
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet

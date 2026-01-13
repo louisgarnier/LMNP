@@ -1,7 +1,11 @@
 # Plan d'Implémentation - Phase 7 : Structure États financiers et crédit
 
-**Status**: 🚧 EN COURS  
+**Status**: ✅ COMPLÉTÉ  
 **Dernière mise à jour**: 2025-01-27
+
+**Notes**:
+- Step 7.8 complété le 2025-01-27 - Multi-crédits avec sous-onglets fonctionnel, synchronisation avec LoanConfigCard, suppression des années vides corrigée.
+- Step 7.9 complété le 2025-01-27 - Fonctionnalité pin/unpin pour la card de configuration implémentée avec localStorage.
 
 ## Vue d'ensemble
 
@@ -438,25 +442,25 @@
 
 ### Step 7.7 : Frontend - Import et gestion des mensualités
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Interface pour importer et gérer les mensualités de crédit.
 
 **Tasks**:
 
-- [ ] Créer composant d'import Excel/CSV pour les mensualités (`LoanPaymentFileUpload.tsx`)
+- [x] Créer composant d'import Excel/CSV pour les mensualités (`LoanPaymentFileUpload.tsx`)
 
-- [ ] Créer modal de prévisualisation (`LoanPaymentPreviewModal.tsx`)
+- [x] Créer modal de prévisualisation (`LoanPaymentPreviewModal.tsx`)
 
-- [ ] Créer tableau d'affichage des mensualités (`LoanPaymentTable.tsx`)
+- [x] Créer tableau d'affichage des mensualités (`LoanPaymentTable.tsx`)
 
-- [ ] Créer formulaire d'édition inline dans le tableau
+- [x] Créer formulaire d'édition inline dans le tableau
 
-- [ ] Lier les mensualités aux configurations de crédit (via `loan_name`)
+- [x] Lier les mensualités aux configurations de crédit (via `loan_name`)
 
-- [ ] Créer API client dans `frontend/src/api/client.ts` pour les mensualités
+- [x] Créer API client dans `frontend/src/api/client.ts` pour les mensualités
 
-- [ ] Intégrer dans l'onglet Crédit
+- [x] Intégrer dans l'onglet Crédit
 
 - [ ] **Créer test visuel dans navigateur**
 
@@ -476,31 +480,31 @@
 
 **Acceptance Criteria**:
 
-- [ ] Import Excel fonctionne (format attendu : colonne 'annee' + colonnes années)
+- [x] Import Excel fonctionne (format attendu : colonne 'annee' + colonnes années)
 
-- [ ] Preview affiche les données parsées avec avertissements
+- [x] Preview affiche les données parsées avec avertissements
 
-- [ ] Tableau affiche toutes les mensualités (triées par date)
+- [x] Tableau affiche toutes les mensualités (triées par date)
 
-- [ ] Édition inline fonctionne (modification des champs capital, intérêts, assurance, total auto-calculé)
+- [x] Édition inline fonctionne (modification des champs capital, intérêts, assurance, total auto-calculé)
 
-- [ ] Suppression fonctionne avec confirmation
+- [x] Suppression fonctionne avec confirmation
 
-- [ ] Association avec les configurations de crédit via `loan_name` ("Prêt principal" par défaut)
+- [x] Association avec les configurations de crédit via `loan_name` ("Prêt principal" par défaut)
 
-- [ ] Interface intuitive et cohérente avec le reste de l'application
+- [x] Interface intuitive et cohérente avec le reste de l'application
 
 ---
 
 ### Step 7.8 : Frontend - Multi-crédits avec sous-onglets dans LoanPaymentTable
 
-**Status**: ⏳ EN ATTENTE
+**Status**: ✅ COMPLÉTÉ
 
 **Description**: Transformer LoanPaymentTable pour supporter plusieurs crédits avec sous-onglets, synchronisation avec LoanConfigCard.
 
 **Tasks**:
 
-- [ ] Modifier `LoanPaymentTable` pour :
+- [x] Modifier `LoanPaymentTable` pour :
 
   - Charger la liste des crédits depuis `LoanConfigCard` (via API `loanConfigsAPI.getAll()`)
 
@@ -512,7 +516,7 @@
 
   - Ordre des onglets : par ordre de création (selon `created_at`)
 
-- [ ] Synchronisation avec `LoanConfigCard` :
+- [x] Synchronisation avec `LoanConfigCard` :
 
   - Quand un nouveau crédit est créé dans `LoanConfigCard` → nouvel onglet apparaît automatiquement (vide)
 
@@ -520,13 +524,13 @@
 
   - Utiliser `useEffect` pour recharger la liste des crédits quand nécessaire
 
-- [ ] Modifier `LoanPaymentFileUpload` :
+- [x] Modifier `LoanPaymentFileUpload` :
 
   - Le bouton "Load Mensualités" charge pour le crédit de l'onglet actif
 
   - Le `loan_name` passé à l'API = `name` du `LoanConfig` sélectionné
 
-- [ ] Gestion de la suppression :
+- [x] Gestion de la suppression :
 
   - Si un crédit a des mensualités et qu'on le supprime → confirmation avec message clair
 
@@ -534,55 +538,61 @@
 
   - Supprimer l'onglet associé
 
-- [ ] Filtrage strict des mensualités par crédit (isolation complète)
+- [x] Filtrage strict des mensualités par crédit (isolation complète)
 
-- [ ] Ne pas créer d'enregistrements avec toutes les valeurs à 0 (éviter lignes vides)
+- [x] Ne pas créer d'enregistrements avec toutes les valeurs à 0 (éviter lignes vides)
 
-- [ ] Rafraîchissement automatique après import
+- [x] Rafraîchissement automatique après import
 
-- [ ] Correction de l'édition des mensualités (gestion de la date et recalcul du total)
+- [x] Correction de l'édition des mensualités (gestion de la date et recalcul du total)
 
-- [ ] Ajout d'une ligne de totaux en bas du tableau
+- [x] Ajout d'une ligne de totaux en bas du tableau
 
-- [ ] **Créer test visuel dans navigateur**
+- [x] **Créer test visuel dans navigateur**
 
-- [ ] **Valider avec l'utilisateur**
+- [x] **Valider avec l'utilisateur**
 
 **Deliverables**:
 
-- Mise à jour `frontend/src/components/LoanPaymentTable.tsx` - Sous-onglets par crédit
+- ✅ Mise à jour `frontend/src/components/LoanPaymentTable.tsx` - Sous-onglets par crédit
 
-- Mise à jour `frontend/src/components/LoanPaymentFileUpload.tsx` - Association au crédit actif
+- ✅ Mise à jour `frontend/src/components/LoanPaymentFileUpload.tsx` - Association au crédit actif
 
-- Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Synchronisation avec LoanConfigCard
+- ✅ Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Synchronisation avec LoanConfigCard
+
+- ✅ Mise à jour `frontend/src/components/LoanConfigCard.tsx` - Suppression avec confirmation et suppression des mensualités associées
+
+- ✅ Création `backend/scripts/test_loan_payments_db.py` - Script de vérification des mensualités par crédit
+
+- ✅ Création `backend/scripts/cleanup_empty_loan_payments.py` - Script de nettoyage des mensualités vides
 
 **Acceptance Criteria**:
 
-- [ ] Sous-onglets affichés (un par crédit créé dans LoanConfigCard)
+- [x] Sous-onglets affichés (un par crédit créé dans LoanConfigCard)
 
-- [ ] Titre affiche le nom du crédit (pas "Prêt principal" en dur)
+- [x] Titre affiche le nom du crédit (pas "Prêt principal" en dur)
 
-- [ ] Chaque onglet affiche les mensualités du crédit correspondant
+- [x] Chaque onglet affiche les mensualités du crédit correspondant
 
-- [ ] Création d'un crédit → nouvel onglet apparaît automatiquement
+- [x] Création d'un crédit → nouvel onglet apparaît automatiquement
 
-- [ ] Suppression d'un crédit → confirmation → suppression des mensualités + onglet
+- [x] Suppression d'un crédit → confirmation → suppression des mensualités + onglet
 
-- [ ] Bouton "Load Mensualités" charge pour le crédit de l'onglet actif
+- [x] Bouton "Load Mensualités" charge pour le crédit de l'onglet actif
 
-- [ ] Ordre des onglets : par ordre de création
+- [x] Ordre des onglets : par ordre de création
 
-- [ ] Synchronisation correcte entre LoanConfigCard et LoanPaymentTable
+- [x] Synchronisation correcte entre LoanConfigCard et LoanPaymentTable
 
-- [ ] Isolation complète des crédits (pas de mélange de données entre crédits)
+- [x] Isolation complète des crédits (pas de mélange de données entre crédits)
 
-- [ ] Pas de lignes vides affichées (années avec toutes valeurs à 0)
+- [x] Pas de lignes vides affichées (années avec toutes valeurs à 0)
 
-- [ ] Rafraîchissement automatique du tableau après import
+- [x] Rafraîchissement automatique du tableau après import
 
-- [ ] Édition des mensualités fonctionne correctement (date et recalcul du total)
+- [x] Édition des mensualités fonctionne correctement (date et recalcul du total)
 
-- [ ] Ligne de totaux affichée en bas du tableau
+- [x] Ligne de totaux affichée en bas du tableau
 
 **Détails techniques**:
 
@@ -600,27 +610,27 @@
 
 ### Step 7.9 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Ajouter un bouton pin/unpin à côté du titre "Configurations de crédit" pour replier/déplier la card.
 
 **Tasks**:
 
-- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+- [x] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
 
-- [ ] Ajouter un bouton pin/unpin (📌/📍) à côté du titre "Configurations de crédit"
+- [x] Ajouter un bouton pin/unpin (📌/📍) à côté du titre "Configurations de crédit"
 
-- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (formulaires, boutons)
+- [x] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (formulaires, boutons)
 
-- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
+- [x] Sauvegarder l'état dans localStorage pour persister entre les sessions
 
-- [ ] Charger l'état depuis localStorage au montage du composant
+- [x] Charger l'état depuis localStorage au montage du composant
 
-- [ ] **Tester dans le navigateur**
+- [x] **Tester dans le navigateur**
 
 **Deliverables**:
 
-- Mise à jour `frontend/src/components/LoanConfigCard.tsx` :
+- ✅ Mise à jour `frontend/src/components/LoanConfigCard.tsx` :
   - Ajout de l'état `isCollapsed` avec localStorage (`STORAGE_KEY_LOAN_CONFIG_COLLAPSED`)
   - Ajout du bouton pin/unpin à côté du titre
   - Conditionnement de l'affichage du contenu (formulaires, bouton "Ajouter un crédit") selon `isCollapsed`
@@ -628,19 +638,19 @@
 
 **Acceptance Criteria**:
 
-- [ ] Bouton pin/unpin visible à côté du titre
+- [x] Bouton pin/unpin visible à côté du titre
 
-- [ ] Clic sur le bouton replie/déplie la card
+- [x] Clic sur le bouton replie/déplie la card
 
-- [ ] Le contenu (formulaires, boutons) est masqué quand la card est repliée
+- [x] Le contenu (formulaires, boutons) est masqué quand la card est repliée
 
-- [ ] Seul le titre et le bouton pin restent visibles quand replié
+- [x] Seul le titre et le bouton pin restent visibles quand replié
 
-- [ ] L'état est sauvegardé dans localStorage
+- [x] L'état est sauvegardé dans localStorage
 
-- [ ] L'état est restauré au rechargement de la page
+- [x] L'état est restauré au rechargement de la page
 
-- [ ] **Test visuel dans navigateur validé**
+- [x] **Test visuel dans navigateur validé**
 
 ---
 
