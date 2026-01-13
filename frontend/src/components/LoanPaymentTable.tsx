@@ -16,9 +16,10 @@ interface LoanPaymentTableProps {
   onConfigsChange?: (configs: LoanConfig[]) => void; // Callback quand les configs changent
   onActiveLoanChange?: (loanName: string | null) => void; // Callback quand le crédit actif change
   initialActiveLoanName?: string | null; // Crédit actif initial
+  hideSubTabs?: boolean; // Masquer les sous-onglets (si déjà gérés au niveau supérieur)
 }
 
-export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onUpdate, refreshTrigger, onConfigsChange, onActiveLoanChange, initialActiveLoanName }: LoanPaymentTableProps) {
+export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onUpdate, refreshTrigger, onConfigsChange, onActiveLoanChange, initialActiveLoanName, hideSubTabs = false }: LoanPaymentTableProps) {
   // État pour les configurations de crédit
   const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(false);
@@ -343,55 +344,57 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       overflow: 'hidden'
     }}>
-      {/* Sous-onglets pour chaque crédit */}
-      <div style={{ 
-        borderBottom: '1px solid #e5e7eb',
-        backgroundColor: '#f9fafb'
-      }}>
+      {/* Sous-onglets pour chaque crédit (masqués si hideSubTabs est true) */}
+      {!hideSubTabs && (
         <div style={{ 
-          display: 'flex', 
-          gap: '4px',
-          padding: '0 16px',
-          overflowX: 'auto'
+          borderBottom: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb'
         }}>
-          {loanConfigs.map((config) => {
-            const isActive = activeLoanName === config.name;
-            return (
-              <button
-                key={config.id}
-                onClick={() => {
-                  console.log(`🔄 [LoanPaymentTable] Changement d'onglet: "${activeLoanName}" → "${config.name}"`);
-                  setActiveLoanName(config.name);
-                }}
-                style={{
-                  padding: '12px 16px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  color: isActive ? '#1e3a5f' : '#6b7280',
-                  border: 'none',
-                  borderBottom: isActive ? '2px solid #1e3a5f' : '2px solid transparent',
-                  backgroundColor: 'transparent',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  whiteSpace: 'nowrap',
-                }}
-                onMouseOver={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.color = '#1e3a5f';
-                  }
-                }}
-                onMouseOut={(e) => {
-                  if (!isActive) {
-                    e.currentTarget.style.color = '#6b7280';
-                  }
-                }}
-              >
-                {config.name}
-              </button>
-            );
-          })}
+          <div style={{ 
+            display: 'flex', 
+            gap: '4px',
+            padding: '0 16px',
+            overflowX: 'auto'
+          }}>
+            {loanConfigs.map((config) => {
+              const isActive = activeLoanName === config.name;
+              return (
+                <button
+                  key={config.id}
+                  onClick={() => {
+                    console.log(`🔄 [LoanPaymentTable] Changement d'onglet: "${activeLoanName}" → "${config.name}"`);
+                    setActiveLoanName(config.name);
+                  }}
+                  style={{
+                    padding: '12px 16px',
+                    fontSize: '14px',
+                    fontWeight: '500',
+                    color: isActive ? '#1e3a5f' : '#6b7280',
+                    border: 'none',
+                    borderBottom: isActive ? '2px solid #1e3a5f' : '2px solid transparent',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    whiteSpace: 'nowrap',
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = '#1e3a5f';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.color = '#6b7280';
+                    }
+                  }}
+                >
+                  {config.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Contenu du tableau pour le crédit actif */}
       {activeLoanName ? (

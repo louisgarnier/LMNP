@@ -10,15 +10,22 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import LoanConfigCard from '@/components/LoanConfigCard';
+import LoanConfigSingleCard from '@/components/LoanConfigSingleCard';
 import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
-import { loanConfigsAPI, LoanConfig } from '@/api/client';
+import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI } from '@/api/client';
 
-function CreditTabContent() {
+interface CreditTabContentProps {
+  activeTab: string;
+  hasCredit: boolean;
+}
+
+function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
   const [activeLoanName, setActiveLoanName] = useState<string | null>(null);
+  const [hoveredLoanId, setHoveredLoanId] = useState<number | null>(null);
 
   // Charger les configurations de crédit au montage
   useEffect(() => {
@@ -66,6 +73,105 @@ function CreditTabContent() {
     loadLoanConfigs();
   };
 
+  const handleAddCredit = async () => {
+    try {
+      // Générer un nom unique pour le nouveau crédit
+      const baseName = 'Nouveau crédit';
+      let creditName = baseName;
+      let counter = 1;
+      
+      // Vérifier si le nom existe déjà et incrémenter si nécessaire
+      while (loanConfigs.some(config => config.name === creditName)) {
+        creditName = `${baseName} ${counter}`;
+        counter++;
+      }
+
+      // Créer un nouveau crédit avec valeurs par défaut
+      const newConfig = await loanConfigsAPI.create({
+        name: creditName,
+        credit_amount: 0,
+        interest_rate: 0,
+        duration_years: 0,
+        initial_deferral_months: 0,
+        loan_start_date: null,
+        loan_end_date: null
+      });
+
+      // Recharger la liste des crédits
+      await loadLoanConfigs();
+
+      // Bascule automatiquement vers le nouvel onglet créé
+      setActiveLoanName(newConfig.name);
+    } catch (error: any) {
+      console.error('❌ [CreditTabContent] Erreur lors de la création du crédit:', error);
+      alert(error.message || 'Erreur lors de la création du crédit');
+    }
+  };
+
+  const handleDeleteCredit = async (configId: number, configName: string) => {
+    // Vérifier s'il y a des mensualités associées
+    let hasPayments = false;
+    let paymentCount = 0;
+    try {
+      const paymentsResponse = await loanPaymentsAPI.getAll({ loan_name: configName, limit: 1 });
+      hasPayments = paymentsResponse.items.length > 0;
+      if (hasPayments) {
+        const allPayments = await loanPaymentsAPI.getAll({ loan_name: configName, limit: 1000 });
+        paymentCount = allPayments.items.length;
+      }
+    } catch (err) {
+      console.error('Erreur lors de la vérification des mensualités:', err);
+    }
+
+    // Message de confirmation avec information sur les mensualités
+    const confirmMessage = hasPayments
+      ? `Êtes-vous sûr de vouloir supprimer le crédit "${configName}" ?\n\nToutes les mensualités associées (${paymentCount}) seront également supprimées.`
+      : `Êtes-vous sûr de vouloir supprimer le crédit "${configName}" ?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      // Supprimer toutes les mensualités associées
+      if (hasPayments) {
+        try {
+          const allPayments = await loanPaymentsAPI.getAll({ loan_name: configName, limit: 1000 });
+          const deletePromises = allPayments.items.map(payment => loanPaymentsAPI.delete(payment.id));
+          await Promise.allSettled(deletePromises);
+          console.log(`✅ ${allPayments.items.length} mensualité(s) supprimée(s) pour le crédit "${configName}"`);
+        } catch (err) {
+          console.error('Erreur lors de la suppression des mensualités:', err);
+          // Continuer quand même avec la suppression de la config
+        }
+      }
+
+      // Supprimer la configuration
+      await loanConfigsAPI.delete(configId);
+      
+      // Recharger la liste des crédits
+      const response = await loanConfigsAPI.getAll();
+      const sortedConfigs = response.items.sort((a, b) => {
+        const aDate = (a as any).created_at ? new Date((a as any).created_at).getTime() : a.id;
+        const bDate = (b as any).created_at ? new Date((b as any).created_at).getTime() : b.id;
+        return aDate - bDate;
+      });
+      setLoanConfigs(sortedConfigs);
+
+      // Gérer la sélection du crédit actif après suppression
+      if (sortedConfigs.length === 0) {
+        // C'était le dernier crédit, plus de crédit actif
+        setActiveLoanName(null);
+      } else {
+        // Sélectionner le premier crédit disponible
+        setActiveLoanName(sortedConfigs[0].name);
+      }
+    } catch (error: any) {
+      console.error('❌ [CreditTabContent] Erreur lors de la suppression:', error);
+      alert(error.message || 'Erreur lors de la suppression');
+    }
+  };
+
   // Utiliser useCallback pour éviter les re-renders infinis
   const handleConfigsChange = useCallback((configs: LoanConfig[]) => {
     setLoanConfigs(prevConfigs => {
@@ -93,21 +199,169 @@ function CreditTabContent() {
     });
   }, []);
 
+  // Afficher les sous-onglets uniquement si l'onglet Crédit est actif ET hasCredit est coché
+  const showSubTabs = activeTab === 'credit' && hasCredit;
+
   return (
     <div>
-      <LoanConfigCard onConfigUpdated={loadLoanConfigs} />
+      {/* Barre de sous-onglets crédit */}
+      {showSubTabs && (
+        <nav style={{ 
+          backgroundColor: '#f9fafb', 
+          borderBottom: '1px solid #e5e7eb', 
+          marginBottom: '24px',
+          padding: '0 24px'
+        }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: '6px',
+            alignItems: 'center',
+            minHeight: '44px',
+            justifyContent: 'space-between'
+          }}>
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              {isLoadingConfigs ? (
+                <div style={{ 
+                  padding: '8px 12px', 
+                  fontSize: '13px', 
+                  color: '#6b7280',
+                  fontStyle: 'italic'
+                }}>
+                  Chargement des crédits...
+                </div>
+              ) : loanConfigs.length > 0 ? (
+                <>
+                  {loanConfigs.map((config) => {
+                    const isActive = activeLoanName === config.name;
+                    const showDelete = hoveredLoanId === config.id;
+                    return (
+                      <div
+                        key={config.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          padding: '8px 12px',
+                          fontSize: '13px',
+                          fontWeight: '500',
+                          color: isActive ? '#1e3a5f' : '#6b7280',
+                          borderBottom: isActive ? '2px solid #1e3a5f' : '2px solid transparent',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          borderRadius: '4px 4px 0 0',
+                          backgroundColor: isActive ? 'white' : 'transparent',
+                          position: 'relative',
+                        }}
+                        onClick={() => setActiveLoanName(config.name)}
+                        onMouseEnter={() => setHoveredLoanId(config.id)}
+                        onMouseLeave={() => setHoveredLoanId(null)}
+                      >
+                        <span>{config.name}</span>
+                        {showDelete && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation(); // Empêcher le changement d'onglet
+                              handleDeleteCredit(config.id, config.name);
+                            }}
+                            style={{
+                              padding: '2px 6px',
+                              fontSize: '16px',
+                              fontWeight: '600',
+                              color: '#6b7280',
+                              backgroundColor: 'transparent',
+                              border: 'none',
+                              cursor: 'pointer',
+                              borderRadius: '4px',
+                              transition: 'all 0.2s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '20px',
+                              height: '20px',
+                              lineHeight: '1',
+                            }}
+                            onMouseOver={(e) => {
+                              e.currentTarget.style.color = '#dc2626';
+                              e.currentTarget.style.backgroundColor = '#fee2e2';
+                            }}
+                            onMouseOut={(e) => {
+                              e.currentTarget.style.color = '#6b7280';
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                            title="Supprimer ce crédit"
+                          >
+                            ×
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
+              ) : (
+                <div style={{ 
+                  padding: '8px 12px', 
+                  fontSize: '13px', 
+                  color: '#6b7280'
+                }}>
+                  Aucun crédit configuré
+                </div>
+              )}
+            </div>
+
+            {/* Bouton "+ Ajouter un crédit" */}
+            {!isLoadingConfigs && (
+              <button
+                onClick={handleAddCredit}
+                style={{
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                  backgroundColor: '#1e3a5f',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#2d4a6f';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = '#1e3a5f';
+                }}
+              >
+                <span>+</span>
+                <span>Ajouter un crédit</span>
+              </button>
+            )}
+          </div>
+        </nav>
+      )}
+
+      {/* Contenu principal */}
       {isLoadingConfigs ? (
         <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
           Chargement des configurations de crédit...
         </div>
-      ) : loanConfigs.length > 0 ? (
+      ) : loanConfigs.length > 0 && activeLoanName ? (
         <>
-          <div style={{ marginTop: '32px' }}>
-            <LoanPaymentFileUpload 
-              loanName={activeLoanName || undefined} 
-              onImportComplete={handleImportComplete} 
-            />
-          </div>
+          {/* Card de configuration pour le crédit actif */}
+          {(() => {
+            const activeConfig = loanConfigs.find(c => c.name === activeLoanName);
+            return activeConfig ? (
+              <LoanConfigSingleCard 
+                loanConfig={activeConfig}
+                onConfigUpdated={() => {
+                  loadLoanConfigs();
+                  handleImportComplete();
+                }}
+              />
+            ) : null;
+          })()}
+          
           <div style={{ marginTop: '24px' }}>
             <LoanPaymentTable 
               loanConfigs={loanConfigs}
@@ -115,12 +369,13 @@ function CreditTabContent() {
               onActiveLoanChange={setActiveLoanName}
               initialActiveLoanName={activeLoanName}
               onUpdate={() => setRefreshTrigger(prev => prev + 1)}
+              hideSubTabs={true}
             />
           </div>
         </>
       ) : (
         <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
-          Aucune configuration de crédit trouvée. Créez-en une dans la card ci-dessus.
+          Aucun crédit configuré
         </div>
       )}
     </div>
@@ -317,7 +572,7 @@ export default function EtatsFinanciersPage() {
         )}
 
         {activeTab === 'credit' && hasCredit && (
-          <CreditTabContent />
+          <CreditTabContent activeTab={activeTab} hasCredit={hasCredit} />
         )}
       </div>
     </div>

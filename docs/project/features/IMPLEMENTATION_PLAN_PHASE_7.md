@@ -763,23 +763,26 @@
   - Afficher toujours dans la barre (checkbox toujours visible, état visuel change selon coché/décoché)
   - Conserver la fonctionnalité de toggle (clic pour activer/désactiver avec confirmation)
 
-- [ ] **7.11.2** - Créer la structure de sous-onglets crédit :
+- [x] **7.11.2** - Créer la structure de sous-onglets crédit :
   - Afficher une deuxième rangée d'onglets horizontaux sous l'onglet "Crédit" principal
   - Visible uniquement quand l'onglet "Crédit" est actif ET "J'ai un crédit" est coché
-  - Style cohérent avec les onglets principaux mais visuellement distincts (légèrement plus petits)
+  - Style cohérent avec les onglets principaux mais visuellement distincts (fond #f9fafb, légèrement plus petits)
+  - Structure prête pour l'ajout des onglets individuels dans le step suivant
 
-- [ ] **7.11.3** - Afficher un sous-onglet par crédit :
+- [x] **7.11.3** - Afficher un sous-onglet par crédit :
   - Créer un sous-onglet pour chaque crédit existant en base de données
   - Afficher le nom du crédit comme libellé de l'onglet
   - Trier les crédits par date de création (du plus ancien au plus récent)
-  - Gérer la sélection de l'onglet actif (surlignage, état actif)
+  - Gérer la sélection de l'onglet actif (surlignage, état actif, couleur différente)
+  - Effet hover sur les onglets inactifs
 
-- [ ] **7.11.4** - Ajouter le bouton "+ Ajouter un crédit" :
+- [x] **7.11.4** - Ajouter le bouton "+ Ajouter un crédit" :
   - Position : à droite de la barre des sous-onglets crédit
-  - Style : bouton distinct des onglets (ex: couleur différente, icône +)
+  - Style : bouton distinct des onglets (couleur #1e3a5f, icône +)
   - Visible uniquement dans la barre des sous-onglets crédit
+  - La fonctionnalité de création sera implémentée dans le step 7.11.5
 
-- [ ] **7.11.5** - Créer un nouveau crédit depuis le bouton "+ Ajouter un crédit" :
+- [x] **7.11.5** - Créer un nouveau crédit depuis le bouton "+ Ajouter un crédit" :
   - Au clic, créer un nouveau crédit avec valeurs par défaut :
     - Nom : "Nouveau crédit"
     - Crédit accordé : 0 €
@@ -790,38 +793,45 @@
   - Créer automatiquement un nouvel onglet pour ce crédit
   - Bascule automatiquement vers le nouvel onglet créé
   - Recharger la liste des crédits après création
+  - Gestion des erreurs avec message d'alerte
 
-- [ ] **7.11.6** - Afficher la card de configuration dans chaque sous-onglet :
-  - Créer un composant `LoanConfigSingleCard` (ou adapter `LoanConfigCard`) pour afficher UN seul crédit
+- [x] **7.11.6** - Afficher la card de configuration dans chaque sous-onglet :
+  - Créer un composant `LoanConfigSingleCard` pour afficher UN seul crédit
   - Afficher tous les champs de configuration (nom, montant, taux, durée, décalage, dates, calculs)
   - Permettre l'édition inline avec auto-save (comme actuellement)
   - Supprimer le bouton "Supprimer" de la card (la suppression se fera via le "x" de l'onglet)
+  - Afficher uniquement le crédit de l'onglet actif
 
-- [ ] **7.11.7** - Afficher le bouton "Load Mensualités" sur la même ligne que "Configurations de crédit" :
+- [x] **7.11.7** - Afficher le bouton "Load Mensualités" sur la même ligne que "Configurations de crédit" :
   - Titre "Configurations de crédit" à gauche
   - Bouton "📊 Load Mensualités" (`LoanPaymentFileUpload`) à droite, sur la même ligne
   - Le bouton doit être associé au crédit de l'onglet actif
   - Conserver la fonctionnalité actuelle (upload, prévisualisation, import)
+  - Intégré dans le header de `LoanConfigSingleCard`
 
-- [ ] **7.11.8** - Afficher le tableau des mensualités dans chaque sous-onglet :
+- [x] **7.11.8** - Afficher le tableau des mensualités dans chaque sous-onglet :
   - Afficher `LoanPaymentTable` en dessous de la card de configuration
   - Filtrer automatiquement les mensualités pour le crédit de l'onglet actif
+  - Masquer les sous-onglets dans `LoanPaymentTable` (déjà gérés au niveau supérieur)
   - Conserver toutes les fonctionnalités actuelles (édition inline, suppression, sélection multiple)
+  - Utiliser `initialActiveLoanName` pour synchroniser le crédit actif
 
-- [ ] **7.11.9** - Ajouter le bouton "x" de suppression au survol de chaque sous-onglet :
+- [x] **7.11.9** - Ajouter le bouton "x" de suppression au survol de chaque sous-onglet :
   - Afficher un petit "x" à droite du nom du crédit dans l'onglet
   - Visible uniquement au survol de l'onglet (hover)
-  - Style discret mais visible (ex: gris, devient rouge au survol)
+  - Style discret mais visible (gris #6b7280, devient rouge #dc2626 au survol)
+  - Empêcher le clic sur "x" de déclencher le changement d'onglet (stopPropagation)
+  - La fonctionnalité de suppression sera implémentée dans le step 7.11.10
 
-- [ ] **7.11.10** - Gérer la suppression d'un crédit avec confirmation :
+- [x] **7.11.10** - Gérer la suppression d'un crédit avec confirmation :
   - Au clic sur le "x", afficher un popup de confirmation :
     - Message : "Êtes-vous sûr de vouloir supprimer le crédit '[nom]' ?"
-    - Si des mensualités existent : "Toutes les mensualités associées seront également supprimées."
+    - Si des mensualités existent : "Toutes les mensualités associées (X) seront également supprimées."
   - Si confirmé :
-    - Supprimer toutes les mensualités associées au crédit
+    - Supprimer toutes les mensualités associées au crédit (avec Promise.allSettled)
     - Supprimer la configuration du crédit
-    - Supprimer l'onglet correspondant
-    - Si c'était le dernier crédit, afficher "Aucun crédit configuré"
+    - Recharger la liste des crédits
+    - Si c'était le dernier crédit, afficher "Aucun crédit configuré" (activeLoanName = null)
     - Si d'autres crédits existent, basculer vers le premier crédit disponible
 
 - [ ] **7.11.11** - Gérer le cas "Aucun crédit configuré" :
