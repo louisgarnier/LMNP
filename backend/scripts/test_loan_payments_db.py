@@ -243,11 +243,16 @@ def test_payments_by_loan_name(loan_name: str):
         db.close()
 
 def test_statistics_by_loan():
-    """Affiche des statistiques par crédit."""
-    print_section("4. Statistiques par crédit")
+    """Affiche des statistiques par crédit (basées sur les mensualités, pas les configurations)."""
+    print_section("4. Statistiques par crédit (basées sur les mensualités)")
+    print("⚠️  NOTE: Cette section liste tous les crédits qui ont des mensualités en base,")
+    print("    même si leur configuration n'existe plus (mensualités orphelines).\n")
     
     db = SessionLocal()
     try:
+        # Récupérer les noms de crédits valides (qui ont une configuration)
+        valid_loan_names = set(row[0] for row in db.query(LoanConfig.name).all())
+        
         # Grouper par loan_name
         stats = db.query(
             LoanPayment.loan_name,
@@ -265,24 +270,29 @@ def test_statistics_by_loan():
             return
         
         print(f"📊 {len(stats)} crédit(s) avec des mensualités:\n")
-        print(f"{'Crédit':<30} {'Nb':>6} {'Capital':>15} {'Intérêts':>15} {'Assurance':>15} {'Total':>15}")
-        print(f"{'─' * 100}")
+        print(f"{'Crédit':<30} {'Nb':>6} {'Capital':>15} {'Intérêts':>15} {'Assurance':>15} {'Total':>15} {'Status':<10}")
+        print(f"{'─' * 110}")
         
         for stat in stats:
+            is_orphan = stat.loan_name not in valid_loan_names
+            status = "⚠️ ORPHELIN" if is_orphan else "✅ OK"
             print(f"{stat.loan_name:<30} "
                   f"{stat.count:>6} "
                   f"{stat.total_capital or 0:>15,.2f} "
                   f"{stat.total_interest or 0:>15,.2f} "
                   f"{stat.total_insurance or 0:>15,.2f} "
-                  f"{stat.total_amount or 0:>15,.2f}")
+                  f"{stat.total_amount or 0:>15,.2f} "
+                  f"{status:<10}")
             if stat.min_date and stat.max_date:
                 print(f"   Période: {stat.min_date.strftime('%d/%m/%Y')} → {stat.max_date.strftime('%d/%m/%Y')}")
     finally:
         db.close()
 
 def test_orphan_payments():
-    """Détecte les mensualités sans configuration associée."""
+    """Détecte les mensualités orphelines (sans configuration associée)."""
     print_section("5. Vérification des mensualités orphelines")
+    print("⚠️  Les mensualités orphelines sont des mensualités dont le crédit a été supprimé")
+    print("    ou n'a jamais eu de configuration. Elles doivent être supprimées.\n")
     
     db = SessionLocal()
     try:
@@ -299,9 +309,13 @@ def test_orphan_payments():
         
         if orphan_loans:
             print(f"⚠️  {len(orphan_loans)} crédit(s) orphelin(s) détecté(s):")
+            total_orphan_payments = 0
             for loan_name in orphan_loans:
                 count = db.query(LoanPayment).filter(LoanPayment.loan_name == loan_name).count()
+                total_orphan_payments += count
                 print(f"   - '{loan_name}': {count} mensualité(s)")
+            print(f"\n📊 Total: {total_orphan_payments} mensualité(s) orpheline(s)")
+            print(f"\n💡 Pour nettoyer, exécutez: python3 backend/scripts/cleanup_orphan_loan_payments.py")
         else:
             print("✅ Toutes les mensualités ont une configuration associée")
         

@@ -374,8 +374,29 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
           </div>
         </>
       ) : (
-        <div style={{ padding: '24px', textAlign: 'center', color: '#6b7280' }}>
-          Aucun crédit configuré
+        <div style={{ 
+          padding: '48px 24px', 
+          textAlign: 'center', 
+          color: '#6b7280',
+          backgroundColor: 'white',
+          borderRadius: '8px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+        }}>
+          <div style={{
+            fontSize: '16px',
+            fontWeight: '500',
+            color: '#374151',
+            marginBottom: '8px'
+          }}>
+            Aucun crédit configuré
+          </div>
+          <div style={{
+            fontSize: '14px',
+            color: '#6b7280',
+            marginBottom: '24px'
+          }}>
+            Cliquez sur "+ Ajouter un crédit" ci-dessus pour créer votre premier crédit.
+          </div>
         </div>
       )}
     </div>

@@ -750,7 +750,7 @@
 
 ### Step 7.11 : Restructuration de l'onglet Crédit avec sous-onglets par crédit
 
-**Status**: ⏳ EN ATTENTE  
+**Status**: ✅ COMPLÉTÉ  
 
 **Description**: Restructurer l'onglet Crédit pour afficher un sous-onglet par crédit, chacun contenant sa configuration et ses mensualités. Déplacer "J'ai un crédit" dans la barre de navigation principale.
 
@@ -834,11 +834,12 @@
     - Si c'était le dernier crédit, afficher "Aucun crédit configuré" (activeLoanName = null)
     - Si d'autres crédits existent, basculer vers le premier crédit disponible
 
-- [ ] **7.11.11** - Gérer le cas "Aucun crédit configuré" :
+- [x] **7.11.11** - Gérer le cas "Aucun crédit configuré" :
   - Quand aucun crédit n'existe (après suppression du dernier ou initialement) :
-    - Afficher un message centré : "Aucun crédit configuré"
+    - Afficher un message centré : "Aucun crédit configuré" avec instructions
     - Afficher le bouton "+ Ajouter un crédit" dans la barre des sous-onglets
     - Permettre la création d'un premier crédit
+    - Message visible dans la barre des sous-onglets ET dans le contenu principal
 
 **Deliverables**:
 
@@ -861,32 +862,32 @@
 
 **Acceptance Criteria**:
 
-- [ ] "J'ai un crédit" est affiché dans la barre de navigation principale, à droite des onglets
+- [x] "J'ai un crédit" est affiché dans la barre de navigation principale, à droite des onglets
 
-- [ ] Les sous-onglets crédit apparaissent uniquement quand l'onglet "Crédit" est actif ET "J'ai un crédit" est coché
+- [x] Les sous-onglets crédit apparaissent uniquement quand l'onglet "Crédit" est actif ET "J'ai un crédit" est coché
 
-- [ ] Un sous-onglet est créé pour chaque crédit existant, affichant son nom
+- [x] Un sous-onglet est créé pour chaque crédit existant, affichant son nom
 
-- [ ] Les crédits sont triés par date de création (du plus ancien au plus récent)
+- [x] Les crédits sont triés par date de création (du plus ancien au plus récent)
 
-- [ ] Le bouton "+ Ajouter un crédit" est visible à droite de la barre des sous-onglets
+- [x] Le bouton "+ Ajouter un crédit" est visible à droite de la barre des sous-onglets
 
-- [ ] Cliquer sur "+ Ajouter un crédit" crée un nouveau crédit et bascule vers son onglet
+- [x] Cliquer sur "+ Ajouter un crédit" crée un nouveau crédit et bascule vers son onglet
 
-- [ ] Chaque sous-onglet affiche :
+- [x] Chaque sous-onglet affiche :
   - Titre "Configurations de crédit" à gauche, bouton "📊 Load Mensualités" à droite (même ligne)
   - Card de configuration complète du crédit
   - Tableau des mensualités filtré pour ce crédit
 
-- [ ] Le bouton "x" apparaît au survol de chaque sous-onglet crédit
+- [x] Le bouton "x" apparaît au survol de chaque sous-onglet crédit
 
-- [ ] Cliquer sur "x" affiche un popup de confirmation avant suppression
+- [x] Cliquer sur "x" affiche un popup de confirmation avant suppression
 
-- [ ] La suppression supprime le crédit, ses mensualités et l'onglet correspondant
+- [x] La suppression supprime le crédit, ses mensualités et l'onglet correspondant
 
-- [ ] Si aucun crédit n'existe, afficher "Aucun crédit configuré"
+- [x] Si aucun crédit n'existe, afficher "Aucun crédit configuré" avec instructions
 
-- [ ] Toutes les fonctionnalités existantes (upload, édition, suppression de mensualités) fonctionnent dans chaque sous-onglet
+- [x] Toutes les fonctionnalités existantes (upload, édition, suppression de mensualités) fonctionnent dans chaque sous-onglet
 
 **Détails techniques**:
 
@@ -908,6 +909,143 @@
   - Utiliser `loanConfigsAPI.delete(id)` pour supprimer la configuration
   - Utiliser `loanPaymentsAPI.getAll({ loan_name })` puis `delete` pour chaque mensualité
   - Ou créer un endpoint backend pour supprimer un crédit et toutes ses mensualités en cascade
+
+---
+
+### Step 7.12 : Tableau de simulation de crédit
+
+**Status**: ⏳ EN ATTENTE
+
+**Description**: Ajouter un tableau de simulation de crédit sous les calculs automatiques dans la card de configuration. Le tableau affiche les calculs financiers (PMT, IPMT, PPMT) pour les mensualités 1, 50, 100, 150, 200, avec un champ input pour l'assurance mensuelle (valeur unique pour toutes les mensualités).
+
+**Tasks**:
+
+- [ ] **7.12.1** - Backend - Ajouter le champ `monthly_insurance` au modèle `LoanConfig` :
+  - Ajouter la colonne `monthly_insurance` (type `Float`, nullable, default=0) dans `backend/database/models.py`
+  - Ajouter le champ dans `backend/api/models.py` (`LoanConfigBase`, `LoanConfigCreate`, `LoanConfigUpdate`)
+  - Mettre à jour `backend/database/schema.sql`
+  - Créer une migration SQLAlchemy pour ajouter la colonne
+  - Mettre à jour les endpoints API pour inclure `monthly_insurance` dans les réponses
+  - Créer/mettre à jour un script de test Python (`backend/tests/test_loan_configs_monthly_insurance.py`) pour tester :
+    - Création d'un `LoanConfig` avec `monthly_insurance`
+    - Mise à jour de `monthly_insurance` via l'API
+    - Récupération d'un `LoanConfig` avec `monthly_insurance`
+    - Validation que la valeur est bien persistée en base de données
+
+- [ ] **7.12.2** - Frontend - Ajouter le champ input "Assurance mensuelle" dans `LoanConfigSingleCard` :
+  - Ajouter un champ input numérique pour "Assurance mensuelle (€/mois)"
+  - Position : dans la section des champs de configuration (avec les autres champs)
+  - Valeur par défaut : 0 si non renseigné
+  - Auto-save lors de la modification (comme les autres champs)
+  - Format : nombre avec 2 décimales, formatage monétaire à l'affichage
+
+- [ ] **7.12.3** - Frontend - Implémenter les fonctions financières JavaScript (PMT, IPMT, PPMT) :
+  - Créer un fichier `frontend/src/utils/financial.ts` (ou `.js`)
+  - Implémenter `PMT(rate, nper, pv, fv, type)` :
+    - `rate` : taux d'intérêt mensuel (taux fixe / 12)
+    - `nper` : nombre total de périodes (durée crédit incluant différé * 12)
+    - `pv` : valeur actuelle (montant du crédit, négatif)
+    - Retourne la mensualité constante (hors assurance)
+  - Implémenter `IPMT(rate, per, nper, pv, fv, type)` :
+    - `per` : numéro de la période (mensualité 1, 50, 100, 150, 200)
+    - Retourne la part d'intérêt pour cette période
+  - Implémenter `PPMT(rate, per, nper, pv, fv, type)` :
+    - Retourne la part de capital pour cette période
+  - Utiliser les formules Excel équivalentes pour garantir la cohérence
+
+- [ ] **7.12.4** - Frontend - Créer le tableau de simulation dans `LoanConfigSingleCard` :
+  - Position : sous les calculs automatiques (durée crédit, mois écoulés, etc.)
+  - Titre : "Simulations crédit"
+  - Structure du tableau :
+    - Colonnes : Mensualité, Mensualité crédit, Intérêt, Capital, Assurance, Total
+    - Lignes : 5 lignes pour les mensualités 1, 50, 100, 150, 200
+  - Style cohérent avec le reste de la card (bordures, espacement, typographie)
+
+- [ ] **7.12.5** - Frontend - Calculer et afficher les valeurs pour chaque mensualité :
+  - Pour chaque mensualité (1, 50, 100, 150, 200) :
+    - **Mensualité crédit** : `PMT(taux/12, durée_totale_mois, -montant)` (constant pour toutes)
+    - **Intérêt** : `IPMT(taux/12, numéro_mensualité, durée_totale_mois, -montant)` (décroît)
+    - **Capital** : `PPMT(taux/12, numéro_mensualité, durée_totale_mois, -montant)` (croît)
+    - **Assurance** : valeur du champ "Assurance mensuelle" (identique pour toutes)
+    - **Total** : Assurance + Intérêt + Capital
+  - Formatage monétaire : tous les montants en euros avec 2 décimales (ex: 1 234,56 €)
+  - Arrondi à 2 décimales pour tous les calculs
+
+- [ ] **7.12.6** - Frontend - Gérer la mise à jour automatique du tableau :
+  - Recalculer automatiquement le tableau quand :
+    - Le taux fixe change
+    - Le montant du crédit change
+    - La durée crédit (incluant différé) change
+    - L'assurance mensuelle change
+  - Conserver la valeur d'assurance saisie lors des recalculs
+  - Afficher un indicateur de chargement si nécessaire (calculs complexes)
+
+**Deliverables**:
+
+- Backend :
+  - Migration SQLAlchemy pour `monthly_insurance`
+  - Mise à jour des modèles (`LoanConfig` dans `database/models.py` et `api/models.py`)
+  - Mise à jour des endpoints API (`loan_configs.py`)
+  - Script de test Python (`backend/tests/test_loan_configs_monthly_insurance.py`) pour tester toutes les fonctionnalités backend au fur et à mesure :
+    - Test de création avec `monthly_insurance`
+    - Test de mise à jour de `monthly_insurance`
+    - Test de récupération avec `monthly_insurance`
+    - Test de validation des valeurs (null, 0, valeurs positives)
+    - Test de persistance en base de données
+
+- Frontend :
+  - Fichier `frontend/src/utils/financial.ts` avec PMT, IPMT, PPMT
+  - Champ input "Assurance mensuelle" dans `LoanConfigSingleCard`
+  - Tableau de simulation dans `LoanConfigSingleCard`
+  - Mise à jour de l'interface TypeScript `LoanConfig` dans `client.ts`
+
+**Acceptance Criteria**:
+
+- [ ] Le champ `monthly_insurance` est présent dans le modèle `LoanConfig` (backend)
+
+- [ ] Le champ input "Assurance mensuelle" est visible dans la card de configuration
+
+- [ ] La valeur d'assurance est sauvegardée automatiquement lors de la modification
+
+- [ ] Les fonctions PMT, IPMT, PPMT sont implémentées et testées (équivalentes Excel)
+
+- [ ] Le tableau "Simulations crédit" est visible sous les calculs automatiques
+
+- [ ] Le tableau affiche 5 lignes (mensualités 1, 50, 100, 150, 200) avec 6 colonnes
+
+- [ ] Les calculs sont corrects :
+  - Mensualité crédit : constante pour toutes les mensualités
+  - Intérêt : décroît au fil du temps
+  - Capital : croît au fil du temps
+  - Assurance : identique pour toutes les mensualités
+  - Total : Assurance + Intérêt + Capital
+
+- [ ] Le tableau se recalcule automatiquement quand les paramètres du crédit changent
+
+- [ ] Tous les montants sont formatés en euros avec 2 décimales (ex: 1 234,56 €)
+
+- [ ] La valeur d'assurance saisie est conservée lors des recalculs
+
+**Détails techniques**:
+
+- **Formules financières** :
+  - `PMT(rate, nper, pv)` = `pv * rate * (1 + rate)^nper / ((1 + rate)^nper - 1)`
+  - `IPMT(rate, per, nper, pv)` = Calcul basé sur le solde restant dû à la période `per-1`
+  - `PPMT(rate, per, nper, pv)` = `PMT(rate, nper, pv) - IPMT(rate, per, nper, pv)`
+  - Note : Les valeurs sont négatives dans Excel (remboursements), utiliser la valeur absolue pour l'affichage
+
+- **Durée totale** :
+  - Utiliser "Durée crédit (années) incluant différé" pour `nper`
+  - `nper = (duration_years + initial_deferral_months / 12) * 12`
+
+- **Gestion des cas limites** :
+  - Si `monthly_insurance` est null ou undefined, utiliser 0
+  - Si les paramètres du crédit ne sont pas complets, afficher "N/A" ou "-" dans le tableau
+  - Si `nper` est 0 ou négatif, ne pas calculer
+
+- **Performance** :
+  - Les calculs sont effectués côté client (pas d'appel API)
+  - Utiliser `useMemo` pour éviter les recalculs inutiles
 
 ---
 
