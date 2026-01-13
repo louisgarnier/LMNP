@@ -654,6 +654,98 @@
 
 ---
 
+### Step 7.10 : Frontend - Champs supplémentaires dans la card de configuration
+
+**Status**: ⏳ EN ATTENTE  
+
+**Description**: Ajouter des champs input et calculés à la card de configuration de crédit pour afficher des informations dérivées (dates, durées, mois écoulés/restants).
+
+**Tasks**:
+
+- [ ] **7.10.1** - Ajouter deux champs input :
+  - Date d'emprunt (input date)
+  - Date de fin prévisionnelle (input date)
+  - Stocker ces dates dans la base de données (ajout de colonnes dans `loan_configs`)
+
+- [ ] **7.10.2** - Ajouter une colonne calculée "Durée crédit (années)" :
+  - Calcul : `YEARFRAC(date_emprunt, date_fin, 3)` (base 3 = année réelle/365)
+  - Affichage en lecture seule (calculé automatiquement)
+
+- [ ] **7.10.3** - Ajouter une colonne calculée "Durée crédit (années) incluant différé" :
+  - Calcul : `YEARFRAC(date_emprunt, date_fin, 3) - (Décalage initial (mois))/12`
+  - Affichage en lecture seule
+
+- [ ] **7.10.5** - Ajouter un champ calculé "Nombre de mois écoulés" :
+  - Calcul : `ROUND(YEARFRAC(date_emprunt, date_du_jour, 3) * 12, 0)`
+  - Mois depuis le début de l'emprunt jusqu'à aujourd'hui
+  - Affichage en lecture seule (recalculé à chaque affichage)
+
+- [ ] **7.10.6** - Ajouter un champ calculé "Nombre de mois restants" :
+  - Calcul : `ROUND(YEARFRAC(date_du_jour, date_fin_previsionnelle, 3) * 12, 0)`
+  - Mois restants jusqu'à la fin prévisionnelle
+  - Affichage en lecture seule (recalculé à chaque affichage)
+
+- [ ] **7.10.7** - Ajouter un champ calculé "Durée restante" formatée :
+  - Format : "10 ans et 3 mois"
+  - Calcul : `INT(mois_restants/12) & " ans et " & ROUND(((mois_restants/12)-INT(mois_restants/12))*12, 0) & " mois"`
+  - Affichage en lecture seule
+
+**Deliverables**:
+
+- Mise à jour `backend/database/models.py` :
+  - Ajout des colonnes `loan_start_date` (DATE) et `loan_end_date` (DATE) dans `LoanConfig`
+
+- Mise à jour `backend/database/schema.sql` :
+  - Ajout des colonnes dans la table `loan_configs`
+
+- Mise à jour `backend/api/models.py` :
+  - Ajout des champs `loan_start_date` et `loan_end_date` dans les modèles Pydantic
+
+- Mise à jour `frontend/src/components/LoanConfigCard.tsx` :
+  - Ajout des champs input pour les dates (7.10.1)
+  - Ajout des champs calculés en lecture seule (7.10.2, 7.10.3, 7.10.5, 7.10.6, 7.10.7)
+  - Implémentation des fonctions de calcul YEARFRAC équivalentes en JavaScript
+
+- Migration de base de données :
+  - Script de migration pour ajouter les nouvelles colonnes
+
+**Acceptance Criteria**:
+
+- [ ] Champs input "Date d'emprunt" et "Date de fin prévisionnelle" visibles et éditables
+
+- [ ] Les dates sont sauvegardées en base de données
+
+- [ ] Colonne "Durée crédit (années)" affiche le résultat de YEARFRAC(date_emprunt, date_fin, 3)
+
+- [ ] Colonne "Durée crédit (années) incluant différé" affiche le résultat correct
+
+- [ ] Champ "Nombre de mois écoulés" affiche le nombre de mois depuis le début jusqu'à aujourd'hui
+
+- [ ] Champ "Nombre de mois restants" affiche le nombre de mois restants jusqu'à la fin
+
+- [ ] Champ "Durée restante" affiche le format "X ans et Y mois"
+
+- [ ] Tous les champs calculés sont en lecture seule et se mettent à jour automatiquement
+
+- [ ] Les calculs sont corrects (vérification avec Excel)
+
+**Détails techniques**:
+
+- **YEARFRAC équivalent JavaScript** : 
+  - Base 3 (année réelle/365) : `(date_fin - date_debut) / (365 * 1000 * 60 * 60 * 24)`
+  - Ou utiliser une bibliothèque de dates pour plus de précision
+
+- **Calcul des mois** :
+  - `ROUND(YEARFRAC * 12, 0)` pour convertir années en mois
+
+- **Format "X ans et Y mois"** :
+  - `Math.floor(mois_restants / 12)` pour les années
+  - `Math.round((mois_restants / 12 - Math.floor(mois_restants / 12)) * 12)` pour les mois
+
+- **Stockage** : Seules les dates sont stockées en base, les autres champs sont calculés à l'affichage
+
+---
+
 ## Notes importantes
 
 1. **Format d'import mensualités** : 1 enregistrement par année (date = 01/01/année), pas de mensualités mensuelles
