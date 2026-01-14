@@ -625,23 +625,38 @@ export default function CompteResultatConfigCard({
           <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#111827' }}>
             Configuration du compte de résultat
           </h3>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleCollapse();
-            }}
-            style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '20px',
-              cursor: 'pointer',
-              color: '#6b7280',
-              padding: '4px 8px',
-            }}
-          >
-            {isCollapsed ? '▶' : '▼'}
-          </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleCollapse();
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            padding: '0',
+            border: '1px solid #d1d5db',
+            borderRadius: '6px',
+            backgroundColor: '#ffffff',
+            cursor: 'pointer',
+            fontSize: '16px',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = '#f9fafb';
+            e.currentTarget.style.borderColor = '#9ca3af';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = '#ffffff';
+            e.currentTarget.style.borderColor = '#d1d5db';
+          }}
+          title={isCollapsed ? 'Déplier la card' : 'Replier la card'}
+        >
+          {isCollapsed ? '📍' : '📌'}
+        </button>
         </div>
         {!isCollapsed && mappings.length > 0 && (
           <button
