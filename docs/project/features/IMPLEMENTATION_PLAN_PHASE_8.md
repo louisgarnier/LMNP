@@ -45,9 +45,9 @@
   - Honoraires
   - Travaux et mobilier
   - Impôts et taxes
-  - Charges d'amortissements (depuis vues d'amortissement)
+  - Charges d'amortissements (depuis amortissement)
   - Autres charges diverses
-  - Coût du financement (Intérêts et assurance emprunteur depuis loan_payments)
+  - Coût du financement (Intérêts et assurance crédits)
 
 **Tasks**:
 - [ ] Créer table `compte_resultat_mappings` avec colonnes :
@@ -60,7 +60,6 @@
   - `annee` (année du compte de résultat)
   - `category_name` (nom de la catégorie comptable)
   - `amount` (montant pour cette catégorie et cette année)
-  - `amortization_view_id` (ID de la vue d'amortissement utilisée, NULL si N/A)
   - `created_at`, `updated_at`
 - [ ] Créer modèles SQLAlchemy dans `backend/database/models.py`
 - [ ] Créer modèles Pydantic dans `backend/api/models.py`
@@ -89,7 +88,7 @@
 
 **Sources de données** :
 - **Produits/Charges** : Transactions enrichies via `level_1` (logique OR, filtrer par date pour l'année)
-- **Amortissements** : Depuis les vues d'amortissement (sélectionner le total pour chaque année)
+- **Amortissements** : Depuis la table `amortization_result` (sélectionner le total pour chaque année)
 - **Intérêts/Assurance crédit** : Depuis `loan_payments` (filtrer par année, sommer `interest` + `insurance` de **tous les crédits configurés**)
 
 **Tasks**:
@@ -107,15 +106,16 @@
   - Grouper par catégorie selon les mappings level_1
   - Sommer les montants par catégorie
   - Prendre en compte transactions positives ET négatives (dépenses négatives - remboursements/crédits positifs)
-- [ ] Implémenter fonction `get_amortissements(year, amortization_view_id)` :
-  - Récupérer le total d'amortissement pour l'année depuis la vue sélectionnée
+- [ ] Implémenter fonction `get_amortissements(year)` :
+  - Récupérer le total d'amortissement pour l'année depuis la table `amortization_result`
+  - Sommer tous les montants d'amortissement pour l'année (toutes les catégories)
 - [ ] Implémenter fonction `get_cout_financement(year)` :
   - Récupérer tous les crédits configurés (via `loanConfigsAPI.getAll()` ou depuis la base de données)
   - Filtrer `loan_payments` par année (date entre 01/01/année et 31/12/année)
   - **Gérer le cas d'un seul crédit** : Si un seul crédit configuré, sommer `interest` + `insurance` de ce crédit pour l'année
   - **Gérer le cas de plusieurs crédits** : Si plusieurs crédits configurés, sommer `interest` + `insurance` de **tous les crédits** pour chaque année
   - Retourner le total (somme de tous les crédits pour l'année)
-- [ ] Implémenter fonction `calculate_compte_resultat(year, mappings, amortization_view_id, level_3_values)` :
+- [ ] Implémenter fonction `calculate_compte_resultat(year, mappings, level_3_values)` :
   - Récupérer `level_3_values` depuis `compte_resultat_config`
   - Calculer tous les produits d'exploitation (avec filtrage par level_3)
   - Calculer toutes les charges d'exploitation (incluant amortissements et coût financement, avec filtrage par level_3)
@@ -164,7 +164,7 @@
 - [ ] Créer endpoint `PUT /api/compte-resultat/mappings/{id}` : Mettre à jour un mapping
 - [ ] Créer endpoint `DELETE /api/compte-resultat/mappings/{id}` : Supprimer un mapping
 - [ ] Créer endpoint `POST /api/compte-resultat/generate` : Générer un compte de résultat
-  - Paramètres : `year`, `amortization_view_id`, `selected_loan_ids`
+  - Paramètres : `year`
   - Retourne : Compte de résultat calculé et stocké en DB
 - [ ] Créer endpoint `GET /api/compte-resultat/calculate?years={year1,year2,...}` : Calculer les montants pour plusieurs années
   - Retourne : Montants par catégorie et année (basé sur les mappings configurés)
@@ -212,7 +212,7 @@
   - Endpoints d'amortissement (recalculate_amortizations)
   - Endpoints de loan_payments (POST, PUT, DELETE, import)
   - Endpoints de mappings (POST, PUT, DELETE)
-  - Endpoints d'amortization_views (POST, PUT, DELETE)
+  - Endpoints d'amortization (recalculate_amortizations)
 - [ ] Créer test pour vérifier le recalcul automatique
 - [ ] Valider avec l'utilisateur
 
@@ -226,7 +226,7 @@
 - [ ] Recalcul déclenché quand amortissements changent (recalculate_amortizations)
 - [ ] Recalcul déclenché quand loan_payments changent (create, update, delete, import)
 - [ ] Recalcul déclenché quand mappings changent (create, update, delete)
-- [ ] Recalcul déclenché quand amortization_views changent (create, update, delete)
+- [ ] Recalcul déclenché quand les données d'amortissement changent (recalculate_amortizations)
 - [ ] Tests de recalcul passent
 - [ ] Utilisateur confirme que le recalcul fonctionne
 
@@ -331,7 +331,7 @@
   - Honoraires
   - Travaux et mobilier
   - Impôts et taxes
-  - Charges d'amortissements ⚠️ (données depuis vues d'amortissement - pas de mapping level_1)
+  - Charges d'amortissements ⚠️ (données depuis table amortization_result - pas de mapping level_1)
   - Autres charges diverses
   - Coût du financement (hors remboursement du capital) ⚠️ (données depuis loan_payments - pas de mapping level_1)
 
@@ -532,7 +532,7 @@
 
 **Tasks**:
 - [ ] Ajouter prop `onConfigUpdated?: () => void` à `CompteResultatConfigCard`
-- [ ] Appeler `onConfigUpdated()` après chaque modification (ajout/suppression mapping, changement vue/crédits)
+- [ ] Appeler `onConfigUpdated()` après chaque modification (ajout/suppression mapping, changement crédits)
 - [ ] Utiliser ce callback dans le composant parent pour déclencher le rechargement du tableau
 - [ ] Tester dans le navigateur
 
@@ -550,7 +550,7 @@
 - [ ] Dropdown Type fonctionne et filtre les catégories
 - [ ] Dropdown Catégorie fonctionne avec catégories prédéfinies
 - [ ] Tags bleus pour level_1 avec "+ Ajouter" et "x" pour supprimer
-- [ ] Colonne "Vue" fonctionne pour catégories spéciales (amortissements et coût financement)
+- [ ] Catégories spéciales (amortissements et coût financement) gérées correctement
 - [ ] Bouton "+ Ajouter une catégorie" fonctionne (création directe, pas de modal)
 - [ ] Menu contextuel (clic droit) avec "Supprimer" fonctionne
 - [ ] Bouton "🔄 Réinitialiser les mappings" fonctionne
@@ -574,7 +574,7 @@
 - **Le filtre Level 3 (Step 8.4.5) est appliqué en premier** : Seules les transactions avec level_3 sélectionné sont considérées
 - Les catégories affichées dans le tableau correspondent **exactement** aux catégories configurées dans la card config
 - Les calculs pour "Charges d'amortissements" et "Coût du financement" sont effectués automatiquement (Steps 8.6.3 et 8.6.4)
-- Toute modification dans la card config (ajout/suppression de mapping, changement de vue, changement de crédits) ou dans le filtre Level 3 doit **automatiquement** mettre à jour le tableau
+- Toute modification dans la card config (ajout/suppression de mapping, changement de crédits) ou dans le filtre Level 3 doit **automatiquement** mettre à jour le tableau
 - Le tableau ne doit afficher que les catégories qui ont au moins un mapping configuré dans la card config
 
 **Structure du tableau** :
@@ -650,7 +650,7 @@
 - [ ] Gérer l'état de chargement (spinner ou "Chargement...")
 - [ ] Gérer les erreurs (affichage de message d'erreur)
 - [ ] Recharger les données quand les mappings changent (via `refreshKey` déclenché par `onConfigUpdated` de la card config)
-- [ ] Afficher un message si une catégorie spéciale n'a pas de vue/crédits sélectionnés (ex: "Vue non configurée" / "Crédits non configurés")
+- [ ] Afficher un message si une catégorie spéciale n'a pas de données disponibles (ex: "Aucune donnée d'amortissement" / "Aucun crédit configuré")
 - [ ] Tester dans le navigateur
 
 **Acceptance Criteria**:
@@ -659,7 +659,7 @@
 - [ ] État de chargement géré
 - [ ] Erreurs gérées
 - [ ] Rechargement automatique quand les mappings changent dans la card config
-- [ ] Message affiché si vue/crédits non configurés
+- [ ] Message affiché si données non disponibles
 - [ ] Test visuel dans navigateur validé
 
 ---
@@ -668,27 +668,24 @@
 **Status**: ⏳ À FAIRE  
 **Description**: Implémenter le calcul et l'affichage spécifique pour la catégorie "Charges d'amortissements" dans la card table.
 
-**⚠️ IMPORTANT** : Cette catégorie ne provient pas des transactions mais des vues d'amortissement.
+**⚠️ IMPORTANT** : Cette catégorie ne provient pas des transactions mais de la table `amortization_result`.
 
 **Tasks**:
 - [ ] Détecter la catégorie "Charges d'amortissements" dans le tableau
-- [ ] Récupérer toutes les vues d'amortissement disponibles (via `amortizationViewsAPI.getAll()`)
 - [ ] Pour chaque année, calculer le total d'amortissement :
-  - Récupérer le total depuis `AmortizationResult` pour chaque vue d'amortissement
-  - Sommer les totaux de toutes les vues d'amortissement pour chaque année
+  - Récupérer tous les montants depuis la table `amortization_result` pour l'année
+  - Sommer tous les montants d'amortissement pour l'année (toutes les catégories)
   - Afficher le montant total dans la cellule correspondante (catégorie × année)
-- [ ] Gérer le cas où aucune vue d'amortissement n'est disponible : afficher "Aucune vue configurée" (grisé)
-- [ ] Gérer le cas où une vue d'amortissement n'a pas de données pour une année : afficher 0,00 €
-- [ ] Mettre à jour automatiquement quand les vues d'amortissement changent (recalcul automatique)
+- [ ] Gérer le cas où aucune donnée d'amortissement n'est disponible pour une année : afficher 0,00 €
+- [ ] Mettre à jour automatiquement quand les données d'amortissement changent (recalcul automatique)
 - [ ] Tester dans le navigateur
 
 **Acceptance Criteria**:
 - [ ] Catégorie "Charges d'amortissements" détectée automatiquement
-- [ ] Montants récupérés depuis toutes les vues d'amortissement disponibles
-- [ ] Total calculé correctement pour chaque année (somme de toutes les vues)
-- [ ] Message affiché si aucune vue d'amortissement disponible
+- [ ] Montants récupérés depuis la table `amortization_result`
+- [ ] Total calculé correctement pour chaque année (somme de tous les montants d'amortissement)
 - [ ] Montants corrects pour plusieurs années
-- [ ] Recalcul automatique quand les vues d'amortissement changent
+- [ ] Recalcul automatique quand les données d'amortissement changent
 - [ ] Test visuel dans navigateur validé
 - [ ] Utilisateur confirme que les montants sont corrects
 
@@ -822,7 +819,7 @@
 - [ ] **Seules les catégories avec mappings configurés dans la card config sont affichées**
 - [ ] Structure : 1 colonne catégories + 1 colonne par année
 - [ ] Années calculées automatiquement (jusqu'à l'année en cours)
-- [ ] Calculs spécifiques pour "Charges d'amortissements" (Step 8.6.3) : récupération depuis toutes les vues d'amortissement
+- [ ] Calculs spécifiques pour "Charges d'amortissements" (Step 8.6.3) : récupération depuis la table `amortization_result`
 - [ ] Calculs spécifiques pour "Coût du financement" (Step 8.6.4) : récupération depuis tous les crédits configurés
 - [ ] Montants calculés et affichés correctement pour toutes les catégories configurées
 - [ ] Totaux calculés et affichés (fond gris, texte en gras)
@@ -830,7 +827,7 @@
 - [ ] Formatage des montants correct (€, séparateurs, 2 décimales)
 - [ ] Ajout d'années fonctionne
 - [ ] **Rechargement automatique quand les mappings changent dans la card config**
-- [ ] **Toute modification dans la card config (ajout/suppression mapping, changement vue/crédits) met à jour le tableau automatiquement**
+- [ ] **Toute modification dans la card config (ajout/suppression mapping, changement crédits) met à jour le tableau automatiquement**
 - [ ] Test visuel dans navigateur validé
 - [ ] Utilisateur confirme que l'interface correspond à l'image
 
