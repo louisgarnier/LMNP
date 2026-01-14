@@ -581,3 +581,30 @@ class CompteResultatDataListResponse(BaseModel):
     """Model for list of compte de résultat data response."""
     items: List[CompteResultatDataResponse]
     total: int
+
+
+# Compte de résultat config models
+
+class CompteResultatConfigBase(BaseModel):
+    """Base model for compte de résultat config."""
+    level_3_values: str = Field(..., description="JSON array des level_3 sélectionnés (ex: '[\"VALEUR1\", \"VALEUR2\"]')")
+
+
+class CompteResultatConfigCreate(CompteResultatConfigBase):
+    """Model for creating compte de résultat config."""
+    pass
+
+
+class CompteResultatConfigUpdate(BaseModel):
+    """Model for updating compte de résultat config."""
+    level_3_values: Optional[str] = None
+
+
+class CompteResultatConfigResponse(CompteResultatConfigBase):
+    """Model for compte de résultat config response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True

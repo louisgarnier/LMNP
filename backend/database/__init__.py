@@ -21,7 +21,8 @@ from .models import (
     LoanPayment,
     LoanConfig,
     CompteResultatMapping,
-    CompteResultatData
+    CompteResultatData,
+    CompteResultatConfig
 )
 
 __all__ = [
@@ -45,6 +46,7 @@ __all__ = [
     "LoanConfig",
     "CompteResultatMapping",
     "CompteResultatData",
+    "CompteResultatConfig",
 ]
 
 

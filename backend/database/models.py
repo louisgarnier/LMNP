@@ -338,3 +338,13 @@ class CompteResultatData(Base):
         Index('idx_compte_resultat_data_category', 'category_name'),
     )
 
+
+class CompteResultatConfig(Base):
+    """Configuration globale pour le compte de résultat (filtre Level 3)."""
+    __tablename__ = "compte_resultat_config"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    level_3_values = Column(Text, nullable=False, default="[]")  # JSON array des level_3 sélectionnés (ex: '["VALEUR1", "VALEUR2"]')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
