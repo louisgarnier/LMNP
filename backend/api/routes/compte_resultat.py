@@ -58,6 +58,7 @@ async def get_compte_resultat_mappings(
         CompteResultatMappingResponse(
             id=m.id,
             category_name=m.category_name,
+            type=m.type,
             level_1_values=m.level_1_values,
             created_at=m.created_at,
             updated_at=m.updated_at
@@ -92,6 +93,7 @@ async def create_compte_resultat_mapping(
     
     new_mapping = CompteResultatMapping(
         category_name=mapping.category_name,
+        type=mapping.type,
         level_1_values=mapping.level_1_values
     )
     db.add(new_mapping)
@@ -110,6 +112,7 @@ async def create_compte_resultat_mapping(
     return CompteResultatMappingResponse(
         id=new_mapping.id,
         category_name=new_mapping.category_name,
+        type=new_mapping.type,
         level_1_values=new_mapping.level_1_values,
         created_at=new_mapping.created_at,
         updated_at=new_mapping.updated_at
@@ -148,6 +151,8 @@ async def update_compte_resultat_mapping(
     # Mettre à jour les champs
     if mapping.category_name is not None:
         existing_mapping.category_name = mapping.category_name
+    if mapping.type is not None:
+        existing_mapping.type = mapping.type
     if mapping.level_1_values is not None:
         existing_mapping.level_1_values = mapping.level_1_values
     
@@ -166,6 +171,7 @@ async def update_compte_resultat_mapping(
     return CompteResultatMappingResponse(
         id=existing_mapping.id,
         category_name=existing_mapping.category_name,
+        type=existing_mapping.type,
         level_1_values=existing_mapping.level_1_values,
         created_at=existing_mapping.created_at,
         updated_at=existing_mapping.updated_at

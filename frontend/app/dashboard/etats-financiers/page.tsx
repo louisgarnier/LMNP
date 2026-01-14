@@ -562,9 +562,6 @@ export default function EtatsFinanciersPage() {
       }}>
         {activeTab === 'compte-resultat' && (
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', marginBottom: '16px' }}>
-              Compte de résultat
-            </h2>
             <CompteResultatConfigCard
               onConfigUpdated={() => {
                 console.log('Configuration du compte de résultat mise à jour');

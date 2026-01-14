@@ -518,6 +518,7 @@ class LoanConfigListResponse(BaseModel):
 class CompteResultatMappingBase(BaseModel):
     """Base model for compte de résultat mapping."""
     category_name: str = Field(..., max_length=255, description="Nom de la catégorie comptable")
+    type: Optional[str] = Field(None, max_length=50, description="Type: 'Produits d'exploitation' ou 'Charges d'exploitation' (pour les catégories personnalisées)")
     level_1_values: Optional[str] = Field(None, description="JSON array des level_1 à inclure (ex: '[\"LOYERS\", \"REVENUS\"]')")
 
 
@@ -529,6 +530,7 @@ class CompteResultatMappingCreate(CompteResultatMappingBase):
 class CompteResultatMappingUpdate(BaseModel):
     """Model for updating a compte de résultat mapping."""
     category_name: Optional[str] = Field(None, max_length=255)
+    type: Optional[str] = Field(None, max_length=50)
     level_1_values: Optional[str] = None
 
 

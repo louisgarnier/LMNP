@@ -44,6 +44,22 @@ export default function CompteResultatConfigCard({
   
   // État pour le repli/dépli de la card
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  
+  // État pour la création d'une nouvelle catégorie
+  const [isCreatingCategory, setIsCreatingCategory] = useState<boolean>(false);
+  
+  // États pour l'édition de la catégorie comptable (champ texte libre)
+  const [editingCategoryNameId, setEditingCategoryNameId] = useState<number | null>(null);
+  const [editingCategoryNameValue, setEditingCategoryNameValue] = useState<string>('');
+  
+  // États pour le menu contextuel (clic droit)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; mappingId: number } | null>(null);
+  const [isDeletingMapping, setIsDeletingMapping] = useState<number | null>(null);
+  
+  // État pour la réinitialisation
+  const [isResetting, setIsResetting] = useState<boolean>(false);
+  
+  // Note: Le Type est maintenant stocké en backend dans le champ `type` du mapping
 
   // Catégories prédéfinies
   const PRODUITS_CATEGORIES = [
@@ -93,13 +109,36 @@ export default function CompteResultatConfigCard({
     categoryName: string;
     type: 'Produits d\'exploitation' | 'Charges d\'exploitation';
     mapping: CompteResultatMapping | null;
+    isCustom: boolean; // true si la catégorie n'est pas dans les catégories prédéfinies
   }
 
-  const allCategoriesWithMappings: CategoryRow[] = ALL_CATEGORIES.map(categoryName => ({
+  // Catégories prédéfinies avec leurs mappings
+  const predefinedCategoriesWithMappings: CategoryRow[] = ALL_CATEGORIES.map(categoryName => ({
     categoryName,
     type: getTypeForCategory(categoryName),
     mapping: mappingsByCategory.get(categoryName) || null,
+    isCustom: false,
   }));
+
+  // Catégories personnalisées (mappings qui ne sont pas dans les catégories prédéfinies)
+  const customCategories: CategoryRow[] = mappings
+    .filter(mapping => !ALL_CATEGORIES.includes(mapping.category_name))
+    .map(mapping => {
+      // Récupérer le Type depuis le backend, ou utiliser "Charges d'exploitation" par défaut
+      const type = (mapping.type as 'Produits d\'exploitation' | 'Charges d\'exploitation') || 'Charges d\'exploitation';
+      return {
+        categoryName: mapping.category_name,
+        type,
+        mapping,
+        isCustom: true,
+      };
+    });
+
+  // Combiner les deux listes
+  const allCategoriesWithMappings: CategoryRow[] = [
+    ...predefinedCategoriesWithMappings,
+    ...customCategories,
+  ];
 
   // Trier par Type puis par Catégorie
   const sortedCategories = [...allCategoriesWithMappings].sort((a, b) => {
@@ -166,7 +205,8 @@ export default function CompteResultatConfigCard({
     try {
       setLoadingMappings(true);
       const response = await compteResultatAPI.getMappings();
-      setMappings(response.items || []);
+      const loadedMappings = response.items || [];
+      setMappings(loadedMappings);
     } catch (err: any) {
       console.error('Erreur lors du chargement des mappings:', err);
     } finally {
@@ -346,6 +386,212 @@ export default function CompteResultatConfigCard({
     };
   }, [openLevel1DropdownId]);
 
+  // Gérer la création d'une nouvelle catégorie
+  const handleCreateNewCategory = async () => {
+    if (selectedLevel3Values.length === 0 || isCreatingCategory) {
+      return;
+    }
+
+    try {
+      setIsCreatingCategory(true);
+      
+      // Créer toujours un nouveau mapping avec "nouvelle categorie" par défaut
+      const newMapping = await compteResultatAPI.createMapping({
+        category_name: 'nouvelle categorie',
+        type: 'Charges d\'exploitation', // Type par défaut
+        level_1_values: null,
+      });
+      
+      // Le Type est stocké en backend, pas besoin d'initialiser en frontend
+      
+      // Recharger les mappings
+      await loadMappings();
+      
+      // Notifier le parent si nécessaire
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la création de la catégorie:', err);
+      alert(`Erreur lors de la création: ${err.message || 'Erreur inconnue'}`);
+    } finally {
+      setIsCreatingCategory(false);
+    }
+  };
+
+  // Gérer le début de l'édition de la catégorie comptable
+  const handleCategoryNameEditStart = (mapping: CompteResultatMapping) => {
+    setEditingCategoryNameId(mapping.id);
+    setEditingCategoryNameValue(mapping.category_name);
+  };
+
+  // Sauvegarder la catégorie comptable édité
+  const handleCategoryNameEditSave = async (mappingId: number) => {
+    const trimmedValue = editingCategoryNameValue.trim();
+    if (!trimmedValue) {
+      // Si vide, garder "nouvelle categorie"
+      setEditingCategoryNameId(null);
+      setEditingCategoryNameValue('');
+      return;
+    }
+    
+    try {
+      await compteResultatAPI.updateMapping(mappingId, {
+        category_name: trimmedValue,
+      });
+      
+      // Recharger les mappings pour avoir la valeur à jour
+      await loadMappings();
+      
+      setEditingCategoryNameId(null);
+      setEditingCategoryNameValue('');
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la sauvegarde de la catégorie:', err);
+      alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Annuler l'édition de la catégorie comptable
+  const handleCategoryNameEditCancel = () => {
+    setEditingCategoryNameId(null);
+    setEditingCategoryNameValue('');
+  };
+
+  // Gérer les touches dans le champ d'édition de la catégorie
+  const handleCategoryNameEditKeyDown = (e: React.KeyboardEvent, mappingId: number) => {
+    if (e.key === 'Enter') {
+      handleCategoryNameEditSave(mappingId);
+    } else if (e.key === 'Escape') {
+      handleCategoryNameEditCancel();
+    }
+  };
+
+  // Gérer le changement de Type (stocké en backend)
+  const handleTypeChange = async (mappingId: number, newType: 'Produits d\'exploitation' | 'Charges d\'exploitation') => {
+    try {
+      await compteResultatAPI.updateMapping(mappingId, {
+        type: newType,
+      });
+      
+      // Recharger les mappings pour avoir la valeur à jour
+      await loadMappings();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la mise à jour du Type:', err);
+      alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    }
+  };
+
+  // Gérer le menu contextuel (clic droit)
+  const handleContextMenu = (e: React.MouseEvent, mappingId: number) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      mappingId: mappingId,
+    });
+  };
+
+  // Fermer le menu contextuel
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // Fonction pour supprimer un mapping
+  const handleDeleteMapping = async (mappingId: number) => {
+    const mapping = mappings.find(m => m.id === mappingId);
+    if (!mapping) return;
+
+    if (!window.confirm(`Êtes-vous sûr de vouloir supprimer la catégorie "${mapping.category_name}" ?`)) {
+      return;
+    }
+
+    try {
+      setIsDeletingMapping(mappingId);
+      closeContextMenu();
+
+      await compteResultatAPI.deleteMapping(mappingId);
+
+      console.log('[CompteResultatConfigCard] Mapping supprimé:', mappingId);
+      
+      // Recharger les mappings depuis le serveur
+      await loadMappings();
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la suppression:', err);
+      alert(`Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
+    } finally {
+      setIsDeletingMapping(null);
+    }
+  };
+
+  // Fermer le menu contextuel quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = () => {
+      if (contextMenu) {
+        closeContextMenu();
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener('click', handleClickOutside);
+      return () => {
+        document.removeEventListener('click', handleClickOutside);
+      };
+    }
+  }, [contextMenu]);
+
+  // Fonction pour réinitialiser tous les mappings
+  const handleResetMappings = async () => {
+    if (mappings.length === 0) {
+      alert('Aucun mapping à réinitialiser.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `⚠️ Êtes-vous sûr de vouloir réinitialiser les mappings ?\n\nCette action supprimera ${mappings.length} mapping(s). Cette action est irréversible.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setIsResetting(true);
+      console.log(`[CompteResultatConfigCard] Réinitialisation de ${mappings.length} mapping(s)...`);
+      
+      // Supprimer tous les mappings un par un
+      const deletePromises = mappings.map(mapping => compteResultatAPI.deleteMapping(mapping.id));
+      await Promise.all(deletePromises);
+      
+      console.log(`[CompteResultatConfigCard] ✓ ${mappings.length} mapping(s) supprimé(s)`);
+      
+      // Recharger les mappings (la liste sera vide maintenant)
+      await loadMappings();
+      
+      alert(`✅ Réinitialisation réussie : ${mappings.length} mapping(s) supprimé(s).`);
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (err: any) {
+      console.error('Erreur lors de la réinitialisation:', err);
+      alert(`Erreur lors de la réinitialisation: ${err.message || 'Erreur inconnue'}`);
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div
       style={{
@@ -364,30 +610,82 @@ export default function CompteResultatConfigCard({
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: isCollapsed ? 0 : '20px',
-          cursor: 'pointer',
         }}
-        onClick={toggleCollapse}
       >
-        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#111827' }}>
-          Configuration du compte de résultat
-        </h3>
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleCollapse();
-          }}
+        <div
           style={{
-            background: 'none',
-            border: 'none',
-            fontSize: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flex: 1,
             cursor: 'pointer',
-            color: '#6b7280',
-            padding: '4px 8px',
           }}
+          onClick={toggleCollapse}
         >
-          {isCollapsed ? '▶' : '▼'}
-        </button>
+          <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#111827' }}>
+            Configuration du compte de résultat
+          </h3>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleCollapse();
+            }}
+            style={{
+              background: 'none',
+              border: 'none',
+              fontSize: '20px',
+              cursor: 'pointer',
+              color: '#6b7280',
+              padding: '4px 8px',
+            }}
+          >
+            {isCollapsed ? '▶' : '▼'}
+          </button>
+        </div>
+        {!isCollapsed && mappings.length > 0 && (
+          <button
+            type="button"
+            onClick={handleResetMappings}
+            disabled={isResetting}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: isResetting ? '#9ca3af' : '#374151',
+              backgroundColor: isResetting ? '#f3f4f6' : '#f9fafb',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              cursor: isResetting ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isResetting) {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isResetting) {
+                e.currentTarget.style.backgroundColor = '#f9fafb';
+              }
+            }}
+          >
+            {isResetting ? (
+              <>
+                <span>⏳</span>
+                <span>Réinitialisation...</span>
+              </>
+            ) : (
+              <>
+                <span>🔄</span>
+                <span>Réinitialiser les mappings</span>
+              </>
+            )}
+          </button>
+        )}
       </div>
       
       {/* Contenu de la card (masqué si collapsed) */}
@@ -522,22 +820,81 @@ export default function CompteResultatConfigCard({
                     </tr>
                   ) : (
                     sortedCategories.map((categoryRow) => {
-                      const { categoryName, type, mapping } = categoryRow;
+                      const { categoryName, type, mapping, isCustom } = categoryRow;
                       const isSpecialCategory = SPECIAL_CATEGORIES.includes(categoryName);
                       const key = mapping ? `mapping-${mapping.id}` : `category-${categoryName}`;
+                      
+                      // Pour les catégories personnalisées, récupérer le Type depuis le backend
+                      const currentType = mapping && isCustom 
+                        ? ((mapping.type as 'Produits d\'exploitation' | 'Charges d\'exploitation') || 'Charges d\'exploitation')
+                        : type;
                       
                       return (
                         <tr
                           key={key}
+                          onContextMenu={mapping && !isSpecialCategory ? (e) => handleContextMenu(e, mapping.id) : undefined}
                           style={{
                             borderBottom: '1px solid #e5e7eb',
+                            cursor: mapping && !isSpecialCategory ? 'context-menu' : 'default',
                           }}
                         >
                           <td style={{ padding: '12px', color: '#111827', width: '20%' }}>
-                            {type}
+                            {isCustom && mapping ? (
+                              <select
+                                value={currentType}
+                                onChange={(e) => handleTypeChange(mapping.id, e.target.value as 'Produits d\'exploitation' | 'Charges d\'exploitation')}
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '14px',
+                                  border: '1px solid #d1d5db',
+                                  borderRadius: '4px',
+                                  backgroundColor: '#ffffff',
+                                  color: '#111827',
+                                  cursor: 'pointer',
+                                  width: '100%',
+                                }}
+                              >
+                                <option value="Produits d'exploitation">Produits d'exploitation</option>
+                                <option value="Charges d'exploitation">Charges d'exploitation</option>
+                              </select>
+                            ) : (
+                              type
+                            )}
                           </td>
                           <td style={{ padding: '12px', color: '#111827', width: '30%' }}>
-                            {categoryName}
+                            {isCustom && mapping && editingCategoryNameId === mapping.id ? (
+                              <input
+                                type="text"
+                                value={editingCategoryNameValue}
+                                onChange={(e) => setEditingCategoryNameValue(e.target.value)}
+                                onBlur={() => handleCategoryNameEditSave(mapping.id)}
+                                onKeyDown={(e) => handleCategoryNameEditKeyDown(e, mapping.id)}
+                                autoFocus
+                                style={{
+                                  padding: '4px 8px',
+                                  fontSize: '14px',
+                                  border: '1px solid #3b82f6',
+                                  borderRadius: '4px',
+                                  outline: 'none',
+                                  width: '100%',
+                                }}
+                              />
+                            ) : isCustom && mapping ? (
+                              <span
+                                onClick={() => handleCategoryNameEditStart(mapping)}
+                                style={{
+                                  cursor: 'pointer',
+                                  color: '#111827',
+                                  textDecoration: 'underline',
+                                  textDecorationStyle: 'dotted',
+                                }}
+                                title="Cliquer pour éditer"
+                              >
+                                {categoryName}
+                              </span>
+                            ) : (
+                              categoryName
+                            )}
                           </td>
                           <td style={{ padding: '12px', color: '#111827', width: '50%' }}>
                             {isSpecialCategory ? (
@@ -748,8 +1105,113 @@ export default function CompteResultatConfigCard({
                       );
                     })
                   )}
+                  {/* Ligne pour le bouton "+" Ajouter une catégorie */}
+                  <tr>
+                    <td colSpan={3} style={{ padding: '12px', textAlign: 'center', borderTop: '2px solid #e5e7eb' }}>
+                      <button
+                        onClick={handleCreateNewCategory}
+                        disabled={selectedLevel3Values.length === 0 || isCreatingCategory}
+                        style={{
+                          padding: '8px 16px',
+                          backgroundColor: selectedLevel3Values.length > 0 && !isCreatingCategory ? '#3b82f6' : '#9ca3af',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: selectedLevel3Values.length > 0 && !isCreatingCategory ? 'pointer' : 'not-allowed',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'background-color 0.2s',
+                        }}
+                        onMouseEnter={(e) => {
+                          if (selectedLevel3Values.length > 0 && !isCreatingCategory) {
+                            e.currentTarget.style.backgroundColor = '#2563eb';
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (selectedLevel3Values.length > 0 && !isCreatingCategory) {
+                            e.currentTarget.style.backgroundColor = '#3b82f6';
+                          }
+                        }}
+                      >
+                        {isCreatingCategory ? (
+                          <>
+                            <span>⏳</span>
+                            <span>Création...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>+</span>
+                            <span>Ajouter une catégorie</span>
+                          </>
+                        )}
+                      </button>
+                    </td>
+                  </tr>
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {/* Menu contextuel (clic droit) */}
+          {contextMenu && (
+            <div
+              style={{
+                position: 'fixed',
+                top: `${contextMenu.y}px`,
+                left: `${contextMenu.x}px`,
+                backgroundColor: 'white',
+                border: '1px solid #e5e7eb',
+                borderRadius: '6px',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                zIndex: 1000,
+                minWidth: '150px',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => handleDeleteMapping(contextMenu.mappingId)}
+                disabled={isDeletingMapping === contextMenu.mappingId}
+                style={{
+                  width: '100%',
+                  padding: '10px 16px',
+                  textAlign: 'left',
+                  backgroundColor: 'transparent',
+                  border: 'none',
+                  cursor: isDeletingMapping === contextMenu.mappingId ? 'not-allowed' : 'pointer',
+                  color: isDeletingMapping === contextMenu.mappingId ? '#9ca3af' : '#dc2626',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  if (isDeletingMapping !== contextMenu.mappingId) {
+                    e.currentTarget.style.backgroundColor = '#fef2f2';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (isDeletingMapping !== contextMenu.mappingId) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+              >
+                {isDeletingMapping === contextMenu.mappingId ? (
+                  <>
+                    <span>⏳</span>
+                    <span>Suppression...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🗑️</span>
+                    <span>Supprimer</span>
+                  </>
+                )}
+              </button>
             </div>
           )}
 

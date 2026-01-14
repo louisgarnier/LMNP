@@ -67,15 +67,19 @@ def main():
         ]
         
         for mapping in mappings:
-            if mapping.category_name in PRODUITS_CATEGORIES:
+            if mapping.category_name in SPECIAL_CATEGORIES:
+                speciales.append(mapping)
+            elif mapping.category_name in PRODUITS_CATEGORIES:
                 produits.append(mapping)
             elif mapping.category_name in CHARGES_CATEGORIES:
                 charges.append(mapping)
-            elif mapping.category_name in SPECIAL_CATEGORIES:
-                speciales.append(mapping)
             else:
-                # Catégorie non reconnue
-                charges.append(mapping)
+                # Catégorie personnalisée (non reconnue) : utiliser le champ type de la BDD
+                if mapping.type == "Produits d'exploitation":
+                    produits.append(mapping)
+                else:
+                    # Par défaut, ou si type == "Charges d'exploitation" ou None
+                    charges.append(mapping)
         
         # Afficher les Produits d'exploitation
         if produits:
@@ -85,6 +89,8 @@ def main():
             for mapping in produits:
                 print(f"\n  Catégorie: {mapping.category_name}")
                 print(f"  ID: {mapping.id}")
+                if mapping.type:
+                    print(f"  Type (BDD): {mapping.type}")
                 print(f"  Created at: {mapping.created_at}")
                 print(f"  Updated at: {mapping.updated_at}")
                 if mapping.level_1_values:
@@ -111,6 +117,8 @@ def main():
             for mapping in charges:
                 print(f"\n  Catégorie: {mapping.category_name}")
                 print(f"  ID: {mapping.id}")
+                if mapping.type:
+                    print(f"  Type (BDD): {mapping.type}")
                 print(f"  Created at: {mapping.created_at}")
                 print(f"  Updated at: {mapping.updated_at}")
                 if mapping.level_1_values:

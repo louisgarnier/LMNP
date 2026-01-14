@@ -428,7 +428,7 @@
 ---
 
 #### Step 8.5.4 : Frontend - Colonne 3 "Level 1 (valeurs)"
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter l'affichage et la gestion des tags level_1 (identique à AmortizationConfigCard, mais filtré par level_3 au lieu de level_2).
 
 **⚠️ IMPORTANT : S'inspirer exactement de AmortizationConfigCard pour la colonne "Level 1 (valeurs)"**
@@ -436,52 +436,53 @@
 - Dans CompteResultatConfigCard : plusieurs `level_3` sont sélectionnés → on charge les `level_1` associés à ces `level_3`
 
 **Tasks Backend** (à faire en premier) :
-- [ ] Modifier endpoint `/api/transactions/unique-values` dans `backend/api/routes/transactions.py` :
+- [x] Modifier endpoint `/api/transactions/unique-values` dans `backend/api/routes/transactions.py` :
   - Ajouter paramètre `filter_level_3: Optional[List[str]] = Query(None, description="Filtrer par level_3 (array, pour filtrer les level_1 par plusieurs level_3)")`
   - Implémenter le filtrage SQL avec `IN` clause : `query.filter(EnrichedTransaction.level_3.in_(filter_level_3))`
   - Appliquer le filtre uniquement si `filter_level_3` est fourni et non vide
   - Tester avec plusieurs valeurs level_3
 
 **Tasks Frontend** :
-- [ ] Modifier `transactionsAPI.getUniqueValues()` dans `frontend/src/api/client.ts` :
+- [x] Modifier `transactionsAPI.getUniqueValues()` dans `frontend/src/api/client.ts` :
   - Ajouter paramètre `filterLevel3?: string[]` (après `filterLevel2`)
   - Passer le paramètre au backend : `if (filterLevel3 && filterLevel3.length > 0) params.append('filter_level_3', filterLevel3.join(','))`
   - Note : Backend recevra comme query param (peut nécessiter parsing côté backend si FastAPI ne gère pas automatiquement les arrays)
-- [ ] Créer fonction `loadLevel1Values()` qui charge les `level_1` filtrés par les `level_3` sélectionnés :
+- [x] Créer fonction `loadLevel1Values()` qui charge les `level_1` filtrés par les `level_3` sélectionnés :
   - Si aucun `level_3` sélectionné → `level1Values = []`
   - Si `level_3` sélectionnés → appeler `transactionsAPI.getUniqueValues('level_1', undefined, undefined, undefined, selectedLevel3Values)`
   - Stocker dans état `level1Values: string[]`
-- [ ] Appeler `loadLevel1Values()` quand `selectedLevel3Values` change (useEffect)
-- [ ] Implémenter l'affichage des tags bleus pour les valeurs level_1 sélectionnées (identique à AmortizationConfigCard) :
+- [x] Appeler `loadLevel1Values()` quand `selectedLevel3Values` change (useEffect)
+- [x] Implémenter l'affichage des tags bleus pour les valeurs level_1 sélectionnées (identique à AmortizationConfigCard) :
   - Tags bleus (`backgroundColor: '#3b82f6'`, `color: '#ffffff'`)
   - Chaque tag affiche la valeur avec un bouton "×" pour supprimer
-  - Bouton "×" appelle `handleLevel1Remove(mappingId, level1Value)`
-- [ ] Ajouter bouton "+ Ajouter" qui ouvre un dropdown (identique à AmortizationConfigCard) :
+  - Bouton "×" appelle `handleLevel1Remove(categoryName, mappingId, level1Value)`
+- [x] Ajouter bouton "+ Ajouter" qui ouvre un dropdown (identique à AmortizationConfigCard) :
   - Bouton avec style identique (`color: '#3b82f6'`, `backgroundColor: '#eff6ff'`, `border: '1px solid #3b82f6'`)
-  - Gérer état `openLevel1DropdownId: number | null` pour savoir quel dropdown est ouvert
+  - Gérer état `openLevel1DropdownId: number | string | null` pour savoir quel dropdown est ouvert
   - Gérer position du dropdown (top/bottom selon position dans viewport)
-- [ ] Dans le dropdown, afficher les valeurs level_1 disponibles :
+- [x] Dans le dropdown, afficher les valeurs level_1 disponibles :
   - **Filtrer les `level1Values` pour exclure ceux déjà sélectionnés dans TOUTES les catégories** (comme dans AmortizationConfigCard) :
     - Collecter toutes les valeurs level_1 déjà sélectionnées pour TOUTES les catégories (parcourir tous les mappings)
     - Créer un Set `allSelectedValues` avec toutes ces valeurs
     - Filtrer `level1Values` pour exclure celles dans `allSelectedValues`
   - Si toutes les valeurs sont déjà sélectionnées → afficher "Toutes les valeurs sont déjà sélectionnées"
   - Chaque valeur est cliquable (label avec checkbox) pour l'ajouter
-- [ ] Implémenter fonction `handleLevel1Toggle(mappingId, level1Value)` :
+- [x] Implémenter fonction `handleLevel1Toggle(categoryName, level1Value, mappingId?)` :
+  - Si `mappingId` n'est pas fourni → créer le mapping avec la catégorie et le premier level_1
   - Si la valeur est déjà dans `mapping.level_1_values` → la supprimer
   - Sinon → l'ajouter
-  - Mettre à jour le mapping via API (`compteResultatAPI.updateMapping(mappingId, { level_1_values: JSON.stringify(newValues) })`)
+  - Mettre à jour le mapping via API (`compteResultatAPI.updateMapping(mappingId, { level_1_values: JSON.stringify(newValues) })` ou `createMapping`)
   - Recharger les mappings après mise à jour
-- [ ] Implémenter fonction `handleLevel1Remove(mappingId, level1Value)` :
+- [x] Implémenter fonction `handleLevel1Remove(categoryName, mappingId, level1Value)` :
   - Appelle `handleLevel1Toggle` pour supprimer
-- [ ] Sauvegarde automatique à chaque ajout/suppression (déjà géré dans `handleLevel1Toggle`)
-- [ ] Désactiver le bouton "+ Ajouter" si toutes les valeurs sont déjà assignées pour cette catégorie
-- [ ] Pour les catégories spéciales ("Charges d'amortissements" et "Coût du financement (hors remboursement du capital)") :
+- [x] Sauvegarde automatique à chaque ajout/suppression (déjà géré dans `handleLevel1Toggle`)
+- [x] Afficher le bouton "+ Ajouter" même si la catégorie n'a pas encore de mapping (création automatique au premier ajout)
+- [x] Pour les catégories spéciales ("Charges d'amortissements" et "Coût du financement (hors remboursement du capital)") :
   - Afficher "Données calculées" (read-only, grisé) au lieu des tags level_1
   - Désactiver le bouton "+ Ajouter" (pas de sélection de level_1 possible)
   - Ces catégories n'ont pas de mapping level_1, les données sont calculées automatiquement
-- [ ] Gérer le clic en dehors du dropdown pour le fermer (useEffect avec event listener)
-- [ ] Tester dans le navigateur
+- [x] Gérer le clic en dehors du dropdown pour le fermer (useEffect avec event listener)
+- [x] Tester dans le navigateur
 
 **Deliverables**:
 - Mise à jour `backend/api/routes/transactions.py` - Ajouter support `filter_level_3` (array) à `/api/transactions/unique-values`
@@ -489,102 +490,131 @@
 - Mise à jour `frontend/src/components/CompteResultatConfigCard.tsx` - Colonne Level 1 (valeurs)
 
 **Acceptance Criteria**:
-- [ ] Tags bleus affichés pour les valeurs level_1 sélectionnées (style identique à AmortizationConfigCard)
-- [ ] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
-- [ ] Dropdown liste uniquement les level_1 qui existent dans les transactions avec les level_3 sélectionnés
-- [ ] Dropdown exclut les level_1 déjà sélectionnés dans TOUTES les catégories (pas seulement la catégorie courante)
-- [ ] Ajout/suppression fonctionne (clic sur valeur dans dropdown ou "×" sur tag)
-- [ ] Sauvegarde automatique fonctionne (mise à jour du mapping via API)
-- [ ] Bouton "+ Ajouter" désactivé si toutes les valeurs sont déjà assignées pour cette catégorie
-- [ ] Catégories spéciales ("Charges d'amortissements" et "Coût du financement") affichent "Données calculées" (read-only, grisé)
-- [ ] Bouton "+ Ajouter" désactivé pour les catégories spéciales
-- [ ] Dropdown se ferme quand on clique en dehors
-- [ ] Test visuel dans navigateur validé
+- [x] Tags bleus affichés pour les valeurs level_1 sélectionnées (style identique à AmortizationConfigCard)
+- [x] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
+- [x] Dropdown liste uniquement les level_1 qui existent dans les transactions avec les level_3 sélectionnés
+- [x] Dropdown exclut les level_1 déjà sélectionnés dans TOUTES les catégories (pas seulement la catégorie courante)
+- [x] Ajout/suppression fonctionne (clic sur valeur dans dropdown ou "×" sur tag)
+- [x] Sauvegarde automatique fonctionne (mise à jour du mapping via API ou création si mapping n'existe pas)
+- [x] Bouton "+ Ajouter" affiché même si la catégorie n'a pas encore de mapping (création automatique au premier ajout)
+- [x] Catégories spéciales ("Charges d'amortissements" et "Coût du financement") affichent "Données calculées" (read-only, grisé)
+- [x] Bouton "+ Ajouter" désactivé pour les catégories spéciales
+- [x] Dropdown se ferme quand on clique en dehors
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.5.5 : Frontend - Ajout de lignes (catégories)
-**Status**: ⏳ À FAIRE  
-**Description**: Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (comme "+ Ajouter un type" dans AmortizationConfigCard).
+**Status**: ✅ TERMINÉ  
+**Description**: Ajouter bouton "+ Ajouter une catégorie" en bas du tableau. Le bouton crée toujours une nouvelle ligne, même si toutes les catégories prédéfinies ont déjà un mapping. La nouvelle ligne permet de créer une catégorie personnalisée.
+
+**⚠️ IMPORTANT : La nouvelle ligne créée permet de saisir une catégorie personnalisée (pas limitée aux catégories prédéfinies)**
 
 **Tasks**:
-- [ ] Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (dans une ligne spéciale, comme AmortizationConfigCard)
-- [ ] **PAS DE MODAL** - Création directe d'une ligne avec catégorie par défaut (comme AmortizationConfigCard)
-- [ ] Prendre la première catégorie de "Charges d'exploitation" par défaut
-- [ ] Créer une nouvelle ligne avec la catégorie sélectionnée
-- [ ] Sauvegarde automatique à la création
-- [ ] Tester dans le navigateur
+- [x] Ajouter bouton "+ Ajouter une catégorie" en bas du tableau (dans une ligne spéciale, comme AmortizationConfigCard)
+- [x] **PAS DE MODAL** - Création directe d'une ligne (comme AmortizationConfigCard)
+- [x] Le bouton crée TOUJOURS une nouvelle ligne, même si toutes les catégories prédéfinies ont déjà un mapping
+- [x] Créer le mapping en BDD avec :
+  - `category_name`: "nouvelle categorie" (valeur par défaut, champ texte libre éditable)
+  - `type`: "Charges d'exploitation" (par défaut, stocké en BDD)
+  - `level_1_values`: `null`
+- [x] **Colonne "Type"** : Dropdown éditable avec 2 options :
+  - "Produits d'exploitation"
+  - "Charges d'exploitation" (par défaut)
+  - Stocké en backend (champ `type` dans la table `compte_resultat_mappings`)
+  - Permet de changer le Type librement (sauvegarde automatique via API)
+- [x] **Colonne "Catégorie comptable"** : Champ texte libre (input text) éditable :
+  - Valeur par défaut : "nouvelle categorie"
+  - Permet de saisir n'importe quel nom de catégorie (pas limité aux catégories prédéfinies)
+  - Sauvegarde automatique au changement (mise à jour du mapping via API)
+  - Validation : Le champ ne peut pas être vide (garder "nouvelle categorie" si vide)
+- [x] **Colonne "Level 1 (valeurs)"** : Identique aux autres lignes :
+  - Bouton "+ Ajouter" avec dropdown
+  - Dropdown liste les level_1 filtrés par les level_3 sélectionnés
+  - Tags bleus avec "×" pour supprimer
+  - Fonctionne exactement comme pour les autres catégories
+- [x] La nouvelle ligne apparaît dans le tableau avec les 3 colonnes éditables
+- [x] Sauvegarde automatique à chaque modification (Type, Catégorie, Level 1)
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Bouton "+ Ajouter une catégorie" visible en bas du tableau
-- [ ] Création directe sans modal (comme AmortizationConfigCard)
-- [ ] Nouvelle ligne créée avec catégorie par défaut
-- [ ] Sauvegarde automatique fonctionne
-- [ ] Test visuel dans navigateur validé
+- [x] Bouton "+ Ajouter une catégorie" visible en bas du tableau
+- [x] Création directe sans modal (comme AmortizationConfigCard)
+- [x] Le bouton crée toujours une nouvelle ligne, même si toutes les catégories prédéfinies ont déjà un mapping
+- [x] Nouvelle ligne créée avec :
+  - Type : "Charges d'exploitation" par défaut (dropdown éditable, stocké en BDD)
+  - Catégorie comptable : "nouvelle categorie" par défaut (champ texte libre éditable)
+  - Level 1 (valeurs) : Vide, avec bouton "+ Ajouter" fonctionnel
+- [x] Colonne "Catégorie comptable" permet de saisir n'importe quel texte (pas limité aux catégories prédéfinies)
+- [x] Sauvegarde automatique fonctionne pour Type, Catégorie et Level 1
+- [x] Le Type est stocké en base de données (champ `type` dans `compte_resultat_mappings`)
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.5.6 : Frontend - Suppression de lignes (catégories)
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter le menu contextuel (clic droit) pour supprimer une ligne (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Implémenter le menu contextuel (clic droit) sur une ligne
-- [ ] Ajouter option "🗑️ Supprimer" dans le menu
-- [ ] Confirmation avant suppression (comme AmortizationConfigCard)
-- [ ] Supprimer le mapping depuis l'API (`compteResultatAPI.deleteMapping(id)`)
-- [ ] Recharger les mappings après suppression
-- [ ] Tester dans le navigateur
+- [x] Implémenter le menu contextuel (clic droit) sur une ligne
+- [x] Ajouter option "🗑️ Supprimer" dans le menu
+- [x] Confirmation avant suppression (comme AmortizationConfigCard)
+- [x] Supprimer le mapping depuis l'API (`compteResultatAPI.deleteMapping(id)`)
+- [x] Recharger les mappings après suppression
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Menu contextuel s'affiche au clic droit
-- [ ] Option "🗑️ Supprimer" visible
-- [ ] Confirmation demandée avant suppression
-- [ ] Suppression fonctionne (backend)
-- [ ] Tableau se rafraîchit après suppression
-- [ ] Test visuel dans navigateur validé
+- [x] Menu contextuel s'affiche au clic droit
+- [x] Option "🗑️ Supprimer" visible
+- [x] Confirmation demandée avant suppression
+- [x] Suppression fonctionne (backend)
+- [x] Tableau se rafraîchit après suppression
+- [x] Le menu ne s'affiche pas pour les catégories spéciales (Charges d'amortissements, Coût du financement)
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.5.7 : Frontend - Bouton "Réinitialiser les mappings"
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card
-- [ ] Bouton visible uniquement s'il y a des mappings
-- [ ] Confirmation avant réinitialisation (comme AmortizationConfigCard)
-- [ ] Supprimer tous les mappings depuis l'API (un par un)
-- [ ] Afficher le nombre de mappings à supprimer dans la confirmation
-- [ ] Recharger les mappings après réinitialisation
-- [ ] Message de succès après réinitialisation
-- [ ] Tester dans le navigateur
+- [x] Ajouter bouton "🔄 Réinitialiser les mappings" dans le header de la card
+- [x] Bouton visible uniquement s'il y a des mappings
+- [x] Confirmation avant réinitialisation (comme AmortizationConfigCard)
+- [x] Supprimer tous les mappings depuis l'API (un par un)
+- [x] Afficher le nombre de mappings à supprimer dans la confirmation
+- [x] Recharger les mappings après réinitialisation
+- [x] Message de succès après réinitialisation
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Bouton visible dans le header (uniquement si mappings existent)
-- [ ] Confirmation demandée avant réinitialisation avec nombre de mappings
-- [ ] Tous les mappings supprimés
-- [ ] Tableau se rafraîchit après réinitialisation
-- [ ] Message de succès affiché
-- [ ] Test visuel dans navigateur validé
+- [x] Bouton visible dans le header (uniquement si mappings existent)
+- [x] Confirmation demandée avant réinitialisation avec nombre de mappings
+- [x] Tous les mappings supprimés
+- [x] Tableau se rafraîchit après réinitialisation
+- [x] Message de succès affiché
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.5.8 : Frontend - Callback onConfigUpdated
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter un callback `onConfigUpdated` pour notifier le tableau quand les mappings changent.
 
 **Tasks**:
-- [ ] Ajouter prop `onConfigUpdated?: () => void` à `CompteResultatConfigCard`
-- [ ] Appeler `onConfigUpdated()` après chaque modification (ajout/suppression mapping, changement crédits)
-- [ ] Utiliser ce callback dans le composant parent pour déclencher le rechargement du tableau
-- [ ] Tester dans le navigateur
+- [x] Ajouter prop `onConfigUpdated?: () => void` à `CompteResultatConfigCard`
+- [x] Appeler `onConfigUpdated()` après chaque modification (ajout/suppression mapping, changement crédits)
+- [x] Utiliser ce callback dans le composant parent pour déclencher le rechargement du tableau
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Callback `onConfigUpdated` implémenté
-- [ ] Callback appelé après chaque modification
-- [ ] Rechargement du tableau déclenché automatiquement
-- [ ] Test visuel dans navigateur validé
+- [x] Callback `onConfigUpdated` implémenté
+- [x] Callback appelé après chaque modification (8 endroits : sauvegarde Level 3, création mapping, modification level_1, création catégorie, sauvegarde catégorie, changement Type, suppression mapping, réinitialisation)
+- [x] Callback utilisé dans le composant parent (`page.tsx`)
+- [x] Le callback sera utilisé pour recharger `CompteResultatTable` dans Step 8.6
+- [x] Test visuel dans navigateur validé
 
 ---
 

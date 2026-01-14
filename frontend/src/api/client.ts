@@ -1545,6 +1545,7 @@ export const loanPaymentsAPI = {
 export interface CompteResultatMapping {
   id: number;
   category_name: string;
+  type: string | null;
   level_1_values: string | null;
   created_at: string;
   updated_at: string;
@@ -1552,11 +1553,13 @@ export interface CompteResultatMapping {
 
 export interface CompteResultatMappingCreate {
   category_name: string;
+  type?: string | null;
   level_1_values?: string | null;
 }
 
 export interface CompteResultatMappingUpdate {
   category_name?: string;
+  type?: string | null;
   level_1_values?: string | null;
 }
 
