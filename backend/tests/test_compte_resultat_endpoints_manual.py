@@ -206,10 +206,20 @@ def main():
     print("=" * 60)
     print("Tests manuels pour les endpoints API du compte de résultat")
     print("=" * 60)
-    print("\n⚠️  Assurez-vous que le serveur backend est démarré:")
-    print("   uvicorn backend.api.main:app --reload")
-    print("\nAppuyez sur Entrée pour continuer...")
-    input()
+    print("\n⚠️  Vérification que le serveur backend est démarré...")
+    
+    # Vérifier que le serveur est accessible
+    try:
+        response = requests.get("http://localhost:8000/health", timeout=2)
+        if response.status_code == 200:
+            print("✓ Serveur backend accessible")
+        else:
+            print("❌ Serveur backend répond mais avec une erreur")
+            sys.exit(1)
+    except requests.exceptions.RequestException:
+        print("❌ Serveur backend non accessible")
+        print("   Démarrez-le avec: uvicorn backend.api.main:app --reload")
+        sys.exit(1)
     
     try:
         # Test 1: GET mappings
