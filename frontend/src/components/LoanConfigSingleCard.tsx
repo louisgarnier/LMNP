@@ -94,10 +94,43 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
   const [config, setConfig] = useState<LoanConfig>(initialConfig);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+  
+  // État pour les mensualités personnalisées
+  const [simulationMonths, setSimulationMonths] = useState<number[]>(() => {
+    // Charger depuis config.simulation_months ou utiliser les valeurs par défaut
+    if (initialConfig.simulation_months) {
+      try {
+        return JSON.parse(initialConfig.simulation_months);
+      } catch {
+        return [1, 50, 100, 150, 200];
+      }
+    }
+    return [1, 50, 100, 150, 200];
+  });
+  
+  // État pour la ligne en cours d'édition
+  const [editingMonth, setEditingMonth] = useState<number | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  
+  // État pour les messages d'erreur par mensualité
+  const [errorMessages, setErrorMessages] = useState<{ [month: number]: string }>({});
+  
+  // État pour le menu contextuel
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; month: number | null } | null>(null);
 
   // Mettre à jour le config si le prop change
   useEffect(() => {
     setConfig(initialConfig);
+    // Recharger les mensualités depuis la config
+    if (initialConfig.simulation_months) {
+      try {
+        setSimulationMonths(JSON.parse(initialConfig.simulation_months));
+      } catch {
+        setSimulationMonths([1, 50, 100, 150, 200]);
+      }
+    } else {
+      setSimulationMonths([1, 50, 100, 150, 200]);
+    }
   }, [initialConfig]);
 
   // Calculer les valeurs de simulation pour chaque mensualité
@@ -144,7 +177,8 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
       return null;
     }
 
-    const months = [1, 50, 100, 150, 200];
+    // Utiliser les mensualités personnalisées (triées)
+    const months = [...simulationMonths].sort((a, b) => a - b);
     
     return months.map((month) => {
       if (month > totalMonths) {
@@ -199,7 +233,7 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
         };
       }
     });
-  }, [config.credit_amount, config.interest_rate, config.duration_years, config.initial_deferral_months, config.monthly_insurance]);
+  }, [config.credit_amount, config.interest_rate, config.duration_years, config.initial_deferral_months, config.monthly_insurance, simulationMonths]);
 
   const handleFieldChange = (field: string, value: string | number | null) => {
     setConfig(prev => ({ ...prev, [field]: value }));
@@ -227,6 +261,154 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
       setError(error.message || 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Sauvegarder les mensualités personnalisées
+  const saveSimulationMonths = async (months: number[]) => {
+    if (saving) return;
+
+    try {
+      setSaving(true);
+      setError('');
+
+      const monthsSorted = [...months].sort((a, b) => a - b);
+      const updateData = {
+        simulation_months: JSON.stringify(monthsSorted)
+      };
+      
+      const updated = await loanConfigsAPI.update(config.id, updateData);
+      setConfig(updated);
+      
+      if (onConfigUpdated) {
+        onConfigUpdated();
+      }
+    } catch (error: any) {
+      console.error('Erreur lors de la sauvegarde des mensualités:', error);
+      setError(error.message || 'Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Gérer le clic droit (menu contextuel)
+  const handleContextMenu = (e: React.MouseEvent, month: number | null = null) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      month
+    });
+  };
+
+  // Fermer le menu contextuel
+  const closeContextMenu = () => {
+    setContextMenu(null);
+  };
+
+  // Ajouter une nouvelle ligne
+  const handleAddRow = () => {
+    closeContextMenu();
+    // Créer une nouvelle ligne temporaire avec un ID unique négatif
+    const tempId = Math.min(...simulationMonths, 0) - 1;
+    setEditingMonth(tempId); // ID temporaire pour la nouvelle ligne
+    setEditingValue('');
+    setErrorMessages({});
+  };
+
+  // Supprimer une ligne
+  const handleDeleteRow = (month: number) => {
+    console.log('🗑️ Suppression de la mensualité:', month);
+    console.log('📊 Mensualités actuelles:', simulationMonths);
+    
+    closeContextMenu();
+    const newMonths = simulationMonths.filter(m => m !== month);
+    
+    console.log('📊 Nouvelles mensualités:', newMonths);
+    
+    if (newMonths.length === simulationMonths.length) {
+      console.warn('⚠️ La mensualité n\'a pas été trouvée dans la liste');
+      return;
+    }
+    
+    setSimulationMonths(newMonths);
+    saveSimulationMonths(newMonths);
+  };
+
+  // Valider une nouvelle mensualité
+  const validateMonth = (value: string): { valid: boolean; month: number | null; error: string } => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return { valid: false, month: null, error: 'Veuillez saisir un numéro' };
+    }
+
+    const month = parseInt(trimmed, 10);
+    if (isNaN(month) || month < 1) {
+      return { valid: false, month: null, error: 'Le numéro doit être un entier positif' };
+    }
+
+    // Vérifier les doublons
+    if (simulationMonths.includes(month)) {
+      return { valid: false, month: null, error: 'Cette mensualité existe déjà' };
+    }
+
+    // Calculer la durée totale pour vérifier
+    let durationYearsIncludingDeferral: number | null = null;
+    if (config.loan_start_date && config.loan_end_date) {
+      const yearfracValue = yearfrac(config.loan_start_date, config.loan_end_date);
+      if (yearfracValue !== null) {
+        durationYearsIncludingDeferral = yearfracValue - (config.initial_deferral_months / 12);
+      }
+    }
+    if (durationYearsIncludingDeferral === null || durationYearsIncludingDeferral <= 0) {
+      durationYearsIncludingDeferral = config.duration_years + (config.initial_deferral_months / 12);
+    }
+    const totalMonths = durationYearsIncludingDeferral * 12;
+
+    if (month > totalMonths) {
+      return { valid: false, month: null, error: 'Durée totale crédit dépassée' };
+    }
+
+    return { valid: true, month, error: '' };
+  };
+
+  // Gérer la validation d'une nouvelle mensualité
+  const handleMonthBlur = () => {
+    if (!editingValue.trim()) {
+      // Annuler l'ajout si vide
+      setEditingMonth(null);
+      setEditingValue('');
+      setErrorMessages({});
+      return;
+    }
+
+    const validation = validateMonth(editingValue);
+    
+    if (validation.valid && validation.month !== null) {
+      // Ajouter la nouvelle mensualité
+      const newMonths = [...simulationMonths, validation.month];
+      setSimulationMonths(newMonths);
+      setEditingMonth(null);
+      setEditingValue('');
+      setErrorMessages({});
+      saveSimulationMonths(newMonths);
+    } else {
+      // Afficher l'erreur
+      setErrorMessages({ [editingMonth || -1]: validation.error });
+    }
+  };
+
+  // Vérifier si une ligne est en cours d'édition (ID temporaire négatif)
+  const isEditingNewRow = editingMonth !== null && editingMonth < 0;
+
+  // Gérer la touche Enter
+  const handleMonthKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleMonthBlur();
+    } else if (e.key === 'Escape') {
+      setEditingMonth(null);
+      setEditingValue('');
+      setErrorMessages({});
     }
   };
 
@@ -775,20 +957,70 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody
+              onContextMenu={(e) => {
+                // Par défaut, afficher "Ajouter une ligne"
+                // Les lignes empêcheront la propagation avec stopPropagation()
+                handleContextMenu(e, null);
+              }}
+              onClick={(e) => {
+                // Ne fermer le menu que si on clique directement sur le tbody (pas sur une ligne)
+                if (e.target === e.currentTarget) {
+                  closeContextMenu();
+                }
+              }}
+            >
               {simulationData ? (
-                simulationData.map((data) => (
-                  <tr key={data.month} style={{
-                    borderBottom: '1px solid #e5e7eb'
-                  }}>
-                    <td style={{
-                      padding: '10px 12px',
-                      color: '#374151',
-                      borderRight: '1px solid #e5e7eb',
-                      fontWeight: '500'
-                    }}>
-                      {data.month}
-                    </td>
+                (() => {
+                  // Calculer la durée totale une seule fois
+                  let durationYearsIncludingDeferral: number | null = null;
+                  if (config.loan_start_date && config.loan_end_date) {
+                    const yearfracValue = yearfrac(config.loan_start_date, config.loan_end_date);
+                    if (yearfracValue !== null) {
+                      durationYearsIncludingDeferral = yearfracValue - (config.initial_deferral_months / 12);
+                    }
+                  }
+                  if (durationYearsIncludingDeferral === null || durationYearsIncludingDeferral <= 0) {
+                    durationYearsIncludingDeferral = config.duration_years + (config.initial_deferral_months / 12);
+                  }
+                  const totalMonths = durationYearsIncludingDeferral * 12;
+                  
+                  return simulationData.map((data) => {
+                    const exceedsDuration = data.month > totalMonths;
+                  
+                  return (
+                    <tr 
+                      key={data.month} 
+                      style={{
+                        borderBottom: '1px solid #e5e7eb',
+                        backgroundColor: exceedsDuration ? '#fee2e2' : 'transparent'
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleContextMenu(e, data.month);
+                      }}
+                    >
+                      <td style={{
+                        padding: '10px 12px',
+                        color: '#374151',
+                        borderRight: '1px solid #e5e7eb',
+                        fontWeight: '500'
+                      }}>
+                        {data.month}
+                      </td>
+                      {exceedsDuration ? (
+                        <td colSpan={6} style={{
+                          padding: '10px 12px',
+                          textAlign: 'center',
+                          color: '#dc2626',
+                          fontWeight: '500',
+                          fontStyle: 'italic'
+                        }}>
+                          Durée total credit depassée
+                        </td>
+                      ) : (
+                        <>
                     <td style={{
                       padding: '10px 12px',
                       textAlign: 'right',
@@ -830,16 +1062,20 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
                     }}>
                       {data.totalPerMonth > 0 ? formatCurrency(data.totalPerMonth) : '-'}
                     </td>
-                    <td style={{
-                      padding: '10px 12px',
-                      textAlign: 'right',
-                      color: '#374151',
-                      fontWeight: '500'
-                    }}>
-                      {data.totalPerYear > 0 ? formatCurrency(data.totalPerYear) : '-'}
-                    </td>
-                  </tr>
-                ))
+                          <td style={{
+                            padding: '10px 12px',
+                            textAlign: 'right',
+                            color: '#374151',
+                            fontWeight: '500'
+                          }}>
+                            {data.totalPerYear > 0 ? formatCurrency(data.totalPerYear) : '-'}
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                  });
+                })()
               ) : (
                 [1, 50, 100, 150, 200].map((month) => (
                   <tr key={month} style={{
@@ -864,10 +1100,148 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
                   </tr>
                 ))
               )}
+              
+              {/* Ligne en cours d'édition (nouvelle ligne) - uniquement si on a cliqué sur "Ajouter une ligne" */}
+              {isEditingNewRow && (
+                <tr style={{
+                  borderBottom: '1px solid #e5e7eb',
+                  backgroundColor: '#fef3c7'
+                }}>
+                  <td style={{
+                    padding: '10px 12px',
+                    borderRight: '1px solid #e5e7eb'
+                  }}>
+                    <input
+                      type="number"
+                      min="1"
+                      value={editingValue}
+                      onChange={(e) => setEditingValue(e.target.value)}
+                      onBlur={handleMonthBlur}
+                      onKeyDown={handleMonthKeyDown}
+                      autoFocus
+                      placeholder="Numéro"
+                      style={{
+                        width: '80px',
+                        padding: '4px 8px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '4px',
+                        fontSize: '13px'
+                      }}
+                    />
+                    {errorMessages[-1] && (
+                      <div style={{
+                        fontSize: '11px',
+                        color: '#dc2626',
+                        marginTop: '4px'
+                      }}>
+                        {errorMessages[-1]}
+                      </div>
+                    )}
+                  </td>
+                  <td colSpan={6} style={{
+                    padding: '10px 12px',
+                    textAlign: 'center',
+                    color: '#6b7280',
+                    fontStyle: 'italic'
+                  }}>
+                    -
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
+        
+        {/* Menu contextuel */}
+        {contextMenu && (
+          <div
+            style={{
+              position: 'fixed',
+              left: contextMenu.x,
+              top: contextMenu.y,
+              backgroundColor: 'white',
+              border: '1px solid #e5e7eb',
+              borderRadius: '4px',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+              zIndex: 1000,
+              minWidth: '150px'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddRow();
+              }}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                textAlign: 'left',
+                border: 'none',
+                borderBottom: contextMenu.month !== null ? '1px solid #e5e7eb' : 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                fontSize: '13px',
+                color: '#374151'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              ➕ Ajouter une ligne
+            </button>
+            {contextMenu.month !== null && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteRow(contextMenu.month!);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '8px 12px',
+                  textAlign: 'left',
+                  border: 'none',
+                  backgroundColor: 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  color: '#dc2626'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.backgroundColor = '#fee2e2';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }}
+              >
+                🗑️ Supprimer
+              </button>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Fermer le menu contextuel en cliquant ailleurs */}
+      {contextMenu && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 999
+          }}
+          onClick={(e) => {
+            // Ne fermer que si on clique directement sur le backdrop (pas sur le menu)
+            if (e.target === e.currentTarget) {
+              closeContextMenu();
+            }
+          }}
+        />
+      )}
 
       {saving && (
         <div style={{

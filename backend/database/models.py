@@ -294,6 +294,7 @@ class LoanConfig(Base):
     loan_start_date = Column(Date, nullable=True)  # Date d'emprunt
     loan_end_date = Column(Date, nullable=True)  # Date de fin prévisionnelle
     monthly_insurance = Column(Float, default=0.0, nullable=False)  # Assurance mensuelle en euros
+    simulation_months = Column(Text, nullable=True)  # JSON array des mensualités personnalisées (ex: "[1, 50, 100, 150, 200]")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

@@ -914,13 +914,13 @@
 
 ### Step 7.12 : Tableau de simulation de crédit
 
-**Status**: ⏳ EN ATTENTE
+**Status**: ✅ COMPLÉTÉ
 
 **Description**: Ajouter un tableau de simulation de crédit sous les calculs automatiques dans la card de configuration. Le tableau affiche les calculs financiers (PMT, IPMT, PPMT) pour les mensualités 1, 50, 100, 150, 200, avec un champ input pour l'assurance mensuelle (valeur unique pour toutes les mensualités).
 
 **Tasks**:
 
-- [ ] **7.12.1** - Backend - Ajouter le champ `monthly_insurance` au modèle `LoanConfig` :
+- [x] **7.12.1** - Backend - Ajouter le champ `monthly_insurance` au modèle `LoanConfig` :
   - Ajouter la colonne `monthly_insurance` (type `Float`, nullable, default=0) dans `backend/database/models.py`
   - Ajouter le champ dans `backend/api/models.py` (`LoanConfigBase`, `LoanConfigCreate`, `LoanConfigUpdate`)
   - Mettre à jour `backend/database/schema.sql`
@@ -932,14 +932,14 @@
     - Récupération d'un `LoanConfig` avec `monthly_insurance`
     - Validation que la valeur est bien persistée en base de données
 
-- [ ] **7.12.2** - Frontend - Ajouter le champ input "Assurance mensuelle" dans `LoanConfigSingleCard` :
+- [x] **7.12.2** - Frontend - Ajouter le champ input "Assurance mensuelle" dans `LoanConfigSingleCard` :
   - Ajouter un champ input numérique pour "Assurance mensuelle (€/mois)"
   - Position : dans la section des champs de configuration (avec les autres champs)
   - Valeur par défaut : 0 si non renseigné
   - Auto-save lors de la modification (comme les autres champs)
   - Format : nombre avec 2 décimales, formatage monétaire à l'affichage
 
-- [ ] **7.12.3** - Frontend - Implémenter les fonctions financières JavaScript (PMT, IPMT, PPMT) :
+- [x] **7.12.3** - Frontend - Implémenter les fonctions financières JavaScript (PMT, IPMT, PPMT) :
   - Créer un fichier `frontend/src/utils/financial.ts` (ou `.js`)
   - Implémenter `PMT(rate, nper, pv, fv, type)` :
     - `rate` : taux d'intérêt mensuel (taux fixe / 12)
@@ -953,7 +953,7 @@
     - Retourne la part de capital pour cette période
   - Utiliser les formules Excel équivalentes pour garantir la cohérence
 
-- [ ] **7.12.4** - Frontend - Créer le tableau de simulation dans `LoanConfigSingleCard` :
+- [x] **7.12.4** - Frontend - Créer le tableau de simulation dans `LoanConfigSingleCard` :
   - Position : sous les calculs automatiques (durée crédit, mois écoulés, etc.)
   - Titre : "Simulations crédit"
   - Structure du tableau :
@@ -961,7 +961,7 @@
     - Lignes : 5 lignes pour les mensualités 1, 50, 100, 150, 200
   - Style cohérent avec le reste de la card (bordures, espacement, typographie)
 
-- [ ] **7.12.5** - Frontend - Calculer et afficher les valeurs pour chaque mensualité :
+- [x] **7.12.5** - Frontend - Calculer et afficher les valeurs pour chaque mensualité :
   - Pour chaque mensualité (1, 50, 100, 150, 200) :
     - **Mensualité crédit** : `PMT(taux/12, durée_totale_mois, -montant)` (constant pour toutes)
     - **Intérêt** : `IPMT(taux/12, numéro_mensualité, durée_totale_mois, -montant)` (décroît)
@@ -971,7 +971,7 @@
   - Formatage monétaire : tous les montants en euros avec 2 décimales (ex: 1 234,56 €)
   - Arrondi à 2 décimales pour tous les calculs
 
-- [ ] **7.12.6** - Frontend - Gérer la mise à jour automatique du tableau :
+- [x] **7.12.6** - Frontend - Gérer la mise à jour automatique du tableau :
   - Recalculer automatiquement le tableau quand :
     - Le taux fixe change
     - Le montant du crédit change
@@ -1001,30 +1001,33 @@
 
 **Acceptance Criteria**:
 
-- [ ] Le champ `monthly_insurance` est présent dans le modèle `LoanConfig` (backend)
+- [x] Le champ `monthly_insurance` est présent dans le modèle `LoanConfig` (backend)
 
-- [ ] Le champ input "Assurance mensuelle" est visible dans la card de configuration
+- [x] Le champ input "Assurance mensuelle" est visible dans la card de configuration
 
-- [ ] La valeur d'assurance est sauvegardée automatiquement lors de la modification
+- [x] La valeur d'assurance est sauvegardée automatiquement lors de la modification
 
-- [ ] Les fonctions PMT, IPMT, PPMT sont implémentées et testées (équivalentes Excel)
+- [x] Les fonctions PMT, IPMT, PPMT sont implémentées et testées (équivalentes Excel)
 
-- [ ] Le tableau "Simulations crédit" est visible sous les calculs automatiques
+- [x] Le tableau "Simulations crédit" est visible sous les calculs automatiques
 
-- [ ] Le tableau affiche 5 lignes (mensualités 1, 50, 100, 150, 200) avec 6 colonnes
+- [x] Le tableau affiche 5 lignes (mensualités 1, 50, 100, 150, 200) avec 7 colonnes (ajout de "Total (par an)")
 
-- [ ] Les calculs sont corrects :
+- [x] Les calculs sont corrects :
   - Mensualité crédit : constante pour toutes les mensualités
   - Intérêt : décroît au fil du temps
   - Capital : croît au fil du temps
   - Assurance : identique pour toutes les mensualités
-  - Total : Assurance + Intérêt + Capital
+  - Total (par mois) : Assurance + Intérêt + Capital
+  - Total (par an) : Total (par mois) * 12
 
-- [ ] Le tableau se recalcule automatiquement quand les paramètres du crédit changent
+- [x] Le tableau se recalcule automatiquement quand les paramètres du crédit changent
 
-- [ ] Tous les montants sont formatés en euros avec 2 décimales (ex: 1 234,56 €)
+- [x] Tous les montants sont formatés en euros avec 2 décimales (ex: 1 234,56 €)
 
-- [ ] La valeur d'assurance saisie est conservée lors des recalculs
+- [x] La valeur d'assurance saisie est conservée lors des recalculs
+
+- [x] Bug IPMT corrigé (solde négatif) - utilisation de valeur absolue pour le calcul du solde
 
 **Détails techniques**:
 
@@ -1046,6 +1049,130 @@
 - **Performance** :
   - Les calculs sont effectués côté client (pas d'appel API)
   - Utiliser `useMemo` pour éviter les recalculs inutiles
+
+---
+
+### Step 7.13 : Ajout/Suppression de rangées personnalisées dans le tableau de simulation
+
+**Status**: ✅ COMPLÉTÉ
+
+**Description**: Permettre à l'utilisateur d'ajouter et supprimer des rangées dans le tableau "Simulations crédit" avec des numéros de mensualité personnalisés. Les valeurs par défaut (1, 50, 100, 150, 200) sont conservées mais peuvent être supprimées.
+
+**Tasks**:
+
+- [x] **7.13.1** - Backend - Ajouter le champ `simulation_months` au modèle `LoanConfig` :
+  - Ajouter la colonne `simulation_months` (type `Text`, nullable, stocke un JSON array) dans `backend/database/models.py`
+  - Ajouter le champ dans `backend/api/models.py` (`LoanConfigBase`, `LoanConfigCreate`, `LoanConfigUpdate`)
+  - Mettre à jour `backend/database/schema.sql`
+  - Créer une migration SQLAlchemy pour ajouter la colonne
+  - Mettre à jour les endpoints API pour inclure `simulation_months` dans les réponses
+  - Format JSON : tableau de nombres `[1, 50, 100, 150, 200]` (valeurs par défaut si null)
+  - Créer/mettre à jour un script de test Python pour valider la persistance
+
+- [x] **7.13.2** - Frontend - Ajouter la fonctionnalité d'ajout de ligne :
+  - Ajouter un menu contextuel (clic droit) sur le tableau
+  - Option "Ajouter une ligne" dans le menu contextuel
+  - Au clic, créer une nouvelle rangée avec :
+    - Champ mensualité vide (input éditable)
+    - Focus automatique sur le champ pour saisie immédiate
+    - Autres colonnes affichant "-" en attendant la validation
+  - Validation automatique au blur ou Enter :
+    - Vérifier que le numéro est un entier positif
+    - Vérifier qu'il n'y a pas de doublon (empêcher la validation si doublon)
+    - Vérifier qu'il ne dépasse pas la durée totale (afficher message sur la ligne)
+    - Si valide : rendre le champ non-éditable et calculer les valeurs
+    - Si invalide : afficher un message d'erreur et garder le champ éditable
+  - Sauvegarder automatiquement la liste des mensualités en base après validation
+  - Trier automatiquement les rangées par numéro de mensualité croissant
+
+- [x] **7.13.3** - Frontend - Ajouter la fonctionnalité de suppression de ligne :
+  - Ajouter l'option "Supprimer" dans le menu contextuel (clic droit sur une ligne)
+  - Au clic, supprimer la rangée correspondante
+  - Sauvegarder automatiquement la liste mise à jour en base
+  - Réorganiser l'affichage (tri automatique)
+
+- [x] **7.13.4** - Frontend - Gestion des messages d'erreur et validation :
+  - Message "durée total credit depassée" :
+    - Afficher uniquement sur la ligne concernée (pas sur tout le tableau)
+    - Fusionner toutes les cellules de la ligne en une seule cellule
+    - Afficher le message centré
+    - Les autres lignes restent normales avec leurs calculs
+  - Message de doublon :
+    - Afficher un message d'erreur sous le champ input
+    - Empêcher la validation tant que le doublon existe
+  - Charger les mensualités personnalisées depuis la base au chargement du composant
+  - Valeurs par défaut : utiliser `[1, 50, 100, 150, 200]` si `simulation_months` est null ou vide
+
+**Deliverables**:
+
+- Backend :
+  - Migration SQLAlchemy pour `simulation_months`
+  - Mise à jour des modèles (`LoanConfig` dans `database/models.py` et `api/models.py`)
+  - Mise à jour des endpoints API (`loan_configs.py`)
+  - Script de test Python pour valider la persistance JSON
+
+- Frontend :
+  - Menu contextuel (clic droit) sur le tableau de simulation
+  - Gestion de l'état des rangées (éditable/non-éditable)
+  - Validation et affichage des messages d'erreur
+  - Sauvegarde automatique des mensualités personnalisées
+  - Chargement des mensualités depuis la base
+  - Mise à jour de l'interface TypeScript `LoanConfig` dans `client.ts`
+
+**Acceptance Criteria**:
+
+- [x] Le champ `simulation_months` est présent dans le modèle `LoanConfig` (backend)
+
+- [x] Le menu contextuel (clic droit) apparaît sur le tableau de simulation
+
+- [x] L'option "Ajouter une ligne" crée une nouvelle rangée avec champ mensualité vide
+
+- [x] Le focus est automatiquement placé sur le champ mensualité lors de l'ajout
+
+- [x] La validation se fait automatiquement au blur ou Enter
+
+- [x] Les doublons sont empêchés (pas de validation possible)
+
+- [x] Le message "durée total credit depassée" s'affiche uniquement sur la ligne concernée (première colonne conservée)
+
+- [x] Les numéros validés deviennent non-éditables
+
+- [x] L'option "Supprimer" supprime la rangée et sauvegarde en base
+
+- [x] Les rangées sont triées automatiquement par numéro croissant
+
+- [x] Les mensualités personnalisées sont chargées depuis la base au montage du composant
+
+- [x] Les valeurs par défaut `[1, 50, 100, 150, 200]` sont utilisées si `simulation_months` est null
+
+- [x] Les valeurs par défaut peuvent être supprimées
+
+**Détails techniques**:
+
+- **Format JSON** :
+  - Stockage : `"[1, 50, 100, 150, 200]"` (string JSON)
+  - Parsing : `JSON.parse(simulation_months)` pour récupérer le tableau
+  - Validation : tableau de nombres entiers positifs, trié, sans doublons
+
+- **Menu contextuel** :
+  - Utiliser `onContextMenu` sur le tableau
+  - Prévenir le menu contextuel par défaut du navigateur
+  - Afficher un menu personnalisé avec les options
+  - Positionner le menu à la position du clic
+
+- **Gestion de l'état** :
+  - `editingMonth: number | null` : mensualité en cours d'édition
+  - `simulationMonths: number[]` : liste des mensualités à afficher
+  - `errorMessages: { [month: number]: string }` : messages d'erreur par mensualité
+
+- **Validation** :
+  - Numéro valide : entier positif entre 1 et durée totale (incluant différé) * 12
+  - Doublon : vérifier dans `simulationMonths` avant validation
+  - Durée dépassée : `month > totalMonths`
+
+- **Sauvegarde** :
+  - Sauvegarder automatiquement après chaque ajout/suppression validé
+  - Utiliser `loanConfigsAPI.update` avec `simulation_months: JSON.stringify(simulationMonths)`
 
 ---
 

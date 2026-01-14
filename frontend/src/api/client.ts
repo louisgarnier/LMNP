@@ -1237,6 +1237,7 @@ export interface LoanConfig {
   loan_start_date?: string | null;
   loan_end_date?: string | null;
   monthly_insurance: number;
+  simulation_months?: string | null;  // JSON string array (ex: "[1, 50, 100, 150, 200]")
   created_at: string;
   updated_at: string;
 }
@@ -1250,6 +1251,7 @@ export interface LoanConfigCreate {
   loan_start_date?: string | null;
   loan_end_date?: string | null;
   monthly_insurance?: number;
+  simulation_months?: string | null;  // JSON string array
 }
 
 export interface LoanConfigUpdate {
@@ -1261,6 +1263,7 @@ export interface LoanConfigUpdate {
   loan_start_date?: string | null;
   loan_end_date?: string | null;
   monthly_insurance?: number;
+  simulation_months?: string | null;  // JSON string array
 }
 
 export interface LoanConfigListResponse {

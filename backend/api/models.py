@@ -473,6 +473,7 @@ class LoanConfigBase(BaseModel):
     loan_start_date: Optional[date] = None
     loan_end_date: Optional[date] = None
     monthly_insurance: float = 0.0
+    simulation_months: Optional[str] = None  # JSON string array (ex: "[1, 50, 100, 150, 200]")
 
 
 class LoanConfigCreate(LoanConfigBase):
@@ -490,6 +491,7 @@ class LoanConfigUpdate(BaseModel):
     loan_start_date: Optional[date] = None
     loan_end_date: Optional[date] = None
     monthly_insurance: Optional[float] = None
+    simulation_months: Optional[str] = None  # JSON string array
     
     class Config:
         from_attributes = True

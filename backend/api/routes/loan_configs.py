@@ -83,6 +83,7 @@ async def get_loan_configs(
             loan_start_date=c.loan_start_date,
             loan_end_date=c.loan_end_date,
             monthly_insurance=c.monthly_insurance,
+            simulation_months=c.simulation_months,
             created_at=c.created_at,
             updated_at=c.updated_at
         )
@@ -126,6 +127,7 @@ async def create_loan_config(
         loan_start_date=db_config.loan_start_date,
         loan_end_date=db_config.loan_end_date,
         monthly_insurance=db_config.monthly_insurance,
+        simulation_months=db_config.simulation_months,
         created_at=db_config.created_at,
         updated_at=db_config.updated_at
     )
@@ -154,6 +156,7 @@ async def get_loan_config(
         loan_start_date=config.loan_start_date,
         loan_end_date=config.loan_end_date,
         monthly_insurance=config.monthly_insurance,
+        simulation_months=config.simulation_months,
         created_at=config.created_at,
         updated_at=config.updated_at
     )
@@ -204,6 +207,7 @@ async def update_loan_config(
         loan_start_date=config.loan_start_date,
         loan_end_date=config.loan_end_date,
         monthly_insurance=config.monthly_insurance,
+        simulation_months=config.simulation_months,
         created_at=config.created_at,
         updated_at=config.updated_at
     )
