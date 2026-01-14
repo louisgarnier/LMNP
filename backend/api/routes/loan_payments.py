@@ -129,6 +129,15 @@ async def create_loan_payment(
     db.commit()
     db.refresh(db_payment)
     
+    # Invalider les comptes de résultat pour l'année du payment
+    try:
+        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+        invalidate_compte_resultat_for_year(db, db_payment.date.year)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [create_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+    
     return LoanPaymentResponse(
         id=db_payment.id,
         date=db_payment.date,
@@ -199,6 +208,15 @@ async def update_loan_payment(
     db.commit()
     db.refresh(payment)
     
+    # Invalider les comptes de résultat pour l'année du payment
+    try:
+        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+        invalidate_compte_resultat_for_year(db, payment.date.year)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+    
     return LoanPaymentResponse(
         id=payment.id,
         date=payment.date,
@@ -225,8 +243,20 @@ async def delete_loan_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Mensualité non trouvée")
     
+    # Sauvegarder l'année avant suppression
+    payment_year = payment.date.year
+    
     db.delete(payment)
     db.commit()
+    
+    # Invalider les comptes de résultat pour l'année du payment
+    try:
+        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+        invalidate_compte_resultat_for_year(db, payment_year)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [delete_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
     return None
 
@@ -617,6 +647,16 @@ async def import_loan_payment_file(
                     errors.append(f"Erreur pour l'année {year}: {str(e)}")
         
         db.commit()
+        
+        # Invalider les comptes de résultat pour toutes les années des payments importés
+        try:
+            from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
+            for year in year_columns:
+                invalidate_compte_resultat_for_year(db, year)
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"⚠️ [import_loan_payment_file] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
         
         return {
             "message": "Import réussi",

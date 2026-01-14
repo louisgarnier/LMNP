@@ -97,6 +97,15 @@ async def create_compte_resultat_mapping(
     db.commit()
     db.refresh(new_mapping)
     
+    # Invalider tous les comptes de résultat (les mappings ont changé)
+    try:
+        from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+        invalidate_all_compte_resultat(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [create_compte_resultat_mapping] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+    
     return CompteResultatMappingResponse(
         id=new_mapping.id,
         category_name=new_mapping.category_name,
@@ -144,6 +153,15 @@ async def update_compte_resultat_mapping(
     db.commit()
     db.refresh(existing_mapping)
     
+    # Invalider tous les comptes de résultat (les mappings ont changé)
+    try:
+        from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+        invalidate_all_compte_resultat(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_compte_resultat_mapping] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+    
     return CompteResultatMappingResponse(
         id=existing_mapping.id,
         category_name=existing_mapping.category_name,
@@ -170,6 +188,15 @@ async def delete_compte_resultat_mapping(
     
     db.delete(mapping)
     db.commit()
+    
+    # Invalider tous les comptes de résultat (les mappings ont changé)
+    try:
+        from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+        invalidate_all_compte_resultat(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [delete_compte_resultat_mapping] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
     return None
 

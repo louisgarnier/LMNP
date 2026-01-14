@@ -383,3 +383,80 @@ def calculate_compte_resultat(
         "resultat_exploitation": resultat_exploitation,
         "resultat_net": resultat_net
     }
+
+
+# ========== Invalidation Functions ==========
+
+def invalidate_compte_resultat_for_year(db: Session, year: int) -> int:
+    """
+    Supprimer les comptes de résultat pour une année donnée.
+    
+    Args:
+        db: Session de base de données
+        year: Année pour laquelle invalider les comptes de résultat
+    
+    Returns:
+        Nombre de données supprimées
+    """
+    deleted_count = db.query(CompteResultatData).filter(
+        CompteResultatData.annee == year
+    ).delete()
+    db.commit()
+    return deleted_count
+
+
+def invalidate_compte_resultat_for_date_range(
+    db: Session,
+    start_date: date,
+    end_date: date
+) -> int:
+    """
+    Supprimer les comptes de résultat pour une plage de dates.
+    
+    Args:
+        db: Session de base de données
+        start_date: Date de début
+        end_date: Date de fin
+    
+    Returns:
+        Nombre de données supprimées
+    """
+    start_year = start_date.year
+    end_year = end_date.year
+    
+    deleted_count = db.query(CompteResultatData).filter(
+        CompteResultatData.annee >= start_year,
+        CompteResultatData.annee <= end_year
+    ).delete()
+    db.commit()
+    return deleted_count
+
+
+def invalidate_all_compte_resultat(db: Session) -> int:
+    """
+    Supprimer tous les comptes de résultat.
+    
+    Args:
+        db: Session de base de données
+    
+    Returns:
+        Nombre de données supprimées
+    """
+    deleted_count = db.query(CompteResultatData).delete()
+    db.commit()
+    return deleted_count
+
+
+def invalidate_compte_resultat_for_transaction_date(db: Session, transaction_date: date) -> int:
+    """
+    Invalider les comptes de résultat pour l'année d'une transaction.
+    
+    Args:
+        db: Session de base de données
+        transaction_date: Date de la transaction
+    
+    Returns:
+        Nombre de données supprimées
+    """
+    year = transaction_date.year
+    return invalidate_compte_resultat_for_year(db, year)

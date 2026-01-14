@@ -216,6 +216,15 @@ async def recalculate_amortizations(
     try:
         results_created = recalculate_all_amortizations(db)
         
+        # Invalider tous les comptes de résultat (les amortissements ont changé)
+        try:
+            from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+            invalidate_all_compte_resultat(db)
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"⚠️ [recalculate_amortizations] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+        
         return AmortizationRecalculateResponse(
             message="Recalcul des amortissements terminé avec succès",
             results_created=results_created
