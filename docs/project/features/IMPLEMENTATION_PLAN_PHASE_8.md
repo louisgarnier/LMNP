@@ -132,7 +132,7 @@
 **Tests**:
 - [ ] Test calcul produits d'exploitation (avec mappings)
 - [ ] Test calcul charges d'exploitation (avec mappings)
-- [ ] Test récupération amortissements depuis vue
+- [ ] Test récupération amortissements depuis table amortization_result
 - [ ] Test calcul coût du financement depuis loan_payments (cas 1 crédit et cas plusieurs crédits)
 - [ ] Test calcul résultat d'exploitation
 - [ ] Test calcul résultat net
@@ -199,7 +199,7 @@
 
 **Déclencheurs de recalcul** :
 - Transactions ajoutées/modifiées/supprimées
-- Données d'amortissement dans les vues changent
+- Données d'amortissement modifiées
 - Crédits ajoutés/modifiés (mensualités loan_payments)
 - Mappings modifiés
 
@@ -233,7 +233,7 @@
 ---
 
 ### Step 8.4.5 : Backend + Frontend - Filtre Level 3 (Valeur à considérer dans le compte de résultat)
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter le filtre Level 3 qui détermine quelles transactions seront considérées dans les calculs du compte de résultat. Ce filtre est appliqué EN PREMIER, avant les mappings level_1.
 
 **⚠️ IMPORTANT : Logique de filtrage**
@@ -243,36 +243,36 @@
 - Si aucune valeur level_3 n'est sélectionnée, aucune transaction ne sera considérée (obligatoire de sélectionner au moins une valeur)
 
 **Tasks Backend**:
-- [ ] Créer table `compte_resultat_config` avec colonnes :
+- [x] Créer table `compte_resultat_config` avec colonnes :
   - `id` (PK)
   - `level_3_values` (JSON array des level_3 sélectionnés, ex: ["VALEUR1", "VALEUR2"])
   - `created_at`, `updated_at`
-- [ ] Créer modèle SQLAlchemy `CompteResultatConfig` dans `backend/database/models.py`
-- [ ] Créer modèles Pydantic dans `backend/api/models.py` :
+- [x] Créer modèle SQLAlchemy `CompteResultatConfig` dans `backend/database/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py` :
   - `CompteResultatConfigBase`, `CompteResultatConfigCreate`, `CompteResultatConfigUpdate`, `CompteResultatConfigResponse`
-- [ ] Créer endpoint `GET /api/compte-resultat/config` : Récupérer la configuration (level_3_values)
-- [ ] Créer endpoint `PUT /api/compte-resultat/config` : Mettre à jour la configuration (level_3_values)
-- [ ] Mettre à jour `compte_resultat_service.py` pour filtrer les transactions par `level_3` en premier :
+- [x] Créer endpoint `GET /api/compte-resultat/config` : Récupérer la configuration (level_3_values)
+- [x] Créer endpoint `PUT /api/compte-resultat/config` : Mettre à jour la configuration (level_3_values)
+- [x] Mettre à jour `compte_resultat_service.py` pour filtrer les transactions par `level_3` en premier :
   - Dans `calculate_produits_exploitation` et `calculate_charges_exploitation`, filtrer d'abord par `level_3_values` de la config
   - Seules les transactions avec `level_3` dans la liste sélectionnée seront considérées
-- [ ] Créer test unitaire pour vérifier le filtrage par level_3
-- [ ] Valider avec l'utilisateur
+- [x] Créer test unitaire pour vérifier le filtrage par level_3
+- [x] Valider avec l'utilisateur
 
 **Tasks Frontend**:
-- [ ] Ajouter champ "Level 3 (Valeur à considérer dans le compte de résultat)" en haut de `CompteResultatConfigCard.tsx`
-- [ ] Dropdown avec checkboxes (multi-sélection) pour sélectionner les valeurs level_3
-- [ ] Charger les valeurs level_3 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_3')`)
-- [ ] Si aucune transaction chargée : afficher "Aucune valeur disponible" (grisé)
-- [ ] Afficher les valeurs level_3 disponibles avec checkboxes
-- [ ] Permettre la sélection de plusieurs valeurs level_3
-- [ ] Sauvegarde automatique sur changement (mise à jour via API `PUT /api/compte-resultat/config`)
-- [ ] Charger la configuration au montage du composant (récupérer les level_3_values depuis l'API)
-- [ ] Masquer le tableau de mapping si aucune valeur level_3 n'est sélectionnée
-- [ ] Filtrer les valeurs level_1 disponibles dans le tableau selon les level_3 sélectionnés :
+- [x] Ajouter champ "Level 3 (Valeur à considérer dans le compte de résultat)" en haut de `CompteResultatConfigCard.tsx`
+- [x] Dropdown avec checkboxes (multi-sélection) pour sélectionner les valeurs level_3
+- [x] Charger les valeurs level_3 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_3')`)
+- [x] Si aucune transaction chargée : afficher "Aucune valeur disponible" (grisé)
+- [x] Afficher les valeurs level_3 disponibles avec checkboxes
+- [x] Permettre la sélection de plusieurs valeurs level_3
+- [x] Sauvegarde automatique sur changement (mise à jour via API `PUT /api/compte-resultat/config`)
+- [x] Charger la configuration au montage du composant (récupérer les level_3_values depuis l'API)
+- [x] Masquer le tableau de mapping si aucune valeur level_3 n'est sélectionnée
+- [x] Filtrer les valeurs level_1 disponibles dans le tableau selon les level_3 sélectionnés :
   - Seules les transactions avec `level_3` dans la liste sélectionnée seront considérées
   - Les valeurs level_1 disponibles dans le dropdown seront filtrées pour ne montrer que celles qui existent dans les transactions avec les level_3 sélectionnés
-- [ ] Persistance dans localStorage (optionnel, pour améliorer l'UX)
-- [ ] Tester dans le navigateur
+- [x] Persistance dans localStorage (optionnel, pour améliorer l'UX)
+- [x] Tester dans le navigateur
 
 **Deliverables**:
 - `backend/database/models.py` - Modèle `CompteResultatConfig`
@@ -284,18 +284,18 @@
 - Mise à jour `frontend/src/api/client.ts` - API client pour la config
 
 **Acceptance Criteria**:
-- [ ] Table `compte_resultat_config` créée en BDD
-- [ ] Modèles SQLAlchemy et Pydantic créés
-- [ ] Endpoints GET/PUT fonctionnent correctement
-- [ ] Service filtre correctement les transactions par level_3 en premier
-- [ ] Dropdown avec checkboxes fonctionne (multi-sélection)
-- [ ] Valeurs level_3 chargées depuis les transactions enrichies
-- [ ] Sauvegarde automatique fonctionne (mise à jour via API)
-- [ ] Tableau de mapping masqué si aucune valeur level_3 sélectionnée
-- [ ] Valeurs level_1 filtrées selon les level_3 sélectionnés
-- [ ] Tests unitaires passent
-- [ ] Test visuel dans navigateur validé
-- [ ] Utilisateur confirme que le filtrage fonctionne correctement
+- [x] Table `compte_resultat_config` créée en BDD
+- [x] Modèles SQLAlchemy et Pydantic créés
+- [x] Endpoints GET/PUT fonctionnent correctement
+- [x] Service filtre correctement les transactions par level_3 en premier
+- [x] Dropdown avec checkboxes fonctionne (multi-sélection)
+- [x] Valeurs level_3 chargées depuis les transactions enrichies
+- [x] Sauvegarde automatique fonctionne (mise à jour via API)
+- [x] Tableau de mapping masqué si aucune valeur level_3 sélectionnée
+- [x] Valeurs level_1 filtrées selon les level_3 sélectionnés
+- [x] Tests unitaires passent
+- [x] Test visuel dans navigateur validé
+- [x] Utilisateur confirme que le filtrage fonctionne correctement
 
 ---
 
@@ -344,19 +344,19 @@
 ---
 
 #### Step 8.5.1 : Frontend - Structure de base du tableau
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer la structure de base du composant et du tableau (comme AmortizationConfigCard).
 
 **Tasks**:
-- [ ] Créer composant `CompteResultatConfigCard.tsx` (copier structure de base d'`AmortizationConfigCard`)
-- [ ] Créer le tableau avec 3 colonnes (en-têtes) : Type, Catégorie comptable, Level 1 (valeurs)
-- [ ] Charger les mappings depuis l'API (`compteResultatAPI.getMappings()`)
-- [ ] Afficher les lignes existantes (lecture seule pour l'instant, sans édition)
-- [ ] Déduire le Type automatiquement selon la catégorie (logique frontend)
-- [ ] Trier les lignes par Type puis par Catégorie comptable
-- [ ] Ajuster les largeurs des colonnes (Type: 20%, Catégorie: 30%, Level 1: 50%)
-- [ ] Intégrer dans l'onglet "Compte de résultat"
-- [ ] Tester dans le navigateur
+- [x] Créer composant `CompteResultatConfigCard.tsx` (copier structure de base d'`AmortizationConfigCard`)
+- [x] Créer le tableau avec 3 colonnes (en-têtes) : Type, Catégorie comptable, Level 1 (valeurs)
+- [x] Charger les mappings depuis l'API (`compteResultatAPI.getMappings()`)
+- [x] Afficher les lignes existantes (lecture seule pour l'instant, sans édition)
+- [x] Déduire le Type automatiquement selon la catégorie (logique frontend)
+- [x] Trier les lignes par Type puis par Catégorie comptable
+- [x] Ajuster les largeurs des colonnes (Type: 20%, Catégorie: 30%, Level 1: 50%)
+- [x] Intégrer dans l'onglet "Compte de résultat"
+- [x] Tester dans le navigateur
 
 **Deliverables**:
 - `frontend/src/components/CompteResultatConfigCard.tsx` - Structure de base
@@ -364,97 +364,141 @@
 - Mise à jour `frontend/src/api/client.ts` - API client de base
 
 **Acceptance Criteria**:
-- [ ] Tableau affiché avec 3 colonnes
-- [ ] Mappings chargés depuis l'API
-- [ ] Lignes triées par Type puis Catégorie
-- [ ] Largeurs des colonnes ajustées
-- [ ] Catégories spéciales affichées avec "Données calculées"
-- [ ] Test visuel dans navigateur validé
+- [x] Tableau affiché avec 3 colonnes
+- [x] Mappings chargés depuis l'API
+- [x] Lignes triées par Type puis Catégorie
+- [x] Largeurs des colonnes ajustées
+- [x] Catégories spéciales affichées avec "Données calculées"
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.5.2 : Frontend - Colonne 1 "Type"
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Afficher le Type en première colonne avec un dropdown éditable pour sélectionner "Produits d'exploitation" ou "Charges d'exploitation".
 
 **Tasks**:
-- [ ] Afficher le Type en première colonne avec un dropdown
-- [ ] Dropdown avec 2 options : "Produits d'exploitation" et "Charges d'exploitation"
-- [ ] Permettre la modification du Type via le dropdown pour chaque ligne
-- [ ] Permettre plusieurs lignes avec la même valeur de Type
-- [ ] Initialiser le Type selon la catégorie (déduction automatique au chargement)
-- [ ] Stocker le Type en frontend uniquement (pas en backend)
-- [ ] Utiliser le Type pour filtrer les catégories disponibles lors de l'ajout d'une ligne (Step 8.5.5)
-- [ ] Tester dans le navigateur
+- [x] Afficher le Type en première colonne avec un dropdown
+- [x] Dropdown avec 2 options : "Produits d'exploitation" et "Charges d'exploitation"
+- [x] Permettre la modification du Type via le dropdown pour chaque ligne
+- [x] Permettre plusieurs lignes avec la même valeur de Type
+- [x] Initialiser le Type selon la catégorie (déduction automatique au chargement)
+- [x] Stocker le Type en frontend uniquement (pas en backend)
+- [x] Utiliser le Type pour filtrer les catégories disponibles lors de l'ajout d'une ligne (Step 8.5.5)
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Type affiché avec dropdown éditable pour chaque ligne
-- [ ] Modification du Type possible via dropdown
-- [ ] Plusieurs lignes peuvent avoir le même Type
-- [ ] Type initialisé automatiquement selon la catégorie au chargement
-- [ ] Test visuel dans navigateur validé
+- [x] Type affiché avec dropdown éditable pour chaque ligne
+- [x] Modification du Type possible via dropdown
+- [x] Plusieurs lignes peuvent avoir le même Type
+- [x] Type initialisé automatiquement selon la catégorie au chargement
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.5.3 : Frontend - Colonne 2 "Catégorie comptable"
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter dropdown "Catégorie comptable" en deuxième colonne. Le dropdown doit filtrer les catégories disponibles selon le Type sélectionné en colonne 1.
 
 **Tasks**:
-- [ ] Ajouter dropdown "Catégorie comptable" en deuxième colonne
-- [ ] Filtrer les catégories disponibles selon le Type sélectionné en colonne 1 :
+- [x] Ajouter dropdown "Catégorie comptable" en deuxième colonne
+- [x] Filtrer les catégories disponibles selon le Type sélectionné en colonne 1 :
   - Si Type = "Produits d'exploitation" → afficher seulement les catégories de `PRODUITS_CATEGORIES`
   - Si Type = "Charges d'exploitation" → afficher seulement les catégories de `CHARGES_CATEGORIES`
-- [ ] Permettre la sélection d'une catégorie dans le dropdown
-- [ ] Permettre plusieurs lignes avec la même catégorie comptable
-- [ ] Gérer les catégories spéciales (amortissements, coût financement) :
+- [x] Permettre la sélection d'une catégorie dans le dropdown
+- [x] Permettre plusieurs lignes avec la même catégorie comptable
+- [x] Gérer les catégories spéciales (amortissements, coût financement) :
   - Ces catégories doivent être disponibles dans le dropdown si le Type correspond
   - Afficher "Données calculées" dans la colonne Level 1 (read-only)
   - Pas de dropdown pour Level 1 pour ces catégories
-- [ ] Sauvegarde automatique au changement de catégorie (mise à jour du mapping via API)
-- [ ] Réinitialiser automatiquement la catégorie si elle n'est plus valide après un changement de Type
-- [ ] Tester dans le navigateur
+- [x] Sauvegarde automatique au changement de catégorie (mise à jour du mapping via API)
+- [x] Réinitialiser automatiquement la catégorie si elle n'est plus valide après un changement de Type
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Dropdown visible et fonctionnel pour chaque ligne
-- [ ] Catégories filtrées dynamiquement selon le Type sélectionné en colonne 1
-- [ ] Changement de Type en colonne 1 met à jour les options disponibles dans le dropdown de la colonne 2
-- [ ] Si la catégorie actuelle n'est plus valide après un changement de Type, elle est réinitialisée automatiquement
-- [ ] Sauvegarde automatique fonctionne (mise à jour du mapping en backend)
-- [ ] Plusieurs lignes peuvent avoir la même catégorie comptable
-- [ ] Catégories spéciales affichées avec "Données calculées" dans Level 1
-- [ ] Test visuel dans navigateur validé
+- [x] Dropdown visible et fonctionnel pour chaque ligne
+- [x] Catégories filtrées dynamiquement selon le Type sélectionné en colonne 1
+- [x] Changement de Type en colonne 1 met à jour les options disponibles dans le dropdown de la colonne 2
+- [x] Si la catégorie actuelle n'est plus valide après un changement de Type, elle est réinitialisée automatiquement
+- [x] Sauvegarde automatique fonctionne (mise à jour du mapping en backend)
+- [x] Plusieurs lignes peuvent avoir la même catégorie comptable
+- [x] Catégories spéciales affichées avec "Données calculées" dans Level 1
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.5.4 : Frontend - Colonne 3 "Level 1 (valeurs)"
 **Status**: ⏳ À FAIRE  
-**Description**: Implémenter l'affichage et la gestion des tags level_1 (comme AmortizationConfigCard).
+**Description**: Implémenter l'affichage et la gestion des tags level_1 (identique à AmortizationConfigCard, mais filtré par level_3 au lieu de level_2).
 
-**Tasks**:
-- [ ] Implémenter l'affichage des tags bleus pour les valeurs level_1 sélectionnées
-- [ ] Ajouter bouton "+ Ajouter" qui ouvre un dropdown avec toutes les valeurs level_1 disponibles
-- [ ] Charger les valeurs level_1 depuis les transactions enrichies (valeurs uniques via `transactionsAPI.getUniqueValues('level_1')`)
-- [ ] **Filtrer les valeurs level_1 selon les level_3 sélectionnés** : Seules les valeurs level_1 qui existent dans les transactions avec les level_3 sélectionnés seront disponibles
-- [ ] Implémenter l'ajout d'une valeur (tag bleu avec "x")
-- [ ] Implémenter la suppression d'une valeur (clic sur "x")
-- [ ] Sauvegarde automatique à chaque ajout/suppression
-- [ ] Filtrer les valeurs déjà assignées dans le dropdown
-- [ ] Désactiver le bouton "+ Ajouter" si toutes les valeurs sont déjà assignées
+**⚠️ IMPORTANT : S'inspirer exactement de AmortizationConfigCard pour la colonne "Level 1 (valeurs)"**
+- Dans AmortizationConfigCard : un seul `level_2` est sélectionné → on charge les `level_1` associés à ce `level_2`
+- Dans CompteResultatConfigCard : plusieurs `level_3` sont sélectionnés → on charge les `level_1` associés à ces `level_3`
+
+**Tasks Backend** (à faire en premier) :
+- [ ] Modifier endpoint `/api/transactions/unique-values` dans `backend/api/routes/transactions.py` :
+  - Ajouter paramètre `filter_level_3: Optional[List[str]] = Query(None, description="Filtrer par level_3 (array, pour filtrer les level_1 par plusieurs level_3)")`
+  - Implémenter le filtrage SQL avec `IN` clause : `query.filter(EnrichedTransaction.level_3.in_(filter_level_3))`
+  - Appliquer le filtre uniquement si `filter_level_3` est fourni et non vide
+  - Tester avec plusieurs valeurs level_3
+
+**Tasks Frontend** :
+- [ ] Modifier `transactionsAPI.getUniqueValues()` dans `frontend/src/api/client.ts` :
+  - Ajouter paramètre `filterLevel3?: string[]` (après `filterLevel2`)
+  - Passer le paramètre au backend : `if (filterLevel3 && filterLevel3.length > 0) params.append('filter_level_3', filterLevel3.join(','))`
+  - Note : Backend recevra comme query param (peut nécessiter parsing côté backend si FastAPI ne gère pas automatiquement les arrays)
+- [ ] Créer fonction `loadLevel1Values()` qui charge les `level_1` filtrés par les `level_3` sélectionnés :
+  - Si aucun `level_3` sélectionné → `level1Values = []`
+  - Si `level_3` sélectionnés → appeler `transactionsAPI.getUniqueValues('level_1', undefined, undefined, undefined, selectedLevel3Values)`
+  - Stocker dans état `level1Values: string[]`
+- [ ] Appeler `loadLevel1Values()` quand `selectedLevel3Values` change (useEffect)
+- [ ] Implémenter l'affichage des tags bleus pour les valeurs level_1 sélectionnées (identique à AmortizationConfigCard) :
+  - Tags bleus (`backgroundColor: '#3b82f6'`, `color: '#ffffff'`)
+  - Chaque tag affiche la valeur avec un bouton "×" pour supprimer
+  - Bouton "×" appelle `handleLevel1Remove(mappingId, level1Value)`
+- [ ] Ajouter bouton "+ Ajouter" qui ouvre un dropdown (identique à AmortizationConfigCard) :
+  - Bouton avec style identique (`color: '#3b82f6'`, `backgroundColor: '#eff6ff'`, `border: '1px solid #3b82f6'`)
+  - Gérer état `openLevel1DropdownId: number | null` pour savoir quel dropdown est ouvert
+  - Gérer position du dropdown (top/bottom selon position dans viewport)
+- [ ] Dans le dropdown, afficher les valeurs level_1 disponibles :
+  - **Filtrer les `level1Values` pour exclure ceux déjà sélectionnés dans TOUTES les catégories** (comme dans AmortizationConfigCard) :
+    - Collecter toutes les valeurs level_1 déjà sélectionnées pour TOUTES les catégories (parcourir tous les mappings)
+    - Créer un Set `allSelectedValues` avec toutes ces valeurs
+    - Filtrer `level1Values` pour exclure celles dans `allSelectedValues`
+  - Si toutes les valeurs sont déjà sélectionnées → afficher "Toutes les valeurs sont déjà sélectionnées"
+  - Chaque valeur est cliquable (label avec checkbox) pour l'ajouter
+- [ ] Implémenter fonction `handleLevel1Toggle(mappingId, level1Value)` :
+  - Si la valeur est déjà dans `mapping.level_1_values` → la supprimer
+  - Sinon → l'ajouter
+  - Mettre à jour le mapping via API (`compteResultatAPI.updateMapping(mappingId, { level_1_values: JSON.stringify(newValues) })`)
+  - Recharger les mappings après mise à jour
+- [ ] Implémenter fonction `handleLevel1Remove(mappingId, level1Value)` :
+  - Appelle `handleLevel1Toggle` pour supprimer
+- [ ] Sauvegarde automatique à chaque ajout/suppression (déjà géré dans `handleLevel1Toggle`)
+- [ ] Désactiver le bouton "+ Ajouter" si toutes les valeurs sont déjà assignées pour cette catégorie
 - [ ] Pour les catégories spéciales ("Charges d'amortissements" et "Coût du financement (hors remboursement du capital)") :
   - Afficher "Données calculées" (read-only, grisé) au lieu des tags level_1
   - Désactiver le bouton "+ Ajouter" (pas de sélection de level_1 possible)
   - Ces catégories n'ont pas de mapping level_1, les données sont calculées automatiquement
+- [ ] Gérer le clic en dehors du dropdown pour le fermer (useEffect avec event listener)
 - [ ] Tester dans le navigateur
 
+**Deliverables**:
+- Mise à jour `backend/api/routes/transactions.py` - Ajouter support `filter_level_3` (array) à `/api/transactions/unique-values`
+- Mise à jour `frontend/src/api/client.ts` - Ajouter paramètre `filterLevel3` à `transactionsAPI.getUniqueValues()`
+- Mise à jour `frontend/src/components/CompteResultatConfigCard.tsx` - Colonne Level 1 (valeurs)
+
 **Acceptance Criteria**:
-- [ ] Tags bleus affichés pour les valeurs level_1
+- [ ] Tags bleus affichés pour les valeurs level_1 sélectionnées (style identique à AmortizationConfigCard)
 - [ ] Bouton "+ Ajouter" ouvre dropdown avec valeurs disponibles
-- [ ] Ajout/suppression fonctionne
+- [ ] Dropdown liste uniquement les level_1 qui existent dans les transactions avec les level_3 sélectionnés
+- [ ] Dropdown exclut les level_1 déjà sélectionnés dans TOUTES les catégories (pas seulement la catégorie courante)
+- [ ] Ajout/suppression fonctionne (clic sur valeur dans dropdown ou "×" sur tag)
 - [ ] Sauvegarde automatique fonctionne (mise à jour du mapping via API)
-- [ ] Valeurs déjà assignées filtrées du dropdown
+- [ ] Bouton "+ Ajouter" désactivé si toutes les valeurs sont déjà assignées pour cette catégorie
 - [ ] Catégories spéciales ("Charges d'amortissements" et "Coût du financement") affichent "Données calculées" (read-only, grisé)
 - [ ] Bouton "+ Ajouter" désactivé pour les catégories spéciales
+- [ ] Dropdown se ferme quand on clique en dehors
 - [ ] Test visuel dans navigateur validé
 
 ---

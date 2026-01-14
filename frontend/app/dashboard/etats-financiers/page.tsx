@@ -13,6 +13,7 @@ import LoanConfigCard from '@/components/LoanConfigCard';
 import LoanConfigSingleCard from '@/components/LoanConfigSingleCard';
 import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
+import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI } from '@/api/client';
 
 interface CreditTabContentProps {
@@ -564,9 +565,17 @@ export default function EtatsFinanciersPage() {
             <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', marginBottom: '16px' }}>
               Compte de résultat
             </h2>
-            <p style={{ color: '#6b7280' }}>
-              Cette section sera implémentée dans les prochaines phases.
-            </p>
+            <CompteResultatConfigCard
+              onConfigUpdated={() => {
+                console.log('Configuration du compte de résultat mise à jour');
+              }}
+              onLevel3Change={(values) => {
+                console.log('Level 3 values changed:', values);
+              }}
+              onLevel3ValuesLoaded={(count) => {
+                console.log('Level 3 values loaded:', count);
+              }}
+            />
           </div>
         )}
 

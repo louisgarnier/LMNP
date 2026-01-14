@@ -124,7 +124,7 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
     }
   };
 
-  const handleFieldChange = (id: number | 'new', field: string, value: string | number) => {
+  const handleFieldChange = (id: number | 'new', field: string, value: string | number | null) => {
     if (id === 'new') {
       // Pour une nouvelle configuration, on ne fait rien ici
       // Elle sera créée lors du blur
@@ -140,7 +140,7 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
     );
   };
 
-  const handleFieldBlur = async (id: number, field: string, value: string | number) => {
+  const handleFieldBlur = async (id: number, field: string, value: string | number | null) => {
     if (saving[id]) return; // Éviter les appels multiples
 
     try {

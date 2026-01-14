@@ -23,7 +23,8 @@ from backend.api.models import (
     CompteResultatMappingListResponse,
     CompteResultatDataResponse,
     CompteResultatDataListResponse,
-    CompteResultatConfigResponse
+    CompteResultatConfigResponse,
+    CompteResultatConfigUpdate
 )
 from backend.api.services.compte_resultat_service import (
     get_mappings,
@@ -431,3 +432,78 @@ async def delete_compte_resultat_by_year(
         raise HTTPException(status_code=404, detail=f"Aucune donnée trouvée pour l'année {year}")
     
     return None
+
+
+# ========== Config Endpoints ==========
+
+@router.get("/compte-resultat/config", response_model=CompteResultatConfigResponse)
+async def get_compte_resultat_config(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer la configuration du compte de résultat (level_3_values).
+    
+    Returns:
+        Configuration avec level_3_values (JSON array)
+    """
+    config = db.query(CompteResultatConfig).first()
+    
+    if not config:
+        # Créer une config par défaut si elle n'existe pas
+        config = CompteResultatConfig(level_3_values="[]")
+        db.add(config)
+        db.commit()
+        db.refresh(config)
+    
+    return CompteResultatConfigResponse(
+        id=config.id,
+        level_3_values=config.level_3_values,
+        created_at=config.created_at,
+        updated_at=config.updated_at
+    )
+
+
+@router.put("/compte-resultat/config", response_model=CompteResultatConfigResponse)
+async def update_compte_resultat_config(
+    config_update: CompteResultatConfigUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Mettre à jour la configuration du compte de résultat (level_3_values).
+    
+    - **level_3_values**: JSON array des level_3 sélectionnés (ex: '["VALEUR1", "VALEUR2"]')
+    
+    Returns:
+        Configuration mise à jour
+    """
+    config = db.query(CompteResultatConfig).first()
+    
+    if not config:
+        # Créer une config si elle n'existe pas
+        config = CompteResultatConfig(
+            level_3_values=config_update.level_3_values or "[]"
+        )
+        db.add(config)
+    else:
+        # Mettre à jour la config existante
+        if config_update.level_3_values is not None:
+            config.level_3_values = config_update.level_3_values
+    
+    db.commit()
+    db.refresh(config)
+    
+    # Invalider tous les comptes de résultat (la config a changé)
+    try:
+        from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
+        invalidate_all_compte_resultat(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_compte_resultat_config] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+    
+    return CompteResultatConfigResponse(
+        id=config.id,
+        level_3_values=config.level_3_values,
+        created_at=config.created_at,
+        updated_at=config.updated_at
+    )

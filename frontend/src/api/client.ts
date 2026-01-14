@@ -225,7 +225,8 @@ export const transactionsAPI = {
     column: string,
     startDate?: string,
     endDate?: string,
-    filterLevel2?: string
+    filterLevel2?: string,
+    filterLevel3?: string[]
   ): Promise<{ column: string; values: string[] }> => {
     const params = new URLSearchParams({
       column,
@@ -233,6 +234,9 @@ export const transactionsAPI = {
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
     if (filterLevel2) params.append('filter_level_2', filterLevel2);
+    if (filterLevel3 && filterLevel3.length > 0) {
+      params.append('filter_level_3', filterLevel3.join(','));
+    }
     
     return fetchAPI<{ column: string; values: string[] }>(`/api/transactions/unique-values?${params}`);
   },
@@ -1533,5 +1537,96 @@ export const loanPaymentsAPI = {
     }
 
     return await response.json();
+  },
+};
+
+// ========== Compte de Résultat API ==========
+
+export interface CompteResultatMapping {
+  id: number;
+  category_name: string;
+  level_1_values: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompteResultatMappingCreate {
+  category_name: string;
+  level_1_values?: string | null;
+}
+
+export interface CompteResultatMappingUpdate {
+  category_name?: string;
+  level_1_values?: string | null;
+}
+
+export interface CompteResultatMappingListResponse {
+  items: CompteResultatMapping[];
+  total: number;
+}
+
+export interface CompteResultatConfig {
+  id: number;
+  level_3_values: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompteResultatConfigUpdate {
+  level_3_values?: string | null;
+}
+
+export const compteResultatAPI = {
+  /**
+   * Récupère tous les mappings
+   */
+  getMappings: async (): Promise<CompteResultatMappingListResponse> => {
+    return fetchAPI<CompteResultatMappingListResponse>('/api/compte-resultat/mappings');
+  },
+
+  /**
+   * Crée un nouveau mapping
+   */
+  createMapping: async (mapping: CompteResultatMappingCreate): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>('/api/compte-resultat/mappings', {
+      method: 'POST',
+      body: JSON.stringify(mapping),
+    });
+  },
+
+  /**
+   * Met à jour un mapping
+   */
+  updateMapping: async (id: number, mapping: CompteResultatMappingUpdate): Promise<CompteResultatMapping> => {
+    return fetchAPI<CompteResultatMapping>(`/api/compte-resultat/mappings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(mapping),
+    });
+  },
+
+  /**
+   * Supprime un mapping
+   */
+  deleteMapping: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/compte-resultat/mappings/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Récupère la configuration (level_3_values)
+   */
+  getConfig: async (): Promise<CompteResultatConfig> => {
+    return fetchAPI<CompteResultatConfig>('/api/compte-resultat/config');
+  },
+
+  /**
+   * Met à jour la configuration (level_3_values)
+   */
+  updateConfig: async (config: CompteResultatConfigUpdate): Promise<CompteResultatConfig> => {
+    return fetchAPI<CompteResultatConfig>('/api/compte-resultat/config', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
   },
 };

@@ -1060,7 +1060,7 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
                       borderRight: '1px solid #e5e7eb',
                       fontWeight: '500'
                     }}>
-                      {data.totalPerMonth > 0 ? formatCurrency(data.totalPerMonth) : '-'}
+                      {(data.totalPerMonth ?? 0) > 0 ? formatCurrency(data.totalPerMonth ?? 0) : '-'}
                     </td>
                           <td style={{
                             padding: '10px 12px',
@@ -1068,7 +1068,7 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
                             color: '#374151',
                             fontWeight: '500'
                           }}>
-                            {data.totalPerYear > 0 ? formatCurrency(data.totalPerYear) : '-'}
+                            {(data.totalPerYear ?? 0) > 0 ? formatCurrency(data.totalPerYear ?? 0) : '-'}
                           </td>
                         </>
                       )}

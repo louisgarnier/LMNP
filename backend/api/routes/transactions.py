@@ -265,6 +265,7 @@ async def get_transaction_unique_values(
     start_date: Optional[date] = Query(None, description="Date de début (filtre optionnel)"),
     end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel)"),
     filter_level_2: Optional[str] = Query(None, description="Filtrer par level_2 (optionnel, pour filtrer les level_1 par level_2)"),
+    filter_level_3: Optional[str] = Query(None, description="Filtrer par level_3 (optionnel, valeurs séparées par virgule, pour filtrer les level_1 par plusieurs level_3)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -274,6 +275,7 @@ async def get_transaction_unique_values(
     - **start_date**: Filtrer par date de début (optionnel)
     - **end_date**: Filtrer par date de fin (optionnel)
     - **filter_level_2**: Filtrer par level_2 (optionnel, utile pour filtrer les level_1 par level_2)
+    - **filter_level_3**: Filtrer par level_3 (optionnel, valeurs séparées par virgule, pour filtrer les level_1 par plusieurs level_3)
     
     Returns:
         Liste des valeurs uniques (non null, triées)
@@ -289,6 +291,15 @@ async def get_transaction_unique_values(
         if column in ["level_1", "level_2", "level_3"]:
             query = query.filter(EnrichedTransaction.level_2 == filter_level_2)
         # Note: pour les autres colonnes (nom, date, etc.), on ne filtre pas par level_2 car elles ne sont pas dans EnrichedTransaction
+    
+    # Filtre par level_3 si fourni (utile pour filtrer les level_1 par plusieurs level_3)
+    if filter_level_3:
+        if column in ["level_1", "level_2", "level_3"]:
+            # Parser les valeurs séparées par virgule
+            level_3_values = [v.strip() for v in filter_level_3.split(',') if v.strip()]
+            if level_3_values:
+                query = query.filter(EnrichedTransaction.level_3.in_(level_3_values))
+        # Note: pour les autres colonnes (nom, date, etc.), on ne filtre pas par level_3 car elles ne sont pas dans EnrichedTransaction
     
     # Filtres par date si fournis
     if start_date:
