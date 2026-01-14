@@ -303,3 +303,38 @@ class LoanConfig(Base):
         Index('idx_loan_config_name', 'name', unique=True),
     )
 
+
+class CompteResultatMapping(Base):
+    """Mappings pour le compte de résultat (level_1 → catégories comptables)."""
+    __tablename__ = "compte_resultat_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (ex: "Loyers hors charge encaissés")
+    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_compte_resultat_mapping_category', 'category_name'),
+    )
+
+
+class CompteResultatData(Base):
+    """Données du compte de résultat par année et catégorie."""
+    __tablename__ = "compte_resultat_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    annee = Column(Integer, nullable=False, index=True)  # Année du compte de résultat
+    category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable
+    amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_compte_resultat_data_year_category', 'annee', 'category_name'),
+        Index('idx_compte_resultat_data_year', 'annee'),
+        Index('idx_compte_resultat_data_category', 'category_name'),
+    )
+

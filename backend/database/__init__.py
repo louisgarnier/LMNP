@@ -19,7 +19,9 @@ from .models import (
     AmortizationType,
     AmortizationResult,
     LoanPayment,
-    LoanConfig
+    LoanConfig,
+    CompteResultatMapping,
+    CompteResultatData
 )
 
 __all__ = [
@@ -41,6 +43,8 @@ __all__ = [
     "AmortizationResult",
     "LoanPayment",
     "LoanConfig",
+    "CompteResultatMapping",
+    "CompteResultatData",
 ]
 
 

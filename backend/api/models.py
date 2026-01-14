@@ -511,3 +511,73 @@ class LoanConfigListResponse(BaseModel):
     """Model for list of loan configurations response."""
     items: List[LoanConfigResponse]
     total: int
+
+
+# Compte de résultat models
+
+class CompteResultatMappingBase(BaseModel):
+    """Base model for compte de résultat mapping."""
+    category_name: str = Field(..., max_length=255, description="Nom de la catégorie comptable")
+    level_1_values: Optional[str] = Field(None, description="JSON array des level_1 à inclure (ex: '[\"LOYERS\", \"REVENUS\"]')")
+
+
+class CompteResultatMappingCreate(CompteResultatMappingBase):
+    """Model for creating a compte de résultat mapping."""
+    pass
+
+
+class CompteResultatMappingUpdate(BaseModel):
+    """Model for updating a compte de résultat mapping."""
+    category_name: Optional[str] = Field(None, max_length=255)
+    level_1_values: Optional[str] = None
+
+
+class CompteResultatMappingResponse(CompteResultatMappingBase):
+    """Model for compte de résultat mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatMappingListResponse(BaseModel):
+    """Model for list of compte de résultat mappings response."""
+    items: List[CompteResultatMappingResponse]
+    total: int
+
+
+class CompteResultatDataBase(BaseModel):
+    """Base model for compte de résultat data."""
+    annee: int = Field(..., description="Année du compte de résultat")
+    category_name: str = Field(..., max_length=255, description="Nom de la catégorie comptable")
+    amount: float = Field(..., description="Montant pour cette catégorie et cette année")
+
+
+class CompteResultatDataCreate(CompteResultatDataBase):
+    """Model for creating compte de résultat data."""
+    pass
+
+
+class CompteResultatDataUpdate(BaseModel):
+    """Model for updating compte de résultat data."""
+    annee: Optional[int] = None
+    category_name: Optional[str] = Field(None, max_length=255)
+    amount: Optional[float] = None
+
+
+class CompteResultatDataResponse(CompteResultatDataBase):
+    """Model for compte de résultat data response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CompteResultatDataListResponse(BaseModel):
+    """Model for list of compte de résultat data response."""
+    items: List[CompteResultatDataResponse]
+    total: int
