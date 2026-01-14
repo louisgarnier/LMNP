@@ -293,6 +293,7 @@ class LoanConfig(Base):
     initial_deferral_months = Column(Integer, default=0, nullable=False)  # Décalage initial en mois
     loan_start_date = Column(Date, nullable=True)  # Date d'emprunt
     loan_end_date = Column(Date, nullable=True)  # Date de fin prévisionnelle
+    monthly_insurance = Column(Float, default=0.0, nullable=False)  # Assurance mensuelle en euros
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     

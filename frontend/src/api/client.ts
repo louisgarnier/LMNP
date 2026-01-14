@@ -1236,6 +1236,7 @@ export interface LoanConfig {
   initial_deferral_months: number;
   loan_start_date?: string | null;
   loan_end_date?: string | null;
+  monthly_insurance: number;
   created_at: string;
   updated_at: string;
 }
@@ -1248,6 +1249,7 @@ export interface LoanConfigCreate {
   initial_deferral_months: number;
   loan_start_date?: string | null;
   loan_end_date?: string | null;
+  monthly_insurance?: number;
 }
 
 export interface LoanConfigUpdate {
@@ -1258,6 +1260,7 @@ export interface LoanConfigUpdate {
   initial_deferral_months?: number;
   loan_start_date?: string | null;
   loan_end_date?: string | null;
+  monthly_insurance?: number;
 }
 
 export interface LoanConfigListResponse {

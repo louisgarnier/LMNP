@@ -6,9 +6,10 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { loanConfigsAPI, LoanConfig } from '@/api/client';
 import LoanPaymentFileUpload from './LoanPaymentFileUpload';
+import { PMT, IPMT, PPMT, formatCurrency, roundTo2Decimals } from '@/utils/financial';
 
 interface LoanConfigSingleCardProps {
   loanConfig: LoanConfig;
@@ -98,6 +99,107 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
   useEffect(() => {
     setConfig(initialConfig);
   }, [initialConfig]);
+
+  // Calculer les valeurs de simulation pour chaque mensualité
+  const simulationData = useMemo(() => {
+    // Calculer la durée crédit (années) incluant différé
+    // Utiliser les dates si disponibles, sinon utiliser duration_years
+    let durationYearsIncludingDeferral: number | null = null;
+    
+    if (config.loan_start_date && config.loan_end_date) {
+      const yearfracValue = yearfrac(config.loan_start_date, config.loan_end_date);
+      if (yearfracValue !== null) {
+        durationYearsIncludingDeferral = yearfracValue - (config.initial_deferral_months / 12);
+      }
+    }
+    
+    // Si pas de dates, utiliser duration_years + initial_deferral_months/12
+    if (durationYearsIncludingDeferral === null || durationYearsIncludingDeferral <= 0) {
+      durationYearsIncludingDeferral = config.duration_years + (config.initial_deferral_months / 12);
+    }
+    
+    const monthlyRate = config.interest_rate / 100 / 12; // Taux mensuel
+    const totalMonths = durationYearsIncludingDeferral * 12; // Durée totale en mois (incluant différé)
+    const loanAmount = -config.credit_amount; // Montant négatif pour PMT
+    const insurance = config.monthly_insurance || 0;
+
+    // Logs pour déboguer
+    console.log('📊 Calcul simulation crédit:', {
+      'Crédit accordé (€)': config.credit_amount,
+      'Taux fixe (%)': config.interest_rate,
+      'Taux mensuel': monthlyRate,
+      'Durée crédit (années) incluant différé': durationYearsIncludingDeferral,
+      'Durée totale (mois)': totalMonths,
+      'Assurance mensuelle (€)': insurance,
+      'Montant pour PMT (négatif)': loanAmount
+    });
+
+    // Vérifier si on a les données nécessaires
+    if (!config.credit_amount || !config.interest_rate || totalMonths <= 0) {
+      console.warn('⚠️ Données insuffisantes pour le calcul:', {
+        credit_amount: config.credit_amount,
+        interest_rate: config.interest_rate,
+        totalMonths
+      });
+      return null;
+    }
+
+    const months = [1, 50, 100, 150, 200];
+    
+    return months.map((month) => {
+      if (month > totalMonths) {
+        return {
+          month,
+          payment: 0,
+          interest: 0,
+          capital: 0,
+          insurance: 0,
+          total: 0
+        };
+      }
+
+      try {
+        const payment = Math.abs(PMT(monthlyRate, totalMonths, loanAmount));
+        const interest = Math.abs(IPMT(monthlyRate, month, totalMonths, loanAmount));
+        const capital = Math.abs(PPMT(monthlyRate, month, totalMonths, loanAmount));
+        const totalPerMonth = roundTo2Decimals(insurance + interest + capital);
+        const totalPerYear = roundTo2Decimals(totalPerMonth * 12);
+
+        // Log pour la première mensualité
+        if (month === 1) {
+          console.log(`📊 Calcul mensualité ${month}:`, {
+            'PMT(rate, nper, pv)': `PMT(${monthlyRate}, ${totalMonths}, ${loanAmount})`,
+            'Mensualité crédit': payment,
+            'Intérêt': interest,
+            'Capital': capital,
+            'Assurance': insurance,
+            'Total (par mois)': totalPerMonth,
+            'Total (par an)': totalPerYear
+          });
+        }
+
+        return {
+          month,
+          payment: roundTo2Decimals(payment),
+          interest: roundTo2Decimals(interest),
+          capital: roundTo2Decimals(capital),
+          insurance: roundTo2Decimals(insurance),
+          totalPerMonth,
+          totalPerYear
+        };
+      } catch (error) {
+        console.error(`Erreur lors du calcul pour la mensualité ${month}:`, error);
+        return {
+          month,
+          payment: 0,
+          interest: 0,
+          capital: 0,
+          insurance: 0,
+          total: 0
+        };
+      }
+    });
+  }, [config.credit_amount, config.interest_rate, config.duration_years, config.initial_deferral_months, config.monthly_insurance]);
 
   const handleFieldChange = (field: string, value: string | number | null) => {
     setConfig(prev => ({ ...prev, [field]: value }));
@@ -339,6 +441,39 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
           </div>
         </div>
 
+        {/* Assurance mensuelle */}
+        <div>
+          <label style={{ 
+            display: 'block', 
+            fontSize: '12px', 
+            fontWeight: '500', 
+            color: '#374151',
+            marginBottom: '6px'
+          }}>
+            Assurance mensuelle (€/mois)
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={config.monthly_insurance || 0}
+              onChange={(e) => handleFieldChange('monthly_insurance', parseFloat(e.target.value) || 0)}
+              onBlur={(e) => handleFieldBlur('monthly_insurance', parseFloat(e.target.value) || 0)}
+              disabled={saving}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '4px',
+                fontSize: '14px',
+                backgroundColor: saving ? '#f3f4f6' : 'white'
+              }}
+            />
+            <span style={{ fontSize: '14px', color: '#6b7280' }}>€</span>
+          </div>
+        </div>
+
         {/* Date d'emprunt */}
         <div>
           <label style={{ 
@@ -540,6 +675,197 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
               {formatRemainingDuration(calculateMonthsRemaining(config.loan_end_date))}
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Tableau de simulation */}
+      <div style={{ 
+        marginTop: '24px',
+        padding: '16px',
+        backgroundColor: '#f9fafb',
+        borderRadius: '8px',
+        border: '1px solid #e5e7eb'
+      }}>
+        <h4 style={{ 
+          fontSize: '14px', 
+          fontWeight: '600', 
+          color: '#374151',
+          marginBottom: '16px',
+          marginTop: 0
+        }}>
+          Simulations crédit
+        </h4>
+        <div style={{
+          overflowX: 'auto',
+          border: '1px solid #e5e7eb',
+          borderRadius: '4px',
+          backgroundColor: 'white'
+        }}>
+          <table style={{
+            width: '100%',
+            borderCollapse: 'collapse',
+            fontSize: '13px'
+          }}>
+            <thead>
+              <tr style={{
+                backgroundColor: '#f3f4f6',
+                borderBottom: '2px solid #e5e7eb'
+              }}>
+                <th style={{
+                  padding: '10px 12px',
+                  textAlign: 'left',
+                  fontWeight: '600',
+                  color: '#374151',
+                  borderRight: '1px solid #e5e7eb'
+                }}>
+                  Mensualité
+                </th>
+                <th style={{
+                  padding: '10px 12px',
+                  textAlign: 'right',
+                  fontWeight: '600',
+                  color: '#374151',
+                  borderRight: '1px solid #e5e7eb'
+                }}>
+                  Mensualité crédit
+                </th>
+                <th style={{
+                  padding: '10px 12px',
+                  textAlign: 'right',
+                  fontWeight: '600',
+                  color: '#374151',
+                  borderRight: '1px solid #e5e7eb'
+                }}>
+                  Intérêt
+                </th>
+                <th style={{
+                  padding: '10px 12px',
+                  textAlign: 'right',
+                  fontWeight: '600',
+                  color: '#374151',
+                  borderRight: '1px solid #e5e7eb'
+                }}>
+                  Capital
+                </th>
+                <th style={{
+                  padding: '10px 12px',
+                  textAlign: 'right',
+                  fontWeight: '600',
+                  color: '#374151',
+                  borderRight: '1px solid #e5e7eb'
+                }}>
+                  Assurance
+                </th>
+                <th style={{
+                  padding: '10px 12px',
+                  textAlign: 'right',
+                  fontWeight: '600',
+                  color: '#374151',
+                  borderRight: '1px solid #e5e7eb'
+                }}>
+                  Total (par mois)
+                </th>
+                <th style={{
+                  padding: '10px 12px',
+                  textAlign: 'right',
+                  fontWeight: '600',
+                  color: '#374151'
+                }}>
+                  Total (par an)
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {simulationData ? (
+                simulationData.map((data) => (
+                  <tr key={data.month} style={{
+                    borderBottom: '1px solid #e5e7eb'
+                  }}>
+                    <td style={{
+                      padding: '10px 12px',
+                      color: '#374151',
+                      borderRight: '1px solid #e5e7eb',
+                      fontWeight: '500'
+                    }}>
+                      {data.month}
+                    </td>
+                    <td style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: '#374151',
+                      borderRight: '1px solid #e5e7eb'
+                    }}>
+                      {data.payment > 0 ? formatCurrency(data.payment) : '-'}
+                    </td>
+                    <td style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: '#374151',
+                      borderRight: '1px solid #e5e7eb'
+                    }}>
+                      {data.interest > 0 ? formatCurrency(data.interest) : '-'}
+                    </td>
+                    <td style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: '#374151',
+                      borderRight: '1px solid #e5e7eb'
+                    }}>
+                      {data.capital > 0 ? formatCurrency(data.capital) : '-'}
+                    </td>
+                    <td style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: '#374151',
+                      borderRight: '1px solid #e5e7eb'
+                    }}>
+                      {data.insurance > 0 ? formatCurrency(data.insurance) : '-'}
+                    </td>
+                    <td style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: '#374151',
+                      borderRight: '1px solid #e5e7eb',
+                      fontWeight: '500'
+                    }}>
+                      {data.totalPerMonth > 0 ? formatCurrency(data.totalPerMonth) : '-'}
+                    </td>
+                    <td style={{
+                      padding: '10px 12px',
+                      textAlign: 'right',
+                      color: '#374151',
+                      fontWeight: '500'
+                    }}>
+                      {data.totalPerYear > 0 ? formatCurrency(data.totalPerYear) : '-'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                [1, 50, 100, 150, 200].map((month) => (
+                  <tr key={month} style={{
+                    borderBottom: '1px solid #e5e7eb'
+                  }}>
+                    <td style={{
+                      padding: '10px 12px',
+                      color: '#374151',
+                      borderRight: '1px solid #e5e7eb',
+                      fontWeight: '500'
+                    }}>
+                      {month}
+                    </td>
+                    <td colSpan={6} style={{
+                      padding: '10px 12px',
+                      textAlign: 'center',
+                      color: '#6b7280',
+                      fontStyle: 'italic'
+                    }}>
+                      Données insuffisantes pour le calcul
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 
