@@ -14,6 +14,7 @@ import LoanConfigSingleCard from '@/components/LoanConfigSingleCard';
 import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
 import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
+import CompteResultatTable from '@/components/CompteResultatTable';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI } from '@/api/client';
 
 interface CreditTabContentProps {
@@ -412,6 +413,9 @@ export default function EtatsFinanciersPage() {
   // État pour la checkbox "J'ai un crédit" (persisté dans localStorage)
   const [hasCredit, setHasCredit] = useState<boolean>(false);
   const [mounted, setMounted] = useState(false);
+  
+  // État pour forcer le rechargement du tableau CompteResultatTable
+  const [compteResultatRefreshKey, setCompteResultatRefreshKey] = useState(0);
 
   // Déterminer l'onglet actif (par défaut: compte-resultat)
   const activeTab = tabParam || 'compte-resultat';
@@ -426,7 +430,7 @@ export default function EtatsFinanciersPage() {
   }, []);
 
   // Sauvegarder l'état de la checkbox dans localStorage
-  const handleCreditCheckboxChange = (checked: boolean) => {
+  const handleCreditCheckboxChange = async (checked: boolean) => {
     if (checked) {
       // Activer la checkbox : onglet Crédit apparaît immédiatement
       setHasCredit(true);
@@ -435,12 +439,45 @@ export default function EtatsFinanciersPage() {
       // Désactiver la checkbox : demander confirmation
       const confirmMessage = 'Les données de crédit (si il y en a) vont être écrasées. Continuer ?';
       if (window.confirm(confirmMessage)) {
-        setHasCredit(false);
-        localStorage.setItem('etats_financiers_has_credit', 'false');
-        
-        // Si on était sur l'onglet Crédit, rediriger vers Compte de résultat
-        if (activeTab === 'credit') {
-          router.push('/dashboard/etats-financiers?tab=compte-resultat');
+        try {
+          // Récupérer tous les crédits configurés
+          const configsResponse = await loanConfigsAPI.getAll();
+          const configs = configsResponse.items;
+          
+          // Pour chaque crédit, supprimer les paiements puis le crédit
+          for (const config of configs) {
+            try {
+              // Récupérer tous les paiements pour ce crédit
+              const paymentsResponse = await loanPaymentsAPI.getAll({ loan_name: config.name, limit: 1000 });
+              
+              // Supprimer tous les paiements
+              for (const payment of paymentsResponse.items) {
+                await loanPaymentsAPI.delete(payment.id);
+              }
+              
+              // Supprimer la configuration du crédit
+              await loanConfigsAPI.delete(config.id);
+              
+              console.log(`✅ Crédit "${config.name}" et ses paiements supprimés`);
+            } catch (err) {
+              console.error(`Erreur lors de la suppression du crédit "${config.name}":`, err);
+            }
+          }
+          
+          // Mettre à jour l'état
+          setHasCredit(false);
+          localStorage.setItem('etats_financiers_has_credit', 'false');
+          
+          // Si on était sur l'onglet Crédit, rediriger vers Compte de résultat
+          if (activeTab === 'credit') {
+            router.push('/dashboard/etats-financiers?tab=compte-resultat');
+          }
+          
+          // Forcer le rechargement du compte de résultat pour mettre à jour les calculs
+          setCompteResultatRefreshKey(prev => prev + 1);
+        } catch (error) {
+          console.error('Erreur lors de la suppression des données de crédit:', error);
+          alert('Erreur lors de la suppression des données de crédit. Veuillez réessayer.');
         }
       }
     }
@@ -565,14 +602,19 @@ export default function EtatsFinanciersPage() {
             <CompteResultatConfigCard
               onConfigUpdated={() => {
                 console.log('Configuration du compte de résultat mise à jour');
+                // Forcer le rechargement du tableau quand les mappings changent
+                setCompteResultatRefreshKey(prev => prev + 1);
               }}
               onLevel3Change={(values) => {
                 console.log('Level 3 values changed:', values);
+                // Forcer le rechargement du tableau quand le Level 3 change
+                setCompteResultatRefreshKey(prev => prev + 1);
               }}
               onLevel3ValuesLoaded={(count) => {
                 console.log('Level 3 values loaded:', count);
               }}
             />
+            <CompteResultatTable refreshKey={compteResultatRefreshKey} />
           </div>
         )}
 

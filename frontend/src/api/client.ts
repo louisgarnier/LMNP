@@ -1579,6 +1579,22 @@ export interface CompteResultatConfigUpdate {
   level_3_values?: string | null;
 }
 
+export interface CompteResultatCalculateResponse {
+  years: number[];
+  results: {
+    [year: number]: {
+      produits: { [category: string]: number };
+      charges: { [category: string]: number };
+      amortissements: number;
+      cout_financement: number;
+      total_produits: number;
+      total_charges: number;
+      resultat_exploitation: number;
+      resultat_net: number;
+    };
+  };
+}
+
 export const compteResultatAPI = {
   /**
    * Récupère tous les mappings
@@ -1631,5 +1647,13 @@ export const compteResultatAPI = {
       method: 'PUT',
       body: JSON.stringify(config),
     });
+  },
+
+  /**
+   * Calcule les montants du compte de résultat pour plusieurs années
+   */
+  calculate: async (years: number[]): Promise<CompteResultatCalculateResponse> => {
+    const yearsParam = years.join(',');
+    return fetchAPI<CompteResultatCalculateResponse>(`/api/compte-resultat/calculate?years=${yearsParam}`);
   },
 };

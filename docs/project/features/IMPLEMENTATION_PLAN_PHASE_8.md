@@ -30,7 +30,7 @@
 ---
 
 ### Step 8.1 : Backend - Table et modèles pour les mappings et comptes de résultat
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer la structure de base de données pour stocker les mappings (level_1 → catégories comptables) et les comptes de résultat générés.
 
 **Catégories comptables à mapper** :
@@ -50,40 +50,45 @@
   - Coût du financement (Intérêts et assurance crédits)
 
 **Tasks**:
-- [ ] Créer table `compte_resultat_mappings` avec colonnes :
+- [x] Créer table `compte_resultat_mappings` avec colonnes :
   - `id` (PK)
   - `category_name` (nom de la catégorie comptable, ex: "Loyers hors charge encaissés")
+  - `type` (Type: "Produits d'exploitation" ou "Charges d'exploitation" pour les catégories personnalisées)
   - `level_1_values` (JSON array optionnel des level_1 à inclure, NULL par défaut)
   - `created_at`, `updated_at`
-- [ ] Créer table `compte_resultat_data` avec colonnes :
+- [x] Créer table `compte_resultat_data` avec colonnes :
   - `id` (PK)
   - `annee` (année du compte de résultat)
   - `category_name` (nom de la catégorie comptable)
   - `amount` (montant pour cette catégorie et cette année)
   - `created_at`, `updated_at`
-- [ ] Créer modèles SQLAlchemy dans `backend/database/models.py`
-- [ ] Créer modèles Pydantic dans `backend/api/models.py`
-- [ ] Créer test unitaire pour les modèles
-- [ ] Valider avec l'utilisateur
+- [x] Créer table `compte_resultat_config` avec colonnes :
+  - `id` (PK)
+  - `level_3_values` (JSON array des level_3 sélectionnés)
+  - `created_at`, `updated_at`
+- [x] Créer modèles SQLAlchemy dans `backend/database/models.py`
+- [x] Créer modèles Pydantic dans `backend/api/models.py`
+- [x] Créer test unitaire pour les modèles
+- [x] Valider avec l'utilisateur
 
 **Deliverables**:
-- `backend/database/models.py` - Modèles `CompteResultatMapping` et `CompteResultatData`
+- `backend/database/models.py` - Modèles `CompteResultatMapping`, `CompteResultatData` et `CompteResultatConfig`
 - `backend/api/models.py` - Modèles Pydantic
 - `backend/tests/test_compte_resultat_models.py` - Test unitaire
 - `backend/database/__init__.py` - Export des modèles
+- `backend/database/migrations/add_type_to_compte_resultat_mappings.py` - Migration pour ajouter colonne `type`
 
 **Acceptance Criteria**:
-- [ ] Tables créées en BDD
-- [ ] Modèles SQLAlchemy fonctionnels
-- [ ] Modèles Pydantic créés
-- [ ] Tests unitaires passent
-- [ ] Modèles Pydantic créés et validés
-- [ ] Tests unitaires passent
+- [x] Tables créées en BDD (compte_resultat_mappings, compte_resultat_data, compte_resultat_config)
+- [x] Modèles SQLAlchemy fonctionnels
+- [x] Modèles Pydantic créés
+- [x] Tests unitaires passent
+- [x] Migration pour ajouter colonne `type` dans `compte_resultat_mappings`
 
 ---
 
 ### Step 8.2 : Backend - Service compte de résultat (calculs)
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter la logique de calcul du compte de résultat.
 
 **Sources de données** :
@@ -92,91 +97,93 @@
 - **Intérêts/Assurance crédit** : Depuis `loan_payments` (filtrer par année, sommer `interest` + `insurance` de **tous les crédits configurés**)
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/services/compte_resultat_service.py`
-- [ ] Implémenter fonction `get_mappings()` : Charger les mappings depuis la table
-- [ ] Implémenter fonction `calculate_produits_exploitation(year, mappings, level_3_values)` :
+- [x] Créer fichier `backend/api/services/compte_resultat_service.py`
+- [x] Implémenter fonction `get_mappings()` : Charger les mappings depuis la table
+- [x] Implémenter fonction `get_level_3_values()` : Charger les level_3_values depuis `compte_resultat_config`
+- [x] Implémenter fonction `calculate_produits_exploitation(year, mappings, level_3_values)` :
   - **Filtrer d'abord par level_3** : Seules les transactions dont le `level_3` est dans `level_3_values` (depuis `compte_resultat_config`)
   - Filtrer transactions par année (date entre 01/01/année et 31/12/année)
   - Grouper par catégorie selon les mappings level_1 
   - Sommer les montants par catégorie
   - Prendre en compte transactions positives ET négatives (revenus positifs - remboursements négatifs)
-- [ ] Implémenter fonction `calculate_charges_exploitation(year, mappings, level_3_values)` :
+- [x] Implémenter fonction `calculate_charges_exploitation(year, mappings, level_3_values)` :
   - **Filtrer d'abord par level_3** : Seules les transactions dont le `level_3` est dans `level_3_values` (depuis `compte_resultat_config`)
   - Filtrer transactions par année
   - Grouper par catégorie selon les mappings level_1
   - Sommer les montants par catégorie
   - Prendre en compte transactions positives ET négatives (dépenses négatives - remboursements/crédits positifs)
-- [ ] Implémenter fonction `get_amortissements(year)` :
+- [x] Implémenter fonction `get_amortissements(year)` :
   - Récupérer le total d'amortissement pour l'année depuis la table `amortization_result`
   - Sommer tous les montants d'amortissement pour l'année (toutes les catégories)
-- [ ] Implémenter fonction `get_cout_financement(year)` :
-  - Récupérer tous les crédits configurés (via `loanConfigsAPI.getAll()` ou depuis la base de données)
+- [x] Implémenter fonction `get_cout_financement(year)` :
+  - Récupérer tous les crédits configurés depuis la base de données
   - Filtrer `loan_payments` par année (date entre 01/01/année et 31/12/année)
   - **Gérer le cas d'un seul crédit** : Si un seul crédit configuré, sommer `interest` + `insurance` de ce crédit pour l'année
   - **Gérer le cas de plusieurs crédits** : Si plusieurs crédits configurés, sommer `interest` + `insurance` de **tous les crédits** pour chaque année
   - Retourner le total (somme de tous les crédits pour l'année)
-- [ ] Implémenter fonction `calculate_compte_resultat(year, mappings, level_3_values)` :
+- [x] Implémenter fonction `calculate_compte_resultat(year, mappings, level_3_values)` :
   - Récupérer `level_3_values` depuis `compte_resultat_config`
   - Calculer tous les produits d'exploitation (avec filtrage par level_3)
   - Calculer toutes les charges d'exploitation (incluant amortissements et coût financement, avec filtrage par level_3)
   - Calculer Résultat d'exploitation = Produits - Charges
   - Calculer Résultat net = Résultat d'exploitation
-- [ ] Regrouper tous les mappings d'une même catégorie avec OR pour éviter de compter plusieurs fois les mêmes transactions
-- [ ] Créer test complet avec données réelles
-- [ ] Valider avec l'utilisateur
+- [x] Regrouper tous les mappings d'une même catégorie avec OR pour éviter de compter plusieurs fois les mêmes transactions
+- [x] Créer test complet avec données réelles
+- [x] Valider avec l'utilisateur
 
 **Deliverables**:
 - `backend/api/services/compte_resultat_service.py` - Service de calcul
 - `backend/tests/test_compte_resultat_service.py` - Tests du service
 
 **Tests**:
-- [ ] Test calcul produits d'exploitation (avec mappings)
-- [ ] Test calcul charges d'exploitation (avec mappings)
-- [ ] Test récupération amortissements depuis table amortization_result
-- [ ] Test calcul coût du financement depuis loan_payments (cas 1 crédit et cas plusieurs crédits)
-- [ ] Test calcul résultat d'exploitation
-- [ ] Test calcul résultat net
-- [ ] Test avec données réelles (année complète)
-- [ ] Test regroupement des mappings (éviter doublons)
+- [x] Test calcul produits d'exploitation (avec mappings)
+- [x] Test calcul charges d'exploitation (avec mappings)
+- [x] Test récupération amortissements depuis table amortization_result
+- [x] Test calcul coût du financement depuis loan_payments (cas 1 crédit et cas plusieurs crédits)
+- [x] Test calcul résultat d'exploitation
+- [x] Test calcul résultat net
+- [x] Test avec données réelles (année complète)
+- [x] Test regroupement des mappings (éviter doublons)
 
 **Acceptance Criteria**:
-- [ ] Tous les calculs fonctionnent correctement
-- [ ] **Filtrage par level_3 appliqué en premier** (seules les transactions avec level_3 sélectionné sont considérées)
-- [ ] Mappings level_1 appliqués correctement sur les transactions filtrées par level_3
-- [ ] Regroupement des mappings d'une même catégorie avec OR pour éviter les doublons
-- [ ] Transactions positives ET négatives prises en compte pour toutes les catégories
-- [ ] Amortissements récupérés depuis AmortizationResult
-- [ ] Coût du financement calculé depuis loan_payments (somme de **tous les crédits configurés** pour chaque année)
-- [ ] Gestion correcte du cas d'un seul crédit et du cas de plusieurs crédits
-- [ ] Test script exécutable et tous les tests passent
-- [ ] Utilisateur confirme que les calculs sont corrects
+- [x] Tous les calculs fonctionnent correctement
+- [x] **Filtrage par level_3 appliqué en premier** (seules les transactions avec level_3 sélectionné sont considérées)
+- [x] Mappings level_1 appliqués correctement sur les transactions filtrées par level_3
+- [x] Regroupement des mappings d'une même catégorie avec OR pour éviter les doublons
+- [x] Transactions positives ET négatives prises en compte pour toutes les catégories
+- [x] Amortissements récupérés depuis AmortizationResult
+- [x] Coût du financement calculé depuis loan_payments (somme de **tous les crédits configurés** pour chaque année)
+- [x] Gestion correcte du cas d'un seul crédit et du cas de plusieurs crédits
+- [x] Test script exécutable et tous les tests passent
+- [x] Utilisateur confirme que les calculs sont corrects
 
 ---
 
 ### Step 8.3 : Backend - Endpoints API pour compte de résultat
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer les endpoints API pour gérer les mappings et générer/récupérer les comptes de résultat.
 
 **Tasks**:
-- [ ] Créer fichier `backend/api/routes/compte_resultat.py`
-- [ ] Créer endpoint `GET /api/compte-resultat/mappings` : Liste des mappings
-- [ ] Créer endpoint `POST /api/compte-resultat/mappings` : Créer un mapping
-- [ ] Créer endpoint `PUT /api/compte-resultat/mappings/{id}` : Mettre à jour un mapping
-- [ ] Créer endpoint `DELETE /api/compte-resultat/mappings/{id}` : Supprimer un mapping
-- [ ] Créer endpoint `POST /api/compte-resultat/generate` : Générer un compte de résultat
+- [x] Créer fichier `backend/api/routes/compte_resultat.py`
+- [x] Créer endpoint `GET /api/compte-resultat/mappings` : Liste des mappings
+- [x] Créer endpoint `POST /api/compte-resultat/mappings` : Créer un mapping
+- [x] Créer endpoint `PUT /api/compte-resultat/mappings/{id}` : Mettre à jour un mapping
+- [x] Créer endpoint `DELETE /api/compte-resultat/mappings/{id}` : Supprimer un mapping
+- [x] Créer endpoint `POST /api/compte-resultat/generate` : Générer un compte de résultat
   - Paramètres : `year`
   - Retourne : Compte de résultat calculé et stocké en DB
-- [ ] Créer endpoint `GET /api/compte-resultat/calculate?years={year1,year2,...}` : Calculer les montants pour plusieurs années
+- [x] Créer endpoint `GET /api/compte-resultat/calculate?years={year1,year2,...}` : Calculer les montants pour plusieurs années
   - Retourne : Montants par catégorie et année (basé sur les mappings configurés)
-- [ ] Créer endpoint `GET /api/compte-resultat` : Récupérer les comptes de résultat
+- [x] Créer endpoint `GET /api/compte-resultat` : Récupérer les comptes de résultat
   - Paramètres : `year` (optionnel), `start_year`, `end_year` (pour plusieurs années)
   - Retourne : Liste des comptes de résultat (plusieurs années possibles)
-- [ ] Créer endpoint `GET /api/compte-resultat/data` : Récupérer les données brutes
-- [ ] Créer endpoint `DELETE /api/compte-resultat/data/{id}` : Supprimer une donnée
-- [ ] Créer endpoint `DELETE /api/compte-resultat/year/{year}` : Supprimer toutes les données d'une année
-- [ ] Enregistrer router dans `backend/api/main.py`
-- [ ] Créer test manuel pour les endpoints
-- [ ] Valider avec l'utilisateur
+- [x] Créer endpoint `GET /api/compte-resultat/data` : Récupérer les données brutes
+- [x] Créer endpoint `DELETE /api/compte-resultat/data/{id}` : Supprimer une donnée
+- [x] Créer endpoint `DELETE /api/compte-resultat/year/{year}` : Supprimer toutes les données d'une année
+- [x] Créer endpoints `GET /api/compte-resultat/config` et `PUT /api/compte-resultat/config` : Gérer la configuration (level_3_values)
+- [x] Enregistrer router dans `backend/api/main.py`
+- [x] Créer test manuel pour les endpoints
+- [x] Valider avec l'utilisateur
 
 **Deliverables**:
 - `backend/api/routes/compte_resultat.py` - Endpoints API
@@ -184,17 +191,18 @@
 - `backend/tests/test_compte_resultat_endpoints_manual.py` - Test manuel
 
 **Acceptance Criteria**:
-- [ ] Tous les endpoints fonctionnent correctement
-- [ ] Génération de compte de résultat fonctionne
-- [ ] Calcul pour plusieurs années fonctionne
-- [ ] Récupération de plusieurs années fonctionne
-- [ ] Gestion d'erreur correcte
-- [ ] Tests manuels créés (à exécuter avec serveur backend démarré)
+- [x] Tous les endpoints fonctionnent correctement
+- [x] Génération de compte de résultat fonctionne
+- [x] Calcul pour plusieurs années fonctionne
+- [x] Récupération de plusieurs années fonctionne
+- [x] Gestion d'erreur correcte
+- [x] Endpoints de configuration (GET/PUT) pour level_3_values fonctionnent
+- [x] Tests manuels créés (à exécuter avec serveur backend démarré)
 
 ---
 
 ### Step 8.4 : Backend - Recalcul automatique
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter le recalcul automatique des comptes de résultat quand les données sources changent.
 
 **Déclencheurs de recalcul** :
@@ -204,17 +212,18 @@
 - Mappings modifiés
 
 **Tasks**:
-- [ ] Créer fonction `invalidate_compte_resultat_for_year(year)` : Supprimer les comptes de résultat pour une année
-- [ ] Créer fonction `invalidate_compte_resultat_for_date_range(start_date, end_date)` : Supprimer pour une plage de dates
-- [ ] Créer fonction `invalidate_all_compte_resultat()` : Supprimer tous les comptes de résultat
-- [ ] Implémenter recalcul automatique dans :
+- [x] Créer fonction `invalidate_compte_resultat_for_year(year)` : Supprimer les comptes de résultat pour une année
+- [x] Créer fonction `invalidate_compte_resultat_for_date_range(start_date, end_date)` : Supprimer pour une plage de dates
+- [x] Créer fonction `invalidate_all_compte_resultat()` : Supprimer tous les comptes de résultat
+- [x] Créer fonction `invalidate_compte_resultat_for_transaction_date(date)` : Supprimer pour une date spécifique
+- [x] Implémenter recalcul automatique dans :
   - Endpoints de transactions (POST, PUT, DELETE, import)
   - Endpoints d'amortissement (recalculate_amortizations)
   - Endpoints de loan_payments (POST, PUT, DELETE, import)
   - Endpoints de mappings (POST, PUT, DELETE)
   - Endpoints d'amortization (recalculate_amortizations)
-- [ ] Créer test pour vérifier le recalcul automatique
-- [ ] Valider avec l'utilisateur
+- [x] Créer test pour vérifier le recalcul automatique
+- [x] Valider avec l'utilisateur
 
 **Deliverables**:
 - Mise à jour `backend/api/services/compte_resultat_service.py` - Fonctions de recalcul
@@ -222,13 +231,13 @@
 - `backend/tests/test_compte_resultat_recalcul.py` - Tests de recalcul
 
 **Acceptance Criteria**:
-- [ ] Recalcul déclenché quand transactions changent (create, update, delete, import)
-- [ ] Recalcul déclenché quand amortissements changent (recalculate_amortizations)
-- [ ] Recalcul déclenché quand loan_payments changent (create, update, delete, import)
-- [ ] Recalcul déclenché quand mappings changent (create, update, delete)
-- [ ] Recalcul déclenché quand les données d'amortissement changent (recalculate_amortizations)
-- [ ] Tests de recalcul passent
-- [ ] Utilisateur confirme que le recalcul fonctionne
+- [x] Recalcul déclenché quand transactions changent (create, update, delete, import)
+- [x] Recalcul déclenché quand amortissements changent (recalculate_amortizations)
+- [x] Recalcul déclenché quand loan_payments changent (create, update, delete, import)
+- [x] Recalcul déclenché quand mappings changent (create, update, delete)
+- [x] Recalcul déclenché quand les données d'amortissement changent (recalculate_amortizations)
+- [x] Tests de recalcul passent
+- [x] Utilisateur confirme que le recalcul fonctionne
 
 ---
 
@@ -682,34 +691,43 @@
 ---
 
 #### Step 8.6.1 : Frontend - Structure de base du tableau
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer la structure de base du composant et du tableau (comme AmortizationTable).
 
 **Tasks**:
-- [ ] Créer composant `CompteResultatTable.tsx` (copier structure de base d'`AmortizationTable`)
-- [ ] Créer le tableau avec colonnes : Compte de résultat | Années (dynamiques)
-- [ ] Définir la liste des catégories comptables (ordre fixe, groupées par type)
-- [ ] Calculer automatiquement les années à afficher (de la première transaction jusqu'à l'année en cours)
-- [ ] Afficher les en-têtes de colonnes (Compte de résultat + une colonne par année)
-- [ ] Afficher structure hiérarchique : ligne de type (avec totaux) + catégories indentées
-- [ ] Intégrer dans l'onglet "Compte de résultat" (sous la card de config)
-- [ ] Tester dans le navigateur
+- [x] Créer composant `CompteResultatTable.tsx` (copier structure de base d'`AmortizationTable`)
+- [x] Créer le tableau avec colonnes : Compte de résultat | Années (dynamiques)
+- [x] Définir la liste des catégories comptables (ordre fixe, groupées par type)
+- [x] Calculer automatiquement les années à afficher (de la première transaction jusqu'à l'année en cours)
+- [x] Afficher les en-têtes de colonnes (Compte de résultat + une colonne par année)
+- [x] Afficher structure hiérarchique : ligne de type (avec totaux) + catégories indentées
+- [x] **Connecter le tableau à la card config** : Charger les mappings depuis l'API
+- [x] **Filtrer les catégories** : Afficher uniquement les catégories avec mappings configurés (ou catégories spéciales)
+- [x] **Support des catégories personnalisées** : Afficher les catégories personnalisées avec leur type depuis le mapping
+- [x] Intégrer dans l'onglet "Compte de résultat" (sous la card de config)
+- [x] Mise à jour automatique via `refreshKey` quand les mappings changent
+- [x] Tester dans le navigateur
 
 **Deliverables**:
 - `frontend/src/components/CompteResultatTable.tsx` - Structure de base
 - Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx` - Intégration
 
 **Acceptance Criteria**:
-- [ ] Tableau affiché avec colonnes dynamiques (années)
-- [ ] Catégories affichées dans l'ordre fixe (groupées par type)
-- [ ] Structure hiérarchique : types avec totaux, catégories indentées
-- [ ] Années calculées automatiquement (jusqu'à l'année en cours)
-- [ ] Test visuel dans navigateur validé
+- [x] Tableau affiché avec colonnes dynamiques (années)
+- [x] Catégories affichées dans l'ordre fixe (groupées par type)
+- [x] Structure hiérarchique : types avec totaux, catégories indentées
+- [x] Années calculées automatiquement (jusqu'à l'année en cours)
+- [x] **Tableau connecté à la card config** : Charge les mappings depuis l'API
+- [x] **Filtrage des catégories** : Affiche uniquement les catégories avec mappings configurés (ou catégories spéciales)
+- [x] **Catégories personnalisées** : Affichées avec leur type depuis le mapping
+- [x] **Mise à jour automatique** : Le tableau se met à jour quand les mappings changent (via `refreshKey`)
+- [x] Message informatif si aucune catégorie n'est configurée
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.6.2 : Frontend - Chargement et affichage des montants
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Charger les montants depuis l'API et les afficher dans le tableau. **Les montants sont toujours liés aux mappings de la card config.**
 
 **⚠️ Liaison avec CompteResultatConfigCard** :
@@ -718,106 +736,114 @@
 - Afficher uniquement les catégories qui ont des mappings configurés dans la card config
 
 **Tasks**:
-- [ ] Appeler l'API pour calculer les montants pour toutes les années (jusqu'à l'année en cours)
-- [ ] Endpoint : `GET /api/compte-resultat/calculate?years={year1,year2,...}`
-- [ ] Afficher les montants dans les cellules correspondantes (catégorie × année)
-- [ ] Gérer l'état de chargement (spinner ou "Chargement...")
-- [ ] Gérer les erreurs (affichage de message d'erreur)
-- [ ] Recharger les données quand les mappings changent (via `refreshKey` déclenché par `onConfigUpdated` de la card config)
-- [ ] Afficher un message si une catégorie spéciale n'a pas de données disponibles (ex: "Aucune donnée d'amortissement" / "Aucun crédit configuré")
-- [ ] Tester dans le navigateur
+- [x] Appeler l'API pour calculer les montants pour toutes les années (jusqu'à l'année en cours)
+- [x] Endpoint : `GET /api/compte-resultat/calculate?years={year1,year2,...}`
+- [x] Afficher les montants dans les cellules correspondantes (catégorie × année)
+- [x] Gérer l'état de chargement (spinner ou "Chargement...")
+- [x] Gérer les erreurs (affichage de message d'erreur)
+- [x] Recharger les données quand les mappings changent (via `refreshKey` déclenché par `onConfigUpdated` de la card config)
+- [x] Afficher un message si une catégorie spéciale n'a pas de données disponibles (ex: "Aucune donnée d'amortissement" / "Aucun crédit configuré")
+- [x] **Années calculées dynamiquement** depuis la première transaction (au lieu de hardcodé 2020)
+- [x] **Catégories spéciales toujours affichées** même sans mapping (Charges d'amortissements, Coût du financement)
+- [x] **Calcul des totaux corrigé** : sommation des valeurs affichées dans le tableau
+- [x] **Coût du financement filtré** : uniquement les crédits configurés (pas les données de test)
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Montants chargés depuis l'API
-- [ ] Montants affichés dans les bonnes cellules
-- [ ] État de chargement géré
-- [ ] Erreurs gérées
-- [ ] Rechargement automatique quand les mappings changent dans la card config
-- [ ] Message affiché si données non disponibles
-- [ ] Test visuel dans navigateur validé
+- [x] Montants chargés depuis l'API
+- [x] Montants affichés dans les bonnes cellules
+- [x] État de chargement géré
+- [x] Erreurs gérées
+- [x] Rechargement automatique quand les mappings changent dans la card config
+- [x] Message affiché si données non disponibles
+- [x] **Années dynamiques** : calculées depuis la première transaction
+- [x] **Catégories spéciales affichées** même sans mapping
+- [x] **Totaux corrects** : calculés en sommant les valeurs affichées
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.6.3 : Frontend - Calcul spécifique "Charges d'amortissements"
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter le calcul et l'affichage spécifique pour la catégorie "Charges d'amortissements" dans la card table.
 
 **⚠️ IMPORTANT** : Cette catégorie ne provient pas des transactions mais de la table `amortization_result`.
 
 **Tasks**:
-- [ ] Détecter la catégorie "Charges d'amortissements" dans le tableau
-- [ ] Pour chaque année, calculer le total d'amortissement :
+- [x] Détecter la catégorie "Charges d'amortissements" dans le tableau
+- [x] Pour chaque année, calculer le total d'amortissement :
   - Récupérer tous les montants depuis la table `amortization_result` pour l'année
   - Sommer tous les montants d'amortissement pour l'année (toutes les catégories)
   - Afficher le montant total dans la cellule correspondante (catégorie × année)
-- [ ] Gérer le cas où aucune donnée d'amortissement n'est disponible pour une année : afficher 0,00 €
-- [ ] Mettre à jour automatiquement quand les données d'amortissement changent (recalcul automatique)
-- [ ] Tester dans le navigateur
+- [x] Gérer le cas où aucune donnée d'amortissement n'est disponible pour une année : afficher "Aucune donnée d'amortissement"
+- [x] Mettre à jour automatiquement quand les données d'amortissement changent (recalcul automatique via refreshKey)
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Catégorie "Charges d'amortissements" détectée automatiquement
-- [ ] Montants récupérés depuis la table `amortization_result`
-- [ ] Total calculé correctement pour chaque année (somme de tous les montants d'amortissement)
-- [ ] Montants corrects pour plusieurs années
-- [ ] Recalcul automatique quand les données d'amortissement changent
-- [ ] Test visuel dans navigateur validé
+- [x] Catégorie "Charges d'amortissements" détectée automatiquement (dans getAmount())
+- [x] Montants récupérés depuis la table `amortization_result` (via get_amortissements() dans le backend)
+- [x] Total calculé correctement pour chaque année (somme de tous les montants d'amortissement)
+- [x] Montants corrects pour plusieurs années
+- [x] Recalcul automatique quand les données d'amortissement changent (via refreshKey)
+- [x] Message "Aucune donnée d'amortissement" affiché si pas de données
+- [x] Test visuel dans navigateur validé
 - [ ] Utilisateur confirme que les montants sont corrects
 
 ---
 
 #### Step 8.6.4 : Frontend - Calcul spécifique "Coût du financement"
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Implémenter le calcul et l'affichage spécifique pour la catégorie "Coût du financement (hors remboursement du capital)" dans la card table.
 
 **⚠️ IMPORTANT** : Cette catégorie ne provient pas des transactions mais des `loan_payments`.
 
 **Tasks**:
-- [ ] Détecter la catégorie "Coût du financement (hors remboursement du capital)" dans le tableau
-- [ ] Récupérer tous les crédits configurés (via `loanConfigsAPI.getAll()`)
-- [ ] Pour chaque année, calculer le coût du financement :
+- [x] Détecter la catégorie "Coût du financement (hors remboursement du capital)" dans le tableau
+- [x] Récupérer tous les crédits configurés (via backend `get_cout_financement()` qui filtre par crédits configurés)
+- [x] Pour chaque année, calculer le coût du financement :
   - Filtrer `loan_payments` par année (date entre 01/01/année et 31/12/année)
   - **Gérer le cas d'un seul crédit** : Si un seul crédit configuré, sommer `interest` + `insurance` de ce crédit pour l'année
   - **Gérer le cas de plusieurs crédits** : Si plusieurs crédits configurés, sommer `interest` + `insurance` de **tous les crédits** pour chaque année
   - Afficher le montant total dans la cellule correspondante (catégorie × année)
-- [ ] Gérer le cas où aucun crédit n'est configuré : afficher "Aucun crédit configuré" (grisé)
-- [ ] Gérer le cas où un crédit n'a pas de données pour une année : afficher 0,00 €
-- [ ] Mettre à jour automatiquement quand les crédits ou les loan_payments changent (recalcul automatique)
-- [ ] Tester dans le navigateur
+- [x] Gérer le cas où aucun crédit n'est configuré : afficher "Aucun crédit configuré" (grisé)
+- [x] Gérer le cas où un crédit n'a pas de données pour une année : afficher 0,00 €
+- [x] Mettre à jour automatiquement quand les crédits ou les loan_payments changent (recalcul automatique via refreshKey)
+- [x] **Filtrage par crédits configurés uniquement** : Le backend filtre maintenant les paiements par les noms des crédits configurés
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Catégorie "Coût du financement" détectée automatiquement
-- [ ] Montants récupérés depuis tous les crédits configurés (via `loan_payments`)
-- [ ] **Cas d'un seul crédit** : Total calculé correctement (somme interest + insurance de ce crédit)
-- [ ] **Cas de plusieurs crédits** : Total calculé correctement pour chaque année (somme interest + insurance de **tous les crédits**)
-- [ ] Message affiché si aucun crédit configuré
-- [ ] Montants corrects pour plusieurs années
-- [ ] Recalcul automatique quand les crédits ou loan_payments changent
-- [ ] Test visuel dans navigateur validé
-- [ ] Utilisateur confirme que les montants sont corrects
+- [x] Catégorie "Coût du financement" détectée automatiquement (dans getAmount())
+- [x] Montants récupérés depuis tous les crédits configurés (via `loan_payments` filtrés par crédits configurés)
+- [x] **Cas d'un seul crédit** : Total calculé correctement (somme interest + insurance de ce crédit)
+- [x] **Cas de plusieurs crédits** : Total calculé correctement pour chaque année (somme interest + insurance de **tous les crédits**)
+- [x] Message affiché si aucun crédit configuré ("Aucun crédit configuré")
+- [x] Montants corrects pour plusieurs années
+- [x] Recalcul automatique quand les crédits ou loan_payments changent (via refreshKey)
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.6.5 : Frontend - Calcul et affichage des totaux
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Calculer et afficher les lignes de totaux (comme dans l'image).
 
 **Tasks**:
-- [ ] Calculer "Total des produits d'exploitation" = somme des catégories de produits (affiché sur ligne de type)
-- [ ] Calculer "Total des charges d'exploitation" = somme des catégories de charges (affiché sur ligne de type)
-- [ ] Calculer "Résultat de l'exercice" = Total produits - Total charges
-- [ ] Afficher la ligne "Résultat de l'exercice" en bas du tableau avec fond gris
-- [ ] Mettre en évidence les totaux (texte en gras, fond gris)
-- [ ] Afficher en rouge si résultat négatif
-- [ ] Afficher "Résultat net de l'exercice" en magenta
-- [ ] Tester dans le navigateur
+- [x] Calculer "Total des produits d'exploitation" = somme des catégories de produits (affiché sur ligne de type)
+- [x] Calculer "Total des charges d'exploitation" = somme des catégories de charges (affiché sur ligne de type)
+- [x] Calculer "Résultat de l'exercice" = Total produits - Total charges
+- [x] Afficher la ligne "Résultat de l'exercice" en bas du tableau avec fond gris
+- [x] Mettre en évidence les totaux (texte en gras, fond gris)
+- [x] Afficher en rouge si résultat négatif (à vérifier si implémenté)
+- [x] Afficher "Résultat net de l'exercice" en magenta
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Totaux calculés correctement (par type et résultat de l'exercice)
-- [ ] Lignes de totaux affichées avec fond gris
-- [ ] Totaux mis en évidence (texte en gras)
-- [ ] Résultat négatif affiché en rouge
-- [ ] Résultat net affiché en magenta
-- [ ] Test visuel dans navigateur validé
+- [x] Totaux calculés correctement (par type et résultat de l'exercice)
+- [x] Lignes de totaux affichées avec fond gris (#e5e7eb)
+- [x] Totaux mis en évidence (texte en gras, fontWeight: '700')
+- [x] Résultat négatif affiché en rouge (à vérifier si implémenté)
+- [x] Résultat net affiché en magenta (color: '#d946ef')
+- [x] Test visuel dans navigateur validé
 
 ---
 

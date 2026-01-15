@@ -303,15 +303,19 @@ def get_cout_financement(db: Session, year: int) -> float:
     if not loan_configs:
         return 0.0
     
-    # Récupérer tous les loan_payments pour l'année
+    # Récupérer les noms des crédits configurés
+    loan_names = [config.name for config in loan_configs]
+    
+    # Récupérer uniquement les loan_payments pour l'année qui correspondent aux crédits configurés
     payments = db.query(LoanPayment).filter(
         and_(
             LoanPayment.date >= start_date,
-            LoanPayment.date <= end_date
+            LoanPayment.date <= end_date,
+            LoanPayment.loan_name.in_(loan_names)  # Filtrer par les noms des crédits configurés
         )
     ).all()
     
-    # Sommer interest + insurance de tous les crédits
+    # Sommer interest + insurance uniquement des crédits configurés
     total_cost = 0.0
     for payment in payments:
         total_cost += payment.interest + payment.insurance
