@@ -32,6 +32,28 @@ const CHARGES_CATEGORIES = [
   'Coût du financement (hors remboursement du capital)',
 ];
 
+// Sous-sections des charges d'exploitation
+const CHARGES_SECTION_A = [
+  'Charges de copropriété hors fonds travaux',
+  'Fluides non refacturés',
+  'Assurances',
+  'Honoraires',
+  'Travaux et mobilier',
+  'Autres charges diverses',
+];
+
+const CHARGES_SECTION_B = [
+  'Impôts et taxes',
+];
+
+const CHARGES_SECTION_C = [
+  'Charges d\'amortissements',
+];
+
+const CHARGES_INTERET = [
+  'Coût du financement (hors remboursement du capital)',
+];
+
 // Catégories spéciales (toujours affichées, même sans mapping)
 const SPECIAL_CATEGORIES = [
   'Charges d\'amortissements',
@@ -275,14 +297,34 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
     return total !== 0 ? total : null;
   };
 
+  // Total des charges d'exploitation (A + B + C uniquement, sans charges d'intérêt)
   const getTotalCharges = (year: number): number | null => {
     if (!data || !data.results[year]) return null;
     let total = 0;
     chargesCategories.forEach(({ category }) => {
+      // Exclure le coût du financement (charges d'intérêt)
+      if (CHARGES_INTERET.includes(category)) {
+        return;
+      }
       const amount = getAmount(category, year, 'Charges d\'exploitation');
       if (amount !== null) {
         // Les charges peuvent être stockées en négatif, prendre la valeur absolue pour le total
         total += Math.abs(amount);
+      }
+    });
+    return total !== 0 ? total : null;
+  };
+
+  // Total des charges d'intérêt
+  const getTotalChargesInteret = (year: number): number | null => {
+    if (!data || !data.results[year]) return null;
+    let total = 0;
+    chargesCategories.forEach(({ category }) => {
+      if (CHARGES_INTERET.includes(category)) {
+        const amount = getAmount(category, year, 'Charges d\'exploitation');
+        if (amount !== null) {
+          total += Math.abs(amount);
+        }
       }
     });
     return total !== 0 ? total : null;
@@ -299,8 +341,12 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
   };
 
   const getResultatNet = (year: number): number | null => {
-    // Le résultat net est égal au résultat d'exploitation
-    return getResultatExploitation(year);
+    // Résultat de l'exercice = Résultat d'exploitation - Charges d'intérêt
+    const resultatExploitation = getResultatExploitation(year);
+    const chargesInteret = getTotalChargesInteret(year);
+    if (resultatExploitation === null && chargesInteret === null) return null;
+    const resultat = (resultatExploitation ?? 0) - (chargesInteret ?? 0);
+    return resultat !== 0 ? resultat : null;
   };
 
   if (loading) {
@@ -494,49 +540,263 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                     </td>
                   ))}
                 </tr>
-                {/* Charges d'exploitation (catégories indentées) - uniquement celles avec mappings ou spéciales */}
-                {chargesCategories.map(({ category }) => (
-                  <tr key={category}>
-                    <td
-                      style={{
-                        padding: '12px 12px 12px 32px',
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #e5e7eb',
-                        color: '#111827',
-                      }}
-                    >
-                      {category}
-                    </td>
-                    {years.map((year) => {
-                      const amount = getAmount(category, year, 'Charges d\'exploitation');
-                      // Afficher un message si catégorie spéciale sans données
-                      const isSpecialCategory = category === "Charges d'amortissements" || 
-                                                category === "Coût du financement (hors remboursement du capital)";
-                      const displayText = isSpecialCategory && amount === null 
-                        ? (category === "Charges d'amortissements" 
-                            ? "Aucune donnée d'amortissement" 
-                            : "Aucun crédit configuré")
-                        : formatAmount(amount);
-                      
-                      return (
+                
+                {/* A/ Achats et charges externes */}
+                {(() => {
+                  const sectionACategories = chargesCategories.filter(({ category }) => 
+                    CHARGES_SECTION_A.includes(category) || 
+                    (!CHARGES_SECTION_B.includes(category) && 
+                     !CHARGES_SECTION_C.includes(category) && 
+                     !CHARGES_INTERET.includes(category) &&
+                     !PRODUITS_CATEGORIES.includes(category))
+                  );
+                  if (sectionACategories.length === 0) return null;
+                  
+                  return (
+                    <>
+                      <tr>
                         <td
-                          key={year}
                           style={{
-                            padding: '12px',
-                            textAlign: 'right',
-                            backgroundColor: '#ffffff',
+                            padding: '12px 12px 12px 32px',
+                            backgroundColor: '#f9fafb',
                             border: '1px solid #e5e7eb',
-                            color: amount === null && isSpecialCategory ? '#9ca3af' : '#111827',
-                            fontSize: amount === null && isSpecialCategory ? '11px' : '13px',
-                            fontStyle: amount === null && isSpecialCategory ? 'italic' : 'normal',
+                            fontWeight: '600',
+                            color: '#111827',
+                            borderLeft: '3px solid #3b82f6',
                           }}
                         >
-                          {displayText}
+                          Achats et charges externes
                         </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                        {years.map((year) => {
+                          let total = 0;
+                          sectionACategories.forEach(({ category }) => {
+                            const amount = getAmount(category, year, 'Charges d\'exploitation');
+                            if (amount !== null) {
+                              total += Math.abs(amount);
+                            }
+                          });
+                          return (
+                            <td
+                              key={year}
+                              style={{
+                                padding: '12px',
+                                textAlign: 'right',
+                                backgroundColor: '#f9fafb',
+                                border: '1px solid #e5e7eb',
+                                fontWeight: '600',
+                                color: '#111827',
+                              }}
+                            >
+                              {formatAmount(total !== 0 ? total : null)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {sectionACategories.map(({ category }) => (
+                        <tr key={category}>
+                          <td
+                            style={{
+                              padding: '12px 12px 12px 64px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #e5e7eb',
+                              color: '#111827',
+                            }}
+                          >
+                            {category}
+                          </td>
+                          {years.map((year) => {
+                            const amount = getAmount(category, year, 'Charges d\'exploitation');
+                            return (
+                              <td
+                                key={year}
+                                style={{
+                                  padding: '12px',
+                                  textAlign: 'right',
+                                  backgroundColor: '#ffffff',
+                                  border: '1px solid #e5e7eb',
+                                  color: '#111827',
+                                }}
+                              >
+                                {formatAmount(amount)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })()}
+                
+                {/* B/ Impôts */}
+                {(() => {
+                  const sectionBCategories = chargesCategories.filter(({ category }) => 
+                    CHARGES_SECTION_B.includes(category)
+                  );
+                  if (sectionBCategories.length === 0) return null;
+                  
+                  return (
+                    <>
+                      <tr>
+                        <td
+                          style={{
+                            padding: '12px 12px 12px 32px',
+                            backgroundColor: '#f9fafb',
+                            border: '1px solid #e5e7eb',
+                            fontWeight: '600',
+                            color: '#111827',
+                            borderLeft: '3px solid #3b82f6',
+                          }}
+                        >
+                          Impôts
+                        </td>
+                        {years.map((year) => {
+                          let total = 0;
+                          sectionBCategories.forEach(({ category }) => {
+                            const amount = getAmount(category, year, 'Charges d\'exploitation');
+                            if (amount !== null) {
+                              total += Math.abs(amount);
+                            }
+                          });
+                          return (
+                            <td
+                              key={year}
+                              style={{
+                                padding: '12px',
+                                textAlign: 'right',
+                                backgroundColor: '#f9fafb',
+                                border: '1px solid #e5e7eb',
+                                fontWeight: '600',
+                                color: '#111827',
+                              }}
+                            >
+                              {formatAmount(total !== 0 ? total : null)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {sectionBCategories.map(({ category }) => (
+                        <tr key={category}>
+                          <td
+                            style={{
+                              padding: '12px 12px 12px 64px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #e5e7eb',
+                              color: '#111827',
+                            }}
+                          >
+                            {category}
+                          </td>
+                          {years.map((year) => {
+                            const amount = getAmount(category, year, 'Charges d\'exploitation');
+                            return (
+                              <td
+                                key={year}
+                                style={{
+                                  padding: '12px',
+                                  textAlign: 'right',
+                                  backgroundColor: '#ffffff',
+                                  border: '1px solid #e5e7eb',
+                                  color: '#111827',
+                                }}
+                              >
+                                {formatAmount(amount)}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })()}
+                
+                {/* C/ Amortissements */}
+                {(() => {
+                  const sectionCCategories = chargesCategories.filter(({ category }) => 
+                    CHARGES_SECTION_C.includes(category)
+                  );
+                  if (sectionCCategories.length === 0) return null;
+                  
+                  return (
+                    <>
+                      <tr>
+                        <td
+                          style={{
+                            padding: '12px 12px 12px 32px',
+                            backgroundColor: '#f9fafb',
+                            border: '1px solid #e5e7eb',
+                            fontWeight: '600',
+                            color: '#111827',
+                            borderLeft: '3px solid #3b82f6',
+                          }}
+                        >
+                          Amortissements
+                        </td>
+                        {years.map((year) => {
+                          let total = 0;
+                          sectionCCategories.forEach(({ category }) => {
+                            const amount = getAmount(category, year, 'Charges d\'exploitation');
+                            if (amount !== null) {
+                              total += Math.abs(amount);
+                            }
+                          });
+                          return (
+                            <td
+                              key={year}
+                              style={{
+                                padding: '12px',
+                                textAlign: 'right',
+                                backgroundColor: '#f9fafb',
+                                border: '1px solid #e5e7eb',
+                                fontWeight: '600',
+                                color: '#111827',
+                              }}
+                            >
+                              {formatAmount(total !== 0 ? total : null)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                      {sectionCCategories.map(({ category }) => (
+                        <tr key={category}>
+                          <td
+                            style={{
+                              padding: '12px 12px 12px 64px',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #e5e7eb',
+                              color: '#111827',
+                            }}
+                          >
+                            {category}
+                          </td>
+                          {years.map((year) => {
+                            const amount = getAmount(category, year, 'Charges d\'exploitation');
+                            const isSpecialCategory = category === "Charges d'amortissements";
+                            const displayText = isSpecialCategory && amount === null 
+                              ? "Aucune donnée d'amortissement"
+                              : formatAmount(amount);
+                            
+                            return (
+                              <td
+                                key={year}
+                                style={{
+                                  padding: '12px',
+                                  textAlign: 'right',
+                                  backgroundColor: '#ffffff',
+                                  border: '1px solid #e5e7eb',
+                                  color: amount === null && isSpecialCategory ? '#9ca3af' : '#111827',
+                                  fontSize: amount === null && isSpecialCategory ? '11px' : '13px',
+                                  fontStyle: amount === null && isSpecialCategory ? 'italic' : 'normal',
+                                }}
+                              >
+                                {displayText}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </>
+                  );
+                })()}
               </>
             )}
             {/* Résultat d'exploitation (ligne de total, fond gris) */}
@@ -568,6 +828,87 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                 </td>
               ))}
             </tr>
+            
+            {/* Charges d'intérêt (même style que les sous-sections) */}
+            {(() => {
+              const chargesInteretCategories = chargesCategories.filter(({ category }) => 
+                CHARGES_INTERET.includes(category)
+              );
+              if (chargesInteretCategories.length === 0) return null;
+              
+              return (
+                <>
+                  <tr>
+                    <td
+                      style={{
+                        padding: '12px 12px 12px 32px',
+                        backgroundColor: '#f9fafb',
+                        border: '1px solid #e5e7eb',
+                        fontWeight: '600',
+                        color: '#111827',
+                        borderLeft: '3px solid #3b82f6',
+                      }}
+                    >
+                      Charges d'intérêt
+                    </td>
+                    {years.map((year) => (
+                      <td
+                        key={year}
+                        style={{
+                          padding: '12px',
+                          textAlign: 'right',
+                          backgroundColor: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          fontWeight: '600',
+                          color: '#111827',
+                        }}
+                      >
+                        {formatAmount(getTotalChargesInteret(year))}
+                      </td>
+                    ))}
+                  </tr>
+                  {chargesInteretCategories.map(({ category }) => (
+                    <tr key={category}>
+                      <td
+                        style={{
+                          padding: '12px 12px 12px 64px',
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e5e7eb',
+                          color: '#111827',
+                        }}
+                      >
+                        {category}
+                      </td>
+                      {years.map((year) => {
+                        const amount = getAmount(category, year, 'Charges d\'exploitation');
+                        const isSpecialCategory = category === "Coût du financement (hors remboursement du capital)";
+                        const displayText = isSpecialCategory && amount === null 
+                          ? "Aucun crédit configuré"
+                          : formatAmount(amount);
+                        
+                        return (
+                          <td
+                            key={year}
+                            style={{
+                              padding: '12px',
+                              textAlign: 'right',
+                              backgroundColor: '#ffffff',
+                              border: '1px solid #e5e7eb',
+                              color: amount === null && isSpecialCategory ? '#9ca3af' : '#111827',
+                              fontSize: amount === null && isSpecialCategory ? '11px' : '13px',
+                              fontStyle: amount === null && isSpecialCategory ? 'italic' : 'normal',
+                            }}
+                          >
+                            {displayText}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </>
+              );
+            })()}
+            
             {/* Résultat net de l'exercice (ligne de total, fond gris, texte magenta) */}
             <tr>
               <td
@@ -579,7 +920,7 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                   color: '#d946ef', // Magenta
                 }}
               >
-                Résultat net de l'exercice
+                Résultat de l'exercice
               </td>
               {years.map((year) => (
                 <td

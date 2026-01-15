@@ -848,50 +848,184 @@
 ---
 
 #### Step 8.6.6 : Frontend - Formatage des montants
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Formater les montants (€, séparateurs de milliers, 2 décimales).
 
 **Tasks**:
-- [ ] Formater les montants avec séparateurs de milliers (ex: 1 234,56 €)
-- [ ] Afficher 2 décimales
-- [ ] Afficher le symbole €
-- [ ] Gérer les valeurs négatives (affichage en rouge)
-- [ ] Gérer les valeurs nulles (affichage "0,00 €")
-- [ ] Tester dans le navigateur
+- [x] Formater les montants avec séparateurs de milliers (ex: 1 234,56 €)
+- [x] Afficher 2 décimales
+- [x] Afficher le symbole €
+- [x] Gérer les valeurs négatives (affichage en rouge)
+- [x] Gérer les valeurs nulles (affichage "0,00 €")
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Montants formatés correctement (1 234,56 €)
-- [ ] 2 décimales affichées
-- [ ] Symbole € visible
-- [ ] Valeurs négatives gérées (affichage en rouge)
-- [ ] Test visuel dans navigateur validé
+- [x] Montants formatés correctement (1 234,56 €)
+- [x] 2 décimales affichées
+- [x] Symbole € visible
+- [x] Valeurs négatives gérées (affichage en rouge)
+- [x] Test visuel dans navigateur validé
 
 ---
 
 #### Step 8.6.7 : Frontend - Fonctionnalité pin/unpin pour la card de configuration
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter un bouton pin/unpin à côté du titre "Configuration du compte de résultat" pour replier/déplier la card.
 
 **Tasks**:
-- [ ] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
-- [ ] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
-- [ ] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
-- [ ] Sauvegarder l'état dans localStorage pour persister entre les sessions
-- [ ] Charger l'état depuis localStorage au montage du composant
-- [ ] Tester dans le navigateur
+- [x] Ajouter un état `isCollapsed` pour gérer l'état replié/déplié
+- [x] Ajouter un bouton pin/unpin (📌/📌) à côté du titre "Configuration du compte de résultat"
+- [x] Implémenter la logique de repli/dépli : masquer/afficher le contenu de la card (tableau, boutons)
+- [x] Sauvegarder l'état dans localStorage pour persister entre les sessions
+- [x] Charger l'état depuis localStorage au montage du composant
+- [x] Tester dans le navigateur
 
 **Acceptance Criteria**:
-- [ ] Bouton pin/unpin visible à côté du titre
-- [ ] Clic sur le bouton replie/déplie la card
-- [ ] Le contenu (tableau, boutons) est masqué quand la card est repliée
-- [ ] Seul le titre et le bouton pin restent visibles quand replié
-- [ ] L'état est sauvegardé dans localStorage
-- [ ] L'état est restauré au rechargement de la page
+- [x] Bouton pin/unpin visible à côté du titre
+- [x] Clic sur le bouton replie/déplie la card
+- [x] Le contenu (tableau, boutons) est masqué quand la card est repliée
+- [x] Seul le titre et le bouton pin restent visibles quand replié
+- [x] L'état est sauvegardé dans localStorage
+- [x] L'état est restauré au rechargement de la page
+- [x] Test visuel dans navigateur validé
+
+---
+
+#### Step 8.7 : Backend + Frontend - Override du Résultat de l'exercice
+**Status**: ⏳ À FAIRE  
+**Description**: Permettre de surcharger manuellement le "Résultat de l'exercice" pour chaque année (cas où le comptable a des valeurs différentes pour les années déjà validées).
+
+---
+
+##### Step 8.7.1 : Backend - Table et modèles pour les overrides
+**Status**: ⏳ À FAIRE  
+**Description**: Créer la table et les modèles (SQLAlchemy + Pydantic) pour stocker les valeurs override du résultat de l'exercice.
+
+**Tasks**:
+- [ ] Créer la table `compte_resultat_override` dans `backend/database/schema.sql`
+  - Colonnes : `id` (INTEGER PRIMARY KEY), `year` (INTEGER NOT NULL UNIQUE), `override_value` (REAL NOT NULL), `created_at` (TIMESTAMP), `updated_at` (TIMESTAMP)
+- [ ] Créer le modèle SQLAlchemy `CompteResultatOverride` dans `backend/database/models.py`
+- [ ] Créer les modèles Pydantic dans `backend/api/models.py` :
+  - `CompteResultatOverrideBase`, `CompteResultatOverrideCreate`, `CompteResultatOverrideUpdate`, `CompteResultatOverrideResponse`
+- [ ] Créer une migration SQL dans `backend/database/migrations/add_compte_resultat_override_table.py`
+- [ ] Exécuter la migration pour créer la table en base de données
+- [ ] Vérifier que la table est créée correctement (script de vérification ou manuel)
+
+**Acceptance Criteria**:
+- [ ] Table `compte_resultat_override` créée en base de données
+- [ ] Modèle SQLAlchemy `CompteResultatOverride` créé et fonctionnel
+- [ ] Modèles Pydantic créés (Base, Create, Update, Response)
+- [ ] Contrainte UNIQUE sur `year` fonctionnelle
+- [ ] Migration exécutée sans erreur
+- [ ] Test manuel : insertion/sélection d'un override en base de données
+
+---
+
+##### Step 8.7.2 : Backend - Routes API pour les overrides
+**Status**: ⏳ À FAIRE  
+**Description**: Créer les routes API pour gérer les overrides (GET, POST, DELETE).
+
+**Tasks**:
+- [ ] Créer les routes API dans `backend/api/routes/compte_resultat.py` :
+  - `GET /api/compte-resultat/override` : Récupérer tous les overrides
+  - `GET /api/compte-resultat/override/{year}` : Récupérer l'override pour une année spécifique
+  - `POST /api/compte-resultat/override` : Créer ou mettre à jour un override (body: `{ year: int, override_value: float }`)
+  - `DELETE /api/compte-resultat/override/{year}` : Supprimer un override pour une année
+- [ ] Implémenter la logique de création/mise à jour (upsert) : si l'override existe pour l'année, le mettre à jour, sinon le créer
+- [ ] Ajouter la gestion d'erreurs (année invalide, valeur invalide, etc.)
+- [ ] Tester les routes API manuellement (curl, Postman, ou script Python)
+
+**Acceptance Criteria**:
+- [ ] Route `GET /api/compte-resultat/override` retourne tous les overrides
+- [ ] Route `GET /api/compte-resultat/override/{year}` retourne l'override pour l'année ou 404 si inexistant
+- [ ] Route `POST /api/compte-resultat/override` crée un nouvel override ou met à jour l'existant
+- [ ] Route `DELETE /api/compte-resultat/override/{year}` supprime l'override pour l'année
+- [ ] Gestion d'erreurs correcte (validation, 404, etc.)
+- [ ] Test manuel : toutes les routes fonctionnent correctement
+
+---
+
+##### Step 8.7.3 : Frontend - Interfaces API et checkbox dans ConfigCard
+**Status**: ⏳ À FAIRE  
+**Description**: Ajouter les interfaces TypeScript, les fonctions API, et la checkbox "Override Resultat" dans la card de configuration.
+
+**Tasks**:
+- [ ] Ajouter les interfaces TypeScript dans `frontend/src/api/client.ts` :
+  - `CompteResultatOverride`, `CompteResultatOverrideCreate`, `CompteResultatOverrideUpdate`
+- [ ] Ajouter les fonctions API dans `compteResultatAPI` :
+  - `getOverrides(): Promise<CompteResultatOverride[]>`
+  - `getOverride(year: number): Promise<CompteResultatOverride | null>`
+  - `createOrUpdateOverride(year: number, overrideValue: number): Promise<CompteResultatOverride>`
+  - `deleteOverride(year: number): Promise<void>`
+- [ ] Dans `CompteResultatConfigCard`, ajouter une checkbox "Override Resultat" dans le header (comme "J'ai un crédit")
+- [ ] Ajouter un état `isOverrideEnabled` pour gérer l'état de la checkbox
+- [ ] Sauvegarder l'état de la checkbox dans localStorage (clé : `compte_resultat_override_enabled`)
+- [ ] Charger l'état depuis localStorage au montage du composant
+- [ ] Passer l'état `isOverrideEnabled` au composant `CompteResultatTable` via une prop
+- [ ] Tester dans le navigateur : checkbox visible, état sauvegardé/restauré
+
+**Acceptance Criteria**:
+- [ ] Interfaces TypeScript créées et typées correctement
+- [ ] Fonctions API créées et fonctionnelles
+- [ ] Checkbox "Override Resultat" visible dans le header de `CompteResultatConfigCard`
+- [ ] État de la checkbox sauvegardé dans localStorage
+- [ ] État restauré au rechargement de la page
+- [ ] Prop `isOverrideEnabled` passée à `CompteResultatTable`
 - [ ] Test visuel dans navigateur validé
 
 ---
 
-#### Step 8.6.8 : Frontend - Ajout d'années
+##### Step 8.7.4 : Frontend - Ligne override dans le tableau
+**Status**: ⏳ À FAIRE  
+**Description**: Ajouter la ligne "Résultat exercice (Override)" dans le tableau avec input field éditable.
+
+**Tasks**:
+- [ ] Dans `CompteResultatTable`, ajouter une ligne "Résultat exercice (Override)" sous "Résultat de l'exercice"
+  - Cette ligne s'affiche uniquement si la prop `isOverrideEnabled` est `true`
+- [ ] Ajouter un état local pour stocker les overrides chargés depuis l'API
+- [ ] Charger les overrides depuis l'API au montage du composant (`useEffect`)
+- [ ] Pour chaque année, afficher un input field dans la colonne correspondante
+  - Par défaut, affiche la valeur du "Résultat de l'exercice" calculé (si pas d'override en base)
+  - Si un override existe en base, afficher cette valeur
+  - Input field éditable avec formatage automatique (€, séparateurs de milliers)
+  - Validation numérique (accepter uniquement les nombres)
+- [ ] Implémenter la sauvegarde automatique :
+  - Lors du `onBlur` de l'input
+  - Lors de la touche `Enter`
+  - Appeler `compteResultatAPI.createOrUpdateOverride(year, value)`
+- [ ] Gérer le cas où l'input est vide : reprendre la valeur calculée (supprimer l'override en base si existant)
+- [ ] Ajouter un indicateur visuel pendant la sauvegarde (loading, etc.)
+- [ ] Tester dans le navigateur : affichage, édition, sauvegarde
+
+**Acceptance Criteria**:
+- [ ] Ligne "Résultat exercice (Override)" s'affiche uniquement si `isOverrideEnabled` est `true`
+- [ ] Par défaut, affiche la valeur du "Résultat de l'exercice" calculé
+- [ ] Si override existe en base, affiche cette valeur
+- [ ] Input field éditable avec formatage automatique (€, séparateurs)
+- [ ] Validation numérique fonctionnelle
+- [ ] Sauvegarde automatique lors du blur ou Enter
+- [ ] Si input vide, reprend la valeur calculée (supprime l'override)
+- [ ] Overrides chargés depuis l'API au montage
+- [ ] Test visuel dans navigateur validé
+
+---
+
+**Step 8.7 - Acceptance Criteria globaux**:
+- [ ] Table `compte_resultat_override` créée en base de données
+- [ ] Modèles SQLAlchemy et Pydantic créés
+- [ ] Routes API fonctionnelles (GET, POST, DELETE)
+- [ ] Checkbox "Override Resultat" visible dans `CompteResultatConfigCard`
+- [ ] Ligne "Résultat exercice (Override)" s'affiche uniquement si checkbox cochée
+- [ ] Par défaut, affiche la valeur du "Résultat de l'exercice" calculé
+- [ ] Input field éditable avec formatage automatique (€, séparateurs)
+- [ ] Validation numérique
+- [ ] Sauvegarde automatique en base de données
+- [ ] Une valeur override par année (UNIQUE constraint)
+- [ ] Test visuel dans navigateur validé
+
+---
+
+#### Step 8.8 : Frontend - Ajout d'années
 **Status**: ⏳ À FAIRE  
 **Description**: Permettre d'ajouter des années au fur et à mesure.
 
