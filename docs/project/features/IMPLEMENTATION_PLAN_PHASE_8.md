@@ -1,6 +1,6 @@
 # Plan d'Implémentation - Phase 8 : Compte de résultat
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Dernière mise à jour**: 2025-01-27
 
 ## Vue d'ensemble
@@ -309,7 +309,7 @@
 ---
 
 ### Step 8.5 : Frontend - Card de configuration (CompteResultatConfigCard)
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer l'interface de configuration pour mapper les level_1 aux catégories comptables. Structure identique à `AmortizationConfigCard`.
 
 **⚠️ IMPORTANT : Le filtre Level 3 (Step 8.4.5) doit être configuré AVANT de pouvoir utiliser cette card**
@@ -628,27 +628,27 @@
 ---
 
 **Step 8.5 - Acceptance Criteria globaux**:
-- [ ] Tableau affiché dans l'onglet "Compte de résultat" (structure comme AmortizationConfigCard)
-- [ ] 3 colonnes : Type, Catégorie comptable, Level 1 (valeurs)
-- [ ] Dropdown Type fonctionne et filtre les catégories
-- [ ] Dropdown Catégorie fonctionne avec catégories prédéfinies
-- [ ] Tags bleus pour level_1 avec "+ Ajouter" et "x" pour supprimer
-- [ ] Catégories spéciales (amortissements et coût financement) gérées correctement
-- [ ] Bouton "+ Ajouter une catégorie" fonctionne (création directe, pas de modal)
-- [ ] Menu contextuel (clic droit) avec "Supprimer" fonctionne
-- [ ] Bouton "🔄 Réinitialiser les mappings" fonctionne
-- [ ] Catégorie spéciale "Charges d'amortissements" gérée correctement (Step 8.5.4)
-- [ ] Catégorie spéciale "Coût du financement" gérée correctement (Step 8.5.4)
-- [ ] Sauvegarde automatique fonctionne (comme AmortizationConfigCard)
-- [ ] Callback `onConfigUpdated` fonctionne (Step 8.5.8)
-- [ ] API client créé et fonctionnel
-- [ ] Test visuel dans navigateur validé
-- [ ] Utilisateur confirme que l'interface correspond à ses attentes
+- [x] Tableau affiché dans l'onglet "Compte de résultat" (structure comme AmortizationConfigCard)
+- [x] 3 colonnes : Type, Catégorie comptable, Level 1 (valeurs)
+- [x] Dropdown Type fonctionne et filtre les catégories
+- [x] Dropdown Catégorie fonctionne avec catégories prédéfinies
+- [x] Tags bleus pour level_1 avec "+ Ajouter" et "x" pour supprimer
+- [x] Catégories spéciales (amortissements et coût financement) gérées correctement
+- [x] Bouton "+ Ajouter une catégorie" fonctionne (création directe, pas de modal)
+- [x] Menu contextuel (clic droit) avec "Supprimer" fonctionne
+- [x] Bouton "🔄 Réinitialiser les mappings" fonctionne
+- [x] Catégorie spéciale "Charges d'amortissements" gérée correctement (Step 8.5.4)
+- [x] Catégorie spéciale "Coût du financement" gérée correctement (Step 8.5.4)
+- [x] Sauvegarde automatique fonctionne (comme AmortizationConfigCard)
+- [x] Callback `onConfigUpdated` fonctionne (Step 8.5.8)
+- [x] API client créé et fonctionnel
+- [x] Test visuel dans navigateur validé
+- [x] Utilisateur confirme que l'interface correspond à ses attentes
 
 ---
 
 ### Step 8.6 : Frontend - Card d'affichage (CompteResultatTable)
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer l'interface d'affichage du compte de résultat avec tableau multi-années. Structure identique à `AmortizationTable`.
 
 **⚠️ IMPORTANT : Liaison avec CompteResultatConfigCard**
@@ -787,7 +787,7 @@
 - [x] Recalcul automatique quand les données d'amortissement changent (via refreshKey)
 - [x] Message "Aucune donnée d'amortissement" affiché si pas de données
 - [x] Test visuel dans navigateur validé
-- [ ] Utilisateur confirme que les montants sont corrects
+- [x] Utilisateur confirme que les montants sont corrects
 
 ---
 
@@ -892,7 +892,7 @@
 ---
 
 #### Step 8.7 : Backend + Frontend - Override du Résultat de l'exercice
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Permettre de surcharger manuellement le "Résultat de l'exercice" pour chaque année (cas où le comptable a des valeurs différentes pour les années déjà validées).
 
 ---
@@ -1011,59 +1011,44 @@
 ---
 
 **Step 8.7 - Acceptance Criteria globaux**:
-- [ ] Table `compte_resultat_override` créée en base de données
-- [ ] Modèles SQLAlchemy et Pydantic créés
-- [ ] Routes API fonctionnelles (GET, POST, DELETE)
-- [ ] Checkbox "Override Resultat" visible dans `CompteResultatConfigCard`
-- [ ] Ligne "Résultat exercice (Override)" s'affiche uniquement si checkbox cochée
-- [ ] Par défaut, affiche la valeur du "Résultat de l'exercice" calculé
-- [ ] Input field éditable avec formatage automatique (€, séparateurs)
-- [ ] Validation numérique
-- [ ] Sauvegarde automatique en base de données
-- [ ] Une valeur override par année (UNIQUE constraint)
-- [ ] Test visuel dans navigateur validé
+- [x] Table `compte_resultat_override` créée en base de données
+- [x] Modèles SQLAlchemy et Pydantic créés
+- [x] Routes API fonctionnelles (GET, POST, DELETE)
+- [x] Checkbox "Override Resultat" visible dans `CompteResultatConfigCard`
+- [x] Ligne "Résultat exercice (Override)" s'affiche uniquement si checkbox cochée
+- [x] Par défaut, affiche la valeur du "Résultat de l'exercice" calculé
+- [x] Input field éditable avec formatage automatique (€, séparateurs)
+- [x] Validation numérique
+- [x] Sauvegarde automatique en base de données
+- [x] Une valeur override par année (UNIQUE constraint)
+- [x] Test visuel dans navigateur validé
+- [x] Suppression des overrides quand checkbox désélectionnée
+- [x] Affichage "*resultat overridé" uniquement pour les années avec override
 
 ---
 
-#### Step 8.8 : Frontend - Ajout d'années
-**Status**: ⏳ À FAIRE  
-**Description**: Permettre d'ajouter des années au fur et à mesure.
 
-**Tasks**:
-- [ ] Ajouter bouton "+ Ajouter une année" dans le header
-- [ ] Ouvrir un input ou dropdown pour sélectionner une année
-- [ ] Calculer et afficher les montants pour la nouvelle année
-- [ ] Ajouter la colonne correspondante dans le tableau
-- [ ] Sauvegarder la liste des années ajoutées (localStorage ou state)
-- [ ] Tester dans le navigateur
-
-**Acceptance Criteria**:
-- [ ] Bouton "+ Ajouter une année" visible
-- [ ] Sélection d'année fonctionne
-- [ ] Nouvelle colonne ajoutée au tableau
-- [ ] Montants calculés pour la nouvelle année
-- [ ] Liste des années sauvegardée
-- [ ] Test visuel dans navigateur validé
 
 ---
 
 **Step 8.6 - Acceptance Criteria globaux**:
-- [ ] Tableau affiché dans l'onglet "Compte de résultat" (sous la card de config)
-- [ ] **⚠️ LIAISON AVEC CompteResultatConfigCard** : Le tableau est **toujours lié** aux données de la card config
-- [ ] **Seules les catégories avec mappings configurés dans la card config sont affichées**
-- [ ] Structure : 1 colonne catégories + 1 colonne par année
-- [ ] Années calculées automatiquement (jusqu'à l'année en cours)
-- [ ] Calculs spécifiques pour "Charges d'amortissements" (Step 8.6.3) : récupération depuis la table `amortization_result`
-- [ ] Calculs spécifiques pour "Coût du financement" (Step 8.6.4) : récupération depuis tous les crédits configurés
-- [ ] Montants calculés et affichés correctement pour toutes les catégories configurées
-- [ ] Totaux calculés et affichés (fond gris, texte en gras)
-- [ ] Résultat net en magenta
-- [ ] Formatage des montants correct (€, séparateurs, 2 décimales)
-- [ ] Ajout d'années fonctionne
-- [ ] **Rechargement automatique quand les mappings changent dans la card config**
-- [ ] **Toute modification dans la card config (ajout/suppression mapping, changement crédits) met à jour le tableau automatiquement**
-- [ ] Test visuel dans navigateur validé
-- [ ] Utilisateur confirme que l'interface correspond à l'image
+- [x] Tableau affiché dans l'onglet "Compte de résultat" (sous la card de config)
+- [x] **⚠️ LIAISON AVEC CompteResultatConfigCard** : Le tableau est **toujours lié** aux données de la card config
+- [x] **Seules les catégories avec mappings configurés dans la card config sont affichées**
+- [x] Structure : 1 colonne catégories + 1 colonne par année
+- [x] Années calculées automatiquement (jusqu'à l'année en cours)
+- [x] Calculs spécifiques pour "Charges d'amortissements" (Step 8.6.3) : récupération depuis la table `amortization_result`
+- [x] Calculs spécifiques pour "Coût du financement" (Step 8.6.4) : récupération depuis tous les crédits configurés
+- [x] Montants calculés et affichés correctement pour toutes les catégories configurées
+- [x] Totaux calculés et affichés (fond gris, texte en gras)
+- [x] Résultat net en magenta
+- [x] Formatage des montants correct (€, séparateurs, 2 décimales)
+- [x] Ajout d'années fonctionne
+- [x] **Rechargement automatique quand les mappings changent dans la card config**
+- [x] **Toute modification dans la card config (ajout/suppression mapping, changement crédits) met à jour le tableau automatiquement**
+- [x] Test visuel dans navigateur validé
+- [x] Utilisateur confirme que l'interface correspond à l'image
+- [x] Ligne "Résultat cumulé" ajoutée (somme année par année avec gestion des overrides)
 
 ---
 
