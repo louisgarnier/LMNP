@@ -195,6 +195,17 @@ export default function CompteResultatConfigCard({
       if (savedCollapsed !== null) {
         setIsCollapsed(savedCollapsed === 'true');
       }
+      
+      // Restaurer l'état override enabled depuis localStorage
+      const savedOverrideEnabled = localStorage.getItem(STORAGE_KEY_OVERRIDE_ENABLED);
+      if (savedOverrideEnabled !== null) {
+        const overrideEnabled = savedOverrideEnabled === 'true';
+        setIsOverrideEnabled(overrideEnabled);
+        // Notifier le parent si nécessaire
+        if (onOverrideEnabledChange) {
+          onOverrideEnabledChange(overrideEnabled);
+        }
+      }
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_3:', err);
       setLevel3ValuesLoaded(true);
