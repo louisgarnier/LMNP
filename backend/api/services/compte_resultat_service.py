@@ -117,13 +117,37 @@ def calculate_produits_exploitation(
     # IMPORTANT : Regrouper tous les mappings d'une même catégorie avec OR pour éviter les doublons
     results = {}
     
+    # Catégories prédéfinies de produits
+    PRODUITS_CATEGORIES = [
+        'Loyers hors charge encaissés',
+        'Charges locatives payées par locataires',
+        'Autres revenus',
+    ]
+    
+    # Déterminer le type si None
+    def get_type_for_category(category_name, mapping_type):
+        if mapping_type:
+            return mapping_type
+        # Déterminer automatiquement selon la catégorie
+        if category_name in PRODUITS_CATEGORIES:
+            return "Produits d'exploitation"
+        return "Charges d'exploitation"
+    
     # Grouper les mappings par catégorie
+    # IMPORTANT : Filtrer uniquement les mappings de type "Produits d'exploitation"
     mappings_by_category = {}
     for mapping in mappings:
         category_name = mapping.category_name
         
         # Ignorer les catégories spéciales (amortissements, coût financement)
         if category_name in ["Charges d'amortissements", "Coût du financement (hors remboursement du capital)"]:
+            continue
+        
+        # Déterminer le type (automatiquement si None)
+        mapping_type = get_type_for_category(category_name, mapping.type)
+        
+        # Filtrer uniquement les produits d'exploitation
+        if mapping_type != "Produits d'exploitation":
             continue
         
         if category_name not in mappings_by_category:
@@ -214,13 +238,37 @@ def calculate_charges_exploitation(
     # IMPORTANT : Regrouper tous les mappings d'une même catégorie avec OR pour éviter les doublons
     results = {}
     
+    # Catégories prédéfinies de produits
+    PRODUITS_CATEGORIES = [
+        'Loyers hors charge encaissés',
+        'Charges locatives payées par locataires',
+        'Autres revenus',
+    ]
+    
+    # Déterminer le type si None
+    def get_type_for_category(category_name, mapping_type):
+        if mapping_type:
+            return mapping_type
+        # Déterminer automatiquement selon la catégorie
+        if category_name in PRODUITS_CATEGORIES:
+            return "Produits d'exploitation"
+        return "Charges d'exploitation"
+    
     # Grouper les mappings par catégorie
+    # IMPORTANT : Filtrer uniquement les mappings de type "Charges d'exploitation"
     mappings_by_category = {}
     for mapping in mappings:
         category_name = mapping.category_name
         
         # Ignorer les catégories spéciales (amortissements, coût financement)
         if category_name in ["Charges d'amortissements", "Coût du financement (hors remboursement du capital)"]:
+            continue
+        
+        # Déterminer le type (automatiquement si None)
+        mapping_type = get_type_for_category(category_name, mapping.type)
+        
+        # Filtrer uniquement les charges d'exploitation
+        if mapping_type != "Charges d'exploitation":
             continue
         
         if category_name not in mappings_by_category:
@@ -345,7 +393,8 @@ def calculate_compte_resultat(
         - amortissements: float - Total des amortissements
         - cout_financement: float - Coût du financement
         - resultat_exploitation: float - Résultat d'exploitation (produits - charges)
-        - resultat_net: float - Résultat net (égal au résultat d'exploitation)
+        - total_charges_exploitation: float - Total des charges d'exploitation (sans charges d'intérêt)
+        - resultat_net: float - Résultat net (résultat d'exploitation - charges d'intérêt)
     """
     # Charger les mappings si non fournis
     if mappings is None:
@@ -371,11 +420,22 @@ def calculate_compte_resultat(
         charges["Coût du financement (hors remboursement du capital)"] = cout_financement
     
     # Calculer les totaux
+    # IMPORTANT : Le frontend exclut les charges d'intérêt du total des charges d'exploitation
     total_produits = sum(produits.values())
-    total_charges = sum(charges.values())
     
-    resultat_exploitation = total_produits - total_charges
-    resultat_net = resultat_exploitation
+    # Total des charges d'exploitation (exclut les charges d'intérêt)
+    charges_exploitation = {k: v for k, v in charges.items() 
+                            if k != "Coût du financement (hors remboursement du capital)"}
+    total_charges_exploitation = sum(abs(v) for v in charges_exploitation.values() if v)
+    
+    # Résultat d'exploitation = Produits - Charges d'exploitation (sans charges d'intérêt)
+    resultat_exploitation = total_produits - total_charges_exploitation
+    
+    # Résultat de l'exercice = Résultat d'exploitation - Charges d'intérêt
+    resultat_net = resultat_exploitation - cout_financement
+    
+    # total_charges pour compatibilité (inclut tout, mais ne pas utiliser pour resultat_exploitation)
+    total_charges = sum(charges.values())
     
     return {
         "produits": produits,
@@ -383,7 +443,8 @@ def calculate_compte_resultat(
         "amortissements": amortissements,
         "cout_financement": cout_financement,
         "total_produits": total_produits,
-        "total_charges": total_charges,
+        "total_charges": total_charges,  # Pour compatibilité (inclut tout)
+        "total_charges_exploitation": total_charges_exploitation,  # Sans charges d'intérêt
         "resultat_exploitation": resultat_exploitation,
         "resultat_net": resultat_net
     }

@@ -7,10 +7,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { compteResultatAPI, CompteResultatMapping, CompteResultatCalculateResponse, transactionsAPI } from '@/api/client';
+import { compteResultatAPI, CompteResultatMapping, CompteResultatCalculateResponse, transactionsAPI, CompteResultatOverride } from '@/api/client';
 
 interface CompteResultatTableProps {
   refreshKey?: number; // Pour forcer le rechargement
+  isOverrideEnabled?: boolean; // Si true, afficher la ligne "Résultat exercice (Override)"
 }
 
 // Catégories comptables prédéfinies (ordre fixe, groupées par type)
@@ -101,12 +102,16 @@ const getYearsToDisplay = async (): Promise<number[]> => {
   }
 };
 
-export default function CompteResultatTable({ refreshKey }: CompteResultatTableProps) {
+export default function CompteResultatTable({ refreshKey, isOverrideEnabled = false }: CompteResultatTableProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [years, setYears] = useState<number[]>([]);
   const [mappings, setMappings] = useState<CompteResultatMapping[]>([]);
   const [data, setData] = useState<CompteResultatCalculateResponse | null>(null);
+  const [overrides, setOverrides] = useState<CompteResultatOverride[]>([]);
+  const [editingOverrideYear, setEditingOverrideYear] = useState<number | null>(null);
+  const [editingOverrideValue, setEditingOverrideValue] = useState<string>('');
+  const [savingOverride, setSavingOverride] = useState<number | null>(null);
 
   // Calculer les années à afficher depuis les transactions
   useEffect(() => {
@@ -123,7 +128,7 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
       loadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, years.length]);
+  }, [refreshKey, years.length, isOverrideEnabled]);
 
   const loadData = async () => {
     if (years.length === 0) return;
@@ -139,6 +144,21 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
       // Charger les données calculées
       const calculateResponse = await compteResultatAPI.calculate(years);
       setData(calculateResponse);
+      
+      // Charger les overrides si la fonctionnalité est activée
+      if (isOverrideEnabled) {
+        try {
+          const overridesResponse = await compteResultatAPI.getOverrides();
+          setOverrides(overridesResponse);
+        } catch (err: any) {
+          console.error('Erreur lors du chargement des overrides:', err);
+          // Ne pas bloquer l'affichage si les overrides ne peuvent pas être chargés
+          setOverrides([]);
+        }
+      } else {
+        // Si la fonctionnalité est désactivée, vider les overrides
+        setOverrides([]);
+      }
     } catch (err: any) {
       console.error('Erreur lors du chargement des données:', err);
       setError(err.message || 'Erreur lors du chargement des données');
@@ -347,6 +367,135 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
     if (resultatExploitation === null && chargesInteret === null) return null;
     const resultat = (resultatExploitation ?? 0) - (chargesInteret ?? 0);
     return resultat !== 0 ? resultat : null;
+  };
+
+  // Calculer le résultat cumulé (somme année après année)
+  const getResultatCumule = (year: number): number | null => {
+    let cumul = 0;
+    let hasAnyValue = false;
+    
+    // Parcourir toutes les années jusqu'à l'année courante
+    for (const y of years) {
+      if (y > year) break; // Arrêter à l'année courante
+      
+      // Utiliser override si disponible, sinon valeur calculée
+      let valeurAnnee = 0;
+      if (isOverrideEnabled) {
+        const override = getOverrideValue(y);
+        if (override !== null) {
+          valeurAnnee = override;
+          hasAnyValue = true;
+        } else {
+          const calc = getResultatNet(y);
+          if (calc !== null) {
+            valeurAnnee = calc;
+            hasAnyValue = true;
+          }
+        }
+      } else {
+        const calc = getResultatNet(y);
+        if (calc !== null) {
+          valeurAnnee = calc;
+          hasAnyValue = true;
+        }
+      }
+      
+      cumul += valeurAnnee;
+    }
+    
+    return hasAnyValue ? cumul : null;
+  };
+
+  // Obtenir la valeur override pour une année (ou null si pas d'override)
+  const getOverrideValue = (year: number): number | null => {
+    const override = overrides.find(o => o.year === year);
+    return override ? override.override_value : null;
+  };
+
+  // Obtenir la valeur à afficher pour l'override (override si existe, sinon valeur calculée)
+  const getOverrideDisplayValue = (year: number): number | null => {
+    const overrideValue = getOverrideValue(year);
+    if (overrideValue !== null) return overrideValue;
+    return getResultatNet(year);
+  };
+
+  // Formater un nombre pour l'input (sans le symbole €, avec séparateurs)
+  const formatNumberForInput = (value: number | null): string => {
+    if (value === null) return '';
+    // Utiliser toLocaleString pour les séparateurs de milliers
+    return value.toLocaleString('fr-FR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
+
+  // Parser un string en nombre (gérer les séparateurs de milliers)
+  const parseNumberFromInput = (value: string): number | null => {
+    if (!value || value.trim() === '') return null;
+    // Remplacer les espaces (séparateurs de milliers) et virgules (décimales) par des points
+    const cleaned = value.replace(/\s/g, '').replace(',', '.');
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? null : parsed;
+  };
+
+  // Sauvegarder l'override pour une année
+  const handleSaveOverride = async (year: number, value: number | null) => {
+    try {
+      setSavingOverride(year);
+      
+      if (value === null || value === 0) {
+        // Si la valeur est vide ou 0, supprimer l'override
+        const existingOverride = overrides.find(o => o.year === year);
+        if (existingOverride) {
+          await compteResultatAPI.deleteOverride(year);
+          // Mettre à jour l'état local
+          setOverrides(prev => prev.filter(o => o.year !== year));
+        }
+      } else {
+        // Créer ou mettre à jour l'override
+        const savedOverride = await compteResultatAPI.createOrUpdateOverride(year, value);
+        // Mettre à jour l'état local
+        setOverrides(prev => {
+          const existing = prev.find(o => o.year === year);
+          if (existing) {
+            return prev.map(o => o.year === year ? savedOverride : o);
+          } else {
+            return [...prev, savedOverride];
+          }
+        });
+      }
+    } catch (err: any) {
+      console.error(`Erreur lors de la sauvegarde de l'override pour ${year}:`, err);
+      alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
+    } finally {
+      setSavingOverride(null);
+      setEditingOverrideYear(null);
+      setEditingOverrideValue('');
+    }
+  };
+
+  // Gérer le changement de valeur dans l'input
+  const handleOverrideInputChange = (year: number, value: string) => {
+    setEditingOverrideValue(value);
+  };
+
+  // Gérer le blur de l'input (sauvegarde automatique)
+  const handleOverrideInputBlur = (year: number) => {
+    const parsedValue = parseNumberFromInput(editingOverrideValue);
+    handleSaveOverride(year, parsedValue);
+  };
+
+  // Gérer la touche Enter (sauvegarde automatique)
+  const handleOverrideInputKeyDown = (e: React.KeyboardEvent, year: number) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const parsedValue = parseNumberFromInput(editingOverrideValue);
+      handleSaveOverride(year, parsedValue);
+    } else if (e.key === 'Escape') {
+      // Annuler l'édition
+      setEditingOverrideYear(null);
+      setEditingOverrideValue('');
+    }
   };
 
   if (loading) {
@@ -627,7 +776,7 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                   );
                 })()}
                 
-                {/* B/ Impôts */}
+                {/* B/ Impôts et taxes (ligne fusionnée) */}
                 {(() => {
                   const sectionBCategories = chargesCategories.filter(({ category }) => 
                     CHARGES_SECTION_B.includes(category)
@@ -635,81 +784,48 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                   if (sectionBCategories.length === 0) return null;
                   
                   return (
-                    <>
-                      <tr>
-                        <td
-                          style={{
-                            padding: '12px 12px 12px 32px',
-                            backgroundColor: '#f9fafb',
-                            border: '1px solid #e5e7eb',
-                            fontWeight: '600',
-                            color: '#111827',
-                            borderLeft: '3px solid #3b82f6',
-                          }}
-                        >
-                          Impôts
-                        </td>
-                        {years.map((year) => {
-                          let total = 0;
-                          sectionBCategories.forEach(({ category }) => {
-                            const amount = getAmount(category, year, 'Charges d\'exploitation');
-                            if (amount !== null) {
-                              total += Math.abs(amount);
-                            }
-                          });
-                          return (
-                            <td
-                              key={year}
-                              style={{
-                                padding: '12px',
-                                textAlign: 'right',
-                                backgroundColor: '#f9fafb',
-                                border: '1px solid #e5e7eb',
-                                fontWeight: '600',
-                                color: '#111827',
-                              }}
-                            >
-                              {formatAmount(total !== 0 ? total : null)}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                      {sectionBCategories.map(({ category }) => (
-                        <tr key={category}>
+                    <tr>
+                      <td
+                        style={{
+                          padding: '12px 12px 12px 32px',
+                          backgroundColor: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          fontWeight: '600',
+                          color: '#111827',
+                          borderLeft: '3px solid #3b82f6',
+                        }}
+                      >
+                        Impôts et taxes
+                      </td>
+                      {years.map((year) => {
+                        let total = 0;
+                        sectionBCategories.forEach(({ category }) => {
+                          const amount = getAmount(category, year, 'Charges d\'exploitation');
+                          if (amount !== null) {
+                            total += Math.abs(amount);
+                          }
+                        });
+                        return (
                           <td
+                            key={year}
                             style={{
-                              padding: '12px 12px 12px 64px',
-                              backgroundColor: '#ffffff',
+                              padding: '12px',
+                              textAlign: 'right',
+                              backgroundColor: '#f9fafb',
                               border: '1px solid #e5e7eb',
+                              fontWeight: '600',
                               color: '#111827',
                             }}
                           >
-                            {category}
+                            {formatAmount(total !== 0 ? total : null)}
                           </td>
-                          {years.map((year) => {
-                            const amount = getAmount(category, year, 'Charges d\'exploitation');
-                            return (
-                              <td
-                                key={year}
-                                style={{
-                                  padding: '12px',
-                                  textAlign: 'right',
-                                  backgroundColor: '#ffffff',
-                                  border: '1px solid #e5e7eb',
-                                  color: '#111827',
-                                }}
-                              >
-                                {formatAmount(amount)}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </>
+                        );
+                      })}
+                    </tr>
                   );
                 })()}
                 
-                {/* C/ Amortissements */}
+                {/* C/ Charges d'amortissements (ligne fusionnée) */}
                 {(() => {
                   const sectionCCategories = chargesCategories.filter(({ category }) => 
                     CHARGES_SECTION_C.includes(category)
@@ -717,28 +833,33 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                   if (sectionCCategories.length === 0) return null;
                   
                   return (
-                    <>
-                      <tr>
-                        <td
-                          style={{
-                            padding: '12px 12px 12px 32px',
-                            backgroundColor: '#f9fafb',
-                            border: '1px solid #e5e7eb',
-                            fontWeight: '600',
-                            color: '#111827',
-                            borderLeft: '3px solid #3b82f6',
-                          }}
-                        >
-                          Amortissements
-                        </td>
-                        {years.map((year) => {
-                          let total = 0;
-                          sectionCCategories.forEach(({ category }) => {
-                            const amount = getAmount(category, year, 'Charges d\'exploitation');
-                            if (amount !== null) {
-                              total += Math.abs(amount);
-                            }
-                          });
+                    <tr>
+                      <td
+                        style={{
+                          padding: '12px 12px 12px 32px',
+                          backgroundColor: '#f9fafb',
+                          border: '1px solid #e5e7eb',
+                          fontWeight: '600',
+                          color: '#111827',
+                          borderLeft: '3px solid #3b82f6',
+                        }}
+                      >
+                        Charges d'amortissements
+                      </td>
+                      {years.map((year) => {
+                        let total = 0;
+                        let hasNull = false;
+                        sectionCCategories.forEach(({ category }) => {
+                          const amount = getAmount(category, year, 'Charges d\'exploitation');
+                          if (amount === null) {
+                            hasNull = true;
+                          } else {
+                            total += Math.abs(amount);
+                          }
+                        });
+                        
+                        // Si aucune donnée d'amortissement, afficher le message
+                        if (hasNull && total === 0) {
                           return (
                             <td
                               key={year}
@@ -748,53 +869,33 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                                 backgroundColor: '#f9fafb',
                                 border: '1px solid #e5e7eb',
                                 fontWeight: '600',
-                                color: '#111827',
+                                color: '#9ca3af',
+                                fontSize: '11px',
+                                fontStyle: 'italic',
                               }}
                             >
-                              {formatAmount(total !== 0 ? total : null)}
+                              Aucune donnée d'amortissement
                             </td>
                           );
-                        })}
-                      </tr>
-                      {sectionCCategories.map(({ category }) => (
-                        <tr key={category}>
+                        }
+                        
+                        return (
                           <td
+                            key={year}
                             style={{
-                              padding: '12px 12px 12px 64px',
-                              backgroundColor: '#ffffff',
+                              padding: '12px',
+                              textAlign: 'right',
+                              backgroundColor: '#f9fafb',
                               border: '1px solid #e5e7eb',
+                              fontWeight: '600',
                               color: '#111827',
                             }}
                           >
-                            {category}
+                            {formatAmount(total !== 0 ? total : null)}
                           </td>
-                          {years.map((year) => {
-                            const amount = getAmount(category, year, 'Charges d\'exploitation');
-                            const isSpecialCategory = category === "Charges d'amortissements";
-                            const displayText = isSpecialCategory && amount === null 
-                              ? "Aucune donnée d'amortissement"
-                              : formatAmount(amount);
-                            
-                            return (
-                              <td
-                                key={year}
-                                style={{
-                                  padding: '12px',
-                                  textAlign: 'right',
-                                  backgroundColor: '#ffffff',
-                                  border: '1px solid #e5e7eb',
-                                  color: amount === null && isSpecialCategory ? '#9ca3af' : '#111827',
-                                  fontSize: amount === null && isSpecialCategory ? '11px' : '13px',
-                                  fontStyle: amount === null && isSpecialCategory ? 'italic' : 'normal',
-                                }}
-                              >
-                                {displayText}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </>
+                        );
+                      })}
+                    </tr>
                   );
                 })()}
               </>
@@ -829,7 +930,7 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
               ))}
             </tr>
             
-            {/* Charges d'intérêt (même style que les sous-sections) */}
+            {/* Charges d'intérêt (Coût du financement) (ligne fusionnée) */}
             {(() => {
               const chargesInteretCategories = chargesCategories.filter(({ category }) => 
                 CHARGES_INTERET.includes(category)
@@ -837,21 +938,48 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
               if (chargesInteretCategories.length === 0) return null;
               
               return (
-                <>
-                  <tr>
-                    <td
-                      style={{
-                        padding: '12px 12px 12px 32px',
-                        backgroundColor: '#f9fafb',
-                        border: '1px solid #e5e7eb',
-                        fontWeight: '600',
-                        color: '#111827',
-                        borderLeft: '3px solid #3b82f6',
-                      }}
-                    >
-                      Charges d'intérêt
-                    </td>
-                    {years.map((year) => (
+                <tr>
+                  <td
+                    style={{
+                      padding: '12px 12px 12px 32px',
+                      backgroundColor: '#f9fafb',
+                      border: '1px solid #e5e7eb',
+                      fontWeight: '600',
+                      color: '#111827',
+                      borderLeft: '3px solid #3b82f6',
+                    }}
+                  >
+                    Charges d'intérêt (Coût du financement)
+                  </td>
+                  {years.map((year) => {
+                    const total = getTotalChargesInteret(year);
+                    const hasNull = chargesInteretCategories.some(({ category }) => {
+                      const amount = getAmount(category, year, 'Charges d\'exploitation');
+                      return amount === null;
+                    });
+                    
+                    // Si aucun crédit configuré, afficher le message
+                    if (hasNull && total === null) {
+                      return (
+                        <td
+                          key={year}
+                          style={{
+                            padding: '12px',
+                            textAlign: 'right',
+                            backgroundColor: '#f9fafb',
+                            border: '1px solid #e5e7eb',
+                            fontWeight: '600',
+                            color: '#9ca3af',
+                            fontSize: '11px',
+                            fontStyle: 'italic',
+                          }}
+                        >
+                          Aucun crédit configuré
+                        </td>
+                      );
+                    }
+                    
+                    return (
                       <td
                         key={year}
                         style={{
@@ -863,53 +991,15 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                           color: '#111827',
                         }}
                       >
-                        {formatAmount(getTotalChargesInteret(year))}
+                        {formatAmount(total)}
                       </td>
-                    ))}
-                  </tr>
-                  {chargesInteretCategories.map(({ category }) => (
-                    <tr key={category}>
-                      <td
-                        style={{
-                          padding: '12px 12px 12px 64px',
-                          backgroundColor: '#ffffff',
-                          border: '1px solid #e5e7eb',
-                          color: '#111827',
-                        }}
-                      >
-                        {category}
-                      </td>
-                      {years.map((year) => {
-                        const amount = getAmount(category, year, 'Charges d\'exploitation');
-                        const isSpecialCategory = category === "Coût du financement (hors remboursement du capital)";
-                        const displayText = isSpecialCategory && amount === null 
-                          ? "Aucun crédit configuré"
-                          : formatAmount(amount);
-                        
-                        return (
-                          <td
-                            key={year}
-                            style={{
-                              padding: '12px',
-                              textAlign: 'right',
-                              backgroundColor: '#ffffff',
-                              border: '1px solid #e5e7eb',
-                              color: amount === null && isSpecialCategory ? '#9ca3af' : '#111827',
-                              fontSize: amount === null && isSpecialCategory ? '11px' : '13px',
-                              fontStyle: amount === null && isSpecialCategory ? 'italic' : 'normal',
-                            }}
-                          >
-                            {displayText}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </>
+                    );
+                  })}
+                </tr>
               );
             })()}
             
-            {/* Résultat net de l'exercice (ligne de total, fond gris, texte magenta) */}
+            {/* Résultat de l'exercice / Résultat exercice (Override) */}
             <tr>
               <td
                 style={{
@@ -920,23 +1010,132 @@ export default function CompteResultatTable({ refreshKey }: CompteResultatTableP
                   color: '#d946ef', // Magenta
                 }}
               >
-                Résultat de l'exercice
+                {isOverrideEnabled ? 'Résultat exercice (Override)' : 'Résultat de l\'exercice'}
               </td>
-              {years.map((year) => (
-                <td
-                  key={year}
-                  style={{
-                    padding: '12px',
-                    textAlign: 'right',
-                    backgroundColor: '#e5e7eb',
-                    border: '1px solid #d1d5db',
-                    fontWeight: '700',
-                    color: '#d946ef', // Magenta
-                  }}
-                >
-                  {formatAmount(getResultatNet(year))}
-                </td>
-              ))}
+              {years.map((year) => {
+                const isEditing = isOverrideEnabled && editingOverrideYear === year;
+                const overrideValue = isOverrideEnabled ? getOverrideValue(year) : null;
+                const displayValue = isOverrideEnabled ? getOverrideDisplayValue(year) : getResultatNet(year);
+                const isSaving = isOverrideEnabled && savingOverride === year;
+                const hasOverride = overrideValue !== null;
+                
+                return (
+                  <td
+                    key={year}
+                    style={{
+                      padding: '12px',
+                      textAlign: 'right',
+                      backgroundColor: '#e5e7eb',
+                      border: '1px solid #d1d5db',
+                      fontWeight: '700',
+                      color: '#d946ef', // Magenta
+                    }}
+                  >
+                    {isOverrideEnabled && isEditing ? (
+                      <input
+                        type="text"
+                        value={editingOverrideValue}
+                        onChange={(e) => handleOverrideInputChange(year, e.target.value)}
+                        onBlur={() => handleOverrideInputBlur(year)}
+                        onKeyDown={(e) => handleOverrideInputKeyDown(e, year)}
+                        disabled={isSaving}
+                        style={{
+                          width: '100%',
+                          textAlign: 'right',
+                          padding: '4px 8px',
+                          border: '1px solid #3b82f6',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          fontFamily: 'inherit',
+                          backgroundColor: isSaving ? '#f3f4f6' : '#ffffff',
+                          cursor: isSaving ? 'not-allowed' : 'text',
+                          color: '#d946ef',
+                          fontWeight: '700',
+                        }}
+                        autoFocus
+                      />
+                    ) : isOverrideEnabled ? (
+                      <div
+                        onClick={() => {
+                          setEditingOverrideYear(year);
+                          setEditingOverrideValue(formatNumberForInput(displayValue));
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          transition: 'all 0.2s',
+                          color: '#d946ef',
+                          fontWeight: '700',
+                          fontStyle: hasOverride ? 'italic' : 'normal',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = 'rgba(217, 70, 239, 0.1)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                        title="Cliquer pour éditer"
+                      >
+                        <div>
+                          {isSaving ? (
+                            <span style={{ color: '#6b7280', fontSize: '12px' }}>⏳ Sauvegarde...</span>
+                          ) : (
+                            formatAmount(displayValue)
+                          )}
+                        </div>
+                        {isOverrideEnabled && !isSaving && overrideValue !== null && (
+                          <div
+                            style={{
+                              fontSize: '10px',
+                              color: '#9ca3af',
+                              fontStyle: 'normal',
+                              marginTop: '2px',
+                            }}
+                          >
+                            *resultat overridé
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      formatAmount(displayValue)
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+            
+            {/* Résultat cumulé */}
+            <tr>
+              <td
+                style={{
+                  padding: '12px',
+                  backgroundColor: '#e5e7eb',
+                  border: '1px solid #d1d5db',
+                  fontWeight: '700',
+                  color: '#111827',
+                }}
+              >
+                Résultat cumulé
+              </td>
+              {years.map((year) => {
+                const cumule = getResultatCumule(year);
+                return (
+                  <td
+                    key={year}
+                    style={{
+                      padding: '12px',
+                      textAlign: 'right',
+                      backgroundColor: '#e5e7eb',
+                      border: '1px solid #d1d5db',
+                      fontWeight: '700',
+                      color: '#111827',
+                    }}
+                  >
+                    {formatAmount(cumule)}
+                  </td>
+                );
+              })}
             </tr>
           </tbody>
         </table>

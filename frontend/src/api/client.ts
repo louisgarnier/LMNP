@@ -1595,6 +1595,23 @@ export interface CompteResultatCalculateResponse {
   };
 }
 
+export interface CompteResultatOverride {
+  id: number;
+  year: number;
+  override_value: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompteResultatOverrideCreate {
+  year: number;
+  override_value: number;
+}
+
+export interface CompteResultatOverrideUpdate {
+  override_value?: number;
+}
+
 export const compteResultatAPI = {
   /**
    * Récupère tous les mappings
@@ -1655,5 +1672,48 @@ export const compteResultatAPI = {
   calculate: async (years: number[]): Promise<CompteResultatCalculateResponse> => {
     const yearsParam = years.join(',');
     return fetchAPI<CompteResultatCalculateResponse>(`/api/compte-resultat/calculate?years=${yearsParam}`);
+  },
+
+  /**
+   * Récupère tous les overrides
+   */
+  getOverrides: async (): Promise<CompteResultatOverride[]> => {
+    return fetchAPI<CompteResultatOverride[]>('/api/compte-resultat/override');
+  },
+
+  /**
+   * Récupère l'override pour une année spécifique
+   */
+  getOverride: async (year: number): Promise<CompteResultatOverride | null> => {
+    try {
+      return await fetchAPI<CompteResultatOverride>(`/api/compte-resultat/override/${year}`);
+    } catch (error: any) {
+      if (error.status === 404) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  /**
+   * Crée ou met à jour un override pour une année
+   */
+  createOrUpdateOverride: async (year: number, overrideValue: number): Promise<CompteResultatOverride> => {
+    return fetchAPI<CompteResultatOverride>('/api/compte-resultat/override', {
+      method: 'POST',
+      body: JSON.stringify({
+        year,
+        override_value: overrideValue,
+      }),
+    });
+  },
+
+  /**
+   * Supprime l'override pour une année
+   */
+  deleteOverride: async (year: number): Promise<void> => {
+    return fetchAPI<void>(`/api/compte-resultat/override/${year}`, {
+      method: 'DELETE',
+    });
   },
 };

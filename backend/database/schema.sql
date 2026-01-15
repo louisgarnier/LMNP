@@ -208,3 +208,14 @@ CREATE TABLE IF NOT EXISTS loan_configs (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_loan_config_name ON loan_configs(name);
+
+-- Compte de résultat override table - Override manuel du résultat de l'exercice par année
+CREATE TABLE IF NOT EXISTS compte_resultat_override (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    year INTEGER NOT NULL UNIQUE,
+    override_value REAL NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_compte_resultat_override_year ON compte_resultat_override(year);

@@ -349,3 +349,19 @@ class CompteResultatConfig(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+
+class CompteResultatOverride(Base):
+    """Override manuel du résultat de l'exercice par année."""
+    __tablename__ = "compte_resultat_override"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, nullable=False, unique=True, index=True)  # Année du compte de résultat
+    override_value = Column(Float, nullable=False)  # Valeur override du résultat de l'exercice
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_compte_resultat_override_year', 'year'),
+    )
+

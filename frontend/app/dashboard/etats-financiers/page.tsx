@@ -416,6 +416,9 @@ export default function EtatsFinanciersPage() {
   
   // État pour forcer le rechargement du tableau CompteResultatTable
   const [compteResultatRefreshKey, setCompteResultatRefreshKey] = useState(0);
+  
+  // État pour la checkbox "Override Resultat" (persisté dans localStorage)
+  const [isOverrideEnabled, setIsOverrideEnabled] = useState<boolean>(false);
 
   // Déterminer l'onglet actif (par défaut: compte-resultat)
   const activeTab = tabParam || 'compte-resultat';
@@ -613,8 +616,13 @@ export default function EtatsFinanciersPage() {
               onLevel3ValuesLoaded={(count) => {
                 console.log('Level 3 values loaded:', count);
               }}
+              onOverrideEnabledChange={(enabled) => {
+                setIsOverrideEnabled(enabled);
+                // Forcer le rechargement du tableau quand l'override est activé/désactivé
+                setCompteResultatRefreshKey(prev => prev + 1);
+              }}
             />
-            <CompteResultatTable refreshKey={compteResultatRefreshKey} />
+            <CompteResultatTable refreshKey={compteResultatRefreshKey} isOverrideEnabled={isOverrideEnabled} />
           </div>
         )}
 

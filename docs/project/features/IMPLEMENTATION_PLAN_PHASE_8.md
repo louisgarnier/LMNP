@@ -898,115 +898,115 @@
 ---
 
 ##### Step 8.7.1 : Backend - Table et modèles pour les overrides
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer la table et les modèles (SQLAlchemy + Pydantic) pour stocker les valeurs override du résultat de l'exercice.
 
 **Tasks**:
-- [ ] Créer la table `compte_resultat_override` dans `backend/database/schema.sql`
+- [x] Créer la table `compte_resultat_override` dans `backend/database/schema.sql`
   - Colonnes : `id` (INTEGER PRIMARY KEY), `year` (INTEGER NOT NULL UNIQUE), `override_value` (REAL NOT NULL), `created_at` (TIMESTAMP), `updated_at` (TIMESTAMP)
-- [ ] Créer le modèle SQLAlchemy `CompteResultatOverride` dans `backend/database/models.py`
-- [ ] Créer les modèles Pydantic dans `backend/api/models.py` :
+- [x] Créer le modèle SQLAlchemy `CompteResultatOverride` dans `backend/database/models.py`
+- [x] Créer les modèles Pydantic dans `backend/api/models.py` :
   - `CompteResultatOverrideBase`, `CompteResultatOverrideCreate`, `CompteResultatOverrideUpdate`, `CompteResultatOverrideResponse`
-- [ ] Créer une migration SQL dans `backend/database/migrations/add_compte_resultat_override_table.py`
-- [ ] Exécuter la migration pour créer la table en base de données
-- [ ] Vérifier que la table est créée correctement (script de vérification ou manuel)
+- [x] Créer une migration SQL dans `backend/database/migrations/add_compte_resultat_override_table.py`
+- [x] Exécuter la migration pour créer la table en base de données
+- [x] Vérifier que la table est créée correctement (script de vérification ou manuel)
 
 **Acceptance Criteria**:
-- [ ] Table `compte_resultat_override` créée en base de données
-- [ ] Modèle SQLAlchemy `CompteResultatOverride` créé et fonctionnel
-- [ ] Modèles Pydantic créés (Base, Create, Update, Response)
-- [ ] Contrainte UNIQUE sur `year` fonctionnelle
-- [ ] Migration exécutée sans erreur
-- [ ] Test manuel : insertion/sélection d'un override en base de données
+- [x] Table `compte_resultat_override` créée en base de données
+- [x] Modèle SQLAlchemy `CompteResultatOverride` créé et fonctionnel
+- [x] Modèles Pydantic créés (Base, Create, Update, Response)
+- [x] Contrainte UNIQUE sur `year` fonctionnelle
+- [x] Migration exécutée sans erreur
+- [x] Test manuel : insertion/sélection d'un override en base de données
 
 ---
 
 ##### Step 8.7.2 : Backend - Routes API pour les overrides
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Créer les routes API pour gérer les overrides (GET, POST, DELETE).
 
 **Tasks**:
-- [ ] Créer les routes API dans `backend/api/routes/compte_resultat.py` :
+- [x] Créer les routes API dans `backend/api/routes/compte_resultat.py` :
   - `GET /api/compte-resultat/override` : Récupérer tous les overrides
   - `GET /api/compte-resultat/override/{year}` : Récupérer l'override pour une année spécifique
   - `POST /api/compte-resultat/override` : Créer ou mettre à jour un override (body: `{ year: int, override_value: float }`)
   - `DELETE /api/compte-resultat/override/{year}` : Supprimer un override pour une année
-- [ ] Implémenter la logique de création/mise à jour (upsert) : si l'override existe pour l'année, le mettre à jour, sinon le créer
-- [ ] Ajouter la gestion d'erreurs (année invalide, valeur invalide, etc.)
-- [ ] Tester les routes API manuellement (curl, Postman, ou script Python)
+- [x] Implémenter la logique de création/mise à jour (upsert) : si l'override existe pour l'année, le mettre à jour, sinon le créer
+- [x] Ajouter la gestion d'erreurs (année invalide, valeur invalide, etc.)
+- [x] Tester les routes API manuellement (curl, Postman, ou script Python)
 
 **Acceptance Criteria**:
-- [ ] Route `GET /api/compte-resultat/override` retourne tous les overrides
-- [ ] Route `GET /api/compte-resultat/override/{year}` retourne l'override pour l'année ou 404 si inexistant
-- [ ] Route `POST /api/compte-resultat/override` crée un nouvel override ou met à jour l'existant
-- [ ] Route `DELETE /api/compte-resultat/override/{year}` supprime l'override pour l'année
-- [ ] Gestion d'erreurs correcte (validation, 404, etc.)
-- [ ] Test manuel : toutes les routes fonctionnent correctement
+- [x] Route `GET /api/compte-resultat/override` retourne tous les overrides
+- [x] Route `GET /api/compte-resultat/override/{year}` retourne l'override pour l'année ou 404 si inexistant
+- [x] Route `POST /api/compte-resultat/override` crée un nouvel override ou met à jour l'existant
+- [x] Route `DELETE /api/compte-resultat/override/{year}` supprime l'override pour l'année
+- [x] Gestion d'erreurs correcte (validation, 404, etc.)
+- [x] Test manuel : toutes les routes fonctionnent correctement
 
 ---
 
 ##### Step 8.7.3 : Frontend - Interfaces API et checkbox dans ConfigCard
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter les interfaces TypeScript, les fonctions API, et la checkbox "Override Resultat" dans la card de configuration.
 
 **Tasks**:
-- [ ] Ajouter les interfaces TypeScript dans `frontend/src/api/client.ts` :
+- [x] Ajouter les interfaces TypeScript dans `frontend/src/api/client.ts` :
   - `CompteResultatOverride`, `CompteResultatOverrideCreate`, `CompteResultatOverrideUpdate`
-- [ ] Ajouter les fonctions API dans `compteResultatAPI` :
+- [x] Ajouter les fonctions API dans `compteResultatAPI` :
   - `getOverrides(): Promise<CompteResultatOverride[]>`
   - `getOverride(year: number): Promise<CompteResultatOverride | null>`
   - `createOrUpdateOverride(year: number, overrideValue: number): Promise<CompteResultatOverride>`
   - `deleteOverride(year: number): Promise<void>`
-- [ ] Dans `CompteResultatConfigCard`, ajouter une checkbox "Override Resultat" dans le header (comme "J'ai un crédit")
-- [ ] Ajouter un état `isOverrideEnabled` pour gérer l'état de la checkbox
-- [ ] Sauvegarder l'état de la checkbox dans localStorage (clé : `compte_resultat_override_enabled`)
-- [ ] Charger l'état depuis localStorage au montage du composant
-- [ ] Passer l'état `isOverrideEnabled` au composant `CompteResultatTable` via une prop
-- [ ] Tester dans le navigateur : checkbox visible, état sauvegardé/restauré
+- [x] Dans `CompteResultatConfigCard`, ajouter une checkbox "Override Resultat" dans le header (comme "J'ai un crédit")
+- [x] Ajouter un état `isOverrideEnabled` pour gérer l'état de la checkbox
+- [x] Sauvegarder l'état de la checkbox dans localStorage (clé : `compte_resultat_override_enabled`)
+- [x] Charger l'état depuis localStorage au montage du composant
+- [x] Passer l'état `isOverrideEnabled` au composant `CompteResultatTable` via une prop
+- [x] Tester dans le navigateur : checkbox visible, état sauvegardé/restauré
 
 **Acceptance Criteria**:
-- [ ] Interfaces TypeScript créées et typées correctement
-- [ ] Fonctions API créées et fonctionnelles
-- [ ] Checkbox "Override Resultat" visible dans le header de `CompteResultatConfigCard`
-- [ ] État de la checkbox sauvegardé dans localStorage
-- [ ] État restauré au rechargement de la page
-- [ ] Prop `isOverrideEnabled` passée à `CompteResultatTable`
-- [ ] Test visuel dans navigateur validé
+- [x] Interfaces TypeScript créées et typées correctement
+- [x] Fonctions API créées et fonctionnelles
+- [x] Checkbox "Override Resultat" visible dans le header de `CompteResultatConfigCard`
+- [x] État de la checkbox sauvegardé dans localStorage
+- [x] État restauré au rechargement de la page
+- [x] Prop `isOverrideEnabled` passée à `CompteResultatTable`
+- [x] Test visuel dans navigateur validé
 
 ---
 
 ##### Step 8.7.4 : Frontend - Ligne override dans le tableau
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ TERMINÉ  
 **Description**: Ajouter la ligne "Résultat exercice (Override)" dans le tableau avec input field éditable.
 
 **Tasks**:
-- [ ] Dans `CompteResultatTable`, ajouter une ligne "Résultat exercice (Override)" sous "Résultat de l'exercice"
+- [x] Dans `CompteResultatTable`, ajouter une ligne "Résultat exercice (Override)" sous "Résultat de l'exercice"
   - Cette ligne s'affiche uniquement si la prop `isOverrideEnabled` est `true`
-- [ ] Ajouter un état local pour stocker les overrides chargés depuis l'API
-- [ ] Charger les overrides depuis l'API au montage du composant (`useEffect`)
-- [ ] Pour chaque année, afficher un input field dans la colonne correspondante
+- [x] Ajouter un état local pour stocker les overrides chargés depuis l'API
+- [x] Charger les overrides depuis l'API au montage du composant (`useEffect`)
+- [x] Pour chaque année, afficher un input field dans la colonne correspondante
   - Par défaut, affiche la valeur du "Résultat de l'exercice" calculé (si pas d'override en base)
   - Si un override existe en base, afficher cette valeur
   - Input field éditable avec formatage automatique (€, séparateurs de milliers)
   - Validation numérique (accepter uniquement les nombres)
-- [ ] Implémenter la sauvegarde automatique :
+- [x] Implémenter la sauvegarde automatique :
   - Lors du `onBlur` de l'input
   - Lors de la touche `Enter`
   - Appeler `compteResultatAPI.createOrUpdateOverride(year, value)`
-- [ ] Gérer le cas où l'input est vide : reprendre la valeur calculée (supprimer l'override en base si existant)
-- [ ] Ajouter un indicateur visuel pendant la sauvegarde (loading, etc.)
-- [ ] Tester dans le navigateur : affichage, édition, sauvegarde
+- [x] Gérer le cas où l'input est vide : reprendre la valeur calculée (supprimer l'override en base si existant)
+- [x] Ajouter un indicateur visuel pendant la sauvegarde (loading, etc.)
+- [x] Tester dans le navigateur : affichage, édition, sauvegarde
 
 **Acceptance Criteria**:
-- [ ] Ligne "Résultat exercice (Override)" s'affiche uniquement si `isOverrideEnabled` est `true`
-- [ ] Par défaut, affiche la valeur du "Résultat de l'exercice" calculé
-- [ ] Si override existe en base, affiche cette valeur
-- [ ] Input field éditable avec formatage automatique (€, séparateurs)
-- [ ] Validation numérique fonctionnelle
-- [ ] Sauvegarde automatique lors du blur ou Enter
-- [ ] Si input vide, reprend la valeur calculée (supprime l'override)
-- [ ] Overrides chargés depuis l'API au montage
-- [ ] Test visuel dans navigateur validé
+- [x] Ligne "Résultat exercice (Override)" s'affiche uniquement si `isOverrideEnabled` est `true`
+- [x] Par défaut, affiche la valeur du "Résultat de l'exercice" calculé
+- [x] Si override existe en base, affiche cette valeur
+- [x] Input field éditable avec formatage automatique (€, séparateurs)
+- [x] Validation numérique fonctionnelle
+- [x] Sauvegarde automatique lors du blur ou Enter
+- [x] Si input vide, reprend la valeur calculée (supprime l'override)
+- [x] Overrides chargés depuis l'API au montage
+- [x] Test visuel dans navigateur validé
 
 ---
 

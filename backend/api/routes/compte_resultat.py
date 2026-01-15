@@ -14,7 +14,8 @@ from backend.database import get_db
 from backend.database.models import (
     CompteResultatMapping,
     CompteResultatData,
-    CompteResultatConfig
+    CompteResultatConfig,
+    CompteResultatOverride
 )
 from backend.api.models import (
     CompteResultatMappingCreate,
@@ -24,7 +25,10 @@ from backend.api.models import (
     CompteResultatDataResponse,
     CompteResultatDataListResponse,
     CompteResultatConfigResponse,
-    CompteResultatConfigUpdate
+    CompteResultatConfigUpdate,
+    CompteResultatOverrideCreate,
+    CompteResultatOverrideUpdate,
+    CompteResultatOverrideResponse
 )
 from backend.api.services.compte_resultat_service import (
     get_mappings,
@@ -513,3 +517,144 @@ async def update_compte_resultat_config(
         created_at=config.created_at,
         updated_at=config.updated_at
     )
+
+
+# ========== Override Endpoints ==========
+
+@router.get("/compte-resultat/override", response_model=List[CompteResultatOverrideResponse])
+async def get_all_overrides(
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer tous les overrides du résultat de l'exercice.
+    
+    Returns:
+        Liste de tous les overrides (une valeur par année)
+    """
+    overrides = db.query(CompteResultatOverride).order_by(CompteResultatOverride.year).all()
+    
+    return [
+        CompteResultatOverrideResponse(
+            id=o.id,
+            year=o.year,
+            override_value=o.override_value,
+            created_at=o.created_at,
+            updated_at=o.updated_at
+        )
+        for o in overrides
+    ]
+
+
+@router.get("/compte-resultat/override/{year}", response_model=CompteResultatOverrideResponse)
+async def get_override_by_year(
+    year: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Récupérer l'override pour une année spécifique.
+    
+    - **year**: Année du compte de résultat
+    
+    Returns:
+        Override pour l'année spécifiée, ou 404 si non trouvé
+    """
+    override = db.query(CompteResultatOverride).filter(
+        CompteResultatOverride.year == year
+    ).first()
+    
+    if not override:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Aucun override trouvé pour l'année {year}"
+        )
+    
+    return CompteResultatOverrideResponse(
+        id=override.id,
+        year=override.year,
+        override_value=override.override_value,
+        created_at=override.created_at,
+        updated_at=override.updated_at
+    )
+
+
+@router.post("/compte-resultat/override", response_model=CompteResultatOverrideResponse, status_code=201)
+async def create_or_update_override(
+    override: CompteResultatOverrideCreate,
+    db: Session = Depends(get_db)
+):
+    """
+    Créer ou mettre à jour un override pour une année (upsert).
+    
+    - **year**: Année du compte de résultat
+    - **override_value**: Valeur override du résultat de l'exercice
+    
+    Si un override existe déjà pour cette année, il sera mis à jour.
+    Sinon, un nouvel override sera créé.
+    
+    Returns:
+        Override créé ou mis à jour
+    """
+    # Vérifier si un override existe déjà pour cette année
+    existing = db.query(CompteResultatOverride).filter(
+        CompteResultatOverride.year == override.year
+    ).first()
+    
+    if existing:
+        # Mettre à jour l'override existant
+        existing.override_value = override.override_value
+        db.commit()
+        db.refresh(existing)
+        
+        return CompteResultatOverrideResponse(
+            id=existing.id,
+            year=existing.year,
+            override_value=existing.override_value,
+            created_at=existing.created_at,
+            updated_at=existing.updated_at
+        )
+    else:
+        # Créer un nouvel override
+        new_override = CompteResultatOverride(
+            year=override.year,
+            override_value=override.override_value
+        )
+        db.add(new_override)
+        db.commit()
+        db.refresh(new_override)
+        
+        return CompteResultatOverrideResponse(
+            id=new_override.id,
+            year=new_override.year,
+            override_value=new_override.override_value,
+            created_at=new_override.created_at,
+            updated_at=new_override.updated_at
+        )
+
+
+@router.delete("/compte-resultat/override/{year}", status_code=204)
+async def delete_override(
+    year: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Supprimer l'override pour une année.
+    
+    - **year**: Année du compte de résultat
+    
+    Returns:
+        204 No Content si supprimé, 404 si non trouvé
+    """
+    override = db.query(CompteResultatOverride).filter(
+        CompteResultatOverride.year == year
+    ).first()
+    
+    if not override:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Aucun override trouvé pour l'année {year}"
+        )
+    
+    db.delete(override)
+    db.commit()
+    
+    return None
