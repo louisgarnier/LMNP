@@ -479,6 +479,15 @@ async def create_transaction(
         error_details = traceback.format_exc()
         print(f"⚠️ [create_transaction] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
+    # Invalider le bilan pour l'année de la transaction
+    try:
+        from backend.api.services.bilan_service import invalidate_bilan_for_year
+        invalidate_bilan_for_year(db_transaction.date.year, db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [create_transaction] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     return TransactionResponse.from_orm(db_transaction)
 
 
@@ -557,6 +566,17 @@ async def update_transaction(
         error_details = traceback.format_exc()
         print(f"⚠️ [update_transaction] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
+    # Invalider le bilan pour l'ancienne et la nouvelle année si la date a changé
+    try:
+        from backend.api.services.bilan_service import invalidate_bilan_for_year
+        invalidate_bilan_for_year(old_date.year, db)
+        if new_date != old_date:
+            invalidate_bilan_for_year(new_date.year, db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_transaction] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     # Recalculer les amortissements si les champs impactants ont été modifiés
     # (gestion silencieuse des erreurs pour ne pas bloquer la modification)
     if should_recalculate_amortization:
@@ -614,6 +634,15 @@ async def delete_transaction(
     
     # Recalculer les soldes des transactions suivantes
     recalculate_balances_from_date(db, transaction_date)
+    
+    # Invalider le bilan pour l'année de la transaction supprimée
+    try:
+        from backend.api.services.bilan_service import invalidate_bilan_for_year
+        invalidate_bilan_for_year(transaction_date.year, db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [delete_transaction] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return None
 

@@ -149,6 +149,15 @@ async def update_transaction_classifications(
         error_details = traceback.format_exc()
         print(f"⚠️ [update_transaction_classifications] Erreur lors du recalcul des amortissements: {error_details}")
     
+    # Invalider tous les bilans (les classifications ont changé)
+    try:
+        from backend.api.services.bilan_service import invalidate_all_bilan
+        invalidate_all_bilan(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_transaction_classifications] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     # Construire la réponse avec les données enrichies
     enriched_data = db.query(EnrichedTransaction).filter(
         EnrichedTransaction.transaction_id == transaction.id

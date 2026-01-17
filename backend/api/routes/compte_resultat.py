@@ -113,6 +113,15 @@ async def create_compte_resultat_mapping(
         error_details = traceback.format_exc()
         print(f"⚠️ [create_compte_resultat_mapping] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
+    # Invalider tous les bilans (les mappings ont changé)
+    try:
+        from backend.api.services.bilan_service import invalidate_all_bilan
+        invalidate_all_bilan(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [create_compte_resultat_mapping] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     return CompteResultatMappingResponse(
         id=new_mapping.id,
         category_name=new_mapping.category_name,
@@ -172,6 +181,15 @@ async def update_compte_resultat_mapping(
         error_details = traceback.format_exc()
         print(f"⚠️ [update_compte_resultat_mapping] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
+    # Invalider tous les bilans (les mappings ont changé)
+    try:
+        from backend.api.services.bilan_service import invalidate_all_bilan
+        invalidate_all_bilan(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_compte_resultat_mapping] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     return CompteResultatMappingResponse(
         id=existing_mapping.id,
         category_name=existing_mapping.category_name,
@@ -208,6 +226,15 @@ async def delete_compte_resultat_mapping(
         import traceback
         error_details = traceback.format_exc()
         print(f"⚠️ [delete_compte_resultat_mapping] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+    
+    # Invalider tous les bilans (les mappings ont changé)
+    try:
+        from backend.api.services.bilan_service import invalidate_all_bilan
+        invalidate_all_bilan(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [delete_compte_resultat_mapping] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return None
 
@@ -511,6 +538,15 @@ async def update_compte_resultat_config(
         error_details = traceback.format_exc()
         print(f"⚠️ [update_compte_resultat_config] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
+    # Invalider tous les bilans (la config a changé)
+    try:
+        from backend.api.services.bilan_service import invalidate_all_bilan
+        invalidate_all_bilan(db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_compte_resultat_config] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     return CompteResultatConfigResponse(
         id=config.id,
         level_3_values=config.level_3_values,
@@ -605,6 +641,15 @@ async def create_or_update_override(
         db.commit()
         db.refresh(existing)
         
+        # Invalider le bilan pour l'année de l'override
+        try:
+            from backend.api.services.bilan_service import invalidate_bilan_for_year
+            invalidate_bilan_for_year(existing.year, db)
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"⚠️ [create_or_update_override] Erreur lors de l'invalidation du bilan: {error_details}")
+        
         return CompteResultatOverrideResponse(
             id=existing.id,
             year=existing.year,
@@ -621,6 +666,15 @@ async def create_or_update_override(
         db.add(new_override)
         db.commit()
         db.refresh(new_override)
+        
+        # Invalider le bilan pour l'année de l'override
+        try:
+            from backend.api.services.bilan_service import invalidate_bilan_for_year
+            invalidate_bilan_for_year(new_override.year, db)
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"⚠️ [create_or_update_override] Erreur lors de l'invalidation du bilan: {error_details}")
         
         return CompteResultatOverrideResponse(
             id=new_override.id,
@@ -656,5 +710,14 @@ async def delete_override(
     
     db.delete(override)
     db.commit()
+    
+    # Invalider le bilan pour l'année de l'override supprimé
+    try:
+        from backend.api.services.bilan_service import invalidate_bilan_for_year
+        invalidate_bilan_for_year(year, db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [delete_override] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return None

@@ -1717,3 +1717,190 @@ export const compteResultatAPI = {
     });
   },
 };
+
+// ========== Bilan API ==========
+
+export interface BilanMapping {
+  id: number;
+  category_name: string;
+  type: string;
+  sub_category: string;
+  level_1_values: string | null;
+  is_special: boolean;
+  special_source: string | null;
+  compte_resultat_view_id: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BilanMappingCreate {
+  category_name: string;
+  type: string;
+  sub_category: string;
+  level_1_values?: string | null;
+  is_special?: boolean;
+  special_source?: string | null;
+  compte_resultat_view_id?: number | null;
+}
+
+export interface BilanMappingUpdate {
+  category_name?: string;
+  type?: string;
+  sub_category?: string;
+  level_1_values?: string | null;
+  is_special?: boolean;
+  special_source?: string | null;
+  compte_resultat_view_id?: number | null;
+}
+
+export interface BilanMappingListResponse {
+  items: BilanMapping[];
+  total: number;
+}
+
+export interface BilanData {
+  id: number;
+  annee: number;
+  category_name: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BilanDataListResponse {
+  items: BilanData[];
+  total: number;
+}
+
+export interface BilanCategoryItem {
+  category_name: string;
+  amount: number;
+  is_special: boolean;
+}
+
+export interface BilanSubCategoryItem {
+  sub_category: string;
+  total: number;
+  categories: BilanCategoryItem[];
+}
+
+export interface BilanTypeItem {
+  type: string;
+  total: number;
+  sub_categories: BilanSubCategoryItem[];
+}
+
+export interface BilanResponse {
+  year: number;
+  types: BilanTypeItem[];
+  actif_total: number;
+  passif_total: number;
+  difference: number;
+  difference_percent: number;
+}
+
+export interface BilanCalculateRequest {
+  year: number;
+  selected_level_3_values?: string[] | null;
+}
+
+export interface BilanConfig {
+  id: number;
+  level_3_values: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BilanConfigUpdate {
+  level_3_values?: string | null;
+}
+
+export const bilanAPI = {
+  /**
+   * Récupère tous les mappings
+   */
+  getMappings: async (): Promise<BilanMappingListResponse> => {
+    return fetchAPI<BilanMappingListResponse>('/api/bilan/mappings');
+  },
+
+  /**
+   * Récupère un mapping par son ID
+   */
+  getMapping: async (id: number): Promise<BilanMapping> => {
+    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}`);
+  },
+
+  /**
+   * Crée un nouveau mapping
+   */
+  createMapping: async (mapping: BilanMappingCreate): Promise<BilanMapping> => {
+    return fetchAPI<BilanMapping>('/api/bilan/mappings', {
+      method: 'POST',
+      body: JSON.stringify(mapping),
+    });
+  },
+
+  /**
+   * Met à jour un mapping
+   */
+  updateMapping: async (id: number, mapping: BilanMappingUpdate): Promise<BilanMapping> => {
+    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(mapping),
+    });
+  },
+
+  /**
+   * Supprime un mapping
+   */
+  deleteMapping: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/bilan/mappings/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /**
+   * Calcule le bilan pour une année
+   */
+  calculate: async (year: number, selected_level_3_values?: string[]): Promise<BilanResponse> => {
+    return fetchAPI<BilanResponse>('/api/bilan/calculate', {
+      method: 'POST',
+      body: JSON.stringify({
+        year,
+        selected_level_3_values: selected_level_3_values || null,
+      }),
+    });
+  },
+
+  /**
+   * Récupère les données du bilan
+   */
+  getBilan: async (year?: number, start_year?: number, end_year?: number): Promise<BilanDataListResponse> => {
+    const params = new URLSearchParams();
+    if (year !== undefined) params.append('year', year.toString());
+    if (start_year !== undefined) params.append('start_year', start_year.toString());
+    if (end_year !== undefined) params.append('end_year', end_year.toString());
+    
+    const queryString = params.toString();
+    const endpoint = queryString ? `/api/bilan?${queryString}` : '/api/bilan';
+    
+    return fetchAPI<BilanDataListResponse>(endpoint);
+  },
+
+  /**
+   * Récupère la configuration (level_3_values)
+   */
+  getConfig: async (): Promise<BilanConfig> => {
+    return fetchAPI<BilanConfig>('/api/bilan/config');
+  },
+
+  /**
+   * Met à jour la configuration (level_3_values)
+   */
+  updateConfig: async (config: BilanConfigUpdate): Promise<BilanConfig> => {
+    return fetchAPI<BilanConfig>('/api/bilan/config', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  },
+};

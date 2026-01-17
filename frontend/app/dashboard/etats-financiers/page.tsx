@@ -15,6 +15,7 @@ import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
 import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 import CompteResultatTable from '@/components/CompteResultatTable';
+import BilanConfigCard from '@/components/BilanConfigCard';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI } from '@/api/client';
 
 interface CreditTabContentProps {
@@ -628,12 +629,11 @@ export default function EtatsFinanciersPage() {
 
         {activeTab === 'bilan' && (
           <div>
-            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', marginBottom: '16px' }}>
-              Bilan
-            </h2>
-            <p style={{ color: '#6b7280' }}>
-              Cette section sera implémentée dans les prochaines phases.
-            </p>
+            <BilanConfigCard
+              onConfigUpdated={() => {
+                console.log('Configuration du bilan mise à jour');
+              }}
+            />
           </div>
         )}
 

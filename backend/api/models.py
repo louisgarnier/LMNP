@@ -638,3 +638,151 @@ class CompteResultatOverrideResponse(CompteResultatOverrideBase):
 
     class Config:
         from_attributes = True
+
+
+# Bilan models
+
+class BilanMappingBase(BaseModel):
+    """Base model for bilan mapping."""
+    category_name: str = Field(..., max_length=255, description="Nom de la catégorie comptable (niveau C)")
+    type: str = Field(..., max_length=50, description="Type: 'ACTIF' ou 'PASSIF'")
+    sub_category: str = Field(..., max_length=100, description="Sous-catégorie (niveau B)")
+    level_1_values: Optional[str] = Field(None, description="JSON array des level_1 à inclure (ex: '[\"LOYERS\", \"REVENUS\"]')")
+    is_special: bool = Field(default=False, description="Indique si c'est une catégorie spéciale")
+    special_source: Optional[str] = Field(None, max_length=100, description="Source pour les catégories spéciales")
+    compte_resultat_view_id: Optional[int] = Field(None, description="ID de la vue compte de résultat (pour catégorie 'Résultat de l'exercice')")
+
+
+class BilanMappingCreate(BilanMappingBase):
+    """Model for creating a bilan mapping."""
+    pass
+
+
+class BilanMappingUpdate(BaseModel):
+    """Model for updating a bilan mapping."""
+    category_name: Optional[str] = Field(None, max_length=255)
+    type: Optional[str] = Field(None, max_length=50)
+    sub_category: Optional[str] = Field(None, max_length=100)
+    level_1_values: Optional[str] = None
+    is_special: Optional[bool] = None
+    special_source: Optional[str] = Field(None, max_length=100)
+    compte_resultat_view_id: Optional[int] = None
+
+
+class BilanMappingResponse(BilanMappingBase):
+    """Model for bilan mapping response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BilanMappingListResponse(BaseModel):
+    """Model for list of bilan mappings response."""
+    items: List[BilanMappingResponse]
+    total: int
+
+
+class BilanDataBase(BaseModel):
+    """Base model for bilan data."""
+    annee: int = Field(..., description="Année du bilan")
+    category_name: str = Field(..., max_length=255, description="Nom de la catégorie comptable")
+    amount: float = Field(..., description="Montant pour cette catégorie et cette année")
+
+
+class BilanDataCreate(BilanDataBase):
+    """Model for creating bilan data."""
+    pass
+
+
+class BilanDataUpdate(BaseModel):
+    """Model for updating bilan data."""
+    annee: Optional[int] = None
+    category_name: Optional[str] = Field(None, max_length=255)
+    amount: Optional[float] = None
+
+
+class BilanDataResponse(BilanDataBase):
+    """Model for bilan data response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BilanDataListResponse(BaseModel):
+    """Model for list of bilan data response."""
+    items: List[BilanDataResponse]
+    total: int
+
+
+# Bilan config models
+
+class BilanConfigBase(BaseModel):
+    """Base model for bilan config."""
+    level_3_values: str = Field(..., description="JSON array des level_3 sélectionnés (ex: '[\"VALEUR1\", \"VALEUR2\"]')")
+
+
+class BilanConfigCreate(BilanConfigBase):
+    """Model for creating bilan config."""
+    pass
+
+
+class BilanConfigUpdate(BaseModel):
+    """Model for updating bilan config."""
+    level_3_values: Optional[str] = None
+
+
+class BilanConfigResponse(BilanConfigBase):
+    """Model for bilan config response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# Bilan calculation request
+
+class BilanCalculateRequest(BaseModel):
+    """Model for bilan calculation request."""
+    year: int = Field(..., description="Année à calculer")
+    selected_level_3_values: Optional[List[str]] = Field(None, description="Liste des valeurs level_3 à considérer (optionnel, utilise la config si non fourni)")
+
+
+# Bilan response with hierarchical structure
+
+class BilanCategoryItem(BaseModel):
+    """Model for a bilan category (niveau C)."""
+    category_name: str = Field(..., description="Nom de la catégorie")
+    amount: float = Field(..., description="Montant de la catégorie")
+    is_special: bool = Field(default=False, description="Indique si c'est une catégorie spéciale")
+
+
+class BilanSubCategoryItem(BaseModel):
+    """Model for a bilan sub-category (niveau B)."""
+    sub_category: str = Field(..., description="Nom de la sous-catégorie")
+    total: float = Field(..., description="Total de la sous-catégorie")
+    categories: List[BilanCategoryItem] = Field(default_factory=list, description="Liste des catégories de cette sous-catégorie")
+
+
+class BilanTypeItem(BaseModel):
+    """Model for a bilan type (niveau A: ACTIF ou PASSIF)."""
+    type: str = Field(..., description="Type: 'ACTIF' ou 'PASSIF'")
+    total: float = Field(..., description="Total du type")
+    sub_categories: List[BilanSubCategoryItem] = Field(default_factory=list, description="Liste des sous-catégories de ce type")
+
+
+class BilanResponse(BaseModel):
+    """Model for bilan response with hierarchical structure."""
+    year: int = Field(..., description="Année du bilan")
+    types: List[BilanTypeItem] = Field(..., description="Liste des types (ACTIF et PASSIF)")
+    actif_total: float = Field(..., description="Total ACTIF")
+    passif_total: float = Field(..., description="Total PASSIF")
+    difference: float = Field(..., description="Différence ACTIF - PASSIF")
+    difference_percent: float = Field(..., description="Pourcentage de différence")

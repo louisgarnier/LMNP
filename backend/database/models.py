@@ -365,3 +365,56 @@ class CompteResultatOverride(Base):
         Index('idx_compte_resultat_override_year', 'year'),
     )
 
+
+class BilanMapping(Base):
+    """Mappings pour le bilan (level_1 → catégories comptables)."""
+    __tablename__ = "bilan_mappings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (niveau C)
+    type = Column(String(50), nullable=False, index=True)  # Type: "ACTIF" ou "PASSIF"
+    sub_category = Column(String(100), nullable=False, index=True)  # Sous-catégorie (niveau B)
+    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]')
+    is_special = Column(Boolean, nullable=False, default=False)  # Indique si c'est une catégorie spéciale
+    special_source = Column(String(100), nullable=True)  # Source pour les catégories spéciales ("amortization_result", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments")
+    compte_resultat_view_id = Column(Integer, nullable=True)  # Pour catégorie "Résultat de l'exercice" (ForeignKey vers compte_resultat_mapping_views.id - table à créer si nécessaire)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_bilan_mapping_category', 'category_name'),
+        Index('idx_bilan_mapping_type', 'type'),
+        Index('idx_bilan_mapping_sub_category', 'sub_category'),
+        Index('idx_bilan_mapping_type_sub_category', 'type', 'sub_category'),
+    )
+
+
+class BilanData(Base):
+    """Données du bilan par année et catégorie."""
+    __tablename__ = "bilan_data"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    annee = Column(Integer, nullable=False, index=True)  # Année du bilan
+    category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable
+    amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_bilan_data_year_category', 'annee', 'category_name'),
+        Index('idx_bilan_data_year', 'annee'),
+        Index('idx_bilan_data_category', 'category_name'),
+    )
+
+
+class BilanConfig(Base):
+    """Configuration globale pour le bilan (filtre Level 3)."""
+    __tablename__ = "bilan_config"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    level_3_values = Column(Text, nullable=False, default="[]")  # JSON array des level_3 sélectionnés (ex: '["VALEUR1", "VALEUR2"]')
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+

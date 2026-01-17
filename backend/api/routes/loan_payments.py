@@ -138,6 +138,15 @@ async def create_loan_payment(
         error_details = traceback.format_exc()
         print(f"⚠️ [create_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
+    # Invalider le bilan pour l'année du payment
+    try:
+        from backend.api.services.bilan_service import invalidate_bilan_for_year
+        invalidate_bilan_for_year(db_payment.date.year, db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [create_loan_payment] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     return LoanPaymentResponse(
         id=db_payment.id,
         date=db_payment.date,
@@ -217,6 +226,15 @@ async def update_loan_payment(
         error_details = traceback.format_exc()
         print(f"⚠️ [update_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
+    # Invalider le bilan pour l'année du payment
+    try:
+        from backend.api.services.bilan_service import invalidate_bilan_for_year
+        invalidate_bilan_for_year(payment.date.year, db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [update_loan_payment] Erreur lors de l'invalidation du bilan: {error_details}")
+    
     return LoanPaymentResponse(
         id=payment.id,
         date=payment.date,
@@ -257,6 +275,15 @@ async def delete_loan_payment(
         import traceback
         error_details = traceback.format_exc()
         print(f"⚠️ [delete_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+    
+    # Invalider le bilan pour l'année du payment
+    try:
+        from backend.api.services.bilan_service import invalidate_bilan_for_year
+        invalidate_bilan_for_year(payment_year, db)
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"⚠️ [delete_loan_payment] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return None
 
