@@ -5,6 +5,7 @@ API routes for mappings.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import distinct, desc, asc, func, or_
 from typing import List, Optional, Dict
@@ -1233,6 +1234,89 @@ async def reset_allowed_mappings_endpoint(
     except Exception as e:
         logger.error(f"Erreur lors du reset des mappings autorisés: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du reset: {str(e)}")
+
+
+@router.get("/mappings/export")
+async def export_mappings(
+    format: str = Query("excel", description="Format d'export: 'excel' ou 'csv'"),
+    db: Session = Depends(get_db)
+):
+    """
+    Exporter tous les mappings au format Excel ou CSV.
+    
+    Args:
+        format: Format d'export ("excel" ou "csv", défaut: "excel")
+        db: Session de base de données
+    
+    Returns:
+        Fichier Excel (.xlsx) ou CSV (.csv) avec tous les mappings
+    """
+    # Récupérer tous les mappings
+    mappings = db.query(Mapping).order_by(Mapping.id).all()
+    
+    if not mappings:
+        raise HTTPException(status_code=404, detail="Aucun mapping à exporter")
+    
+    # Préparer les données pour le DataFrame
+    data = []
+    for mapping in mappings:
+        data.append({
+            'id': mapping.id,
+            'nom': mapping.nom,
+            'level_1': mapping.level_1,
+            'level_2': mapping.level_2,
+            'level_3': mapping.level_3 or '',
+            'is_prefix_match': mapping.is_prefix_match,
+            'priority': mapping.priority,
+            'created_at': mapping.created_at.strftime('%Y-%m-%d %H:%M:%S') if mapping.created_at else '',
+            'updated_at': mapping.updated_at.strftime('%Y-%m-%d %H:%M:%S') if mapping.updated_at else ''
+        })
+    
+    # Créer le DataFrame
+    df = pd.DataFrame(data)
+    
+    # Générer le nom de fichier avec la date
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    if format.lower() == 'csv':
+        # Générer le CSV
+        output = io.StringIO()
+        df.to_csv(output, index=False, encoding='utf-8-sig')  # utf-8-sig pour Excel
+        csv_content = output.getvalue()
+        
+        return Response(
+            content=csv_content.encode('utf-8-sig'),
+            media_type='text/csv; charset=utf-8',
+            headers={
+                'Content-Disposition': f'attachment; filename="mappings_{today}.csv"'
+            }
+        )
+    else:
+        # Générer l'Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Mappings')
+            # Ajuster la largeur des colonnes
+            worksheet = writer.sheets['Mappings']
+            from openpyxl.utils import get_column_letter
+            for idx, col in enumerate(df.columns, start=1):
+                max_length = max(
+                    df[col].astype(str).map(len).max(),
+                    len(col)
+                )
+                column_letter = get_column_letter(idx)
+                worksheet.column_dimensions[column_letter].width = min(max_length + 2, 50)
+        
+        output.seek(0)
+        excel_content = output.getvalue()
+        
+        return Response(
+            content=excel_content,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment; filename="mappings_{today}.xlsx"'
+            }
+        )
 
 
 @router.get("/mappings/{mapping_id}", response_model=MappingResponse)

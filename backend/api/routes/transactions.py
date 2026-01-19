@@ -5,6 +5,7 @@ API routes for transactions.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc, asc, func
 from typing import List, Optional
@@ -12,6 +13,7 @@ from datetime import date, datetime
 import os
 from pathlib import Path
 import pandas as pd
+import io
 
 from backend.database import get_db
 from backend.database.models import Transaction, FileImport, EnrichedTransaction
@@ -392,6 +394,130 @@ async def delete_all_imports(
     db.commit()
     
     return None
+
+
+@router.get("/transactions/export")
+async def export_transactions(
+    format: str = Query("excel", description="Format d'export: 'excel' ou 'csv'"),
+    start_date: Optional[date] = Query(None, description="Date de début (filtre)"),
+    end_date: Optional[date] = Query(None, description="Date de fin (filtre)"),
+    filter_level_1: Optional[str] = Query(None, description="Filtre sur level_1"),
+    filter_level_2: Optional[str] = Query(None, description="Filtre sur level_2"),
+    filter_level_3: Optional[str] = Query(None, description="Filtre sur level_3"),
+    filter_nom: Optional[str] = Query(None, description="Filtre sur le nom (contient, insensible à la casse)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Exporter les transactions au format Excel ou CSV.
+    
+    Args:
+        format: Format d'export ("excel" ou "csv", défaut: "excel")
+        start_date: Date de début (filtre optionnel)
+        end_date: Date de fin (filtre optionnel)
+        filter_level_1: Filtrer par level_1 (optionnel)
+        filter_level_2: Filtrer par level_2 (optionnel)
+        filter_level_3: Filtrer par level_3 (optionnel)
+        filter_nom: Filtrer par nom (contient, insensible à la casse, optionnel)
+        db: Session de base de données
+    
+    Returns:
+        Fichier Excel (.xlsx) ou CSV (.csv) avec les transactions
+    """
+    # Construire la requête avec les mêmes filtres que GET /api/transactions
+    query = db.query(Transaction).outerjoin(
+        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+    )
+    
+    # Appliquer les filtres
+    if start_date:
+        query = query.filter(Transaction.date >= start_date)
+    if end_date:
+        query = query.filter(Transaction.date <= end_date)
+    if filter_nom:
+        query = query.filter(func.lower(Transaction.nom).contains(func.lower(filter_nom)))
+    if filter_level_1:
+        query = query.filter(EnrichedTransaction.level_1 == filter_level_1)
+    if filter_level_2:
+        query = query.filter(EnrichedTransaction.level_2 == filter_level_2)
+    if filter_level_3:
+        query = query.filter(EnrichedTransaction.level_3 == filter_level_3)
+    
+    # Trier par date (croissant)
+    query = query.order_by(Transaction.date, Transaction.id)
+    
+    # Récupérer toutes les transactions (sans pagination pour l'export)
+    transactions = query.all()
+    
+    if not transactions:
+        raise HTTPException(status_code=404, detail="Aucune transaction à exporter")
+    
+    # Préparer les données pour le DataFrame
+    data = []
+    for transaction in transactions:
+        # Récupérer les données enrichies
+        enriched = db.query(EnrichedTransaction).filter(
+            EnrichedTransaction.transaction_id == transaction.id
+        ).first()
+        
+        data.append({
+            'id': transaction.id,
+            'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else '',
+            'quantite': transaction.quantite,
+            'nom': transaction.nom,
+            'solde': transaction.solde,
+            'level_1': enriched.level_1 if enriched else '',
+            'level_2': enriched.level_2 if enriched else '',
+            'level_3': enriched.level_3 if enriched else '',
+            'source_file': transaction.source_file or '',
+            'created_at': transaction.created_at.strftime('%Y-%m-%d %H:%M:%S') if transaction.created_at else '',
+            'updated_at': transaction.updated_at.strftime('%Y-%m-%d %H:%M:%S') if transaction.updated_at else ''
+        })
+    
+    # Créer le DataFrame
+    df = pd.DataFrame(data)
+    
+    # Générer le nom de fichier avec la date
+    today = datetime.now().strftime('%Y-%m-%d')
+    
+    if format.lower() == 'csv':
+        # Générer le CSV
+        output = io.StringIO()
+        df.to_csv(output, index=False, encoding='utf-8-sig')  # utf-8-sig pour Excel
+        csv_content = output.getvalue()
+        
+        return Response(
+            content=csv_content.encode('utf-8-sig'),
+            media_type='text/csv; charset=utf-8',
+            headers={
+                'Content-Disposition': f'attachment; filename="transactions_{today}.csv"'
+            }
+        )
+    else:
+        # Générer l'Excel
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Transactions')
+            # Ajuster la largeur des colonnes
+            worksheet = writer.sheets['Transactions']
+            from openpyxl.utils import get_column_letter
+            for idx, col in enumerate(df.columns, start=1):
+                max_length = max(
+                    df[col].astype(str).map(len).max(),
+                    len(col)
+                )
+                column_letter = get_column_letter(idx)
+                worksheet.column_dimensions[column_letter].width = min(max_length + 2, 50)
+        
+        output.seek(0)
+        excel_content = output.getvalue()
+        
+        return Response(
+            content=excel_content,
+            media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            headers={
+                'Content-Disposition': f'attachment; filename="transactions_{today}.xlsx"'
+            }
+        )
 
 
 @router.get("/transactions/{transaction_id}", response_model=TransactionResponse)

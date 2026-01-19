@@ -17,57 +17,62 @@
 
 ## Step 10.1 : Backend - Endpoint d'extraction des mappings
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Créer un endpoint backend pour exporter les mappings au format Excel ou CSV.
 
 **Tasks**:
-- [ ] Créer un endpoint `GET /api/mappings/export` dans `backend/api/routes/mappings.py`
-- [ ] Paramètres de l'endpoint :
+- [x] Créer un endpoint `GET /api/mappings/export` dans `backend/api/routes/mappings.py`
+- [x] Paramètres de l'endpoint :
   - `format` (query param) : "excel" ou "csv" (défaut: "excel")
   - Optionnel : filtres (si nécessaire pour l'extraction filtrée)
-- [ ] Générer le fichier :
+- [x] Générer le fichier :
   - **Format Excel** : Utiliser `pandas` ou `openpyxl` pour créer un fichier .xlsx
   - **Format CSV** : Utiliser `pandas` ou générer directement un CSV
-- [ ] Colonnes à inclure :
+- [x] Colonnes à inclure :
   - `id`
+  - `nom`
   - `level_1`
   - `level_2`
   - `level_3`
+  - `is_prefix_match`
+  - `priority`
   - `created_at`
   - `updated_at`
-- [ ] Retourner le fichier avec les headers appropriés :
+- [x] Retourner le fichier avec les headers appropriés :
   - `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (Excel)
-  - `Content-Type: text/csv` (CSV)
+  - `Content-Type: text/csv; charset=utf-8` (CSV)
   - `Content-Disposition: attachment; filename="mappings_YYYY-MM-DD.xlsx"`
 
 **Deliverables**:
 - Endpoint `GET /api/mappings/export` dans `backend/api/routes/mappings.py`
 - Support Excel et CSV
 - Génération de fichier avec nom de fichier daté
+- Script de test : `backend/scripts/test_mappings_export_step10_1.py`
 
 **Acceptance Criteria**:
-- [ ] Endpoint accessible et fonctionnel
-- [ ] Fichier Excel généré correctement avec toutes les colonnes
-- [ ] Fichier CSV généré correctement avec toutes les colonnes
-- [ ] Nom de fichier contient la date d'export
-- [ ] Headers HTTP corrects pour le téléchargement
+- [x] Endpoint accessible et fonctionnel
+- [x] Fichier Excel généré correctement avec toutes les colonnes
+- [x] Fichier CSV généré correctement avec toutes les colonnes
+- [x] Nom de fichier contient la date d'export
+- [x] Headers HTTP corrects pour le téléchargement
+- [x] Intégrité des données vérifiée (tous les mappings exportés)
 
 ---
 
 ## Step 10.2 : Backend - Endpoint d'extraction des transactions
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Créer un endpoint backend pour exporter les transactions au format Excel ou CSV.
 
 **Tasks**:
-- [ ] Créer un endpoint `GET /api/transactions/export` dans `backend/api/routes/transactions.py`
-- [ ] Paramètres de l'endpoint :
+- [x] Créer un endpoint `GET /api/transactions/export` dans `backend/api/routes/transactions.py`
+- [x] Paramètres de l'endpoint :
   - `format` (query param) : "excel" ou "csv" (défaut: "excel")
   - Optionnel : mêmes filtres que `GET /api/transactions` (start_date, end_date, filter_level_1, etc.)
-- [ ] Générer le fichier :
+- [x] Générer le fichier :
   - **Format Excel** : Utiliser `pandas` ou `openpyxl` pour créer un fichier .xlsx
   - **Format CSV** : Utiliser `pandas` ou générer directement un CSV
-- [ ] Colonnes à inclure :
+- [x] Colonnes à inclure :
   - `id`
   - `date`
   - `quantite`
@@ -79,100 +84,100 @@
   - `source_file`
   - `created_at`
   - `updated_at`
-- [ ] Retourner le fichier avec les headers appropriés :
+- [x] Retourner le fichier avec les headers appropriés :
   - `Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` (Excel)
-  - `Content-Type: text/csv` (CSV)
+  - `Content-Type: text/csv; charset=utf-8` (CSV)
   - `Content-Disposition: attachment; filename="transactions_YYYY-MM-DD.xlsx"`
 
 **Deliverables**:
 - Endpoint `GET /api/transactions/export` dans `backend/api/routes/transactions.py`
 - Support Excel et CSV
-- Support des filtres (optionnel)
+- Support des filtres (start_date, end_date, filter_level_1, filter_level_2, filter_level_3, filter_nom)
 - Génération de fichier avec nom de fichier daté
+- Script de test : `backend/scripts/test_transactions_export_step10_2.py`
 
 **Acceptance Criteria**:
-- [ ] Endpoint accessible et fonctionnel
-- [ ] Fichier Excel généré correctement avec toutes les colonnes
-- [ ] Fichier CSV généré correctement avec toutes les colonnes
-- [ ] Filtres appliqués correctement (si fournis)
-- [ ] Nom de fichier contient la date d'export
-- [ ] Headers HTTP corrects pour le téléchargement
+- [x] Endpoint accessible et fonctionnel
+- [x] Fichier Excel généré correctement avec toutes les colonnes
+- [x] Fichier CSV généré correctement avec toutes les colonnes
+- [x] Filtres appliqués correctement (si fournis)
+- [x] Nom de fichier contient la date d'export
+- [x] Headers HTTP corrects pour le téléchargement
+- [x] Intégrité des données vérifiée (toutes les transactions exportées)
 
 ---
 
 ## Step 10.3 : Frontend - Bouton "Extraire" dans l'onglet Mapping
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Ajouter un bouton "Extraire" dans l'onglet Mapping pour télécharger les mappings.
 
 **Tasks**:
-- [ ] Modifier `frontend/app/dashboard/transactions/page.tsx` ou `frontend/src/components/MappingTable.tsx`
-- [ ] Ajouter un bouton "Extraire" dans l'interface de l'onglet Mapping
-- [ ] Position du bouton :
-  - Option A : À côté du titre "Mapping" ou dans la barre d'outils
-  - Option B : Dans le composant `MappingTable.tsx` en haut du tableau
-- [ ] Fonctionnalité du bouton :
-  - Ouvrir un menu/dropdown pour choisir le format (Excel ou CSV)
-  - Ou deux boutons séparés : "Extraire (Excel)" et "Extraire (CSV)"
-- [ ] Implémenter la fonction d'extraction :
+- [x] Modifier `frontend/app/dashboard/transactions/page.tsx` ou `frontend/src/components/MappingTable.tsx`
+- [x] Ajouter un bouton "Extraire" dans l'interface de l'onglet Mapping
+- [x] Position du bouton :
+  - Option B : Dans le composant `MappingTable.tsx` en haut du tableau (implémenté dans la page, juste au-dessus du MappingTable)
+- [x] Fonctionnalité du bouton :
+  - Deux boutons séparés : "Extraire (Excel)" et "Extraire (CSV)"
+- [x] Implémenter la fonction d'extraction :
   - Appeler l'API `GET /api/mappings/export?format=excel` ou `?format=csv`
   - Gérer le téléchargement du fichier
   - Afficher un message de confirmation ou un loader pendant le téléchargement
-- [ ] Gestion des erreurs :
+- [x] Gestion des erreurs :
   - Afficher un message d'erreur si l'extraction échoue
   - Logger l'erreur dans la console
 
 **Deliverables**:
-- Bouton "Extraire" dans l'onglet Mapping
+- Bouton "Extraire" dans l'onglet Mapping (deux boutons : Excel et CSV)
 - Fonctionnalité de téléchargement Excel et CSV
 - Gestion des erreurs
+- Fonction `mappingsAPI.export()` ajoutée dans `frontend/src/api/client.ts`
 
 **Acceptance Criteria**:
-- [ ] Bouton visible et accessible dans l'onglet Mapping
-- [ ] Choix du format (Excel ou CSV) fonctionne
-- [ ] Téléchargement du fichier fonctionne correctement
-- [ ] Nom du fichier téléchargé est correct
-- [ ] Gestion des erreurs appropriée
+- [x] Bouton visible et accessible dans l'onglet Mapping (sous-onglet "Mappings existants")
+- [x] Choix du format (Excel ou CSV) fonctionne (deux boutons séparés)
+- [x] Téléchargement du fichier fonctionne correctement
+- [x] Nom du fichier téléchargé est correct (`mappings_YYYY-MM-DD.xlsx` ou `.csv`)
+- [x] Gestion des erreurs appropriée (affichage d'un message d'erreur en cas d'échec)
 
 ---
 
 ## Step 10.4 : Frontend - Bouton "Extraire" dans l'onglet Transactions
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Ajouter un bouton "Extraire" dans l'onglet Transactions pour télécharger les transactions.
 
 **Tasks**:
-- [ ] Modifier `frontend/app/dashboard/transactions/page.tsx` ou `frontend/src/components/TransactionsTable.tsx`
-- [ ] Ajouter un bouton "Extraire" dans l'interface de l'onglet Transactions
-- [ ] Position du bouton :
-  - Option A : À côté du titre "Toutes les transactions" ou dans la barre d'outils
-  - Option B : Dans le composant `TransactionsTable.tsx` en haut du tableau
-- [ ] Fonctionnalité du bouton :
-  - Ouvrir un menu/dropdown pour choisir le format (Excel ou CSV)
-  - Ou deux boutons séparés : "Extraire (Excel)" et "Extraire (CSV)"
-  - Optionnel : Permettre d'appliquer les filtres actuels du tableau à l'extraction
-- [ ] Implémenter la fonction d'extraction :
+- [x] Modifier `frontend/app/dashboard/transactions/page.tsx` ou `frontend/src/components/TransactionsTable.tsx`
+- [x] Ajouter un bouton "Extraire" dans l'interface de l'onglet Transactions
+- [x] Position du bouton :
+  - Option B : Dans le composant `TransactionsTable.tsx` en haut du tableau (juste au-dessus des statistiques)
+- [x] Fonctionnalité du bouton :
+  - Deux boutons séparés : "Extraire (Excel)" et "Extraire (CSV)"
+  - Support des filtres actuels du tableau (date, level_1, level_2, level_3, nom)
+- [x] Implémenter la fonction d'extraction :
   - Appeler l'API `GET /api/transactions/export?format=excel` ou `?format=csv`
-  - Si filtres appliqués : passer les paramètres de filtres à l'API
+  - Passer les paramètres de filtres à l'API (start_date, end_date, filter_level_1, filter_level_2, filter_level_3, filter_nom)
   - Gérer le téléchargement du fichier
-  - Afficher un message de confirmation ou un loader pendant le téléchargement
-- [ ] Gestion des erreurs :
+  - Afficher un loader pendant le téléchargement
+- [x] Gestion des erreurs :
   - Afficher un message d'erreur si l'extraction échoue
   - Logger l'erreur dans la console
 
 **Deliverables**:
-- Bouton "Extraire" dans l'onglet Transactions
+- Bouton "Extraire" dans l'onglet Transactions (deux boutons : Excel et CSV)
 - Fonctionnalité de téléchargement Excel et CSV
-- Support des filtres (optionnel)
+- Support des filtres (date, level_1, level_2, level_3, nom)
 - Gestion des erreurs
+- Fonction `transactionsAPI.export()` ajoutée dans `frontend/src/api/client.ts`
 
 **Acceptance Criteria**:
-- [ ] Bouton visible et accessible dans l'onglet Transactions
-- [ ] Choix du format (Excel ou CSV) fonctionne
-- [ ] Téléchargement du fichier fonctionne correctement
-- [ ] Nom du fichier téléchargé est correct
-- [ ] Filtres appliqués correctement (si implémenté)
-- [ ] Gestion des erreurs appropriée
+- [x] Bouton visible et accessible dans l'onglet Transactions
+- [x] Choix du format (Excel ou CSV) fonctionne (deux boutons séparés)
+- [x] Téléchargement du fichier fonctionne correctement
+- [x] Nom du fichier téléchargé est correct (`transactions_YYYY-MM-DD.xlsx` ou `.csv`)
+- [x] Filtres appliqués correctement (date, level_1, level_2, level_3, nom)
+- [x] Gestion des erreurs appropriée (affichage d'un message d'erreur en cas d'échec)
 
 ---
 

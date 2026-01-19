@@ -19,6 +19,18 @@ import AllowedMappingsTable from '@/components/AllowedMappingsTable';
 import { transactionsAPI, mappingsAPI, fileUploadAPI } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
 
+// Helper function to download a blob as a file
+const downloadBlob = (blob: Blob, filename: string) => {
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  window.URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+};
+
 export default function TransactionsPage() {
   const searchParams = useSearchParams();
   const filter = searchParams?.get('filter');
@@ -30,6 +42,8 @@ export default function TransactionsPage() {
   const { clearLogs } = useImportLog();
   const mappingTableRef = useRef<MappingTableRef>(null);
   const [mappingSubTab, setMappingSubTab] = useState<'existing' | 'allowed'>('existing');
+  const [isExportingMappings, setIsExportingMappings] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const loadTransactionCount = async () => {
     setIsLoadingCount(true);
@@ -75,6 +89,23 @@ export default function TransactionsPage() {
     loadTransactionCount();
     loadMappingCount();
     // Le tableau se rechargera automatiquement via son propre useEffect
+  };
+
+  const handleExportMappings = async (format: 'excel' | 'csv') => {
+    setIsExportingMappings(true);
+    setExportError(null);
+    try {
+      const blob = await mappingsAPI.export(format);
+      const extension = format === 'excel' ? 'xlsx' : 'csv';
+      const today = new Date().toISOString().split('T')[0];
+      const filename = `mappings_${today}.${extension}`;
+      downloadBlob(blob, filename);
+    } catch (error) {
+      console.error('Erreur lors de l\'export des mappings:', error);
+      setExportError(error instanceof Error ? error.message : 'Erreur lors de l\'export');
+    } finally {
+      setIsExportingMappings(false);
+    }
   };
 
   const handleTransactionCountChange = (count: number) => {
@@ -372,6 +403,110 @@ export default function TransactionsPage() {
                 Mappings autorisés
               </button>
             </div>
+            
+            {/* Bouton Extraire pour les mappings existants */}
+            {mappingSubTab === 'existing' && (
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    onClick={() => handleExportMappings('excel')}
+                    disabled={isExportingMappings}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: '#fff',
+                      backgroundColor: isExportingMappings ? '#9ca3af' : '#1e3a5f',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: isExportingMappings ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isExportingMappings) {
+                        e.currentTarget.style.backgroundColor = '#2d4a6f';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isExportingMappings) {
+                        e.currentTarget.style.backgroundColor = '#1e3a5f';
+                      }
+                    }}
+                  >
+                    {isExportingMappings ? (
+                      <>
+                        <span>⏳</span>
+                        <span>Export en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📥</span>
+                        <span>Extraire (Excel)</span>
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => handleExportMappings('csv')}
+                    disabled={isExportingMappings}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      color: '#fff',
+                      backgroundColor: isExportingMappings ? '#9ca3af' : '#1e3a5f',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: isExportingMappings ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      transition: 'background-color 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isExportingMappings) {
+                        e.currentTarget.style.backgroundColor = '#2d4a6f';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isExportingMappings) {
+                        e.currentTarget.style.backgroundColor = '#1e3a5f';
+                      }
+                    }}
+                  >
+                    {isExportingMappings ? (
+                      <>
+                        <span>⏳</span>
+                        <span>Export en cours...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>📥</span>
+                        <span>Extraire (CSV)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                {exportError && (
+                  <div style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#fee2e2',
+                    color: '#991b1b',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                  }}>
+                    ❌ Erreur: {exportError}
+                  </div>
+                )}
+              </div>
+            )}
             
             {/* Contenu selon le sous-onglet */}
             {mappingSubTab === 'existing' && (

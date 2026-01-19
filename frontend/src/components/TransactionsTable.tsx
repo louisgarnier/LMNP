@@ -65,6 +65,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [uniqueLevel1s, setUniqueLevel1s] = useState<string[]>([]);
   const [uniqueLevel2s, setUniqueLevel2s] = useState<string[]>([]);
   const [uniqueLevel3s, setUniqueLevel3s] = useState<string[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const loadTransactions = async () => {
     setIsLoading(true);
@@ -250,6 +252,53 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       setSortDirection('asc');
     }
   }, [sortColumn, sortDirection]);
+
+  // Helper function to download a blob as a file
+  const downloadBlob = useCallback((blob: Blob, filename: string) => {
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  }, []);
+
+  const handleExport = useCallback(async (format: 'excel' | 'csv') => {
+    setIsExporting(true);
+    setExportError(null);
+    try {
+      // Le filtre de date dans TransactionsTable est une date unique (YYYY-MM-DD)
+      // On l'utilise comme start_date et end_date pour filtrer uniquement cette date
+      let startDate: string | undefined;
+      let endDate: string | undefined;
+      if (appliedFilterDate) {
+        // Si c'est une date unique, utiliser la même date pour start et end
+        startDate = appliedFilterDate;
+        endDate = appliedFilterDate;
+      }
+
+      const blob = await transactionsAPI.export(
+        format,
+        startDate,
+        endDate,
+        appliedFilterLevel1 || undefined,
+        appliedFilterLevel2 || undefined,
+        appliedFilterLevel3 || undefined,
+        appliedFilterNom || undefined
+      );
+      const extension = format === 'excel' ? 'xlsx' : 'csv';
+      const today = new Date().toISOString().split('T')[0];
+      const filename = `transactions_${today}.${extension}`;
+      downloadBlob(blob, filename);
+    } catch (error) {
+      console.error('Erreur lors de l\'export des transactions:', error);
+      setExportError(error instanceof Error ? error.message : 'Erreur lors de l\'export');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [appliedFilterDate, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterNom, downloadBlob]);
 
   // Handlers pour les filtres (mémorisés pour éviter les re-renders)
   const handleFilterDateChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -884,6 +933,109 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
 
   return (
     <div>
+      {/* Boutons d'export */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '16px',
+        padding: '0 4px'
+      }}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <button
+            onClick={() => handleExport('excel')}
+            disabled={isExporting}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#fff',
+              backgroundColor: isExporting ? '#9ca3af' : '#1e3a5f',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: isExporting ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isExporting) {
+                e.currentTarget.style.backgroundColor = '#2d4a6f';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isExporting) {
+                e.currentTarget.style.backgroundColor = '#1e3a5f';
+              }
+            }}
+          >
+            {isExporting ? (
+              <>
+                <span>⏳</span>
+                <span>Export en cours...</span>
+              </>
+            ) : (
+              <>
+                <span>📥</span>
+                <span>Extraire (Excel)</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => handleExport('csv')}
+            disabled={isExporting}
+            style={{
+              padding: '8px 16px',
+              fontSize: '14px',
+              fontWeight: '500',
+              color: '#fff',
+              backgroundColor: isExporting ? '#9ca3af' : '#1e3a5f',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: isExporting ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              transition: 'background-color 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              if (!isExporting) {
+                e.currentTarget.style.backgroundColor = '#2d4a6f';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isExporting) {
+                e.currentTarget.style.backgroundColor = '#1e3a5f';
+              }
+            }}
+          >
+            {isExporting ? (
+              <>
+                <span>⏳</span>
+                <span>Export en cours...</span>
+              </>
+            ) : (
+              <>
+                <span>📥</span>
+                <span>Extraire (CSV)</span>
+              </>
+            )}
+          </button>
+        </div>
+        {exportError && (
+          <div style={{
+            padding: '8px 12px',
+            backgroundColor: '#fee2e2',
+            color: '#991b1b',
+            borderRadius: '6px',
+            fontSize: '14px',
+          }}>
+            ❌ Erreur: {exportError}
+          </div>
+        )}
+      </div>
+
       {/* Statistiques et actions de sélection */}
       <div style={{ 
         marginBottom: '16px', 

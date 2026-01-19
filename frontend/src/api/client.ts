@@ -242,6 +242,48 @@ export const transactionsAPI = {
   },
 
   /**
+   * Exporter les transactions au format Excel ou CSV
+   */
+  export: async (
+    format: 'excel' | 'csv',
+    startDate?: string,
+    endDate?: string,
+    filterLevel1?: string,
+    filterLevel2?: string,
+    filterLevel3?: string,
+    filterNom?: string
+  ): Promise<Blob> => {
+    const params = new URLSearchParams({
+      format,
+    });
+    if (startDate) params.append('start_date', startDate);
+    if (endDate) params.append('end_date', endDate);
+    if (filterLevel1) params.append('filter_level_1', filterLevel1);
+    if (filterLevel2) params.append('filter_level_2', filterLevel2);
+    if (filterLevel3) params.append('filter_level_3', filterLevel3);
+    if (filterNom) params.append('filter_nom', filterNom);
+    
+    const url = `${API_BASE_URL}/api/transactions/export?${params.toString()}`;
+    console.log(`📤 [API] Export transactions ${format.toUpperCase()}`);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        error = { detail: `HTTP error! status: ${response.status}` };
+      }
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    console.log(`📥 [API] Export transactions ${format.toUpperCase()} réussi`);
+    return blob;
+  },
+
+  /**
    * Calculer la somme des transactions pour un level_1 donné
    */
   getSumByLevel1: async (
@@ -547,6 +589,30 @@ export const mappingsAPI = {
    */
   async getAllowedLevel1(): Promise<{ level_1: string[] }> {
     return fetchAPI<{ level_1: string[] }>('/api/mappings/allowed-level1');
+  },
+
+  /**
+   * Exporter les mappings au format Excel ou CSV
+   */
+  async export(format: 'excel' | 'csv'): Promise<Blob> {
+    const url = `${API_BASE_URL}/api/mappings/export?format=${format}`;
+    console.log(`📤 [API] Export mappings ${format.toUpperCase()}`);
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        error = { detail: `HTTP error! status: ${response.status}` };
+      }
+      throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    }
+    
+    const blob = await response.blob();
+    console.log(`📥 [API] Export mappings ${format.toUpperCase()} réussi`);
+    return blob;
   },
 
   /**
