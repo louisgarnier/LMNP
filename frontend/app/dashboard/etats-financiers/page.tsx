@@ -16,7 +16,8 @@ import LoanPaymentTable from '@/components/LoanPaymentTable';
 import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 import CompteResultatTable from '@/components/CompteResultatTable';
 import BilanConfigCard from '@/components/BilanConfigCard';
-import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI } from '@/api/client';
+import BilanTable from '@/components/BilanTable';
+import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI, transactionsAPI } from '@/api/client';
 
 interface CreditTabContentProps {
   activeTab: string;
@@ -29,11 +30,63 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
   const [activeLoanName, setActiveLoanName] = useState<string | null>(null);
   const [hoveredLoanId, setHoveredLoanId] = useState<number | null>(null);
+  const [validationWarning, setValidationWarning] = useState<{
+    loanName: string;
+    configuredAmount: number;
+    transactionAmount: number;
+    difference: number;
+  } | null>(null);
 
   // Charger les configurations de crédit au montage
   useEffect(() => {
     loadLoanConfigs();
   }, []);
+
+  // Valider la cohérence entre montant configuré et transactions
+  useEffect(() => {
+    if (loanConfigs.length > 0) {
+      validateCreditAmounts();
+    } else {
+      setValidationWarning(null);
+    }
+  }, [loanConfigs, refreshTrigger]);
+
+  const validateCreditAmounts = async () => {
+    try {
+      const level1Value = "Dettes financières (emprunt bancaire)";
+      
+      // Calculer la somme totale des transactions
+      const transactionSum = await transactionsAPI.getSumByLevel1(level1Value);
+      const totalFromTransactions = transactionSum.total;
+      
+      // Calculer la somme totale des montants configurés
+      const totalConfigured = loanConfigs.reduce((sum, config) => sum + (config.credit_amount || 0), 0);
+      
+      // Vérifier la différence
+      const difference = Math.abs(totalConfigured - totalFromTransactions);
+      const tolerance = 0.01; // Tolérance de 1 centime pour les arrondis
+      
+      if (difference > tolerance) {
+        // Trouver le crédit avec la plus grande différence (pour l'affichage)
+        const activeConfig = loanConfigs.find(c => c.name === activeLoanName);
+        const displayLoanName = activeConfig?.name || loanConfigs[0]?.name || 'Crédit';
+        const displayConfigured = activeConfig?.credit_amount || totalConfigured;
+        
+        setValidationWarning({
+          loanName: displayLoanName,
+          configuredAmount: displayConfigured,
+          transactionAmount: totalFromTransactions,
+          difference: difference
+        });
+      } else {
+        setValidationWarning(null);
+      }
+    } catch (error) {
+      console.error('❌ [CreditTabContent] Erreur lors de la validation:', error);
+      // En cas d'erreur, ne pas afficher d'avertissement
+      setValidationWarning(null);
+    }
+  };
 
   const loadLoanConfigs = async () => {
     try {
@@ -351,6 +404,43 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
         </div>
       ) : loanConfigs.length > 0 && activeLoanName ? (
         <>
+          {/* Alerte de validation si les montants ne correspondent pas */}
+          {validationWarning && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '16px',
+              backgroundColor: '#fef3c7',
+              border: '1px solid #fbbf24',
+              borderRadius: '8px',
+              color: '#92400e'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '8px',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}>
+                <span style={{ marginRight: '8px' }}>⚠️</span>
+                <span>Incohérence détectée entre le montant configuré et les transactions</span>
+              </div>
+              <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+                <div>
+                  <strong>Crédit accordé (configuré) :</strong> {validationWarning.configuredAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </div>
+                <div>
+                  <strong>Somme des transactions "Dettes financières (emprunt bancaire)" :</strong> {validationWarning.transactionAmount.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </div>
+                <div style={{ marginTop: '8px', fontWeight: '600' }}>
+                  <strong>Différence :</strong> {validationWarning.difference.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' })}
+                </div>
+                <div style={{ marginTop: '8px', fontSize: '12px', fontStyle: 'italic' }}>
+                  💡 Le calcul du capital restant dû dans le bilan utilise les transactions réelles, pas le montant configuré.
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Card de configuration pour le crédit actif */}
           {(() => {
             const activeConfig = loanConfigs.find(c => c.name === activeLoanName);
@@ -417,6 +507,9 @@ export default function EtatsFinanciersPage() {
   
   // État pour forcer le rechargement du tableau CompteResultatTable
   const [compteResultatRefreshKey, setCompteResultatRefreshKey] = useState(0);
+  
+  // État pour forcer le rechargement du tableau BilanTable
+  const [bilanRefreshKey, setBilanRefreshKey] = useState(0);
   
   // État pour la checkbox "Override Resultat" (persisté dans localStorage)
   const [isOverrideEnabled, setIsOverrideEnabled] = useState<boolean>(false);
@@ -601,21 +694,19 @@ export default function EtatsFinanciersPage() {
         padding: '24px',
         minHeight: '400px'
       }}>
-        {activeTab === 'compte-resultat' && (
+        {activeTab === 'compte-resultat' && mounted && (
           <div>
             <CompteResultatConfigCard
               onConfigUpdated={() => {
-                console.log('Configuration du compte de résultat mise à jour');
                 // Forcer le rechargement du tableau quand les mappings changent
                 setCompteResultatRefreshKey(prev => prev + 1);
               }}
               onLevel3Change={(values) => {
-                console.log('Level 3 values changed:', values);
                 // Forcer le rechargement du tableau quand le Level 3 change
                 setCompteResultatRefreshKey(prev => prev + 1);
               }}
-              onLevel3ValuesLoaded={(count) => {
-                console.log('Level 3 values loaded:', count);
+              onLevel3ValuesLoaded={() => {
+                // Callback silencieux
               }}
               onOverrideEnabledChange={(enabled) => {
                 setIsOverrideEnabled(enabled);
@@ -627,13 +718,16 @@ export default function EtatsFinanciersPage() {
           </div>
         )}
 
-        {activeTab === 'bilan' && (
+        {activeTab === 'bilan' && mounted && (
           <div>
             <BilanConfigCard
+              isActive={activeTab === 'bilan'}
               onConfigUpdated={() => {
-                console.log('Configuration du bilan mise à jour');
+                // Forcer le rechargement du tableau quand les mappings changent
+                setBilanRefreshKey(prev => prev + 1);
               }}
             />
+            <BilanTable refreshKey={bilanRefreshKey} />
           </div>
         )}
 

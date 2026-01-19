@@ -269,32 +269,32 @@
 
 ### Step 9.6 : Frontend - API Client pour le Bilan
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Créer les fonctions API client pour communiquer avec le backend du bilan.
 
 **Tasks**:
-- [ ] Ajouter `bilanAPI` dans `frontend/src/api/client.ts`
-- [ ] Fonctions CRUD pour les mappings :
+- [x] Ajouter `bilanAPI` dans `frontend/src/api/client.ts`
+- [x] Fonctions CRUD pour les mappings :
   - `getMappings()`, `getMapping(id)`, `createMapping(data)`, `updateMapping(id, data)`, `deleteMapping(id)`
-- [ ] Fonctions pour les données :
-  - `calculate(year, selected_level_3_values)`, `getBilan(year?, start_year?, end_year?)`
-- [ ] Fonctions pour la configuration :
+- [x] Fonctions pour les données :
+  - `calculate(year, selected_level_3_values)`, `calculateMultiple(years)`, `getBilan(year?, start_year?, end_year?)`
+- [x] Fonctions pour la configuration :
   - `getConfig()`, `updateConfig(level_3_values)`
-- [ ] Types TypeScript pour les interfaces :
+- [x] Types TypeScript pour les interfaces :
   - `BilanMapping`, `BilanMappingCreate`, `BilanMappingUpdate`, `BilanMappingListResponse`
   - `BilanData`, `BilanDataListResponse`
   - `BilanCategoryItem`, `BilanSubCategoryItem`, `BilanTypeItem`, `BilanResponse`
   - `BilanCalculateRequest`
-  - `BilanConfig`, `BilanConfigResponse`
+  - `BilanConfig`, `BilanConfigUpdate`
 
 **Deliverables**:
 - Mise à jour `frontend/src/api/client.ts`
 - Types TypeScript définis
 
 **Acceptance Criteria**:
-- [ ] Toutes les fonctions API créées
-- [ ] Types TypeScript corrects (correspondance avec modèles Pydantic backend)
-- [ ] Gestion des erreurs appropriée (utilise fetchAPI avec gestion d'erreurs)
+- [x] Toutes les fonctions API créées
+- [x] Types TypeScript corrects (correspondance avec modèles Pydantic backend)
+- [x] Gestion des erreurs appropriée (utilise fetchAPI avec gestion d'erreurs)
 
 ---
 
@@ -594,24 +594,24 @@
 
 #### Step 9.8.5 : Frontend - Validation équilibre ACTIF = PASSIF avec % de différence
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Ajouter la validation de l'équilibre ACTIF = PASSIF et afficher le pourcentage de différence.
 
 **Tasks**:
-- [ ] Ajouter une ligne "ÉQUILIBRE" ou "% Différence" après "TOTAL PASSIF"
-- [ ] Calculer la différence pour chaque année :
+- [x] Ajouter une ligne "ÉQUILIBRE" ou "% Différence" après "TOTAL PASSIF"
+- [x] Calculer la différence pour chaque année :
   - `différence = TOTAL ACTIF - TOTAL PASSIF`
   - `pourcentage = (différence / TOTAL ACTIF) * 100` (si TOTAL ACTIF > 0)
-- [ ] Afficher le pourcentage de différence :
+- [x] Afficher le pourcentage de différence :
   - Format : `% Différence : X.XX%`
   - Si différence = 0 : Vert, texte "Équilibre respecté ✓"
   - Si différence > 0 : Rouge, afficher le pourcentage
   - Si TOTAL ACTIF = 0 : Afficher "N/A"
-- [ ] Style de la ligne :
+- [x] Style de la ligne :
   - Fond légèrement coloré (vert si équilibré, rouge si déséquilibré)
   - Texte en gras
   - Bordure supérieure épaisse
-- [ ] Ajouter un message d'alerte si déséquilibré :
+- [x] Ajouter un message d'alerte si déséquilibré :
   - Afficher un warning si différence > 0.01% (tolérance pour arrondis)
   - Message : "⚠️ Attention : Le bilan n'est pas équilibré. Vérifiez les calculs."
 
@@ -620,15 +620,91 @@
 - Validation de l'équilibre avec indicateur visuel
 
 **Acceptance Criteria**:
-- [ ] Différence calculée correctement pour chaque année
-- [ ] Pourcentage de différence calculé et affiché
-- [ ] Indicateur visuel (vert/rouge) selon l'équilibre
-- [ ] Message d'alerte si déséquilibré
-- [ ] Tolérance pour les arrondis (0.01%)
+- [x] Différence calculée correctement pour chaque année
+- [x] Pourcentage de différence calculé et affiché
+- [x] Indicateur visuel (vert/rouge) selon l'équilibre
+- [x] Message d'alerte si déséquilibré
+- [x] Tolérance pour les arrondis (0.01%)
 
 ---
 
-#### Step 9.8.6 : Frontend - Formatage et finitions
+#### Step 9.8.6 : Frontend - Gestion de l'année en cours (bilan partiel)
+
+**Status**: ⏳ À FAIRE  
+**Description**: Gérer le cas particulier de l'année en cours où le bilan ne peut pas être complètement équilibré.
+
+**Contexte** :
+Pour l'année en cours, le bilan ne peut pas être complètement équilibré car :
+- Les amortissements concernent l'année entière (mais on n'est peut-être qu'en janvier/février)
+- Les impôts ne sont pas encore payés (charges à payer)
+- Tous les produits/charges ne sont pas encore encaissés/décaissés (créances/dettes d'exploitation)
+- Certaines provisions peuvent manquer
+
+**Approches possibles** :
+
+**Option A : Tolérance spécifique pour l'année en cours**
+- Appliquer une tolérance plus large pour l'année en cours (ex: 5% au lieu de 0.01%)
+- Afficher un message informatif : "⚠️ Année en cours : Le bilan peut être partiellement déséquilibré (amortissements annuels, impôts non payés, etc.)"
+- Avantages : Simple à implémenter
+- Inconvénients : Peut masquer de vraies erreurs
+
+**Option B : Calcul pro-rata pour l'année en cours**
+- Calculer les amortissements au prorata du nombre de mois écoulés
+- Estimer les impôts à payer (basé sur le résultat estimé)
+- Ajouter des ajustements pour les créances/dettes d'exploitation
+- Avantages : Plus précis
+- Inconvénients : Complexe, nécessite des estimations
+
+**Option C : Affichage conditionnel avec message explicatif**
+- Détecter si l'année est l'année en cours
+- Si déséquilibré ET année en cours : Afficher un message explicatif au lieu d'un warning
+- Message : "ℹ️ Année en cours : Le bilan est partiel. Les amortissements, impôts et certaines charges/produits ne sont pas encore comptabilisés."
+- Afficher quand même le pourcentage de différence mais avec un style "info" (bleu) au lieu de "erreur" (rouge)
+- Avantages : Informe l'utilisateur sans alarmer inutilement
+- Inconvénients : Nécessite de détecter l'année en cours
+
+**Option D : Catégorie "Écarts d'arrondi et année en cours"**
+- Ajouter une catégorie spéciale dans le PASSIF : "Écarts d'arrondi et année en cours"
+- Cette catégorie équilibre automatiquement le bilan pour l'année en cours
+- Montant = TOTAL ACTIF - TOTAL PASSIF (pour l'année en cours uniquement)
+- Avantages : Le bilan est toujours équilibré visuellement
+- Inconvénients : Peut masquer des erreurs réelles
+
+**Option E : Combinaison Option C + Option A**
+- Pour l'année en cours : Tolérance plus large (ex: 2-3%) + Message informatif
+- Si déséquilibré au-delà de la tolérance : Afficher un warning
+- Si déséquilibré dans la tolérance : Afficher un message info
+- Avantages : Équilibre entre information et alerte
+- Inconvénients : Nécessite de définir une tolérance appropriée
+
+**Recommandation** : **Option E (Combinaison C + A)**
+- Détecter l'année en cours
+- Appliquer une tolérance de 2-3% pour l'année en cours (au lieu de 0.01%)
+- Si déséquilibré dans la tolérance : Afficher un message info (bleu) au lieu d'un warning (rouge)
+- Si déséquilibré au-delà de la tolérance : Afficher un warning (rouge) comme pour les autres années
+- Message info : "ℹ️ Année en cours : Le bilan peut être partiellement déséquilibré (amortissements annuels, impôts non payés, créances/dettes d'exploitation)."
+
+**Tasks** (à définir selon l'option choisie) :
+- [ ] Détecter l'année en cours
+- [ ] Appliquer une tolérance spécifique pour l'année en cours
+- [ ] Modifier l'affichage de la ligne ÉQUILIBRE pour l'année en cours
+- [ ] Ajouter un message informatif pour l'année en cours
+- [ ] Tester avec différentes dates (janvier, juin, décembre)
+
+**Deliverables**:
+- Mise à jour `frontend/src/components/BilanTable.tsx`
+- Gestion de l'année en cours avec tolérance et message approprié
+
+**Acceptance Criteria**:
+- [ ] L'année en cours est détectée correctement
+- [ ] Une tolérance spécifique est appliquée pour l'année en cours
+- [ ] L'affichage de l'équilibre est adapté pour l'année en cours (style info au lieu d'erreur si dans la tolérance)
+- [ ] Un message informatif est affiché pour l'année en cours
+- [ ] Les autres années conservent la validation stricte (0.01%)
+
+---
+
+#### Step 9.8.7 : Frontend - Formatage et finitions
 
 **Status**: ⏳ À FAIRE  
 **Description**: Finaliser le formatage, les styles et la présentation de la table.

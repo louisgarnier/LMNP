@@ -280,9 +280,17 @@ async def get_transaction_unique_values(
     Returns:
         Liste des valeurs uniques (non null, triées)
     """
-    # Base query avec join pour level_1/2/3
+    # Optimisation: Pour level_1/2/3, on n'a besoin du JOIN que si on filtre par date
+    needs_date_filter = start_date or end_date
+    needs_join = needs_date_filter and column in ["level_1", "level_2", "level_3"]
+    
+    # Base query avec join seulement si nécessaire
     if column in ["level_1", "level_2", "level_3"]:
-        query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
+        if needs_join:
+            query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
+        else:
+            # Pas besoin de JOIN si on ne filtre pas par date - beaucoup plus rapide
+            query = db.query(EnrichedTransaction)
     else:
         query = db.query(Transaction)
     
@@ -304,11 +312,17 @@ async def get_transaction_unique_values(
     # Filtres par date si fournis
     if start_date:
         if column in ["level_1", "level_2", "level_3"]:
+            if not needs_join:
+                # Ajouter le JOIN si nécessaire
+                query = query.join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
             query = query.filter(Transaction.date >= start_date)
         else:
             query = query.filter(Transaction.date >= start_date)
     if end_date:
         if column in ["level_1", "level_2", "level_3"]:
+            if not needs_join and not start_date:
+                # Ajouter le JOIN si nécessaire
+                query = query.join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
             query = query.filter(Transaction.date <= end_date)
         else:
             query = query.filter(Transaction.date <= end_date)
@@ -318,6 +332,7 @@ async def get_transaction_unique_values(
         values = query.with_entities(Transaction.nom).distinct().filter(Transaction.nom.isnot(None)).order_by(Transaction.nom).all()
         unique_values = [v[0] for v in values if v[0]]
     elif column == "level_1":
+        # Utiliser distinct() directement sur la colonne pour optimiser
         values = query.with_entities(EnrichedTransaction.level_1).distinct().filter(EnrichedTransaction.level_1.isnot(None)).order_by(EnrichedTransaction.level_1).all()
         unique_values = [v[0] for v in values if v[0]]
     elif column == "level_2":
@@ -712,6 +727,43 @@ async def preview_file(
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erreur lors de l'analyse du fichier: {str(e)}")
+
+
+@router.get("/transactions/sum-by-level1")
+async def get_transaction_sum_by_level1(
+    level_1: str = Query(..., description="Valeur de level_1 à filtrer"),
+    end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel, cumul jusqu'à cette date)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculer la somme des transactions pour un level_1 donné.
+    
+    Utile pour valider que le montant du crédit configuré correspond aux transactions réelles.
+    
+    - **level_1**: Valeur de level_1 à filtrer (ex: "Dettes financières (emprunt bancaire)")
+    - **end_date**: Date de fin optionnelle (cumul jusqu'à cette date, sinon toutes les transactions)
+    
+    Returns:
+        Montant total (somme des quantite) pour ce level_1
+    """
+    query = db.query(
+        func.sum(Transaction.quantite)
+    ).join(
+        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+    ).filter(
+        EnrichedTransaction.level_1 == level_1
+    )
+    
+    if end_date:
+        query = query.filter(Transaction.date <= end_date)
+    
+    total = query.scalar()
+    
+    return {
+        "level_1": level_1,
+        "total": abs(total) if total is not None else 0.0,
+        "end_date": end_date.isoformat() if end_date else None
+    }
 
 
 @router.post("/transactions/import", response_model=FileImportResponse)

@@ -14,6 +14,7 @@ import { transactionsAPI, bilanAPI, BilanMapping } from '@/api/client';
 interface BilanConfigCardProps {
   onConfigUpdated?: () => void;
   onLevel3Change?: (level3Values: string[]) => void;
+  isActive?: boolean; // Ne charger les données que si l'onglet est actif
 }
 
 const STORAGE_KEY_COLLAPSED = 'bilan_config_collapsed';
@@ -48,6 +49,7 @@ const SPECIAL_CATEGORIES_WITH_VIEW = [
 export default function BilanConfigCard({
   onConfigUpdated,
   onLevel3Change,
+  isActive = true,
 }: BilanConfigCardProps) {
   
   const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>([]);
@@ -85,6 +87,8 @@ export default function BilanConfigCard({
 
   // Charger les valeurs Level 3 disponibles
   const loadLevel3Values = async () => {
+    if (!isActive) return; // Ne pas charger si l'onglet n'est pas actif
+    
     try {
       setLoadingValues(true);
       const response = await transactionsAPI.getUniqueValues('level_3');
@@ -99,6 +103,8 @@ export default function BilanConfigCard({
 
   // Charger la configuration (selected_level_3_values)
   const loadConfig = async () => {
+    if (!isActive) return; // Ne pas charger si l'onglet n'est pas actif
+    
     try {
       const config = await bilanAPI.getConfig();
       if (config.level_3_values) {
@@ -121,6 +127,8 @@ export default function BilanConfigCard({
 
   // Charger les mappings
   const loadMappings = async () => {
+    if (!isActive) return; // Ne pas charger si l'onglet n'est pas actif
+    
     try {
       setLoadingMappings(true);
       const response = await bilanAPI.getMappings();
@@ -135,6 +143,7 @@ export default function BilanConfigCard({
 
   // Charger les valeurs Level 1 filtrées par Level 3
   const loadLevel1Values = async () => {
+    if (!isActive) return; // Ne pas charger si l'onglet n'est pas actif
     if (selectedLevel3Values.length === 0) {
       setLevel1Values([]);
       return;
@@ -142,6 +151,7 @@ export default function BilanConfigCard({
 
     try {
       setLoadingLevel1Values(true);
+      // Ne charger que si on a vraiment besoin (éviter les appels inutiles)
       const response = await transactionsAPI.getUniqueValues('level_1', undefined, undefined, undefined, selectedLevel3Values);
       setLevel1Values(response.values || []);
     } catch (err: any) {
@@ -152,23 +162,39 @@ export default function BilanConfigCard({
     }
   };
 
-  // Charger les valeurs au montage
+  // Charger les valeurs au montage (seulement si l'onglet est actif)
   useEffect(() => {
-    // Restaurer l'état collapsed depuis localStorage
+    // Toujours restaurer l'état collapsed depuis localStorage
     const savedCollapsed = localStorage.getItem(STORAGE_KEY_COLLAPSED);
     if (savedCollapsed !== null) {
       setIsCollapsed(savedCollapsed === 'true');
     }
     
-    loadLevel3Values();
-    loadConfig();
-    loadMappings();
+    // Charger les données seulement si l'onglet est actif
+    if (isActive) {
+      loadLevel3Values();
+      loadConfig();
+      loadMappings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Charger les level_1 quand les level_3 sélectionnés changent
+  // Charger les level_1 quand les level_3 sélectionnés changent (seulement si l'onglet est actif)
   useEffect(() => {
-    loadLevel1Values();
-  }, [selectedLevel3Values]);
+    if (!isActive) return;
+    
+    // Utiliser un debounce pour éviter les appels trop fréquents
+    const timeoutId = setTimeout(() => {
+      if (isActive) {
+        loadLevel1Values();
+      }
+    }, 500); // Attendre 500ms avant de charger
+    
+    return () => {
+      clearTimeout(timeoutId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedLevel3Values, isActive]);
 
   // Gérer le changement de checkbox Level 3
   const handleLevel3CheckboxChange = async (value: string, checked: boolean) => {

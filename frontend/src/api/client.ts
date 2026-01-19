@@ -240,6 +240,21 @@ export const transactionsAPI = {
     
     return fetchAPI<{ column: string; values: string[] }>(`/api/transactions/unique-values?${params}`);
   },
+
+  /**
+   * Calculer la somme des transactions pour un level_1 donné
+   */
+  getSumByLevel1: async (
+    level1: string,
+    endDate?: string
+  ): Promise<{ level_1: string; total: number; end_date: string | null }> => {
+    const params = new URLSearchParams({
+      level_1: level1,
+    });
+    if (endDate) params.append('end_date', endDate);
+    
+    return fetchAPI<{ level_1: string; total: number; end_date: string | null }>(`/api/transactions/sum-by-level1?${params}`);
+  },
 };
 
 /**
@@ -1857,6 +1872,14 @@ export const bilanAPI = {
     return fetchAPI<void>(`/api/bilan/mappings/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  /**
+   * Calcule le bilan pour plusieurs années en une fois (comme compte de résultat)
+   */
+  calculateMultiple: async (years: number[]): Promise<{ years: number[], results: Record<number, BilanResponse> }> => {
+    const yearsParam = years.join(',');
+    return fetchAPI<{ years: number[], results: Record<number, BilanResponse> }>(`/api/bilan/calculate?years=${yearsParam}`);
   },
 
   /**

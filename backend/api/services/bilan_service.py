@@ -77,22 +77,27 @@ def calculate_normal_category(
     level_3_values: List[str]
 ) -> float:
     """
-    Calculer le montant d'une catégorie normale depuis les transactions enrichies.
+    Calculer le montant cumulé d'une catégorie normale depuis les transactions enrichies.
     
     Logique :
     1. Filtrer par level_3 (seules les transactions avec level_3 dans level_3_values)
-    2. Filtrer par année (date entre 01/01/année et 31/12/année)
+    2. Filtrer par date (toutes les transactions jusqu'à la fin de l'année - CUMUL)
     3. Filtrer par level_1 (selon level_1_values du mapping)
-    4. Sommer les montants
+    4. Sommer les montants (cumul depuis le début jusqu'à l'année)
+    
+    Pour les immobilisations et autres catégories normales, on calcule le cumul :
+    - Année 2021 : somme de toutes les transactions jusqu'au 31/12/2021
+    - Année 2022 : somme de toutes les transactions jusqu'au 31/12/2022 (inclut 2021)
+    - etc.
     
     Args:
         db: Session de base de données
-        year: Année à calculer
+        year: Année jusqu'à laquelle cumuler
         mapping: Mapping de la catégorie
         level_3_values: Liste des valeurs level_3 à considérer
     
     Returns:
-        Montant total pour cette catégorie
+        Montant cumulé pour cette catégorie jusqu'à l'année
     """
     if not level_3_values:
         return 0.0
@@ -108,11 +113,10 @@ def calculate_normal_category(
     if not level_1_values:
         return 0.0
     
-    # Date de début et fin de l'année
-    start_date = date(year, 1, 1)
+    # Date de fin de l'année (cumul jusqu'à cette date)
     end_date = date(year, 12, 31)
     
-    # Filtrer les transactions par level_3, level_1 et par année
+    # Filtrer les transactions par level_3, level_1 et cumul jusqu'à la fin de l'année
     query = db.query(
         func.sum(Transaction.quantite)
     ).join(
@@ -121,13 +125,32 @@ def calculate_normal_category(
         and_(
             EnrichedTransaction.level_3.in_(level_3_values),
             EnrichedTransaction.level_1.in_(level_1_values),
-            Transaction.date >= start_date,
-            Transaction.date <= end_date
+            Transaction.date <= end_date  # Cumul jusqu'à la fin de l'année
         )
     )
     
     result = query.scalar()
-    return result if result is not None else 0.0
+    if result is None:
+        return 0.0
+    
+    # Pour le bilan, les montants doivent être positifs (actifs/passifs)
+    # 
+    # Logique selon le type (ACTIF ou PASSIF) :
+    # - Pour ACTIF : si la somme est négative, retourner 0 (on ne peut pas avoir un actif négatif)
+    # - Pour PASSIF : si la somme est négative, retourner 0 (on ne peut pas avoir une dette négative)
+    # - Sinon, retourner la valeur absolue pour s'assurer que c'est positif
+    #
+    # Cas particulier : certaines catégories ont des transactions avec signes mixtes :
+    # - Exemple "Cautions reçues" : paiements (positifs) - remboursements (négatifs) = montant net dû
+    # - Si le résultat est négatif, cela signifie qu'on a remboursé plus qu'on a reçu, donc la dette = 0
+    
+    if result < 0:
+        # Si la somme est négative, on ne peut pas avoir un actif/passif négatif
+        return 0.0
+    
+    # Si la somme est positive, retourner la valeur absolue (pour gérer les cas où les transactions
+    # sont toutes négatives mais représentent un actif/passif positif, comme pour les immobilisations)
+    return abs(result)
 
 
 def calculate_amortizations_cumul(
@@ -234,7 +257,7 @@ def calculate_report_a_nouveau(
     Calculer le report à nouveau (cumul des résultats des années précédentes).
     
     Logique :
-    - Cumuler les résultats de toutes les années < year
+    - Cumuler les résultats de toutes les années < year qui ont des transactions
     - Première année : 0 (pas de report)
     
     Args:
@@ -244,14 +267,41 @@ def calculate_report_a_nouveau(
     Returns:
         Report à nouveau (cumul des résultats précédents)
     """
-    if year <= 1:
+    # Trouver la première année avec des transactions
+    first_transaction = db.query(func.min(Transaction.date)).scalar()
+    if not first_transaction:
         return 0.0
     
-    # Récupérer toutes les années précédentes
+    first_year = first_transaction.year if hasattr(first_transaction, 'year') else first_transaction
+    
+    if year <= first_year:
+        return 0.0
+    
+    # OPTIMISATION: Calculer tous les résultats en une seule fois au lieu de boucler
+    # Récupérer tous les overrides d'un coup
+    overrides = db.query(CompteResultatOverride).filter(
+        CompteResultatOverride.year >= first_year,
+        CompteResultatOverride.year < year
+    ).all()
+    override_dict = {o.year: o.override_value for o in overrides}
+    
+    # Calculer les années qui n'ont pas d'override
     total = 0.0
-    for prev_year in range(1, year):
-        resultat = calculate_resultat_exercice(db, prev_year)
-        total += resultat
+    years_to_calculate = []
+    for prev_year in range(first_year, year):
+        if prev_year in override_dict:
+            total += override_dict[prev_year]
+        else:
+            years_to_calculate.append(prev_year)
+    
+    # Calculer les années sans override en une seule fois si possible
+    if years_to_calculate:
+        # Pour chaque année, calculer le compte de résultat
+        # Note: On pourrait optimiser davantage en calculant toutes les années en une fois
+        # mais pour l'instant, on garde la logique simple
+        for prev_year in years_to_calculate:
+            compte_resultat = calculate_compte_resultat(db, prev_year)
+            total += compte_resultat.get("resultat_net", 0.0)
     
     return total
 
@@ -264,9 +314,12 @@ def calculate_capital_restant_du(
     Calculer le capital restant dû au 31/12 de l'année.
     
     Logique :
-    - Récupérer tous les crédits configurés
-    - Pour chaque crédit : crédit accordé - cumul des remboursements de capital jusqu'au 31/12
-    - Sommer tous les crédits
+    - Le montant du crédit accordé = somme des transactions avec level_1 = "Dettes financières (emprunt bancaire)" (cumul jusqu'au 31/12)
+    - Le capital remboursé = cumul des remboursements de capital jusqu'au 31/12
+    - Capital restant dû = Crédit accordé (depuis transactions) - Capital remboursé
+    
+    IMPORTANT: Le montant du crédit accordé doit être calculé depuis les transactions réelles,
+    pas depuis LoanConfig.credit_amount, car le crédit peut être débloqué progressivement.
     
     Args:
         db: Session de base de données
@@ -278,35 +331,37 @@ def calculate_capital_restant_du(
     # Date de fin de l'année
     end_date = date(year, 12, 31)
     
-    # Récupérer tous les crédits configurés
-    loan_configs = db.query(LoanConfig).all()
+    # Calculer le montant du crédit accordé depuis les transactions réelles
+    # Utiliser level_1 = "Dettes financières (emprunt bancaire)"
+    level_1_value = "Dettes financières (emprunt bancaire)"
     
-    if not loan_configs:
-        return 0.0
+    credit_amount_from_transactions = db.query(
+        func.sum(Transaction.quantite)
+    ).join(
+        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+    ).filter(
+        and_(
+            EnrichedTransaction.level_1 == level_1_value,
+            Transaction.date <= end_date
+        )
+    ).scalar()
     
-    total_remaining = 0.0
+    # Le montant est négatif dans les transactions (débit), donc on prend la valeur absolue
+    credit_amount = abs(credit_amount_from_transactions) if credit_amount_from_transactions is not None else 0.0
     
-    for loan_config in loan_configs:
-        # Montant du crédit accordé
-        credit_amount = loan_config.credit_amount
-        
-        # Cumul des remboursements de capital jusqu'au 31/12
-        capital_paid = db.query(
-            func.sum(LoanPayment.capital)
-        ).filter(
-            and_(
-                LoanPayment.loan_name == loan_config.name,
-                LoanPayment.date <= end_date
-            )
-        ).scalar()
-        
-        capital_paid = capital_paid if capital_paid is not None else 0.0
-        
-        # Capital restant dû pour ce crédit
-        remaining = credit_amount - capital_paid
-        total_remaining += remaining
+    # Cumul des remboursements de capital jusqu'au 31/12 (tous les crédits)
+    capital_paid = db.query(
+        func.sum(LoanPayment.capital)
+    ).filter(
+        LoanPayment.date <= end_date
+    ).scalar()
     
-    return total_remaining
+    capital_paid = capital_paid if capital_paid is not None else 0.0
+    
+    # Capital restant dû = Crédit accordé (depuis transactions) - Capital remboursé
+    remaining = credit_amount - capital_paid
+    
+    return remaining
 
 
 def calculate_bilan(
@@ -345,13 +400,85 @@ def calculate_bilan(
     # Dictionnaire pour stocker les montants par catégorie
     categories = {}
     
-    # Calculer chaque catégorie
-    for mapping in mappings:
-        category_name = mapping.category_name
+    # OPTIMISATION: Calculer toutes les catégories normales en une seule requête
+    normal_mappings = [m for m in mappings if not m.is_special]
+    if normal_mappings:
+        # Date de fin de l'année (cumul jusqu'à cette date)
+        end_date = date(year, 12, 31)
         
+        # Construire un dictionnaire category_name -> set(level_1_values)
+        category_to_level_1 = {}
+        all_level_1_values = set()
+        for mapping in normal_mappings:
+            if not mapping.level_1_values:
+                continue
+            try:
+                level_1_values = json.loads(mapping.level_1_values)
+                category_to_level_1[mapping.category_name] = set(level_1_values)
+                all_level_1_values.update(level_1_values)
+            except (json.JSONDecodeError, TypeError):
+                continue
+        
+        if all_level_1_values:
+            # Une seule requête pour toutes les catégories normales
+            query = db.query(
+                EnrichedTransaction.level_1,
+                func.sum(Transaction.quantite).label('total')
+            ).join(
+                Transaction, Transaction.id == EnrichedTransaction.transaction_id
+            ).filter(
+                and_(
+                    EnrichedTransaction.level_3.in_(level_3_values),
+                    EnrichedTransaction.level_1.in_(list(all_level_1_values)),
+                    Transaction.date <= end_date
+                )
+            ).group_by(EnrichedTransaction.level_1)
+            
+            results = query.all()
+            
+            # Initialiser toutes les catégories normales à 0
+            for mapping in normal_mappings:
+                categories[mapping.category_name] = 0.0
+            
+            # Répartir les résultats par catégorie (chaque level_1 peut appartenir à plusieurs catégories)
+            # IMPORTANT: On additionne d'abord les montants bruts (avec leurs signes), puis on applique la logique
+            # à la somme finale. Cela permet de gérer correctement les catégories avec transactions mixtes
+            # (ex: "Cautions reçues" avec paiements positifs et remboursements négatifs)
+            for level_1, total in results:
+                if level_1 and total is not None:
+                    # Trouver toutes les catégories qui utilisent ce level_1
+                    for category_name, level_1_set in category_to_level_1.items():
+                        if level_1 in level_1_set:
+                            # Additionner les montants bruts (avec leurs signes)
+                            categories[category_name] += total
+            
+            # Appliquer la logique de signe à la somme finale de chaque catégorie
+            # Construire un dictionnaire category_name -> type (ACTIF/PASSIF) pour déterminer la logique
+            category_to_type = {}
+            for mapping in normal_mappings:
+                category_to_type[mapping.category_name] = mapping.type
+            
+            for category_name in categories:
+                result = categories[category_name]
+                category_type = category_to_type.get(category_name, "ACTIF")  # Par défaut ACTIF
+                
+                if category_type == "ACTIF":
+                    # Pour les ACTIFS : toujours retourner la valeur absolue (positif)
+                    # Les transactions sont souvent négatives (débits), mais l'actif doit être positif
+                    categories[category_name] = abs(result) if result is not None else 0.0
+                else:
+                    # Pour les PASSIFS : si négatif → 0 (on ne peut pas avoir une dette négative)
+                    # Sinon, valeur absolue pour garantir un montant positif
+                    if result < 0:
+                        categories[category_name] = 0.0
+                    else:
+                        categories[category_name] = abs(result) if result is not None else 0.0
+    
+    # Calculer les catégories spéciales (une par une, elles sont peu nombreuses)
+    for mapping in mappings:
         if mapping.is_special:
-            # Catégorie spéciale
-            if mapping.special_source == "amortization_result":
+            category_name = mapping.category_name
+            if mapping.special_source == "amortization_result" or mapping.special_source == "amortizations":
                 amount = calculate_amortizations_cumul(db, year)
             elif mapping.special_source == "transactions":
                 amount = calculate_compte_bancaire(db, year)
@@ -365,11 +492,7 @@ def calculate_bilan(
                 amount = calculate_capital_restant_du(db, year)
             else:
                 amount = 0.0
-        else:
-            # Catégorie normale
-            amount = calculate_normal_category(db, year, mapping, level_3_values)
-        
-        categories[category_name] = amount
+            categories[category_name] = amount
     
     # Calculer les totaux par sous-catégorie
     totals_by_sub_category = {}

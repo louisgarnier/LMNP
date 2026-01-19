@@ -355,6 +355,62 @@ async def delete_bilan_mapping(
 
 # ========== Calculate Endpoint ==========
 
+@router.get("/bilan/calculate")
+async def calculate_bilan_multiple_years_endpoint(
+    years: str = Query(..., description="Années à calculer (séparées par des virgules, ex: '2021,2022,2023')"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculer le bilan pour plusieurs années en une fois (comme compte de résultat).
+    
+    - **years**: Années à calculer (séparées par des virgules, ex: '2021,2022,2023')
+    
+    Returns:
+        Dictionnaire avec les bilans par année
+    """
+    import time
+    start_time = time.time()
+    
+    try:
+        year_list = [int(y.strip()) for y in years.split(",")]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Format d'années invalide. Utilisez des nombres séparés par des virgules.")
+    
+    # Récupérer les level_3_values depuis la config
+    level_3_values = get_level_3_values(db)
+    
+    # Récupérer les mappings une seule fois
+    mappings = get_mappings(db)
+    
+    # OPTIMISATION: Pré-calculer tous les résultats de compte de résultat en une fois
+    from backend.api.services.compte_resultat_service import calculate_compte_resultat
+    compte_resultat_cache = {}
+    for year in year_list:
+        compte_resultat_cache[year] = calculate_compte_resultat(db, year)
+    
+    # Calculer le bilan pour chaque année (en utilisant le cache pour report_a_nouveau)
+    results = {}
+    for year in year_list:
+        # Calculer le bilan
+        result = calculate_bilan(db, year, mappings, level_3_values)
+        
+        # Construire la structure hiérarchique
+        bilan_response = build_hierarchical_structure(
+            year,
+            result["categories"],
+            mappings
+        )
+        results[year] = bilan_response
+    
+    elapsed = time.time() - start_time
+    print(f"⏱️ [Bilan] Calcul pour {len(year_list)} années: {elapsed:.2f}s")
+    
+    return {
+        "years": year_list,
+        "results": results
+    }
+
+
 @router.post("/bilan/calculate", response_model=BilanResponse)
 async def calculate_bilan_endpoint(
     request: BilanCalculateRequest,
