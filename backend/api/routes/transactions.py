@@ -396,6 +396,43 @@ async def delete_all_imports(
     return None
 
 
+@router.get("/transactions/sum-by-level1")
+async def get_transaction_sum_by_level1(
+    level_1: str = Query(..., description="Valeur de level_1 à filtrer"),
+    end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel, cumul jusqu'à cette date)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calculer la somme des transactions pour un level_1 donné.
+    
+    Utile pour valider que le montant du crédit configuré correspond aux transactions réelles.
+    
+    - **level_1**: Valeur de level_1 à filtrer (ex: "Dettes financières (emprunt bancaire)")
+    - **end_date**: Date de fin optionnelle (cumul jusqu'à cette date, sinon toutes les transactions)
+    
+    Returns:
+        Montant total (somme des quantite) pour ce level_1
+    """
+    query = db.query(
+        func.sum(Transaction.quantite)
+    ).join(
+        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+    ).filter(
+        EnrichedTransaction.level_1 == level_1
+    )
+    
+    if end_date:
+        query = query.filter(Transaction.date <= end_date)
+    
+    total = query.scalar()
+    
+    return {
+        "level_1": level_1,
+        "total": abs(total) if total is not None else 0.0,
+        "end_date": end_date.isoformat() if end_date else None
+    }
+
+
 @router.get("/transactions/export")
 async def export_transactions(
     format: str = Query("excel", description="Format d'export: 'excel' ou 'csv'"),
@@ -853,43 +890,6 @@ async def preview_file(
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erreur lors de l'analyse du fichier: {str(e)}")
-
-
-@router.get("/transactions/sum-by-level1")
-async def get_transaction_sum_by_level1(
-    level_1: str = Query(..., description="Valeur de level_1 à filtrer"),
-    end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel, cumul jusqu'à cette date)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Calculer la somme des transactions pour un level_1 donné.
-    
-    Utile pour valider que le montant du crédit configuré correspond aux transactions réelles.
-    
-    - **level_1**: Valeur de level_1 à filtrer (ex: "Dettes financières (emprunt bancaire)")
-    - **end_date**: Date de fin optionnelle (cumul jusqu'à cette date, sinon toutes les transactions)
-    
-    Returns:
-        Montant total (somme des quantite) pour ce level_1
-    """
-    query = db.query(
-        func.sum(Transaction.quantite)
-    ).join(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
-    ).filter(
-        EnrichedTransaction.level_1 == level_1
-    )
-    
-    if end_date:
-        query = query.filter(Transaction.date <= end_date)
-    
-    total = query.scalar()
-    
-    return {
-        "level_1": level_1,
-        "total": abs(total) if total is not None else 0.0,
-        "end_date": end_date.isoformat() if end_date else None
-    }
 
 
 @router.post("/transactions/import", response_model=FileImportResponse)
