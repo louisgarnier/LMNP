@@ -355,56 +355,56 @@
 
 #### Step 9.8.1 : Frontend - Structure de base et affichage niveau C (Catégories)
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Créer la structure de base de la table et afficher les catégories comptables (niveau C) avec leurs montants par année.
 
 **Tasks**:
-- [ ] Créer `frontend/src/components/BilanTable.tsx`
-- [ ] Structure de base similaire à `CompteResultatTable.tsx` :
+- [x] Créer `frontend/src/components/BilanTable.tsx`
+- [x] Structure de base similaire à `CompteResultatTable.tsx` :
   - Colonne "Bilan" (catégories)
   - Colonnes par année (dynamiques, basées sur les données disponibles)
-- [ ] Récupérer les données du bilan depuis l'API (`bilanAPI.calculate()`)
-- [ ] Grouper les données par catégorie comptable (niveau C)
-- [ ] Afficher chaque catégorie (niveau C) :
+- [x] Récupérer les données du bilan depuis l'API (`bilanAPI.calculate()`)
+- [x] Grouper les données par catégorie comptable (niveau C)
+- [x] Afficher chaque catégorie (niveau C) :
   - Double indentation (ex: `&nbsp;&nbsp;&nbsp;&nbsp;Immobilisations`)
   - Montant par année dans les colonnes correspondantes
   - Formatage des montants en € (ex: `1 234,56 €`)
   - Affichage des montants négatifs en rouge (pour "Amortissements cumulés" et "Résultat de l'exercice" si perte)
-- [ ] Trier les catégories par Type (ACTIF, puis PASSIF), puis par Sous-catégorie, puis par Catégorie
+- [x] Trier les catégories par Type (ACTIF, puis PASSIF), puis par Sous-catégorie, puis par Catégorie
 
 **Deliverables**:
 - Fichier `frontend/src/components/BilanTable.tsx` avec structure de base
 - Affichage des catégories niveau C
 
 **Acceptance Criteria**:
-- [ ] Table créée avec colonnes dynamiques par année
-- [ ] Catégories niveau C affichées avec double indentation
-- [ ] Montants affichés correctement par année
-- [ ] Formatage € correct
-- [ ] Montants négatifs en rouge pour les catégories appropriées
-- [ ] Tri correct (ACTIF puis PASSIF, puis sous-catégories, puis catégories)
+- [x] Table créée avec colonnes dynamiques par année
+- [x] Catégories niveau C affichées avec double indentation
+- [x] Montants affichés correctement par année
+- [x] Formatage € correct
+- [x] Montants négatifs en rouge pour les catégories appropriées
+- [x] Tri correct (ACTIF puis PASSIF, puis sous-catégories, puis catégories)
 
 ---
 
 #### Step 9.8.2 : Frontend - Affichage niveau B (Sous-catégories) avec totaux
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Ajouter l'affichage des sous-catégories (niveau B) avec leurs totaux calculés.
 
 **Tasks**:
-- [ ] Ajouter les lignes de sous-catégories (niveau B) :
+- [x] Ajouter les lignes de sous-catégories (niveau B) :
   - **Actif immobilisé**
   - **Actif circulant**
   - **Capitaux propres**
   - **Tresorerie passive**
   - **Dettes financières**
-- [ ] Affichage avec indentation simple (ex: `&nbsp;&nbsp;Actif immobilisé`)
-- [ ] Calculer les totaux par sous-catégorie et par année :
+- [x] Affichage avec indentation simple (ex: `&nbsp;&nbsp;Actif immobilisé`)
+- [x] Calculer les totaux par sous-catégorie et par année :
   - Pour chaque sous-catégorie, sommer tous les montants des catégories (niveau C) qui lui appartiennent
   - Gérer les montants négatifs correctement (ex: "Amortissements cumulés" diminue l'actif)
-- [ ] Afficher les totaux en gras
-- [ ] Placer chaque ligne de sous-catégorie juste avant ses catégories (niveau C)
-- [ ] Logique de calcul :
+- [x] Afficher les totaux en gras
+- [x] Placer chaque ligne de sous-catégorie juste avant ses catégories (niveau C)
+- [x] Logique de calcul :
   - **Actif immobilisé** = Immobilisations - Amortissements cumulés
   - **Actif circulant** = Compte bancaire + Créances locataires + Charges payées d'avance
   - **Capitaux propres** = Capitaux propres + Apports initiaux + Souscription de parts sociales + Résultat de l'exercice + Report à nouveau + Compte courant d'associé
@@ -416,31 +416,31 @@
 - Affichage des sous-catégories avec totaux
 
 **Acceptance Criteria**:
-- [ ] Toutes les sous-catégories affichées avec indentation simple
-- [ ] Totaux calculés correctement pour chaque sous-catégorie
-- [ ] Logique de calcul respectée (notamment pour "Actif immobilisé" avec amortissements en diminution)
-- [ ] Totaux affichés en gras
-- [ ] Ordre hiérarchique respecté (sous-catégorie avant ses catégories)
+- [x] Toutes les sous-catégories affichées avec indentation simple
+- [x] Totaux calculés correctement pour chaque sous-catégorie
+- [x] Logique de calcul respectée (notamment pour "Actif immobilisé" avec amortissements en diminution)
+- [x] Totaux affichés en gras
+- [x] Ordre hiérarchique respecté (sous-catégorie avant ses catégories)
 
 ---
 
 #### Step 9.8.3 : Frontend - Affichage niveau A (ACTIF/PASSIF) avec totaux
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Ajouter l'affichage des niveaux A (ACTIF et PASSIF) avec leurs totaux calculés.
 
 **Tasks**:
-- [ ] Ajouter les lignes de niveau A :
+- [x] Ajouter les lignes de niveau A :
   - **ACTIF** (en haut)
   - **PASSIF** (en bas)
-- [ ] Affichage sans indentation, en gras, style titre (fond gris)
-- [ ] Calculer les totaux par niveau A et par année :
+- [x] Affichage sans indentation, en gras, style titre (fond gris)
+- [x] Calculer les totaux par niveau A et par année :
   - **TOTAL ACTIF** = Actif immobilisé + Actif circulant
   - **TOTAL PASSIF** = Capitaux propres + Tresorerie passive + Dettes financières
-- [ ] Afficher les lignes de niveau A :
+- [x] Afficher les lignes de niveau A :
   - Ligne "ACTIF" juste avant "Actif immobilisé"
   - Ligne "PASSIF" juste avant "Capitaux propres"
-- [ ] Style des lignes de niveau A :
+- [x] Style des lignes de niveau A :
   - Fond légèrement gris (#e5e7eb)
   - Texte en gras (fontWeight: '700')
   - Bordure supérieure et inférieure
@@ -450,32 +450,32 @@
 - Affichage des niveaux A avec totaux
 
 **Acceptance Criteria**:
-- [ ] Lignes ACTIF et PASSIF affichées correctement
-- [ ] Totaux ACTIF et PASSIF calculés correctement
-- [ ] Style visuel distinct pour les niveaux A (fond gris, texte en gras)
-- [ ] Ordre hiérarchique respecté (ACTIF en haut, PASSIF en bas)
+- [x] Lignes ACTIF et PASSIF affichées correctement
+- [x] Totaux ACTIF et PASSIF calculés correctement
+- [x] Style visuel distinct pour les niveaux A (fond gris, texte en gras)
+- [x] Ordre hiérarchique respecté (ACTIF en haut, PASSIF en bas)
 
 ---
 
 #### Step 9.8.4 : Frontend - Gestion des catégories spéciales dans l'affichage
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: S'assurer que les catégories spéciales sont affichées correctement avec leurs calculs spécifiques.
 
 ---
 
 ##### Step 9.8.4.1 : Frontend - Catégorie spéciale "Amortissements cumulés"
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Vérifier et valider l'affichage de la catégorie spéciale "Amortissements cumulés".
 
 **Tasks**:
-- [ ] Vérifier que le montant est affiché en négatif (en rouge)
-- [ ] Vérifier que la catégorie est affichée sous "Immobilisations"
-- [ ] Vérifier que la catégorie contribue correctement à diminuer "Actif immobilisé" :
+- [x] Vérifier que le montant est affiché en négatif (en rouge)
+- [x] Vérifier que la catégorie est affichée sous "Immobilisations"
+- [x] Vérifier que la catégorie contribue correctement à diminuer "Actif immobilisé" :
   - Actif immobilisé = Immobilisations - Amortissements cumulés
-- [ ] Vérifier que le calcul backend est correct (cumul des amortissements jusqu'à l'année)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [x] Vérifier que le calcul backend est correct (cumul des amortissements jusqu'à l'année)
+- [x] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
 
 **Deliverables**:
 - Validation de l'affichage "Amortissements cumulés" dans `BilanTable.tsx`
@@ -483,112 +483,112 @@
 - Test script: `backend/scripts/test_bilan_amortissements_cumules.py`
 
 **Acceptance Criteria**:
-- [ ] Montant affiché en négatif et en rouge
-- [ ] Position correcte (sous "Immobilisations")
-- [ ] Contribue correctement au calcul "Actif immobilisé"
-- [ ] Montant calculé correctement par le backend
+- [x] Montant affiché en négatif et en rouge
+- [x] Position correcte (sous "Immobilisations")
+- [x] Contribue correctement au calcul "Actif immobilisé"
+- [x] Montant calculé correctement par le backend
 
 ---
 
 ##### Step 9.8.4.2 : Frontend - Catégorie spéciale "Compte bancaire"
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Vérifier et valider l'affichage de la catégorie spéciale "Compte bancaire".
 
 **Tasks**:
-- [ ] Vérifier que le montant est affiché en positif
-- [ ] Vérifier que la catégorie est affichée dans "Actif circulant"
-- [ ] Vérifier que le montant correspond au solde final de l'année :
+- [x] Vérifier que le montant est affiché en positif
+- [x] Vérifier que la catégorie est affichée dans "Actif circulant"
+- [x] Vérifier que le montant correspond au solde final de l'année :
   - Solde de la dernière transaction de l'année (au 31/12)
-- [ ] Vérifier que le calcul backend est correct (dernière transaction de l'année)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [x] Vérifier que le calcul backend est correct (dernière transaction de l'année)
+- [x] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
 
 **Deliverables**:
 - Validation de l'affichage "Compte bancaire" dans `BilanTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Montant affiché en positif
-- [ ] Position correcte (dans "Actif circulant")
-- [ ] Montant correspond au solde final de l'année
-- [ ] Montant calculé correctement par le backend
+- [x] Montant affiché en positif
+- [x] Position correcte (dans "Actif circulant")
+- [x] Montant correspond au solde final de l'année
+- [x] Montant calculé correctement par le backend
 
 ---
 
 ##### Step 9.8.4.3 : Frontend - Catégorie spéciale "Résultat de l'exercice (bénéfice / perte)"
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Vérifier et valider l'affichage de la catégorie spéciale "Résultat de l'exercice" avec sélection de vue de compte de résultat.
 
 **Tasks**:
-- [ ] Vérifier que le montant peut être positif (bénéfice) ou négatif (perte)
-- [ ] Vérifier que la catégorie est affichée dans "Capitaux propres"
-- [ ] Vérifier que le montant est récupéré depuis `CompteResultatData` filtré par `compte_resultat_view_id` (si fourni)
-- [ ] Vérifier que le calcul backend est correct (depuis compte de résultat, signe préservé)
-- [ ] Vérifier que l'affichage en rouge fonctionne pour les montants négatifs (perte)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [x] Vérifier que le montant peut être positif (bénéfice) ou négatif (perte)
+- [x] Vérifier que la catégorie est affichée dans "Capitaux propres"
+- [x] Vérifier que le montant est récupéré depuis `CompteResultatData` filtré par `compte_resultat_view_id` (si fourni)
+- [x] Vérifier que le calcul backend est correct (depuis compte de résultat, signe préservé)
+- [x] Vérifier que l'affichage en rouge fonctionne pour les montants négatifs (perte)
+- [x] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
 
 **Deliverables**:
 - Validation de l'affichage "Résultat de l'exercice" dans `BilanTable.tsx`
 - Affichage signe et couleur dans `BilanTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Montant peut être positif (bénéfice) ou négatif (perte)
-- [ ] Montant récupéré depuis `CompteResultatData` filtré par `compte_resultat_view_id`
-- [ ] Position correcte (dans "Capitaux propres")
-- [ ] Affichage en rouge si perte (montant négatif)
-- [ ] Montant calculé correctement par le backend (signe préservé)
+- [x] Montant peut être positif (bénéfice) ou négatif (perte)
+- [x] Montant récupéré depuis `CompteResultatData` filtré par `compte_resultat_view_id`
+- [x] Position correcte (dans "Capitaux propres")
+- [x] Affichage en rouge si perte (montant négatif)
+- [x] Montant calculé correctement par le backend (signe préservé)
 
 ---
 
 ##### Step 9.8.4.4 : Frontend - Catégorie spéciale "Report à nouveau / report du déficit"
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Vérifier et valider l'affichage de la catégorie spéciale "Report à nouveau".
 
 **Tasks**:
-- [ ] Vérifier que le montant est affiché correctement
-- [ ] Vérifier que la catégorie est affichée dans "Capitaux propres"
-- [ ] Vérifier que le calcul est correct :
+- [x] Vérifier que le montant est affiché correctement
+- [x] Vérifier que la catégorie est affichée dans "Capitaux propres"
+- [x] Vérifier que le calcul est correct :
   - Cumul des résultats des années précédentes (N-1, N-2, etc.)
   - Première année : 0 (pas de report)
-- [ ] Vérifier que le calcul backend est correct (cumul depuis `compte_resultat_data` ou calcul via `CompteResultatService`)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
-- [ ] Tester avec plusieurs années pour vérifier le cumul
+- [x] Vérifier que le calcul backend est correct (cumul depuis `compte_resultat_data` ou calcul via `CompteResultatService`)
+- [x] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [x] Tester avec plusieurs années pour vérifier le cumul
 
 **Deliverables**:
 - Validation de l'affichage "Report à nouveau" dans `BilanTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Première année affiche 0
-- [ ] Années suivantes affichent le cumul des résultats précédents
-- [ ] Position correcte (dans "Capitaux propres")
-- [ ] Montant calculé correctement par le backend
+- [x] Première année affiche 0
+- [x] Années suivantes affichent le cumul des résultats précédents
+- [x] Position correcte (dans "Capitaux propres")
+- [x] Montant calculé correctement par le backend
 
 ---
 
 ##### Step 9.8.4.5 : Frontend - Catégorie spéciale "Emprunt bancaire (capital restant dû)"
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Vérifier et valider l'affichage de la catégorie spéciale "Emprunt bancaire".
 
 **Tasks**:
-- [ ] Vérifier que le montant est affiché en positif (dette)
-- [ ] Vérifier que la catégorie est affichée dans "Dettes financières"
-- [ ] Vérifier que le calcul est correct :
+- [x] Vérifier que le montant est affiché en positif (dette)
+- [x] Vérifier que la catégorie est affichée dans "Dettes financières"
+- [x] Vérifier que le calcul est correct :
   - Capital restant dû = Crédit accordé - Cumulé des remboursements de capital
   - Calculé au 31/12 de chaque année
-- [ ] Vérifier que le calcul backend est correct (depuis `loan_payments` et `loan_configs`)
-- [ ] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
-- [ ] Tester avec plusieurs années pour vérifier la diminution progressive
+- [x] Vérifier que le calcul backend est correct (depuis `loan_payments` et `loan_configs`)
+- [x] Vérifier que le montant est récupéré depuis l'API `/api/bilan/calculate`
+- [x] Tester avec plusieurs années pour vérifier la diminution progressive
 
 **Deliverables**:
 - Validation de l'affichage "Emprunt bancaire" dans `BilanTable.tsx`
 
 **Acceptance Criteria**:
-- [ ] Montant affiché en positif (dette)
-- [ ] Position correcte (dans "Dettes financières")
-- [ ] Montant diminue progressivement avec les remboursements
-- [ ] Montant calculé correctement par le backend
+- [x] Montant affiché en positif (dette)
+- [x] Position correcte (dans "Dettes financières")
+- [x] Montant diminue progressivement avec les remboursements
+- [x] Montant calculé correctement par le backend
 
 ---
 
@@ -741,26 +741,26 @@ Pour l'année en cours, le bilan ne peut pas être complètement équilibré car
 
 ### Step 9.9 : Frontend - Intégration dans la page États financiers
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Intégrer la card de configuration et la table du bilan dans l'onglet "Bilan" de la page États financiers.
 
 **Tasks**:
-- [ ] Modifier `frontend/app/dashboard/etats-financiers/page.tsx`
-- [ ] Intégrer `BilanConfigCard` dans l'onglet "Bilan"
-- [ ] Intégrer `BilanTable` dans l'onglet "Bilan"
-- [ ] Gérer le rechargement des données après modification de la configuration
-- [ ] Passer les callbacks nécessaires (`onConfigUpdated`, `onLevel3Change`)
-- [ ] Gérer le `refreshKey` pour forcer le rechargement de la table
+- [x] Modifier `frontend/app/dashboard/etats-financiers/page.tsx`
+- [x] Intégrer `BilanConfigCard` dans l'onglet "Bilan"
+- [x] Intégrer `BilanTable` dans l'onglet "Bilan"
+- [x] Gérer le rechargement des données après modification de la configuration
+- [x] Passer les callbacks nécessaires (`onConfigUpdated`, `onLevel3Change`)
+- [x] Gérer le `refreshKey` pour forcer le rechargement de la table
 
 **Deliverables**:
 - Mise à jour `frontend/app/dashboard/etats-financiers/page.tsx`
 - Intégration complète de la card et de la table
 
 **Acceptance Criteria**:
-- [ ] Card et table intégrées dans l'onglet "Bilan"
-- [ ] Rechargement automatique après modification de la configuration
-- [ ] Callbacks fonctionnent correctement
-- [ ] Navigation entre onglets fonctionne
+- [x] Card et table intégrées dans l'onglet "Bilan"
+- [x] Rechargement automatique après modification de la configuration
+- [x] Callbacks fonctionnent correctement
+- [x] Navigation entre onglets fonctionne
 
 ---
 
