@@ -14,6 +14,7 @@ from datetime import date, datetime
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from dateutil.relativedelta import relativedelta
 
 from backend.database.models import (
     Transaction,
@@ -54,12 +55,11 @@ def calculate_yearly_amounts(
     """
     Calcule la répartition des montants d'amortissement par année.
     
-    Logique :
-    - Si annual_amount est fourni, l'utiliser directement
-    - Sinon, calculer : annual_amount = abs(total_amount) / duration
-    - Calculer le montant journalier : daily_amount = annual_amount / 360
-    - Répartir proportionnellement par année selon la convention 30/360
-    - Dernière année = solde restant pour garantir somme exacte
+    Logique SIMPLE :
+    1. Annuité = abs(total_amount) / duration (ou annual_amount si fourni)
+    2. Année d'achat (première année) : prorata temporis avec convention 30/360
+    3. Années complètes : annuité exacte
+    4. Dernière année : solde restant (pour garantir somme exacte)
     
     Args:
         start_date: Date de début d'amortissement
@@ -73,60 +73,55 @@ def calculate_yearly_amounts(
     if duration <= 0:
         return {}
     
-    # Utiliser annual_amount si fourni, sinon calculer
+    # Calculer l'annuité
     if annual_amount is None or annual_amount == 0:
         annual_amount = abs(total_amount) / duration
     else:
         annual_amount = abs(annual_amount)
     
-    # Montant journalier selon convention 30/360
-    daily_amount = annual_amount / 360
-    
-    # Calculer la date de fin (fin de la dernière année)
-    # Si duration = 5 ans et start_date = 2024-01-01, alors on amortit jusqu'à 2028-12-31
-    end_year = start_date.year + int(duration) - 1
-    end_date = date(end_year, 12, 31)
+    # Calculer la date de fin exacte : start_date + duration années
+    from dateutil.relativedelta import relativedelta
+    exact_end_date = start_date + relativedelta(years=int(duration))
+    end_year = exact_end_date.year
     
     yearly_amounts = {}
-    total_calculated = 0.0
+    daily_amount = annual_amount / 360
     
-    # Calculer pour chaque année concernée
-    current_date = start_date
-    current_year = start_date.year
-    
-    while current_year <= end_year:
-        # Déterminer la fin de l'année courante
-        year_end = date(current_year, 12, 31)
-        period_end = min(end_date, year_end)
-        
-        # Calculer les jours pour cette période
-        days_in_period = calculate_30_360_days(current_date, period_end)
+    # Cas spécial : tout dans une seule année
+    if start_date.year == end_year:
+        days_in_period = calculate_30_360_days(start_date, exact_end_date)
         if days_in_period > 0:
-            amount = daily_amount * days_in_period
-            
-            # Ajouter au total de l'année
-            if current_year in yearly_amounts:
-                yearly_amounts[current_year] += amount
-            else:
-                yearly_amounts[current_year] = amount
-            
-            total_calculated += amount
+            yearly_amounts[start_date.year] = daily_amount * days_in_period
+    else:
+        # 1. PREMIÈRE ANNÉE (année d'achat) : partielle
+        # Du start_date à la fin de l'année
+        first_year_end = date(start_date.year, 12, 31)
+        days_in_first_year = calculate_30_360_days(start_date, first_year_end)
+        first_year_amount = daily_amount * days_in_first_year
+        yearly_amounts[start_date.year] = first_year_amount
         
-        # Passer à l'année suivante
-        current_date = date(current_year + 1, 1, 1)
-        current_year += 1
+        # 2. ANNÉES COMPLÈTES : annuité exacte
+        # Toutes les années entre la première et la dernière (années complètes)
+        for year in range(start_date.year + 1, end_year):
+            yearly_amounts[year] = annual_amount
+        
+        # 3. DERNIÈRE ANNÉE : partielle aussi !
+        # Du début de l'année jusqu'à la date de fin exacte
+        last_year_start = date(end_year, 1, 1)
+        days_in_last_year = calculate_30_360_days(last_year_start, exact_end_date)
+        last_year_amount = daily_amount * days_in_last_year
+        yearly_amounts[end_year] = last_year_amount
+        
+        # 4. VÉRIFICATION : si le total ne correspond pas exactement, ajuster la dernière année
+        total_calculated = sum(yearly_amounts.values())
+        difference = abs(total_amount) - total_calculated
+        if abs(difference) > 0.01:  # Tolérance de 0.01€ pour les arrondis
+            # Ajuster la dernière année pour garantir la somme exacte
+            yearly_amounts[end_year] += difference
     
-    # Convertir en montants négatifs et ajuster la dernière année
-    if yearly_amounts:
-        # Convertir en négatif
-        for year in yearly_amounts:
-            yearly_amounts[year] = -yearly_amounts[year]
-        
-        # Ajuster la dernière année pour garantir somme exacte
-        last_year = max(yearly_amounts.keys())
-        remaining = abs(total_amount) - total_calculated
-        if remaining > 0:
-            yearly_amounts[last_year] = -(abs(yearly_amounts[last_year]) + remaining)
+    # Convertir toutes les années en négatif
+    for year in yearly_amounts:
+        yearly_amounts[year] = -yearly_amounts[year]
     
     return yearly_amounts
 

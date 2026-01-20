@@ -182,10 +182,12 @@ async def update_amortization_type(
     
     # Mettre à jour les champs fournis
     # Utiliser model_dump(exclude_unset=True) pour ne mettre à jour que les champs fournis
-    update_data = type_data.model_dump(exclude_unset=True)
+    # Mais on doit aussi inclure les champs explicitement mis à None
+    # Pour cela, on utilise model_dump(exclude_none=False) pour inclure les None explicites
+    update_data = type_data.model_dump(exclude_unset=True, exclude_none=False)
     
     # Pour start_date et annual_amount, on doit vérifier s'ils sont explicitement fournis
-    # en utilisant hasattr pour vérifier si le champ a été défini dans le modèle
+    # même s'ils sont None (pour permettre la suppression)
     if "name" in update_data:
         atype.name = update_data["name"]
     if "level_2_value" in update_data:
@@ -194,6 +196,7 @@ async def update_amortization_type(
         atype.level_1_values = json.dumps(update_data["level_1_values"] or [])
     if "start_date" in update_data:
         # start_date peut être None (pour supprimer la date)
+        # Si le champ est présent dans update_data (même avec None), on le met à jour
         atype.start_date = update_data["start_date"]
     if "duration" in update_data:
         atype.duration = update_data["duration"]
@@ -203,6 +206,18 @@ async def update_amortization_type(
     
     db.commit()
     db.refresh(atype)
+    
+    # Recalculer tous les amortissements si des champs critiques ont été modifiés
+    # (start_date, duration, annual_amount affectent les calculs)
+    if any(field in update_data for field in ["start_date", "duration", "annual_amount", "level_1_values", "level_2_value"]):
+        try:
+            from backend.api.services.amortization_service import recalculate_all_amortizations
+            recalculate_all_amortizations(db)
+        except Exception as e:
+            # Log l'erreur mais ne bloque pas la mise à jour
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"⚠️ [update_amortization_type] Erreur lors du recalcul des amortissements: {error_details}")
     
     return AmortizationTypeResponse(
         id=atype.id,
