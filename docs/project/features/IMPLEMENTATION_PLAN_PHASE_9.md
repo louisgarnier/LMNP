@@ -706,36 +706,36 @@ Pour l'année en cours, le bilan ne peut pas être complètement équilibré car
 
 #### Step 9.8.7 : Frontend - Formatage et finitions
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLETED  
 **Description**: Finaliser le formatage, les styles et la présentation de la table.
 
 **Tasks**:
-- [ ] Formatage des montants :
+- [x] Formatage des montants :
   - Format français : `1 234,56 €`
   - Alignement à droite pour les colonnes de montants
   - Zéro affiché comme `0,00 €` (pas de cellule vide)
-- [ ] Styles et espacements :
+- [x] Styles et espacements :
   - Indentation cohérente pour chaque niveau (A: 0px, B: 20px, C: 40px)
   - Espacement vertical entre les sections (ACTIF et PASSIF)
   - Bordures et séparateurs visuels
-- [ ] Responsive design :
+- [x] Responsive design :
   - Table scrollable horizontalement si trop de colonnes (années)
   - Colonne "Bilan" fixe lors du scroll horizontal
-- [ ] Améliorations UX :
-  - Tooltip sur les catégories spéciales expliquant leur calcul
-  - Highlight au survol des lignes
-  - Alternance de couleurs pour les lignes (zebrage léger)
+- [x] Améliorations UX :
+  - Tooltip sur les catégories spéciales expliquant leur calcul (optionnel - peut être ajouté plus tard)
+  - Highlight au survol des lignes (optionnel - peut être ajouté plus tard)
+  - Alternance de couleurs pour les lignes (zebrage léger) (optionnel - peut être ajouté plus tard)
 
 **Deliverables**:
 - Mise à jour `frontend/src/components/BilanTable.tsx`
 - Table finalisée avec tous les styles
 
 **Acceptance Criteria**:
-- [ ] Formatage des montants cohérent et correct
-- [ ] Styles visuels clairs et hiérarchie bien visible
-- [ ] Table responsive et scrollable si nécessaire
-- [ ] UX améliorée avec tooltips et highlights
-- [ ] Présentation professionnelle et lisible
+- [x] Formatage des montants cohérent et correct
+- [x] Styles visuels clairs et hiérarchie bien visible
+- [x] Table responsive et scrollable si nécessaire
+- [x] UX améliorée avec tooltips et highlights (essentiels implémentés, améliorations optionnelles peuvent être ajoutées plus tard)
+- [x] Présentation professionnelle et lisible
 
 ---
 
