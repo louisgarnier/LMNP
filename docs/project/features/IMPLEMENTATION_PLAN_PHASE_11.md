@@ -4,6 +4,15 @@
 **Environnement**: Local uniquement  
 **Durée estimée**: 2-3 semaines
 
+## ⚠️ RAPPELS IMPORTANTS
+
+**AVANT TOUTE MODIFICATION DE CODE :**
+1. **Lire `docs/workflow/BEST_PRACTICES.md`** - Obligatoire avant toute modification
+2. **Consulter `docs/workflow/ERROR_INVESTIGATION.md`** - En cas d'erreurs
+3. **Vérifier les erreurs frontend** - Utiliser `docs/workflow/check_frontend_errors.js` si disponible
+
+**NE JAMAIS COMMITER SANS ACCORD EXPLICITE DE L'UTILISATEUR**
+
 ## Objectif
 
 Permettre la gestion de plusieurs appartements/propriétés dans l'application. Actuellement, toutes les données sont globales et ne permettent pas de distinguer plusieurs propriétés.
@@ -134,35 +143,188 @@ Cette phase implique :
 ### Step 11.4 : Backend - Modification des endpoints existants pour filtrer par property_id
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Modifier tous les endpoints pour accepter `property_id` (query param obligatoire)
-- [ ] Filtrer toutes les requêtes par `property_id`
-- [ ] S'assurer que les créations incluent `property_id`
-- [ ] Ajouter validation : erreur 400 si property_id manquant
-- [ ] Créer des scripts de test pour chaque groupe d'endpoints
-- [ ] Tester l'isolation : vérifier qu'on ne peut pas accéder aux données d'une autre propriété
+**Description**: Décomposé en sous-steps pour chaque groupe d'endpoints avec tests spécifiques.
 
-**Tables concernées**:
-- Transactions
-- Mappings (y compris allowed_mappings)
-- Loan configs/payments
-- Amortizations
-- Compte de résultat
-- Bilan
+---
+
+#### Step 11.4.1 : Backend - Endpoints Transactions avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `GET /api/transactions` pour accepter `property_id` (query param obligatoire)
+- [ ] Modifier `POST /api/transactions` pour inclure `property_id` dans le body
+- [ ] Modifier `PUT /api/transactions/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/transactions/{id}` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/transactions/unique-values` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/transactions/sum-by-level1` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/transactions/export` pour filtrer par `property_id`
+- [ ] Ajouter validation : erreur 400 si property_id manquant
+- [ ] Créer script de test : `backend/scripts/test_transactions_property_id_step11_4_1.py`
+- [ ] Tester l'isolation : créer des transactions pour property_id=1, vérifier qu'on ne peut pas les voir avec property_id=2
 
 **Deliverables**:
-- Tous les endpoints filtrent par `property_id`
-- Validation des erreurs si property_id manquant
-- Scripts de test pour chaque groupe d'endpoints
+- Endpoints transactions modifiés dans `backend/api/routes/transactions.py`
+- Script de test créé et exécuté avec succès
 - Tests d'isolation validés
 
 **Tests**:
-- [ ] Tous les GET filtrent par property_id
-- [ ] Tous les POST incluent property_id
-- [ ] Tous les PUT filtrent par property_id
-- [ ] Tous les DELETE filtrent par property_id
-- [ ] Test d'isolation : créer des données pour property_id=1, vérifier qu'on ne peut pas les voir avec property_id=2
-- [ ] Test d'isolation : essayer d'accéder à des données d'une autre propriété (doit retourner vide ou 404)
+- [ ] GET /api/transactions?property_id=1 retourne uniquement les transactions de la propriété 1
+- [ ] POST /api/transactions avec property_id crée une transaction pour cette propriété
+- [ ] PUT /api/transactions/{id}?property_id=1 ne peut modifier que les transactions de la propriété 1
+- [ ] DELETE /api/transactions/{id}?property_id=1 ne peut supprimer que les transactions de la propriété 1
+- [ ] Test d'isolation : transaction créée pour property_id=1 n'est pas visible avec property_id=2
+- [ ] Test d'isolation : tentative d'accès à une transaction d'une autre propriété retourne 404
+- [ ] Validation : erreur 400 si property_id manquant
+
+---
+
+#### Step 11.4.2 : Backend - Endpoints Mappings avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `GET /api/mappings` pour filtrer par `property_id`
+- [ ] Modifier `POST /api/mappings` pour inclure `property_id`
+- [ ] Modifier `PUT /api/mappings/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/mappings/{id}` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/mappings/export` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/mappings/allowed` pour filtrer par `property_id` (mappings hardcodés modifiables)
+- [ ] Modifier `POST /api/mappings/allowed` pour inclure `property_id`
+- [ ] Modifier `PUT /api/mappings/allowed/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/mappings/allowed/{id}` pour filtrer par `property_id`
+- [ ] Ajouter validation : erreur 400 si property_id manquant
+- [ ] Créer script de test : `backend/scripts/test_mappings_property_id_step11_4_2.py`
+- [ ] Tester l'isolation : créer des mappings pour property_id=1, vérifier qu'on ne peut pas les voir avec property_id=2
+
+**Deliverables**:
+- Endpoints mappings modifiés dans `backend/api/routes/mappings.py`
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] GET /api/mappings?property_id=1 retourne uniquement les mappings de la propriété 1
+- [ ] POST /api/mappings avec property_id crée un mapping pour cette propriété
+- [ ] PUT /api/mappings/{id}?property_id=1 ne peut modifier que les mappings de la propriété 1
+- [ ] DELETE /api/mappings/{id}?property_id=1 ne peut supprimer que les mappings de la propriété 1
+- [ ] GET /api/mappings/allowed?property_id=1 retourne uniquement les mappings hardcodés de la propriété 1
+- [ ] Test d'isolation : mapping créé pour property_id=1 n'est pas visible avec property_id=2
+- [ ] Validation : erreur 400 si property_id manquant
+
+---
+
+#### Step 11.4.3 : Backend - Endpoints Crédits (Loan) avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `GET /api/loan-configs` pour filtrer par `property_id`
+- [ ] Modifier `POST /api/loan-configs` pour inclure `property_id`
+- [ ] Modifier `PUT /api/loan-configs/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/loan-configs/{id}` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/loan-payments` pour filtrer par `property_id`
+- [ ] Modifier `POST /api/loan-payments` pour inclure `property_id`
+- [ ] Modifier `PUT /api/loan-payments/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/loan-payments/{id}` pour filtrer par `property_id`
+- [ ] Ajouter validation : erreur 400 si property_id manquant
+- [ ] Créer script de test : `backend/scripts/test_loans_property_id_step11_4_3.py`
+- [ ] Tester l'isolation : créer des crédits pour property_id=1, vérifier qu'on ne peut pas les voir avec property_id=2
+
+**Deliverables**:
+- Endpoints crédits modifiés dans `backend/api/routes/loan_configs.py` et `loan_payments.py`
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] GET /api/loan-configs?property_id=1 retourne uniquement les crédits de la propriété 1
+- [ ] POST /api/loan-configs avec property_id crée un crédit pour cette propriété
+- [ ] GET /api/loan-payments?property_id=1 retourne uniquement les paiements de la propriété 1
+- [ ] Test d'isolation : crédit créé pour property_id=1 n'est pas visible avec property_id=2
+- [ ] Validation : erreur 400 si property_id manquant
+
+---
+
+#### Step 11.4.4 : Backend - Endpoints Amortissements avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `GET /api/amortization/types` pour filtrer par `property_id`
+- [ ] Modifier `POST /api/amortization/types` pour inclure `property_id`
+- [ ] Modifier `PUT /api/amortization/types/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/amortization/types/{id}` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/amortization/results` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/amortization/results/aggregated` pour filtrer par `property_id`
+- [ ] Ajouter validation : erreur 400 si property_id manquant
+- [ ] Créer script de test : `backend/scripts/test_amortizations_property_id_step11_4_4.py`
+- [ ] Tester l'isolation : créer des amortissements pour property_id=1, vérifier qu'on ne peut pas les voir avec property_id=2
+
+**Deliverables**:
+- Endpoints amortissements modifiés dans `backend/api/routes/amortization_types.py` et `amortization.py`
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] GET /api/amortization/types?property_id=1 retourne uniquement les types d'amortissement de la propriété 1
+- [ ] POST /api/amortization/types avec property_id crée un type pour cette propriété
+- [ ] GET /api/amortization/results?property_id=1 retourne uniquement les résultats de la propriété 1
+- [ ] Test d'isolation : amortissement créé pour property_id=1 n'est pas visible avec property_id=2
+- [ ] Validation : erreur 400 si property_id manquant
+
+---
+
+#### Step 11.4.5 : Backend - Endpoints Compte de résultat avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `GET /api/compte-resultat/mappings` pour filtrer par `property_id`
+- [ ] Modifier `POST /api/compte-resultat/mappings` pour inclure `property_id`
+- [ ] Modifier `PUT /api/compte-resultat/mappings/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/compte-resultat/mappings/{id}` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/compte-resultat/config` pour filtrer par `property_id`
+- [ ] Modifier `PUT /api/compte-resultat/config` pour inclure `property_id`
+- [ ] Modifier `GET /api/compte-resultat/calculate` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/compte-resultat/overrides` pour filtrer par `property_id`
+- [ ] Modifier `POST /api/compte-resultat/overrides` pour inclure `property_id`
+- [ ] Modifier `DELETE /api/compte-resultat/overrides/{id}` pour filtrer par `property_id`
+- [ ] Ajouter validation : erreur 400 si property_id manquant
+- [ ] Créer script de test : `backend/scripts/test_compte_resultat_property_id_step11_4_5.py`
+- [ ] Tester l'isolation : créer des données pour property_id=1, vérifier qu'on ne peut pas les voir avec property_id=2
+
+**Deliverables**:
+- Endpoints compte de résultat modifiés dans `backend/api/routes/compte_resultat.py`
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] GET /api/compte-resultat/mappings?property_id=1 retourne uniquement les mappings de la propriété 1
+- [ ] GET /api/compte-resultat/calculate?property_id=1&years=... calcule uniquement pour la propriété 1
+- [ ] Test d'isolation : données créées pour property_id=1 ne sont pas visibles avec property_id=2
+- [ ] Validation : erreur 400 si property_id manquant
+
+---
+
+#### Step 11.4.6 : Backend - Endpoints Bilan avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `GET /api/bilan/mappings` pour filtrer par `property_id`
+- [ ] Modifier `POST /api/bilan/mappings` pour inclure `property_id`
+- [ ] Modifier `PUT /api/bilan/mappings/{id}` pour filtrer par `property_id`
+- [ ] Modifier `DELETE /api/bilan/mappings/{id}` pour filtrer par `property_id`
+- [ ] Modifier `GET /api/bilan/config` pour filtrer par `property_id`
+- [ ] Modifier `PUT /api/bilan/config` pour inclure `property_id`
+- [ ] Modifier `GET /api/bilan/calculate` pour filtrer par `property_id`
+- [ ] Ajouter validation : erreur 400 si property_id manquant
+- [ ] Créer script de test : `backend/scripts/test_bilan_property_id_step11_4_6.py`
+- [ ] Tester l'isolation : créer des données pour property_id=1, vérifier qu'on ne peut pas les voir avec property_id=2
+
+**Deliverables**:
+- Endpoints bilan modifiés dans `backend/api/routes/bilan.py`
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] GET /api/bilan/mappings?property_id=1 retourne uniquement les mappings de la propriété 1
+- [ ] GET /api/bilan/calculate?property_id=1&years=... calcule uniquement pour la propriété 1
+- [ ] Test d'isolation : données créées pour property_id=1 ne sont pas visibles avec property_id=2
+- [ ] Validation : erreur 400 si property_id manquant
 
 ---
 
@@ -284,39 +446,182 @@ Cette phase implique :
 ### Step 11.9 : Frontend - Modification des pages existantes
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Modifier toutes les pages pour utiliser le contexte de propriété
-- [ ] Ajouter un sélecteur de propriété dans la navigation
-- [ ] S'assurer que toutes les requêtes incluent `property_id`
-- [ ] Ajouter des validations frontend pour vérifier l'isolation
-- [ ] Tester toutes les fonctionnalités manuellement
-- [ ] Créer un script de test pour valider l'isolation frontend
+**Description**: Décomposé en sous-steps pour chaque page avec tests spécifiques.
 
-**Pages concernées**:
-- Transactions
-- Mapping
-- États financiers (Compte de résultat, Bilan)
-- Crédit
-- Amortissements
-- Pivot
+---
+
+#### Step 11.9.1 : Frontend - Page Transactions avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `frontend/app/dashboard/transactions/page.tsx` pour utiliser le contexte de propriété
+- [ ] Passer `property_id` à tous les appels API de transactions
+- [ ] Ajouter validation : vérifier que les transactions affichées correspondent à la propriété sélectionnée
+- [ ] Tester manuellement : créer des transactions pour 2 propriétés, vérifier l'isolation
+- [ ] Créer script de test : `frontend/scripts/test_transactions_isolation_step11_9_1.js`
 
 **Deliverables**:
-- Toutes les pages fonctionnent avec le multi-propriétés
-- Sélecteur de propriété dans la navigation
-- Validations frontend pour l'isolation
-- Script de test : `frontend/scripts/test_property_isolation.js`
+- Page transactions modifiée
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] Transactions affichées correspondent à la propriété sélectionnée
+- [ ] Création de transaction inclut property_id
+- [ ] Modification de transaction vérifie property_id
+- [ ] Changement de propriété : les transactions changent correctement
+- [ ] Validation : impossible d'accéder aux transactions d'une autre propriété
+
+---
+
+#### Step 11.9.2 : Frontend - Page Mapping avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `frontend/app/dashboard/transactions/page.tsx` (section Mapping) pour utiliser le contexte de propriété
+- [ ] Passer `property_id` à tous les appels API de mappings
+- [ ] Ajouter validation : vérifier que les mappings affichés correspondent à la propriété sélectionnée
+- [ ] Tester manuellement : créer des mappings pour 2 propriétés, vérifier l'isolation
+- [ ] Créer script de test : `frontend/scripts/test_mappings_isolation_step11_9_2.js`
+
+**Deliverables**:
+- Page mapping modifiée
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] Mappings affichés correspondent à la propriété sélectionnée
+- [ ] Création de mapping inclut property_id
+- [ ] Changement de propriété : les mappings changent correctement
+- [ ] Validation : impossible d'accéder aux mappings d'une autre propriété
+
+---
+
+#### Step 11.9.3 : Frontend - Page États financiers (Compte de résultat) avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Compte de résultat) pour utiliser le contexte de propriété
+- [ ] Modifier `CompteResultatConfigCard` pour passer `property_id`
+- [ ] Modifier `CompteResultatTable` pour passer `property_id`
+- [ ] Passer `property_id` à tous les appels API de compte de résultat
+- [ ] Ajouter validation : vérifier que les données affichées correspondent à la propriété sélectionnée
+- [ ] Tester manuellement : créer des données pour 2 propriétés, vérifier l'isolation
+- [ ] Créer script de test : `frontend/scripts/test_compte_resultat_isolation_step11_9_3.js`
+
+**Deliverables**:
+- Page compte de résultat modifiée
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] Données affichées correspondent à la propriété sélectionnée
+- [ ] Création/modification de mapping inclut property_id
+- [ ] Calcul du compte de résultat utilise property_id
+- [ ] Changement de propriété : les données changent correctement
+- [ ] Validation : impossible d'accéder aux données d'une autre propriété
+
+---
+
+#### Step 11.9.4 : Frontend - Page États financiers (Bilan) avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Bilan) pour utiliser le contexte de propriété
+- [ ] Modifier `BilanConfigCard` pour passer `property_id`
+- [ ] Modifier `BilanTable` pour passer `property_id`
+- [ ] Passer `property_id` à tous les appels API de bilan
+- [ ] Ajouter validation : vérifier que les données affichées correspondent à la propriété sélectionnée
+- [ ] Tester manuellement : créer des données pour 2 propriétés, vérifier l'isolation
+- [ ] Créer script de test : `frontend/scripts/test_bilan_isolation_step11_9_4.js`
+
+**Deliverables**:
+- Page bilan modifiée
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] Données affichées correspondent à la propriété sélectionnée
+- [ ] Création/modification de mapping inclut property_id
+- [ ] Calcul du bilan utilise property_id
+- [ ] Changement de propriété : les données changent correctement
+- [ ] Validation : impossible d'accéder aux données d'une autre propriété
+
+---
+
+#### Step 11.9.5 : Frontend - Page Crédit avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `frontend/app/dashboard/etats-financiers/page.tsx` (onglet Crédit) pour utiliser le contexte de propriété
+- [ ] Modifier `LoanConfigCard` pour passer `property_id`
+- [ ] Modifier `LoanPaymentTable` pour passer `property_id`
+- [ ] Passer `property_id` à tous les appels API de crédits
+- [ ] Ajouter validation : vérifier que les crédits affichés correspondent à la propriété sélectionnée
+- [ ] Tester manuellement : créer des crédits pour 2 propriétés, vérifier l'isolation
+- [ ] Créer script de test : `frontend/scripts/test_credits_isolation_step11_9_5.js`
+
+**Deliverables**:
+- Page crédit modifiée
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] Crédits affichés correspondent à la propriété sélectionnée
+- [ ] Création de crédit inclut property_id
+- [ ] Changement de propriété : les crédits changent correctement
+- [ ] Validation : impossible d'accéder aux crédits d'une autre propriété
+
+---
+
+#### Step 11.9.6 : Frontend - Page Amortissements avec property_id
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Modifier `frontend/app/dashboard/amortissements/page.tsx` pour utiliser le contexte de propriété
+- [ ] Modifier `AmortizationConfigCard` pour passer `property_id`
+- [ ] Modifier `AmortizationTable` pour passer `property_id`
+- [ ] Passer `property_id` à tous les appels API d'amortissements
+- [ ] Ajouter validation : vérifier que les amortissements affichés correspondent à la propriété sélectionnée
+- [ ] Tester manuellement : créer des amortissements pour 2 propriétés, vérifier l'isolation
+- [ ] Créer script de test : `frontend/scripts/test_amortizations_isolation_step11_9_6.js`
+
+**Deliverables**:
+- Page amortissements modifiée
+- Script de test créé et exécuté avec succès
+- Tests d'isolation validés
+
+**Tests**:
+- [ ] Amortissements affichés correspondent à la propriété sélectionnée
+- [ ] Création de type d'amortissement inclut property_id
+- [ ] Changement de propriété : les amortissements changent correctement
+- [ ] Validation : impossible d'accéder aux amortissements d'une autre propriété
+
+---
+
+#### Step 11.9.7 : Frontend - Navigation et sélecteur de propriété
+**Status**: ⏳ À FAIRE
+
+**Tasks**:
+- [ ] Ajouter un sélecteur de propriété dans la navigation (header ou sidebar)
+- [ ] Le sélecteur affiche la propriété active
+- [ ] Le sélecteur permet de changer de propriété
+- [ ] Le changement de propriété met à jour toutes les pages
+- [ ] Le changement de propriété sauvegarde dans localStorage
+- [ ] Tester le sélecteur dans toutes les pages
+- [ ] Créer script de test : `frontend/scripts/test_property_selector_step11_9_7.js`
+
+**Deliverables**:
+- Sélecteur de propriété ajouté dans la navigation
+- Script de test créé et exécuté avec succès
 - Tests validés
 
 **Tests**:
-- [ ] Transactions : isolation par propriété
-- [ ] Mappings : isolation par propriété
-- [ ] Compte de résultat : isolation par propriété
-- [ ] Bilan : isolation par propriété
-- [ ] Crédits : isolation par propriété
-- [ ] Amortissements : isolation par propriété
-- [ ] Changement de propriété : les données changent correctement
-- [ ] Sélecteur de propriété : fonctionne dans toutes les pages
-- [ ] Validation : impossible d'accéder aux données d'une autre propriété
+- [ ] Sélecteur affiche la propriété active
+- [ ] Changement de propriété met à jour toutes les pages
+- [ ] Changement de propriété sauvegarde dans localStorage
+- [ ] Sélecteur fonctionne dans toutes les pages
+- [ ] Validation : redirection si aucune propriété sélectionnée
 
 ---
 
@@ -392,4 +697,25 @@ Cette phase implique :
 
 ---
 
-**Dernière mise à jour**: [Date]
+## Notes importantes
+
+⚠️ **Rappel Best Practices**:
+- Ne jamais cocher [x] avant que les tests soient créés ET exécutés ET validés
+- Toujours créer un test script (.py) après chaque implémentation
+- Toujours proposer le test à l'utilisateur avant exécution
+- Toujours montrer l'impact frontend à chaque étape
+- Ne cocher [x] qu'après confirmation explicite de l'utilisateur
+- **NE JAMAIS COMMITER SANS ACCORD EXPLICITE DE L'UTILISATEUR**
+- **TOUJOURS LIRE `docs/workflow/BEST_PRACTICES.md` AVANT TOUTE MODIFICATION**
+- **CONSULTER `docs/workflow/ERROR_INVESTIGATION.md` EN CAS D'ERREURS**
+- **VÉRIFIER LES ERREURS FRONTEND AVEC `docs/workflow/check_frontend_errors.js`**
+
+**Légende Status**:
+- ⏳ À FAIRE - Pas encore commencé
+- ⏸️ EN ATTENTE - En attente de validation
+- 🔄 EN COURS - En cours d'implémentation
+- ✅ TERMINÉ - Terminé et validé par l'utilisateur
+
+---
+
+**Dernière mise à jour**: 2025-01-27
