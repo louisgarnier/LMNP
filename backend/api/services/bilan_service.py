@@ -313,16 +313,15 @@ def calculate_capital_restant_du(
     """
     Calculer le capital restant dû au 31/12 de l'année.
     
-    Logique :
+    LOGIQUE :
     - Le montant du crédit accordé = somme des transactions avec level_1 = "Dettes financières (emprunt bancaire)" (cumul jusqu'au 31/12)
-    - Si aucune transaction n'est trouvée, utiliser LoanConfig.credit_amount pour les crédits actifs
-    - Le capital remboursé = cumul des remboursements de capital jusqu'au 31/12
-    - Capital restant dû = Crédit accordé - Capital remboursé
+    - Le capital remboursé = cumul des remboursements de capital de TOUS les crédits actifs jusqu'au 31/12
+    - Capital restant dû = Montant transactions - Capital remboursé
     
     IMPORTANT: 
-    - Le montant du crédit accordé doit être calculé depuis les transactions réelles si disponibles
-    - Sinon, utiliser LoanConfig.credit_amount comme fallback (pour les crédits qui ont commencé avant ou pendant l'année)
-    - Le crédit peut être débloqué progressivement, donc les transactions sont préférées
+    - On utilise les TRANSACTIONS comme source principale (pas LoanConfig.credit_amount)
+    - On déduit le capital remboursé depuis les pages crédits (LoanPayment)
+    - Si aucune transaction n'est trouvée, retourner 0
     
     Args:
         db: Session de base de données
@@ -333,6 +332,15 @@ def calculate_capital_restant_du(
     """
     # Date de fin de l'année
     end_date = date(year, 12, 31)
+    
+    # Récupérer tous les crédits actifs (qui ont commencé avant ou pendant l'année)
+    # On a besoin de cette liste pour filtrer les paiements
+    active_loans = db.query(LoanConfig).filter(
+        or_(
+            LoanConfig.loan_start_date.is_(None),
+            LoanConfig.loan_start_date <= end_date
+        )
+    ).all()
     
     # Calculer le montant du crédit accordé depuis les transactions réelles
     # Utiliser level_1 = "Dettes financières (emprunt bancaire)"
@@ -352,31 +360,39 @@ def calculate_capital_restant_du(
     # Le montant est négatif dans les transactions (débit), donc on prend la valeur absolue
     credit_amount = abs(credit_amount_from_transactions) if credit_amount_from_transactions is not None else 0.0
     
-    # Si aucune transaction n'est trouvée, utiliser LoanConfig comme fallback
+    # Si aucune transaction, retourner 0
     if credit_amount == 0.0:
-        # Récupérer tous les crédits actifs (qui ont commencé avant ou pendant l'année)
-        active_loans = db.query(LoanConfig).filter(
-            or_(
-                LoanConfig.loan_start_date.is_(None),
-                LoanConfig.loan_start_date <= end_date
-            )
-        ).all()
-        
-        # Somme des montants de crédit pour les crédits actifs
-        for loan in active_loans:
-            credit_amount += loan.credit_amount
+        print(f"ℹ️ [calculate_capital_restant_du] Aucune transaction trouvée pour {year}. Retour de 0.00 €")
+        return 0.0
     
-    # Cumul des remboursements de capital jusqu'au 31/12 (tous les crédits)
-    capital_paid = db.query(
-        func.sum(LoanPayment.capital)
-    ).filter(
-        LoanPayment.date <= end_date
-    ).scalar()
+    # Calculer le capital remboursé depuis les pages crédits (LoanPayment)
+    # Filtrer par les crédits actifs uniquement
+    if active_loans:
+        active_loan_names = [loan.name for loan in active_loans]
+        
+        # Capital remboursé total de tous les crédits actifs
+        capital_paid = db.query(
+            func.sum(LoanPayment.capital)
+        ).filter(
+            and_(
+                LoanPayment.date <= end_date,
+                LoanPayment.loan_name.in_(active_loan_names)
+            )
+        ).scalar()
+    else:
+        # Si aucun crédit actif, ne pas inclure de paiements
+        capital_paid = 0.0
     
     capital_paid = capital_paid if capital_paid is not None else 0.0
     
-    # Capital restant dû = Crédit accordé - Capital remboursé
+    # Capital restant dû = Montant transactions - Capital remboursé
     remaining = credit_amount - capital_paid
+    
+    # Debug: Afficher le calcul
+    print(f"📊 [calculate_capital_restant_du] Calcul pour {year}:")
+    print(f"  - Montant transactions (level_1 = \"Dettes financières (emprunt bancaire)\"): {credit_amount:.2f} €")
+    print(f"  - Capital remboursé (tous crédits actifs): {capital_paid:.2f} €")
+    print(f"  - Capital restant dû: {remaining:.2f} €")
     
     # S'assurer que le résultat est positif (on ne peut pas avoir un capital restant négatif)
     return max(0.0, remaining)

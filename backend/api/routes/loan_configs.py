@@ -18,6 +18,7 @@ from backend.api.models import (
     LoanConfigResponse,
     LoanConfigListResponse
 )
+from backend.api.services.bilan_service import invalidate_all_bilan
 
 router = APIRouter()
 
@@ -117,6 +118,9 @@ async def create_loan_config(
     db.commit()
     db.refresh(db_config)
     
+    # Invalider le bilan car un nouveau crédit affecte le calcul du capital restant dû
+    invalidate_all_bilan(db)
+    
     return LoanConfigResponse(
         id=db_config.id,
         name=db_config.name,
@@ -197,6 +201,9 @@ async def update_loan_config(
     db.commit()
     db.refresh(config)
     
+    # Invalider le bilan car une modification de crédit (credit_amount, dates, etc.) affecte le calcul du capital restant dû
+    invalidate_all_bilan(db)
+    
     return LoanConfigResponse(
         id=config.id,
         name=config.name,
@@ -228,5 +235,8 @@ async def delete_loan_config(
     
     db.delete(config)
     db.commit()
+    
+    # Invalider le bilan car la suppression d'un crédit affecte le calcul du capital restant dû
+    invalidate_all_bilan(db)
     
     return None

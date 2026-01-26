@@ -99,6 +99,48 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey, years.length]);
 
+  // Écouter les événements de modification de crédits pour rafraîchir automatiquement
+  useEffect(() => {
+    const handleLoanConfigUpdated = async () => {
+      console.log('🔄 [BilanTable] Événement loanConfigUpdated reçu, rafraîchissement du bilan...');
+      // Si les années ne sont pas encore chargées, les charger d'abord
+      if (years.length === 0) {
+        const yearsToDisplay = await getYearsToDisplay();
+        setYears(yearsToDisplay);
+        // Attendre un peu pour que le state soit mis à jour
+        setTimeout(() => {
+          loadData();
+        }, 100);
+      } else {
+        loadData();
+      }
+    };
+
+    const handleLoanPaymentUpdated = async () => {
+      console.log('🔄 [BilanTable] Événement loanPaymentUpdated reçu, rafraîchissement du bilan...');
+      // Si les années ne sont pas encore chargées, les charger d'abord
+      if (years.length === 0) {
+        const yearsToDisplay = await getYearsToDisplay();
+        setYears(yearsToDisplay);
+        // Attendre un peu pour que le state soit mis à jour
+        setTimeout(() => {
+          loadData();
+        }, 100);
+      } else {
+        loadData();
+      }
+    };
+
+    window.addEventListener('loanConfigUpdated', handleLoanConfigUpdated);
+    window.addEventListener('loanPaymentUpdated', handleLoanPaymentUpdated);
+
+    return () => {
+      window.removeEventListener('loanConfigUpdated', handleLoanConfigUpdated);
+      window.removeEventListener('loanPaymentUpdated', handleLoanPaymentUpdated);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [years.length]);
+
   const loadData = async () => {
     if (years.length === 0) return;
     

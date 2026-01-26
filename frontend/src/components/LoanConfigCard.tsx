@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI } from '@/api/client';
+import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI, transactionsAPI } from '@/api/client';
 
 interface LoanConfigCardProps {
   onConfigUpdated?: () => void;
@@ -95,6 +95,7 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
   const [saving, setSaving] = useState<{ [key: number]: boolean }>({});
   const [errors, setErrors] = useState<{ [key: number]: string; global?: string }>({});
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
+  const [incoherenceWarning, setIncoherenceWarning] = useState<string | null>(null);
 
   // Charger les configurations au montage
   useEffect(() => {
@@ -116,11 +117,45 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
       setLoading(true);
       const response = await loanConfigsAPI.getAll();
       setConfigs(response.items);
+      
+      // Vérifier l'incohérence entre montant crédits et transactions
+      await checkIncoherence(response.items);
     } catch (error) {
       console.error('Erreur lors du chargement des configurations:', error);
       setErrors({ global: 'Erreur lors du chargement des configurations' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkIncoherence = async (configs: LoanConfig[]) => {
+    try {
+      // Calculer le montant total des crédits
+      const totalCreditAmount = configs.reduce((sum, config) => sum + (config.credit_amount || 0), 0);
+      console.log(`🔍 [LoanConfigCard] checkIncoherence: Total crédits = ${totalCreditAmount.toFixed(2)} €`);
+      
+      // Récupérer le montant total des transactions avec level_1 = "Dettes financières (emprunt bancaire)"
+      // Pas de filtre property_id pour l'instant - on compare tous les crédits avec toutes les transactions
+      const transactionsSum = await transactionsAPI.getSumByLevel1('Dettes financières (emprunt bancaire)');
+      const totalTransactions = Math.abs(transactionsSum.total || 0);
+      console.log(`🔍 [LoanConfigCard] checkIncoherence: Total transactions = ${totalTransactions.toFixed(2)} €`);
+      
+      // Vérifier l'incohérence (tolérance de 0.01 €)
+      const difference = Math.abs(totalCreditAmount - totalTransactions);
+      console.log(`🔍 [LoanConfigCard] checkIncoherence: Différence = ${difference.toFixed(2)} €`);
+      
+      if (difference > 0.01) {
+        const warningMessage = `Incohérence détectée entre le montant configuré (${totalCreditAmount.toFixed(2)} €) et les transactions (${totalTransactions.toFixed(2)} €). Différence: ${difference.toFixed(2)} €`;
+        console.log(`⚠️ [LoanConfigCard] checkIncoherence: ${warningMessage}`);
+        setIncoherenceWarning(warningMessage);
+      } else {
+        console.log('✅ [LoanConfigCard] checkIncoherence: Pas d\'incohérence détectée');
+        setIncoherenceWarning(null);
+      }
+    } catch (error) {
+      console.error('❌ [LoanConfigCard] Erreur lors de la vérification d\'incohérence:', error);
+      // Ne pas bloquer si la vérification échoue
+      setIncoherenceWarning(null);
     }
   };
 
@@ -155,7 +190,16 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
       await loanConfigsAPI.update(id, updateData);
       
       // Recharger pour avoir les données à jour
-      await loadConfigs();
+      const response = await loanConfigsAPI.getAll();
+      setConfigs(response.items);
+      
+      // Vérifier l'incohérence après modification
+      if (field === 'credit_amount') {
+        await checkIncoherence(response.items);
+      }
+      
+      // Émettre un événement pour rafraîchir le bilan
+      window.dispatchEvent(new CustomEvent('loanConfigUpdated', { detail: { id, action: 'update' } }));
       
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -184,7 +228,14 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
       };
 
       const created = await loanConfigsAPI.create(newConfig);
-      await loadConfigs();
+      const response = await loanConfigsAPI.getAll();
+      setConfigs(response.items);
+      
+      // Vérifier l'incohérence après création
+      await checkIncoherence(response.items);
+      
+      // Émettre un événement pour rafraîchir le bilan
+      window.dispatchEvent(new CustomEvent('loanConfigUpdated', { detail: { id: created.id, action: 'create' } }));
       
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -228,6 +279,14 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
           const deletePromises = allPayments.items.map(payment => loanPaymentsAPI.delete(payment.id));
           await Promise.all(deletePromises);
           console.log(`✅ ${allPayments.items.length} mensualité(s) supprimée(s) pour le crédit "${config.name}"`);
+          
+          // Émettre un événement pour chaque paiement supprimé (pour rafraîchir le bilan)
+          allPayments.items.forEach(payment => {
+            const paymentYear = new Date(payment.date).getFullYear();
+            window.dispatchEvent(new CustomEvent('loanPaymentUpdated', { 
+              detail: { id: payment.id, action: 'delete', year: paymentYear } 
+            }));
+          });
         } catch (err) {
           console.error('Erreur lors de la suppression des mensualités:', err);
           // Continuer quand même avec la suppression de la config
@@ -236,7 +295,14 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
 
       // Supprimer la configuration
       await loanConfigsAPI.delete(id);
-      await loadConfigs();
+      const response = await loanConfigsAPI.getAll();
+      setConfigs(response.items);
+      
+      // Vérifier l'incohérence après suppression
+      await checkIncoherence(response.items);
+      
+      // Émettre un événement pour rafraîchir le bilan
+      window.dispatchEvent(new CustomEvent('loanConfigUpdated', { detail: { id, action: 'delete' } }));
       
       if (onConfigUpdated) {
         onConfigUpdated();
@@ -340,6 +406,25 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
           </button>
         )}
       </div>
+
+      {/* Warning d'incohérence */}
+      {!isCollapsed && incoherenceWarning && (
+        <div style={{
+          padding: '12px 16px',
+          backgroundColor: '#fef3c7',
+          border: '1px solid #fbbf24',
+          borderRadius: '6px',
+          marginBottom: '16px',
+          color: '#92400e',
+          fontSize: '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <span style={{ fontSize: '18px' }}>⚠️</span>
+          <span>{incoherenceWarning}</span>
+        </div>
+      )}
 
       {!isCollapsed && (
         <>

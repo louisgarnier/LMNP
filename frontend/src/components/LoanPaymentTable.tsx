@@ -208,6 +208,9 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
       // Recharger les données
       await loadPayments();
       
+      // Émettre un événement pour rafraîchir le bilan
+      window.dispatchEvent(new CustomEvent('loanPaymentUpdated', { detail: { id: payment.id, action: 'update', year: new Date(updateData.date || payment.date).getFullYear() } }));
+      
       setEditingId(null);
       setEditingValues({});
       
@@ -229,8 +232,12 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
 
     try {
       setDeletingId(payment.id);
+      const paymentYear = new Date(payment.date).getFullYear();
       await loanPaymentsAPI.delete(payment.id);
       await loadPayments();
+      
+      // Émettre un événement pour rafraîchir le bilan
+      window.dispatchEvent(new CustomEvent('loanPaymentUpdated', { detail: { id: payment.id, action: 'delete', year: paymentYear } }));
       
       if (onUpdate) {
         onUpdate();
@@ -290,6 +297,9 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
       
       setSelectedIds(new Set());
       await loadPayments();
+      
+      // Émettre un événement pour rafraîchir le bilan (années affectées seront recalculées côté backend)
+      window.dispatchEvent(new CustomEvent('loanPaymentUpdated', { detail: { action: 'deleteMultiple', count: successful } }));
       
       if (onUpdate) {
         onUpdate();

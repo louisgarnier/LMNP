@@ -14,7 +14,7 @@ import pandas as pd
 import numpy as np
 
 from backend.database import get_db
-from backend.database.models import LoanPayment
+from backend.database.models import LoanPayment, LoanConfig
 from backend.api.models import (
     LoanPaymentCreate,
     LoanPaymentUpdate,
@@ -23,6 +23,35 @@ from backend.api.models import (
 )
 
 router = APIRouter()
+
+
+def update_loan_config_credit_amount(db: Session, loan_name: str) -> None:
+    """
+    Mettre à jour automatiquement le credit_amount d'un LoanConfig
+    avec le Total Capital (somme de tous les LoanPayment.capital pour ce crédit).
+    
+    Si aucune mensualité n'existe, mettre credit_amount à 0.
+    """
+    # Calculer le Total Capital (somme de tous les LoanPayment.capital pour ce crédit)
+    total_capital = db.query(
+        func.sum(LoanPayment.capital)
+    ).filter(
+        LoanPayment.loan_name == loan_name
+    ).scalar()
+    
+    total_capital = total_capital if total_capital is not None else 0.0
+    
+    # Trouver le LoanConfig correspondant
+    loan_config = db.query(LoanConfig).filter(LoanConfig.name == loan_name).first()
+    
+    if loan_config:
+        # Mettre à jour credit_amount avec le Total Capital
+        loan_config.credit_amount = total_capital
+        loan_config.updated_at = datetime.utcnow()
+        db.commit()
+        print(f"✅ [update_loan_config_credit_amount] {loan_name}: credit_amount mis à jour à {total_capital:.2f} €")
+    else:
+        print(f"⚠️ [update_loan_config_credit_amount] {loan_name}: LoanConfig non trouvé")
 
 
 @router.get("/loan-payments", response_model=LoanPaymentListResponse)
@@ -129,6 +158,9 @@ async def create_loan_payment(
     db.commit()
     db.refresh(db_payment)
     
+    # Mettre à jour automatiquement credit_amount avec le Total Capital
+    update_loan_config_credit_amount(db, db_payment.loan_name)
+    
     # Invalider les comptes de résultat pour l'année du payment
     try:
         from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
@@ -217,6 +249,9 @@ async def update_loan_payment(
     db.commit()
     db.refresh(payment)
     
+    # Mettre à jour automatiquement credit_amount avec le Total Capital
+    update_loan_config_credit_amount(db, payment.loan_name)
+    
     # Invalider les comptes de résultat pour l'année du payment
     try:
         from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
@@ -261,11 +296,15 @@ async def delete_loan_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Mensualité non trouvée")
     
-    # Sauvegarder l'année avant suppression
+    # Sauvegarder l'année et le nom du crédit avant suppression
     payment_year = payment.date.year
+    loan_name = payment.loan_name
     
     db.delete(payment)
     db.commit()
+    
+    # Mettre à jour automatiquement credit_amount avec le Total Capital
+    update_loan_config_credit_amount(db, loan_name)
     
     # Invalider les comptes de résultat pour l'année du payment
     try:
@@ -674,6 +713,9 @@ async def import_loan_payment_file(
                     errors.append(f"Erreur pour l'année {year}: {str(e)}")
         
         db.commit()
+        
+        # Mettre à jour automatiquement credit_amount avec le Total Capital
+        update_loan_config_credit_amount(db, loan_name)
         
         # Invalider les comptes de résultat pour toutes les années des payments importés
         try:
