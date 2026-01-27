@@ -32,10 +32,33 @@ Permettre la gestion de plusieurs appartements/propriétés dans l'application a
 Cette phase implique :
 - Ajout d'une table `properties` pour stocker les appartements
 - Ajout d'un champ `property_id` à toutes les tables existantes (isolation stricte)
+- Ajout de contraintes FOREIGN KEY pour éviter les données orphelines
+- Initialisation automatique des templates par défaut à la création d'une propriété
 - Modification de tous les endpoints backend pour filtrer par propriété
 - Modification de toutes les pages frontend pour utiliser `property_id`
 - Tests d'isolation pour chaque onglet
 - Tests de non-régression pour chaque onglet
+
+## Principe d'initialisation des templates
+
+**À la création d'une nouvelle propriété**, les templates suivants sont automatiquement initialisés :
+- **AllowedMappings** : 50 mappings hardcodés dupliqués pour cette propriété
+- **AmortizationTypes** : 7 types hardcodés dupliqués pour cette propriété
+- **CompteResultatMappings** : Mappings par défaut dupliqués pour cette propriété
+- **CompteResultatConfig** : Config par défaut dupliquée pour cette propriété
+- **BilanMappings** : Mappings par défaut dupliqués pour cette propriété
+- **BilanConfig** : Config par défaut dupliquée pour cette propriété
+
+**Après initialisation**, chaque propriété peut modifier ses propres données sans impact sur les autres propriétés.
+
+## Contraintes de base de données
+
+**Toutes les tables avec `property_id` doivent avoir :**
+- `property_id INTEGER NOT NULL`
+- `FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE`
+- `INDEX idx_{table}_property_id ON {table}(property_id)`
+
+**Objectif** : Empêcher toute donnée orpheline. Si une propriété est supprimée, toutes ses données associées sont automatiquement supprimées.
 
 ## Ordre d'implémentation par Onglet
 
@@ -58,9 +81,17 @@ Cette phase implique :
 - [ ] Créer la table `properties` dans la base de données
 - [ ] Créer le modèle SQLAlchemy `Property`
 - [ ] Ajouter les champs : id, name, address, created_at, updated_at
+- [ ] Ajouter contrainte UNIQUE sur `name`
 - [ ] Créer une migration pour la table
 - [ ] Créer un script de test : `backend/scripts/test_property_model_phase_11_bis_0_1.py`
 - [ ] Tester la création, lecture, modification, suppression de propriétés
+- [ ] Créer fonction d'initialisation des templates : `initialize_default_templates_for_property(property_id)`
+  - Initialiser 50 AllowedMappings hardcodés
+  - Initialiser 7 AmortizationTypes hardcodés
+  - Initialiser CompteResultatMappings par défaut
+  - Initialiser CompteResultatConfig par défaut
+  - Initialiser BilanMappings par défaut
+  - Initialiser BilanConfig par défaut
 
 **Tests**:
 - [ ] Créer une propriété
@@ -68,6 +99,11 @@ Cette phase implique :
 - [ ] Modifier une propriété
 - [ ] Supprimer une propriété
 - [ ] Vérifier les contraintes (name unique, etc.)
+- [ ] Vérifier que l'initialisation des templates fonctionne à la création
+- [ ] Vérifier que les 50 AllowedMappings sont créés
+- [ ] Vérifier que les 7 AmortizationTypes sont créés
+- [ ] Vérifier que les CompteResultatMappings sont créés
+- [ ] Vérifier que les BilanMappings sont créés
 
 ---
 
@@ -130,6 +166,8 @@ Cette phase implique :
 **Status**: ⏳ À FAIRE
 
 **Tasks**:
+- [ ] Ajouter `property_id` à la table `transactions` (migration avec FOREIGN KEY)
+- [ ] Ajouter `property_id` à la table `enriched_transactions` (migration avec FOREIGN KEY)
 - [ ] Modifier `GET /api/transactions` pour accepter `property_id` (query param obligatoire)
 - [ ] Modifier `POST /api/transactions` pour inclure `property_id` dans le body
 - [ ] Modifier `PUT /api/transactions/{id}` pour filtrer par `property_id`
@@ -268,6 +306,9 @@ Cette phase implique :
 **Status**: ⏳ À FAIRE
 
 **Tasks**:
+- [ ] Ajouter `property_id` à la table `mappings` (migration avec FOREIGN KEY)
+- [ ] Ajouter `property_id` à la table `allowed_mappings` (migration avec FOREIGN KEY)
+- [ ] Modifier l'index unique de `allowed_mappings` pour inclure `property_id` : `(property_id, level_1, level_2, level_3)`
 - [ ] Modifier `GET /api/mappings` pour filtrer par `property_id`
 - [ ] Modifier `POST /api/mappings` pour inclure `property_id`
 - [ ] Modifier `PUT /api/mappings/{id}` pour filtrer par `property_id`
@@ -402,6 +443,7 @@ Cette phase implique :
 **Status**: ⏳ À FAIRE
 
 **Tasks**:
+- [ ] Ajouter `property_id` à la table `amortization_types` (migration avec FOREIGN KEY)
 - [ ] Modifier `GET /api/amortization/types` pour filtrer par `property_id`
 - [ ] Modifier `POST /api/amortization/types` pour inclure `property_id`
 - [ ] Modifier `PUT /api/amortization/types/{id}` pour filtrer par `property_id`
