@@ -6,7 +6,7 @@ Always check with the user before modifying this file.
 """
 
 from pathlib import Path
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 from typing import Generator
 
@@ -39,6 +39,8 @@ def get_db() -> Generator[Session, None, None]:
     """
     db = SessionLocal()
     try:
+        # Activer les foreign keys pour SQLite (doit être fait à chaque connexion)
+        db.execute(text("PRAGMA foreign_keys = ON"))
         yield db
     finally:
         db.close()

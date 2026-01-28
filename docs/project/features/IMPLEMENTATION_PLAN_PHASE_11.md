@@ -19,6 +19,48 @@
 - ✅ **Tests de non-régression** : Vérifier que chaque bouton, chaque fonctionnalité fonctionne comme avant
 - ✅ **Validation explicite** : Ne pas passer à l'onglet suivant sans validation complète
 
+**APPROCHE STANDARD POUR CHAQUE ONGLET (Backend) :**
+
+**Ordre d'exécution recommandé :**
+1. **Vérifications avant modification** :
+   - Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+   - Lister tous les endpoints à modifier
+   - Identifier toutes les fonctions utilitaires qui utilisent les modèles
+   - Vérifier les imports et dépendances
+
+2. **Modèles SQLAlchemy** :
+   - Ajouter `property_id` avec `ForeignKey("properties.id", ondelete="CASCADE")`
+   - Ajouter les index `idx_{table}_property_id`
+   - Vérifier que les modèles se chargent correctement
+
+3. **Migrations** :
+   - Créer migration pour ajouter `property_id` avec contrainte FK et ON DELETE CASCADE
+   - Tester les migrations
+   - Vérifier que les index sont créés
+
+4. **Fonction de validation** :
+   - Créer fonction utilitaire `validate_property_id(db: Session, property_id: int) -> bool`
+   - Ajouter logs : `[Onglet] Validation property_id={property_id}`
+
+5. **Endpoints API** :
+   - Modifier chaque endpoint avec :
+     - Ajout de `property_id` comme paramètre obligatoire
+     - Validation avec `validate_property_id()`
+     - Filtrage de toutes les requêtes par `property_id`
+     - Logs au début : `[Onglet] {METHOD} {endpoint} - property_id={property_id}`
+     - Logs après opération : `[Onglet] {action} réussie - property_id={property_id}`
+     - Gestion d'erreurs : 400 si property_id invalide, 422 si manquant, 404 si ressource n'appartient pas à property_id
+
+6. **Fonctions utilitaires** :
+   - Modifier toutes les fonctions qui utilisent les modèles pour accepter `property_id`
+   - Filtrer toutes les requêtes par `property_id`
+   - Ajouter logs pour le debugging
+
+7. **Tests d'isolation** :
+   - Créer script de test avec logs détaillés
+   - Tester l'isolation complète entre 2 propriétés
+   - Vérifier qu'aucune donnée n'est accessible depuis une autre propriété
+
 **NE JAMAIS COMMITER SANS ACCORD EXPLICITE DE L'UTILISATEUR**
 
 ## Objectif
@@ -42,7 +84,7 @@ Cette phase implique :
 ## Principe d'initialisation des templates
 
 **À la création d'une nouvelle propriété**, les templates suivants sont automatiquement initialisés :
-- **AllowedMappings** : 50 mappings hardcodés dupliqués pour cette propriété
+- **AllowedMappings** : 57 mappings hardcodés dupliqués pour cette propriété
 - **AmortizationTypes** : 7 types hardcodés dupliqués pour cette propriété
 - **CompteResultatMappings** : Mappings par défaut dupliqués pour cette propriété
 - **CompteResultatConfig** : Config par défaut dupliquée pour cette propriété
@@ -75,18 +117,21 @@ Cette phase implique :
 ## PRÉ-REQUIS : Infrastructure de base
 
 ### Step 0.1 : Backend - Table et modèle Property
-**Status**: ⏳ À FAIRE
+**Status**: ⏳ EN COURS (Partiellement complété)
 
 **Tasks**:
-- [ ] Créer la table `properties` dans la base de données
-- [ ] Créer le modèle SQLAlchemy `Property`
-- [ ] Ajouter les champs : id, name, address, created_at, updated_at
-- [ ] Ajouter contrainte UNIQUE sur `name`
-- [ ] Créer une migration pour la table
-- [ ] Créer un script de test : `backend/scripts/test_property_model_phase_11_bis_0_1.py`
-- [ ] Tester la création, lecture, modification, suppression de propriétés
+- [x] Créer la table `properties` dans la base de données
+- [x] Créer le modèle SQLAlchemy `Property`
+- [x] Ajouter les champs : id, name, address, created_at, updated_at
+- [x] Ajouter contrainte UNIQUE sur `name`
+- [x] Créer une migration pour la table (`backend/database/migrations/add_properties_table.py`)
+- [x] Créer un script de test : `backend/scripts/test_property_model_phase_11_bis_0_1.py`
+- [x] Tester la création, lecture, modification, suppression de propriétés
+- [x] Créer endpoints API : GET, POST, PUT, DELETE `/api/properties`
+- [x] Configurer contraintes FOREIGN KEY avec ON DELETE CASCADE dans `connection.py`
+- [x] Activer `PRAGMA foreign_keys = ON` dans `get_db()` pour SQLite
 - [ ] Créer fonction d'initialisation des templates : `initialize_default_templates_for_property(property_id)`
-  - Initialiser 50 AllowedMappings hardcodés
+  - Initialiser 57 AllowedMappings hardcodés
   - Initialiser 7 AmortizationTypes hardcodés
   - Initialiser CompteResultatMappings par défaut
   - Initialiser CompteResultatConfig par défaut
@@ -94,40 +139,58 @@ Cette phase implique :
   - Initialiser BilanConfig par défaut
 
 **Tests**:
-- [ ] Créer une propriété
-- [ ] Lire une propriété
-- [ ] Modifier une propriété
-- [ ] Supprimer une propriété
-- [ ] Vérifier les contraintes (name unique, etc.)
-- [ ] Vérifier que l'initialisation des templates fonctionne à la création
-- [ ] Vérifier que les 50 AllowedMappings sont créés
-- [ ] Vérifier que les 7 AmortizationTypes sont créés
-- [ ] Vérifier que les CompteResultatMappings sont créés
-- [ ] Vérifier que les BilanMappings sont créés
+- [x] Créer une propriété
+- [x] Lire une propriété
+- [x] Modifier une propriété
+- [x] Supprimer une propriété
+- [x] Vérifier les contraintes (name unique, etc.)
+- [x] Vérifier que l'initialisation des templates fonctionne à la création ✅
+- [x] Vérifier que les 57 AllowedMappings sont créés ✅ (57 mappings hardcodés)
+- [x] Vérifier que les 7 AmortizationTypes sont créés ✅ (non visibles tant qu'il n'y a pas de transactions avec level_2)
+- [x] Vérifier que les CompteResultatMappings sont créés ✅ (non visibles tant qu'il n'y a pas de transactions)
+- [x] Vérifier que les BilanMappings sont créés ✅
 
 ---
 
 ### Step 0.2 : Frontend - Page d'accueil et contexte Property
-**Status**: ⏳ À FAIRE
+**Status**: ⏳ EN COURS (Partiellement complété)
 
 **Tasks**:
-- [ ] Créer un contexte PropertyContext pour gérer la propriété active
-- [ ] Créer une page d'accueil (`frontend/app/page.tsx`) avec sélection de propriété
-- [ ] Afficher les propriétés sous forme de cards
-- [ ] Permettre la création d'une nouvelle propriété (modal)
-- [ ] Permettre la sélection d'une propriété
-- [ ] Après sélection d'une propriété : Rediriger vers `/dashboard`
-- [ ] Modifier Header pour afficher la propriété active et permettre de changer
-- [ ] Modifier DashboardLayout pour rediriger si aucune propriété sélectionnée
-- [ ] Stocker la propriété active dans localStorage
+- [x] Créer un contexte PropertyContext pour gérer la propriété active (`frontend/src/contexts/PropertyContext.tsx`)
+- [x] Créer une page d'accueil (`frontend/app/page.tsx`) avec sélection de propriété
+- [x] Afficher les propriétés sous forme de cards
+- [x] Permettre la création d'une nouvelle propriété (modal)
+- [x] Permettre la sélection d'une propriété
+- [x] Après sélection d'une propriété : Rediriger vers `/dashboard`
+- [x] Modifier Header pour afficher la propriété active et permettre de changer (`frontend/src/components/Header.tsx`)
+- [x] Modifier DashboardLayout pour rediriger si aucune propriété sélectionnée (`frontend/app/dashboard/layout.tsx`)
+- [x] Stocker la propriété active dans localStorage
+- [x] Ajouter fonctionnalité de suppression via menu contextuel (clic droit)
+- [x] Ajouter `propertiesAPI` dans `frontend/src/api/client.ts`
+- [x] Ajouter timeout de 10 secondes pour éviter que l'app reste bloquée
+- [x] Améliorer gestion d'erreur avec affichage clair des erreurs de connexion
 
 **Tests**:
-- [ ] Affichage de toutes les propriétés (cards avec nom, adresse, date de création)
-- [ ] Création d'une nouvelle propriété (modal avec validation)
-- [ ] Sélection d'une propriété (redirection vers dashboard)
-- [ ] Header affiche la propriété active avec bouton "Changer"
-- [ ] Redirection automatique si aucune propriété sélectionnée
-- [ ] Persistance dans localStorage (propriété restaurée au rechargement)
+- [x] Affichage de toutes les propriétés (cards avec nom, adresse, date de création) ✅
+- [x] Création d'une nouvelle propriété (modal avec validation) ✅
+- [x] Sélection d'une propriété (redirection vers dashboard) ✅
+- [x] Header affiche la propriété active avec bouton "Changer" ✅
+- [x] Redirection automatique si aucune propriété sélectionnée ✅ (supprimer localStorage et vérifier redirection vers page d'accueil)
+- [x] Persistance dans localStorage (propriété restaurée au rechargement) ✅ (sélectionner une propriété, recharger la page F5, vérifier que la même propriété est toujours active)
+- [x] Suppression d'une propriété via menu contextuel (clic droit) ✅
+
+**Notes**:
+- Menu contextuel ajouté : clic droit sur une carte de propriété → option "Supprimer"
+- Confirmation avant suppression avec liste détaillée des données qui seront supprimées
+- Timeout de 10 secondes ajouté pour éviter que l'app reste bloquée si le backend ne répond pas
+- Gestion d'erreur améliorée avec affichage clair des erreurs de connexion
+- **Correction bug localStorage** : Ajout d'un flag `hasCheckedLocalStorage` pour empêcher la suppression de localStorage au montage initial avant la restauration
+
+**Notes**:
+- Menu contextuel ajouté : clic droit sur une carte de propriété → option "Supprimer"
+- Confirmation avant suppression avec liste détaillée des données qui seront supprimées
+- Timeout de 10 secondes ajouté pour éviter que l'app reste bloquée si le backend ne répond pas
+- Gestion d'erreur améliorée avec affichage clair des erreurs de connexion
 
 ---
 
@@ -165,22 +228,108 @@ Cette phase implique :
 ### Step 1.1 : Backend - Endpoints Transactions avec property_id
 **Status**: ⏳ À FAIRE
 
+**Ordre d'exécution recommandé :**
+1. **Modèles SQLAlchemy** (structure de données)
+2. **Migrations** (application en BDD)
+3. **Endpoints API** (logique métier)
+4. **Tests d'isolation** (vérification)
+
+**Vérifications avant modification :**
+- [ ] Vérifier qu'aucune transaction n'existe dans la BDD (table vide)
+- [ ] Lister tous les endpoints transactions à modifier
+- [ ] Identifier toutes les fonctions utilitaires qui utilisent Transaction/EnrichedTransaction
+- [ ] Vérifier les imports et dépendances
+
 **Tasks**:
-- [ ] Ajouter `property_id` à la table `transactions` (migration avec FOREIGN KEY)
-- [ ] Ajouter `property_id` à la table `enriched_transactions` (migration avec FOREIGN KEY)
-- [ ] Modifier `GET /api/transactions` pour accepter `property_id` (query param obligatoire)
-- [ ] Modifier `POST /api/transactions` pour inclure `property_id` dans le body
-- [ ] Modifier `PUT /api/transactions/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/transactions/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/transactions/unique-values` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/transactions/sum-by-level1` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/transactions/export` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/transactions/{id}` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/transactions/import` pour inclure `property_id` dans le FormData
-- [ ] Modifier `recalculate_balances_from_date` pour accepter `property_id`
-- [ ] Modifier `recalculate_all_balances` pour accepter `property_id`
-- [ ] Ajouter validation : erreur 400 si property_id invalide, 422 si manquant
+
+**1. Modèles SQLAlchemy** :
+- [ ] Ajouter `property_id` au modèle SQLAlchemy `Transaction` avec `ForeignKey("properties.id", ondelete="CASCADE")`
+- [ ] Ajouter `property_id` au modèle SQLAlchemy `EnrichedTransaction` avec `ForeignKey("properties.id", ondelete="CASCADE")`
+- [ ] Ajouter index `idx_transactions_property_id` sur `transactions(property_id)` dans `__table_args__`
+- [ ] Ajouter index `idx_enriched_transactions_property_id` sur `enriched_transactions(property_id)` dans `__table_args__`
+- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+
+**2. Migrations** :
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_transactions.py` pour ajouter `property_id` à la table `transactions` avec contrainte FK et ON DELETE CASCADE
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_enriched_transactions.py` pour ajouter `property_id` à la table `enriched_transactions` avec contrainte FK et ON DELETE CASCADE
+- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [ ] Vérifier que les index sont créés
+
+**3. Fonction de validation property_id** :
+- [ ] Créer fonction utilitaire `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [ ] Cette fonction vérifie que `property_id` existe dans la table `properties`
+- [ ] Retourne `True` si valide, lève `HTTPException(400)` si invalide
+- [ ] Ajouter logs : `[Transactions] Validation property_id={property_id}`
+
+**4. Endpoints API - Modifications avec logs** :
+- [ ] Modifier `GET /api/transactions` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Transactions] GET /api/transactions - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(Transaction.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[Transactions] Retourné {count} transactions pour property_id={property_id}`
+- [ ] Modifier `POST /api/transactions` :
+  - Ajouter `property_id` dans `TransactionCreate` model
+  - Ajouter log : `[Transactions] POST /api/transactions - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Transactions] Transaction créée: id={id}, property_id={property_id}`
+- [ ] Modifier `PUT /api/transactions/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Transactions] PUT /api/transactions/{id} - property_id={property_id}`
+  - Filtrer : `transaction = db.query(Transaction).filter(Transaction.id == id, Transaction.property_id == property_id).first()`
+  - Retourner 404 si transaction n'appartient pas à property_id
+  - Ajouter log : `[Transactions] Transaction {id} mise à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/transactions/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Transactions] DELETE /api/transactions/{id} - property_id={property_id}`
+  - Filtrer : `transaction = db.query(Transaction).filter(Transaction.id == id, Transaction.property_id == property_id).first()`
+  - Retourner 404 si transaction n'appartient pas à property_id
+  - Ajouter log : `[Transactions] Transaction {id} supprimée pour property_id={property_id}`
+- [ ] Modifier `GET /api/transactions/unique-values` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Transactions] GET unique-values - property_id={property_id}, column={column}`
+- [ ] Modifier `GET /api/transactions/sum-by-level1` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Transactions] GET sum-by-level1 - property_id={property_id}, level_1={level_1}`
+- [ ] Modifier `GET /api/transactions/export` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Transactions] GET export - property_id={property_id}, format={format}`
+- [ ] Modifier `GET /api/transactions/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `transaction = db.query(Transaction).filter(Transaction.id == id, Transaction.property_id == property_id).first()`
+  - Retourner 404 si transaction n'appartient pas à property_id
+  - Ajouter log : `[Transactions] GET /api/transactions/{id} - property_id={property_id}`
+- [ ] Modifier `POST /api/transactions/import` :
+  - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")`
+  - Passer `property_id` à toutes les transactions créées
+  - Ajouter log : `[Transactions] POST import - property_id={property_id}, file={filename}`
+  - Ajouter log : `[Transactions] Import terminé: {count} transactions créées pour property_id={property_id}`
+
+**5. Fonctions utilitaires** :
+- [ ] Modifier `recalculate_balances_from_date` dans `backend/api/utils/balance_utils.py` :
+  - Ajouter paramètre `property_id: int`
+  - Filtrer toutes les requêtes : `query = query.filter(Transaction.property_id == property_id)`
+  - Ajouter log : `[BalanceUtils] Recalcul soldes depuis {date} pour property_id={property_id}`
+- [ ] Modifier `recalculate_all_balances` dans `backend/api/utils/balance_utils.py` :
+  - Ajouter paramètre `property_id: int`
+  - Filtrer toutes les requêtes : `query = query.filter(Transaction.property_id == property_id)`
+  - Ajouter log : `[BalanceUtils] Recalcul tous les soldes pour property_id={property_id}`
+- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+
+**6. Validation et gestion d'erreurs** :
+- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [ ] Erreur 404 si transaction n'appartient pas à property_id demandé
+- [ ] Ajouter logs d'erreur : `[Transactions] ERREUR: {message} - property_id={property_id}`
+
+**7. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_transactions_isolation_phase_11_bis_1_1.py`
+- [ ] Le script doit afficher des logs clairs pour chaque test
+- [ ] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
 - [ ] Créer 2 propriétés (prop1, prop2)
@@ -305,28 +454,129 @@ Cette phase implique :
 ### Step 2.1 : Backend - Endpoints Mappings avec property_id
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Ajouter `property_id` à la table `mappings` (migration avec FOREIGN KEY)
-- [ ] Ajouter `property_id` à la table `allowed_mappings` (migration avec FOREIGN KEY)
-- [ ] Modifier l'index unique de `allowed_mappings` pour inclure `property_id` : `(property_id, level_1, level_2, level_3)`
-- [ ] Modifier `GET /api/mappings` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/mappings` pour inclure `property_id`
-- [ ] Modifier `PUT /api/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/mappings/export` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/mappings/unique-values` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/mappings/allowed` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/mappings/allowed` pour inclure `property_id`
-- [ ] Modifier `DELETE /api/mappings/allowed/{id}` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/mappings/import` pour inclure `property_id`
-- [ ] Modifier `GET /api/mappings/imports/history` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/mappings/imports/all` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/mappings/allowed/level-1` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/mappings/allowed/level-2` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/mappings/allowed/level-3` pour filtrer par `property_id`
+**1. Vérifications avant modification** :
+- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/mappings.py`
+- [ ] Identifier toutes les fonctions utilitaires qui utilisent les modèles `Mapping` et `AllowedMapping`
+- [ ] Vérifier les imports et dépendances
+
+**2. Modèles SQLAlchemy** :
+- [ ] Ajouter `property_id` au modèle `Mapping` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="mappings")`
+- [ ] Ajouter `property_id` au modèle `AllowedMapping` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="allowed_mappings")`
+- [ ] Modifier l'index unique de `AllowedMapping` pour inclure `property_id` : `UniqueConstraint('property_id', 'level_1', 'level_2', 'level_3')`
+- [ ] Ajouter index `idx_mappings_property_id` sur `mappings(property_id)`
+- [ ] Ajouter index `idx_allowed_mappings_property_id` sur `allowed_mappings(property_id)`
+- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+
+**3. Migrations** :
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_mappings.py` pour ajouter `property_id` à la table `mappings` avec contrainte FK et ON DELETE CASCADE
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_allowed_mappings.py` pour ajouter `property_id` à la table `allowed_mappings` avec contrainte FK et ON DELETE CASCADE
+- [ ] Modifier l'index unique de `allowed_mappings` pour inclure `property_id`
+- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [ ] Vérifier que les index sont créés
+
+**4. Fonction de validation property_id** :
+- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [ ] Ajouter logs : `[Mappings] Validation property_id={property_id}`
+
+**5. Endpoints API - Modifications avec logs** :
+- [ ] Modifier `GET /api/mappings` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Mappings] GET /api/mappings - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(Mapping.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[Mappings] Retourné {count} mappings pour property_id={property_id}`
+- [ ] Modifier `POST /api/mappings` :
+  - Ajouter `property_id` dans `MappingCreate` model
+  - Ajouter log : `[Mappings] POST /api/mappings - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Mappings] Mapping créé: id={id}, property_id={property_id}`
+- [ ] Modifier `PUT /api/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Mappings] PUT /api/mappings/{id} - property_id={property_id}`
+  - Filtrer : `mapping = db.query(Mapping).filter(Mapping.id == id, Mapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[Mappings] Mapping {id} mis à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Mappings] DELETE /api/mappings/{id} - property_id={property_id}`
+  - Filtrer : `mapping = db.query(Mapping).filter(Mapping.id == id, Mapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[Mappings] Mapping {id} supprimé pour property_id={property_id}`
+- [ ] Modifier `GET /api/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `mapping = db.query(Mapping).filter(Mapping.id == id, Mapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[Mappings] GET /api/mappings/{id} - property_id={property_id}`
+- [ ] Modifier `GET /api/mappings/export` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET export - property_id={property_id}`
+- [ ] Modifier `GET /api/mappings/unique-values` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET unique-values - property_id={property_id}, column={column}`
+- [ ] Modifier `GET /api/mappings/allowed` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed - property_id={property_id}`
+- [ ] Modifier `POST /api/mappings/allowed` :
+  - Ajouter `property_id` dans `AllowedMappingCreate` model
+  - Ajouter log : `[Mappings] POST allowed - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Mappings] AllowedMapping créé: id={id}, property_id={property_id}`
+- [ ] Modifier `DELETE /api/mappings/allowed/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `allowed_mapping = db.query(AllowedMapping).filter(AllowedMapping.id == id, AllowedMapping.property_id == property_id).first()`
+  - Retourner 404 si allowed_mapping n'appartient pas à property_id
+  - Ajouter log : `[Mappings] DELETE allowed/{id} - property_id={property_id}`
+- [ ] Modifier `POST /api/mappings/import` :
+  - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")`
+  - Passer `property_id` à tous les mappings créés
+  - Ajouter log : `[Mappings] POST import - property_id={property_id}, file={filename}`
+  - Ajouter log : `[Mappings] Import terminé: {count} mappings créés pour property_id={property_id}`
+- [ ] Modifier `GET /api/mappings/imports/history` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET imports/history - property_id={property_id}`
+- [ ] Modifier `DELETE /api/mappings/imports/all` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] DELETE imports/all - property_id={property_id}`
+- [ ] Modifier `GET /api/mappings/allowed/level-1` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed/level-1 - property_id={property_id}`
+- [ ] Modifier `GET /api/mappings/allowed/level-2` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed/level-2 - property_id={property_id}`
+- [ ] Modifier `GET /api/mappings/allowed/level-3` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed/level-3 - property_id={property_id}`
+
+**6. Fonctions utilitaires** :
 - [ ] Modifier toutes les fonctions de validation pour accepter `property_id`
+- [ ] Filtrer toutes les requêtes par `property_id`
+- [ ] Ajouter logs pour le debugging
+- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+
+**7. Validation et gestion d'erreurs** :
+- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [ ] Erreur 404 si mapping n'appartient pas à property_id demandé
+- [ ] Ajouter logs d'erreur : `[Mappings] ERREUR: {message} - property_id={property_id}`
+
+**8. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_mappings_isolation_phase_11_bis_2_1.py`
+- [ ] Le script doit afficher des logs clairs pour chaque test
+- [ ] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
 - [ ] Créer 2 propriétés (prop1, prop2)
@@ -442,23 +692,115 @@ Cette phase implique :
 ### Step 3.1 : Backend - Endpoints Amortissements avec property_id
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Ajouter `property_id` à la table `amortization_types` (migration avec FOREIGN KEY)
-- [ ] Modifier `GET /api/amortization/types` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/amortization/types` pour inclure `property_id`
-- [ ] Modifier `PUT /api/amortization/types/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/amortization/types/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/amortization/types/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/amortization/types/{id}/amount` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/amortization/types/{id}/cumulated` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/amortization/types/{id}/transaction-count` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/amortization/results` pour filtrer par `property_id` (via Transaction.property_id)
-- [ ] Modifier `GET /api/amortization/results/aggregated` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/amortization/results/details` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/amortization/recalculate` pour accepter `property_id`
-- [ ] Modifier `recalculate_transaction_amortization` pour filtrer par `property_id`
-- [ ] Modifier `recalculate_all_amortizations` pour accepter `property_id`
+**1. Vérifications avant modification** :
+- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/amortization.py`
+- [ ] Identifier toutes les fonctions utilitaires qui utilisent le modèle `AmortizationType`
+- [ ] Identifier toutes les fonctions qui utilisent `Transaction` pour les résultats d'amortissement
+- [ ] Vérifier les imports et dépendances
+
+**2. Modèles SQLAlchemy** :
+- [ ] Ajouter `property_id` au modèle `AmortizationType` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="amortization_types")`
+- [ ] Ajouter index `idx_amortization_types_property_id` sur `amortization_types(property_id)`
+- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+- [ ] Note : Les résultats d'amortissement sont liés via `Transaction.property_id` (pas besoin de modifier `AmortizationResult`)
+
+**3. Migrations** :
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_amortization_types.py` pour ajouter `property_id` à la table `amortization_types` avec contrainte FK et ON DELETE CASCADE
+- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [ ] Vérifier que les index sont créés
+
+**4. Fonction de validation property_id** :
+- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [ ] Ajouter logs : `[Amortizations] Validation property_id={property_id}`
+
+**5. Endpoints API - Modifications avec logs** :
+- [ ] Modifier `GET /api/amortization/types` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Amortizations] GET /api/amortization/types - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(AmortizationType.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[Amortizations] Retourné {count} types pour property_id={property_id}`
+- [ ] Modifier `POST /api/amortization/types` :
+  - Ajouter `property_id` dans `AmortizationTypeCreate` model
+  - Ajouter log : `[Amortizations] POST /api/amortization/types - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Amortizations] AmortizationType créé: id={id}, property_id={property_id}`
+- [ ] Modifier `PUT /api/amortization/types/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Amortizations] PUT /api/amortization/types/{id} - property_id={property_id}`
+  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
+  - Retourner 404 si amortization_type n'appartient pas à property_id
+  - Ajouter log : `[Amortizations] AmortizationType {id} mis à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/amortization/types/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Amortizations] DELETE /api/amortization/types/{id} - property_id={property_id}`
+  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
+  - Retourner 404 si amortization_type n'appartient pas à property_id
+  - Ajouter log : `[Amortizations] AmortizationType {id} supprimé pour property_id={property_id}`
+- [ ] Modifier `GET /api/amortization/types/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
+  - Retourner 404 si amortization_type n'appartient pas à property_id
+  - Ajouter log : `[Amortizations] GET /api/amortization/types/{id} - property_id={property_id}`
+- [ ] Modifier `GET /api/amortization/types/{id}/amount` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
+  - Filtrer les transactions par `property_id` dans le calcul
+  - Ajouter log : `[Amortizations] GET amount - type_id={id}, property_id={property_id}`
+- [ ] Modifier `GET /api/amortization/types/{id}/cumulated` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
+  - Filtrer les transactions par `property_id` dans le calcul
+  - Ajouter log : `[Amortizations] GET cumulated - type_id={id}, property_id={property_id}`
+- [ ] Modifier `GET /api/amortization/types/{id}/transaction-count` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
+  - Filtrer les transactions par `property_id` dans le calcul
+  - Ajouter log : `[Amortizations] GET transaction-count - type_id={id}, property_id={property_id}`
+- [ ] Modifier `GET /api/amortization/results` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer via `Transaction.property_id` : `query = query.join(Transaction).filter(Transaction.property_id == property_id)`
+  - Ajouter log : `[Amortizations] GET results - property_id={property_id}`
+- [ ] Modifier `GET /api/amortization/results/aggregated` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer via `Transaction.property_id`
+  - Ajouter log : `[Amortizations] GET results/aggregated - property_id={property_id}`
+- [ ] Modifier `GET /api/amortization/results/details` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer via `Transaction.property_id`
+  - Ajouter log : `[Amortizations] GET results/details - property_id={property_id}`
+- [ ] Modifier `POST /api/amortization/recalculate` :
+  - Ajouter `property_id: int = Body(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Amortizations] POST recalculate - property_id={property_id}`
+  - Passer `property_id` à `recalculate_all_amortizations`
+  - Ajouter log : `[Amortizations] Recalcul terminé pour property_id={property_id}`
+
+**6. Fonctions utilitaires** :
+- [ ] Modifier `recalculate_transaction_amortization` dans `backend/api/services/amortization_service.py` :
+  - Ajouter paramètre `property_id: int`
+  - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
+  - Ajouter log : `[AmortizationService] Recalcul amortissement transaction {transaction_id} pour property_id={property_id}`
+- [ ] Modifier `recalculate_all_amortizations` dans `backend/api/services/amortization_service.py` :
+  - Ajouter paramètre `property_id: int`
+  - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
+  - Filtrer les types d'amortissement : `query = query.filter(AmortizationType.property_id == property_id)`
+  - Ajouter log : `[AmortizationService] Recalcul tous les amortissements pour property_id={property_id}`
+- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+
+**7. Validation et gestion d'erreurs** :
+- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [ ] Erreur 404 si amortization_type n'appartient pas à property_id demandé
+- [ ] Ajouter logs d'erreur : `[Amortizations] ERREUR: {message} - property_id={property_id}`
+
+**8. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_amortizations_isolation_phase_11_bis_3_1.py`
+- [ ] Le script doit afficher des logs clairs pour chaque test
+- [ ] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
 - [ ] Créer 2 propriétés (prop1, prop2)
@@ -556,20 +898,116 @@ Cette phase implique :
 ### Step 4.1 : Backend - Endpoints Crédit avec property_id
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Modifier `GET /api/loan-configs` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/loan-configs` pour inclure `property_id`
-- [ ] Modifier `PUT /api/loan-configs/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/loan-configs/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/loan-configs/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/loan-payments` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/loan-payments` pour inclure `property_id`
-- [ ] Modifier `PUT /api/loan-payments/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/loan-payments/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/loan-payments/{id}` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/loan-payments/preview` pour inclure `property_id`
-- [ ] Modifier `POST /api/loan-payments/upload` pour inclure `property_id`
+**1. Vérifications avant modification** :
+- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/loan.py`
+- [ ] Identifier toutes les fonctions utilitaires qui utilisent les modèles `LoanConfig` et `LoanPayment`
+- [ ] Vérifier les imports et dépendances
+
+**2. Modèles SQLAlchemy** :
+- [ ] Ajouter `property_id` au modèle `LoanConfig` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="loan_configs")`
+- [ ] Ajouter `property_id` au modèle `LoanPayment` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="loan_payments")`
+- [ ] Ajouter index `idx_loan_configs_property_id` sur `loan_configs(property_id)`
+- [ ] Ajouter index `idx_loan_payments_property_id` sur `loan_payments(property_id)`
+- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+
+**3. Migrations** :
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_loan_configs.py` pour ajouter `property_id` à la table `loan_configs` avec contrainte FK et ON DELETE CASCADE
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_loan_payments.py` pour ajouter `property_id` à la table `loan_payments` avec contrainte FK et ON DELETE CASCADE
+- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [ ] Vérifier que les index sont créés
+
+**4. Fonction de validation property_id** :
+- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [ ] Ajouter logs : `[Credits] Validation property_id={property_id}`
+
+**5. Endpoints API - Modifications avec logs** :
+- [ ] Modifier `GET /api/loan-configs` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Credits] GET /api/loan-configs - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(LoanConfig.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[Credits] Retourné {count} configs pour property_id={property_id}`
+- [ ] Modifier `POST /api/loan-configs` :
+  - Ajouter `property_id` dans `LoanConfigCreate` model
+  - Ajouter log : `[Credits] POST /api/loan-configs - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Credits] LoanConfig créé: id={id}, property_id={property_id}`
+- [ ] Modifier `PUT /api/loan-configs/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Credits] PUT /api/loan-configs/{id} - property_id={property_id}`
+  - Filtrer : `loan_config = db.query(LoanConfig).filter(LoanConfig.id == id, LoanConfig.property_id == property_id).first()`
+  - Retourner 404 si loan_config n'appartient pas à property_id
+  - Ajouter log : `[Credits] LoanConfig {id} mis à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/loan-configs/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Credits] DELETE /api/loan-configs/{id} - property_id={property_id}`
+  - Filtrer : `loan_config = db.query(LoanConfig).filter(LoanConfig.id == id, LoanConfig.property_id == property_id).first()`
+  - Retourner 404 si loan_config n'appartient pas à property_id
+  - Ajouter log : `[Credits] LoanConfig {id} supprimé pour property_id={property_id}`
+- [ ] Modifier `GET /api/loan-configs/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `loan_config = db.query(LoanConfig).filter(LoanConfig.id == id, LoanConfig.property_id == property_id).first()`
+  - Retourner 404 si loan_config n'appartient pas à property_id
+  - Ajouter log : `[Credits] GET /api/loan-configs/{id} - property_id={property_id}`
+- [ ] Modifier `GET /api/loan-payments` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Credits] GET /api/loan-payments - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(LoanPayment.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[Credits] Retourné {count} payments pour property_id={property_id}`
+- [ ] Modifier `POST /api/loan-payments` :
+  - Ajouter `property_id` dans `LoanPaymentCreate` model
+  - Ajouter log : `[Credits] POST /api/loan-payments - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Credits] LoanPayment créé: id={id}, property_id={property_id}`
+- [ ] Modifier `PUT /api/loan-payments/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Credits] PUT /api/loan-payments/{id} - property_id={property_id}`
+  - Filtrer : `loan_payment = db.query(LoanPayment).filter(LoanPayment.id == id, LoanPayment.property_id == property_id).first()`
+  - Retourner 404 si loan_payment n'appartient pas à property_id
+  - Ajouter log : `[Credits] LoanPayment {id} mis à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/loan-payments/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Credits] DELETE /api/loan-payments/{id} - property_id={property_id}`
+  - Filtrer : `loan_payment = db.query(LoanPayment).filter(LoanPayment.id == id, LoanPayment.property_id == property_id).first()`
+  - Retourner 404 si loan_payment n'appartient pas à property_id
+  - Ajouter log : `[Credits] LoanPayment {id} supprimé pour property_id={property_id}`
+- [ ] Modifier `GET /api/loan-payments/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `loan_payment = db.query(LoanPayment).filter(LoanPayment.id == id, LoanPayment.property_id == property_id).first()`
+  - Retourner 404 si loan_payment n'appartient pas à property_id
+  - Ajouter log : `[Credits] GET /api/loan-payments/{id} - property_id={property_id}`
+- [ ] Modifier `POST /api/loan-payments/preview` :
+  - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Credits] POST preview - property_id={property_id}, file={filename}`
+- [ ] Modifier `POST /api/loan-payments/upload` :
+  - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")`
+  - Passer `property_id` à tous les payments créés
+  - Ajouter log : `[Credits] POST upload - property_id={property_id}, file={filename}`
+  - Ajouter log : `[Credits] Upload terminé: {count} payments créés pour property_id={property_id}`
+
+**6. Fonctions utilitaires** :
+- [ ] Modifier toutes les fonctions qui utilisent `LoanConfig` ou `LoanPayment` pour accepter `property_id`
+- [ ] Filtrer toutes les requêtes par `property_id`
+- [ ] Ajouter logs pour le debugging
+- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+
+**7. Validation et gestion d'erreurs** :
+- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [ ] Erreur 404 si loan_config ou loan_payment n'appartient pas à property_id demandé
+- [ ] Ajouter logs d'erreur : `[Credits] ERREUR: {message} - property_id={property_id}`
+
+**8. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_credits_isolation_phase_11_bis_4_1.py`
+- [ ] Le script doit afficher des logs clairs pour chaque test
+- [ ] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
 - [ ] Créer 2 propriétés (prop1, prop2)
@@ -667,20 +1105,115 @@ Cette phase implique :
 ### Step 5.1 : Backend - Endpoints Compte de résultat avec property_id
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Modifier `GET /api/compte-resultat/mappings` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/compte-resultat/mappings` pour inclure `property_id`
-- [ ] Modifier `PUT /api/compte-resultat/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/compte-resultat/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/compte-resultat/config` pour filtrer par `property_id`
-- [ ] Modifier `PUT /api/compte-resultat/config` pour inclure `property_id`
-- [ ] Modifier `GET /api/compte-resultat/calculate` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/compte-resultat/override` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/compte-resultat/override/{year}` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/compte-resultat/override` pour inclure `property_id`
-- [ ] Modifier `DELETE /api/compte-resultat/override/{year}` pour filtrer par `property_id`
-- [ ] Modifier toutes les fonctions du service pour accepter `property_id`
+**1. Vérifications avant modification** :
+- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/compte_resultat.py`
+- [ ] Identifier toutes les fonctions du service qui utilisent les modèles `CompteResultatMapping`, `CompteResultatConfig`, `CompteResultatOverride`
+- [ ] Identifier toutes les fonctions qui utilisent `Transaction` pour le calcul
+- [ ] Vérifier les imports et dépendances
+
+**2. Modèles SQLAlchemy** :
+- [ ] Ajouter `property_id` au modèle `CompteResultatMapping` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="compte_resultat_mappings")`
+- [ ] Ajouter `property_id` au modèle `CompteResultatConfig` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="compte_resultat_config")`
+- [ ] Ajouter `property_id` au modèle `CompteResultatOverride` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="compte_resultat_overrides")`
+- [ ] Ajouter index `idx_compte_resultat_mappings_property_id` sur `compte_resultat_mappings(property_id)`
+- [ ] Ajouter index `idx_compte_resultat_config_property_id` sur `compte_resultat_config(property_id)`
+- [ ] Ajouter index `idx_compte_resultat_override_property_id` sur `compte_resultat_override(property_id)`
+- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+
+**3. Migrations** :
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_compte_resultat.py` pour ajouter `property_id` aux tables `compte_resultat_mappings`, `compte_resultat_config`, `compte_resultat_override` avec contraintes FK et ON DELETE CASCADE
+- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [ ] Vérifier que les index sont créés
+
+**4. Fonction de validation property_id** :
+- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [ ] Ajouter logs : `[CompteResultat] Validation property_id={property_id}`
+
+**5. Endpoints API - Modifications avec logs** :
+- [ ] Modifier `GET /api/compte-resultat/mappings` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] GET /api/compte-resultat/mappings - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(CompteResultatMapping.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[CompteResultat] Retourné {count} mappings pour property_id={property_id}`
+- [ ] Modifier `POST /api/compte-resultat/mappings` :
+  - Ajouter `property_id` dans `CompteResultatMappingCreate` model
+  - Ajouter log : `[CompteResultat] POST /api/compte-resultat/mappings - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[CompteResultat] Mapping créé: id={id}, property_id={property_id}`
+- [ ] Modifier `PUT /api/compte-resultat/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] PUT /api/compte-resultat/mappings/{id} - property_id={property_id}`
+  - Filtrer : `mapping = db.query(CompteResultatMapping).filter(CompteResultatMapping.id == id, CompteResultatMapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[CompteResultat] Mapping {id} mis à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/compte-resultat/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] DELETE /api/compte-resultat/mappings/{id} - property_id={property_id}`
+  - Filtrer : `mapping = db.query(CompteResultatMapping).filter(CompteResultatMapping.id == id, CompteResultatMapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[CompteResultat] Mapping {id} supprimé pour property_id={property_id}`
+- [ ] Modifier `GET /api/compte-resultat/config` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] GET /api/compte-resultat/config - property_id={property_id}`
+  - Filtrer : `config = db.query(CompteResultatConfig).filter(CompteResultatConfig.property_id == property_id).first()`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+- [ ] Modifier `PUT /api/compte-resultat/config` :
+  - Ajouter `property_id` dans `CompteResultatConfigUpdate` model
+  - Ajouter log : `[CompteResultat] PUT /api/compte-resultat/config - property_id={property_id}`
+  - Valider property_id avant mise à jour
+  - Ajouter log : `[CompteResultat] Config mise à jour pour property_id={property_id}`
+- [ ] Modifier `GET /api/compte-resultat/calculate` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] GET /api/compte-resultat/calculate - property_id={property_id}`
+  - Passer `property_id` au service de calcul
+  - Filtrer les transactions par `property_id` dans le calcul
+  - Ajouter log : `[CompteResultat] Calcul terminé pour property_id={property_id}`
+- [ ] Modifier `GET /api/compte-resultat/override` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] GET /api/compte-resultat/override - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(CompteResultatOverride.property_id == property_id)`
+- [ ] Modifier `GET /api/compte-resultat/override/{year}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] GET /api/compte-resultat/override/{year} - property_id={property_id}`
+  - Filtrer : `override = db.query(CompteResultatOverride).filter(CompteResultatOverride.year == year, CompteResultatOverride.property_id == property_id).first()`
+- [ ] Modifier `POST /api/compte-resultat/override` :
+  - Ajouter `property_id` dans `CompteResultatOverrideCreate` model
+  - Ajouter log : `[CompteResultat] POST /api/compte-resultat/override - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[CompteResultat] Override créé: year={year}, property_id={property_id}`
+- [ ] Modifier `DELETE /api/compte-resultat/override/{year}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[CompteResultat] DELETE /api/compte-resultat/override/{year} - property_id={property_id}`
+  - Filtrer : `override = db.query(CompteResultatOverride).filter(CompteResultatOverride.year == year, CompteResultatOverride.property_id == property_id).first()`
+  - Retourner 404 si override n'appartient pas à property_id
+  - Ajouter log : `[CompteResultat] Override {year} supprimé pour property_id={property_id}`
+
+**6. Fonctions utilitaires** :
+- [ ] Modifier toutes les fonctions du service `backend/api/services/compte_resultat_service.py` pour accepter `property_id`
+- [ ] Filtrer toutes les requêtes par `property_id`
+- [ ] Filtrer les transactions par `property_id` dans les calculs
+- [ ] Ajouter logs pour le debugging
+- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+
+**7. Validation et gestion d'erreurs** :
+- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [ ] Erreur 404 si mapping/config/override n'appartient pas à property_id demandé
+- [ ] Ajouter logs d'erreur : `[CompteResultat] ERREUR: {message} - property_id={property_id}`
+
+**8. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_compte_resultat_isolation_phase_11_bis_5_1.py`
+- [ ] Le script doit afficher des logs clairs pour chaque test
+- [ ] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
 - [ ] Créer 2 propriétés (prop1, prop2)
@@ -780,21 +1313,113 @@ Cette phase implique :
 ### Step 6.1 : Backend - Endpoints Bilan avec property_id
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Modifier `GET /api/bilan/mappings` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/bilan/mappings` pour inclure `property_id`
-- [ ] Modifier `GET /api/bilan/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `PUT /api/bilan/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/bilan/mappings/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/bilan/config` pour filtrer par `property_id`
-- [ ] Modifier `PUT /api/bilan/config` pour inclure `property_id`
-- [ ] Modifier `GET /api/bilan/calculate` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/bilan/calculate` pour inclure `property_id`
-- [ ] Modifier `GET /api/bilan` pour filtrer par `property_id`
-- [ ] Modifier toutes les fonctions du service pour accepter `property_id`
-- [ ] Modifier `calculate_compte_bancaire` pour filtrer par `property_id`
-- [ ] Modifier `calculate_capital_restant_du` pour filtrer par `property_id`
+**1. Vérifications avant modification** :
+- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/bilan.py`
+- [ ] Identifier toutes les fonctions du service qui utilisent les modèles `BilanMapping` et `BilanConfig`
+- [ ] Identifier toutes les fonctions qui utilisent `Transaction`, `LoanPayment`, `AmortizationResult` pour le calcul
+- [ ] Vérifier les imports et dépendances
+
+**2. Modèles SQLAlchemy** :
+- [ ] Ajouter `property_id` au modèle `BilanMapping` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="bilan_mappings")`
+- [ ] Ajouter `property_id` au modèle `BilanConfig` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="bilan_config")`
+- [ ] Ajouter index `idx_bilan_mappings_property_id` sur `bilan_mappings(property_id)`
+- [ ] Ajouter index `idx_bilan_config_property_id` sur `bilan_config(property_id)`
+- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+
+**3. Migrations** :
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_bilan.py` pour ajouter `property_id` aux tables `bilan_mappings`, `bilan_config` avec contraintes FK et ON DELETE CASCADE
+- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [ ] Vérifier que les index sont créés
+
+**4. Fonction de validation property_id** :
+- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [ ] Ajouter logs : `[Bilan] Validation property_id={property_id}`
+
+**5. Endpoints API - Modifications avec logs** :
+- [ ] Modifier `GET /api/bilan/mappings` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Bilan] GET /api/bilan/mappings - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(BilanMapping.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[Bilan] Retourné {count} mappings pour property_id={property_id}`
+- [ ] Modifier `POST /api/bilan/mappings` :
+  - Ajouter `property_id` dans `BilanMappingCreate` model
+  - Ajouter log : `[Bilan] POST /api/bilan/mappings - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Bilan] Mapping créé: id={id}, property_id={property_id}`
+- [ ] Modifier `GET /api/bilan/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `mapping = db.query(BilanMapping).filter(BilanMapping.id == id, BilanMapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[Bilan] GET /api/bilan/mappings/{id} - property_id={property_id}`
+- [ ] Modifier `PUT /api/bilan/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Bilan] PUT /api/bilan/mappings/{id} - property_id={property_id}`
+  - Filtrer : `mapping = db.query(BilanMapping).filter(BilanMapping.id == id, BilanMapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[Bilan] Mapping {id} mis à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/bilan/mappings/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Bilan] DELETE /api/bilan/mappings/{id} - property_id={property_id}`
+  - Filtrer : `mapping = db.query(BilanMapping).filter(BilanMapping.id == id, BilanMapping.property_id == property_id).first()`
+  - Retourner 404 si mapping n'appartient pas à property_id
+  - Ajouter log : `[Bilan] Mapping {id} supprimé pour property_id={property_id}`
+- [ ] Modifier `GET /api/bilan/config` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Bilan] GET /api/bilan/config - property_id={property_id}`
+  - Filtrer : `config = db.query(BilanConfig).filter(BilanConfig.property_id == property_id).first()`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+- [ ] Modifier `PUT /api/bilan/config` :
+  - Ajouter `property_id` dans `BilanConfigUpdate` model
+  - Ajouter log : `[Bilan] PUT /api/bilan/config - property_id={property_id}`
+  - Valider property_id avant mise à jour
+  - Ajouter log : `[Bilan] Config mise à jour pour property_id={property_id}`
+- [ ] Modifier `GET /api/bilan/calculate` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Bilan] GET /api/bilan/calculate - property_id={property_id}`
+  - Passer `property_id` au service de calcul
+  - Filtrer les transactions, loan_payments, amortizations par `property_id` dans le calcul
+  - Ajouter log : `[Bilan] Calcul terminé pour property_id={property_id}`
+- [ ] Modifier `POST /api/bilan/calculate` :
+  - Ajouter `property_id` dans le body
+  - Ajouter log : `[Bilan] POST /api/bilan/calculate - property_id={property_id}`
+  - Passer `property_id` au service de calcul
+  - Ajouter log : `[Bilan] Calcul terminé pour property_id={property_id}`
+- [ ] Modifier `GET /api/bilan` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Bilan] GET /api/bilan - property_id={property_id}`
+  - Passer `property_id` au service de calcul
+  - Ajouter log : `[Bilan] Bilan retourné pour property_id={property_id}`
+
+**6. Fonctions utilitaires** :
+- [ ] Modifier toutes les fonctions du service `backend/api/services/bilan_service.py` pour accepter `property_id`
+- [ ] Modifier `calculate_compte_bancaire` pour filtrer par `property_id` :
+  - Filtrer les transactions par `property_id`
+  - Ajouter log : `[BilanService] Calcul compte bancaire pour property_id={property_id}`
+- [ ] Modifier `calculate_capital_restant_du` pour filtrer par `property_id` :
+  - Filtrer les loan_payments par `property_id`
+  - Ajouter log : `[BilanService] Calcul capital restant dû pour property_id={property_id}`
+- [ ] Filtrer toutes les requêtes par `property_id`
+- [ ] Filtrer les transactions, loan_payments, amortizations par `property_id` dans les calculs
+- [ ] Ajouter logs pour le debugging
+- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+
+**7. Validation et gestion d'erreurs** :
+- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [ ] Erreur 404 si mapping/config n'appartient pas à property_id demandé
+- [ ] Ajouter logs d'erreur : `[Bilan] ERREUR: {message} - property_id={property_id}`
+
+**8. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_bilan_isolation_phase_11_bis_6_1.py`
+- [ ] Le script doit afficher des logs clairs pour chaque test
+- [ ] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
 - [ ] Créer 2 propriétés (prop1, prop2)
@@ -891,16 +1516,82 @@ Cette phase implique :
 ### Step 7.1 : Backend - Endpoints Pivot avec property_id
 **Status**: ⏳ À FAIRE
 
-**Tasks**:
-- [ ] Modifier `GET /api/pivot-configs` pour filtrer par `property_id`
-- [ ] Modifier `POST /api/pivot-configs` pour inclure `property_id`
-- [ ] Modifier `PUT /api/pivot-configs/{id}` pour filtrer par `property_id`
-- [ ] Modifier `DELETE /api/pivot-configs/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/pivot-configs/{id}` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/analytics/pivot` pour filtrer par `property_id`
-- [ ] Modifier `GET /api/analytics/pivot/details` pour filtrer par `property_id`
-- [ ] Ajouter `property_id` à la table `pivot_configs` (migration)
+**1. Vérifications avant modification** :
+- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/pivot.py` ou `backend/api/routes/analytics.py`
+- [ ] Identifier toutes les fonctions qui utilisent le modèle `PivotConfig`
+- [ ] Identifier toutes les fonctions qui utilisent `Transaction` pour les données du pivot
+- [ ] Vérifier les imports et dépendances
+
+**2. Modèles SQLAlchemy** :
+- [ ] Ajouter `property_id` au modèle `PivotConfig` dans `backend/database/models.py` :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="pivot_configs")`
+- [ ] Ajouter index `idx_pivot_configs_property_id` sur `pivot_configs(property_id)`
+- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+
+**3. Migrations** :
+- [ ] Créer migration `backend/database/migrations/add_property_id_to_pivot_configs.py` pour ajouter `property_id` à la table `pivot_configs` avec contrainte FK et ON DELETE CASCADE
+- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [ ] Vérifier que les index sont créés
+
+**4. Fonction de validation property_id** :
+- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [ ] Ajouter logs : `[Pivot] Validation property_id={property_id}`
+
+**5. Endpoints API - Modifications avec logs** :
+- [ ] Modifier `GET /api/pivot-configs` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Pivot] GET /api/pivot-configs - property_id={property_id}`
+  - Filtrer toutes les requêtes : `query = query.filter(PivotConfig.property_id == property_id)`
+  - Valider property_id avec `validate_property_id(db, property_id)`
+  - Ajouter log : `[Pivot] Retourné {count} configs pour property_id={property_id}`
+- [ ] Modifier `POST /api/pivot-configs` :
+  - Ajouter `property_id` dans `PivotConfigCreate` model
+  - Ajouter log : `[Pivot] POST /api/pivot-configs - property_id={property_id}`
+  - Valider property_id avant création
+  - Ajouter log : `[Pivot] PivotConfig créé: id={id}, property_id={property_id}`
+- [ ] Modifier `PUT /api/pivot-configs/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Pivot] PUT /api/pivot-configs/{id} - property_id={property_id}`
+  - Filtrer : `pivot_config = db.query(PivotConfig).filter(PivotConfig.id == id, PivotConfig.property_id == property_id).first()`
+  - Retourner 404 si pivot_config n'appartient pas à property_id
+  - Ajouter log : `[Pivot] PivotConfig {id} mis à jour pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/pivot-configs/{id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Pivot] DELETE /api/pivot-configs/{id} - property_id={property_id}`
+  - Filtrer : `pivot_config = db.query(PivotConfig).filter(PivotConfig.id == id, PivotConfig.property_id == property_id).first()`
+  - Retourner 404 si pivot_config n'appartient pas à property_id
+  - Ajouter log : `[Pivot] PivotConfig {id} supprimé pour property_id={property_id}`
+- [ ] Modifier `GET /api/analytics/pivot` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Pivot] GET /api/analytics/pivot - property_id={property_id}`
+  - Filtrer les transactions par `property_id` dans le calcul
+  - Ajouter log : `[Pivot] Pivot calculé pour property_id={property_id}`
+- [ ] Modifier `GET /api/analytics/pivot/details` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Ajouter log : `[Pivot] GET /api/analytics/pivot/details - property_id={property_id}`
+  - Filtrer les transactions par `property_id` dans le calcul
+  - Ajouter log : `[Pivot] Détails pivot retournés pour property_id={property_id}`
+
+**6. Fonctions utilitaires** :
+- [ ] Modifier toutes les fonctions qui utilisent `PivotConfig` pour accepter `property_id`
+- [ ] Modifier toutes les fonctions qui calculent les données du pivot pour filtrer les transactions par `property_id`
+- [ ] Filtrer toutes les requêtes par `property_id`
+- [ ] Ajouter logs pour le debugging
+- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+
+**7. Validation et gestion d'erreurs** :
+- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [ ] Erreur 404 si pivot_config n'appartient pas à property_id demandé
+- [ ] Ajouter logs d'erreur : `[Pivot] ERREUR: {message} - property_id={property_id}`
+
+**8. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_pivot_isolation_phase_11_bis_7_1.py`
+- [ ] Le script doit afficher des logs clairs pour chaque test
+- [ ] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
 - [ ] Créer 2 propriétés (prop1, prop2)

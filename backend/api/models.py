@@ -786,3 +786,38 @@ class BilanResponse(BaseModel):
     passif_total: float = Field(..., description="Total PASSIF")
     difference: float = Field(..., description="Différence ACTIF - PASSIF")
     difference_percent: float = Field(..., description="Pourcentage de différence")
+
+
+# Property models
+
+class PropertyBase(BaseModel):
+    """Base model for property."""
+    name: str = Field(..., max_length=255, description="Nom de la propriété")
+    address: Optional[str] = Field(None, max_length=500, description="Adresse de la propriété")
+
+
+class PropertyCreate(PropertyBase):
+    """Model for creating a property."""
+    pass
+
+
+class PropertyUpdate(BaseModel):
+    """Model for updating a property."""
+    name: Optional[str] = Field(None, max_length=255, description="Nom de la propriété")
+    address: Optional[str] = Field(None, max_length=500, description="Adresse de la propriété")
+
+
+class PropertyResponse(PropertyBase):
+    """Model for property response."""
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PropertyListResponse(BaseModel):
+    """Model for list of properties response."""
+    items: List[PropertyResponse]
+    total: int

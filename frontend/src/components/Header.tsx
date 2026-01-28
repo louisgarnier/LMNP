@@ -7,7 +7,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useProperty } from '@/contexts/PropertyContext';
 
 const navItems = [
   { name: 'Vue d\'ensemble', href: '/dashboard' },
@@ -20,6 +21,13 @@ const navItems = [
 
 export default function Header() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { activeProperty, setActiveProperty } = useProperty();
+
+  const handleChangeProperty = () => {
+    setActiveProperty(null);
+    router.push('/');
+  };
 
   return (
     <header style={{ backgroundColor: '#1e3a5f', color: 'white', height: '48px' }}>
@@ -56,6 +64,26 @@ export default function Header() {
 
         {/* Right: Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {activeProperty && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 12px', backgroundColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px' }}>
+              <span style={{ fontSize: '12px', fontWeight: '500' }}>{activeProperty.name}</span>
+              <button
+                onClick={handleChangeProperty}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  cursor: 'pointer',
+                  padding: '2px 4px',
+                  fontSize: '11px',
+                  textDecoration: 'underline',
+                }}
+                title="Changer de propriété"
+              >
+                Changer
+              </button>
+            </div>
+          )}
           <button style={{ background: 'none', border: 'none', color: 'rgba(255, 255, 255, 0.8)', cursor: 'pointer', padding: '4px' }}>
             🔍
           </button>

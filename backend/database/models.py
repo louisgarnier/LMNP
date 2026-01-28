@@ -15,6 +15,22 @@ from datetime import datetime
 Base = declarative_base()
 
 
+class Property(Base):
+    """Property (appartement) model for multi-property support."""
+    __tablename__ = "properties"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True, index=True)  # Nom de la propriété (ex: "Appartement 1")
+    address = Column(String(500), nullable=True)  # Adresse de la propriété
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_property_name', 'name', unique=True),
+    )
+
+
 class Transaction(Base):
     """Raw transactions aggregated from CSV files."""
     __tablename__ = "transactions"

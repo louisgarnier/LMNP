@@ -1896,6 +1896,81 @@ export interface BilanConfigUpdate {
   level_3_values?: string | null;
 }
 
+/**
+ * Property API
+ */
+export interface Property {
+  id: number;
+  name: string;
+  address?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PropertyCreate {
+  name: string;
+  address?: string;
+}
+
+export interface PropertyUpdate {
+  name?: string;
+  address?: string;
+}
+
+export interface PropertyListResponse {
+  items: Property[];
+  total: number;
+}
+
+export const propertiesAPI = {
+  /**
+   * Récupère toutes les propriétés
+   */
+  getAll: async (skip: number = 0, limit: number = 100): Promise<PropertyListResponse> => {
+    const params = new URLSearchParams({
+      skip: skip.toString(),
+      limit: limit.toString(),
+    });
+    return fetchAPI<PropertyListResponse>(`/api/properties?${params}`);
+  },
+
+  /**
+   * Récupère une propriété par son ID
+   */
+  getById: async (id: number): Promise<Property> => {
+    return fetchAPI<Property>(`/api/properties/${id}`);
+  },
+
+  /**
+   * Crée une nouvelle propriété
+   */
+  create: async (data: PropertyCreate): Promise<Property> => {
+    return fetchAPI<Property>('/api/properties', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Met à jour une propriété
+   */
+  update: async (id: number, data: PropertyUpdate): Promise<Property> => {
+    return fetchAPI<Property>(`/api/properties/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /**
+   * Supprime une propriété
+   */
+  delete: async (id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/properties/${id}`, {
+      method: 'DELETE',
+    });
+  },
+};
+
 export const bilanAPI = {
   /**
    * Récupère tous les mappings
