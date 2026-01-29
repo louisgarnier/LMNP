@@ -195,6 +195,7 @@ Cette phase implique :
 ---
 
 ## ONGLET 1 : TRANSACTIONS
+**Status**: ✅ COMPLÉTÉ
 
 ### Fonctionnalités existantes à préserver
 
@@ -222,202 +223,221 @@ Cette phase implique :
 - ✅ Compteur de transactions en BDD
 - ✅ Recalcul automatique des soldes après import
 - ✅ Enrichissement automatique après import
+- ✅ Historique des imports (logs) isolé par propriété
 
 ---
 
 ### Step 1.1 : Backend - Endpoints Transactions avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ
 
 **Ordre d'exécution recommandé :**
-1. **Modèles SQLAlchemy** (structure de données)
-2. **Migrations** (application en BDD)
-3. **Endpoints API** (logique métier)
-4. **Tests d'isolation** (vérification)
+1. **Modèles SQLAlchemy** (structure de données) ✅
+2. **Migrations** (application en BDD) ✅
+3. **Endpoints API** (logique métier) ✅
+4. **Tests d'isolation** (vérification) ✅
 
 **Vérifications avant modification :**
-- [ ] Vérifier qu'aucune transaction n'existe dans la BDD (table vide)
-- [ ] Lister tous les endpoints transactions à modifier
-- [ ] Identifier toutes les fonctions utilitaires qui utilisent Transaction/EnrichedTransaction
-- [ ] Vérifier les imports et dépendances
+- [x] Vérifier qu'aucune transaction n'existe dans la BDD (table vide)
+- [x] Lister tous les endpoints transactions à modifier
+- [x] Identifier toutes les fonctions utilitaires qui utilisent Transaction/EnrichedTransaction
+- [x] Vérifier les imports et dépendances
 
 **Tasks**:
 
 **1. Modèles SQLAlchemy** :
-- [ ] Ajouter `property_id` au modèle SQLAlchemy `Transaction` avec `ForeignKey("properties.id", ondelete="CASCADE")`
-- [ ] Ajouter `property_id` au modèle SQLAlchemy `EnrichedTransaction` avec `ForeignKey("properties.id", ondelete="CASCADE")`
-- [ ] Ajouter index `idx_transactions_property_id` sur `transactions(property_id)` dans `__table_args__`
-- [ ] Ajouter index `idx_enriched_transactions_property_id` sur `enriched_transactions(property_id)` dans `__table_args__`
-- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+- [x] Ajouter `property_id` au modèle SQLAlchemy `Transaction` avec `ForeignKey("properties.id", ondelete="CASCADE")`
+- [x] Ajouter `property_id` au modèle SQLAlchemy `EnrichedTransaction` avec `ForeignKey("properties.id", ondelete="CASCADE")`
+- [x] Ajouter index `idx_transactions_property_id` sur `transactions(property_id)` dans `__table_args__`
+- [x] Ajouter index `idx_enriched_transactions_property_id` sur `enriched_transactions(property_id)` dans `__table_args__`
+- [x] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
 
 **2. Migrations** :
-- [ ] Créer migration `backend/database/migrations/add_property_id_to_transactions.py` pour ajouter `property_id` à la table `transactions` avec contrainte FK et ON DELETE CASCADE
-- [ ] Créer migration `backend/database/migrations/add_property_id_to_enriched_transactions.py` pour ajouter `property_id` à la table `enriched_transactions` avec contrainte FK et ON DELETE CASCADE
-- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
-- [ ] Vérifier que les index sont créés
+- [x] Créer migration `backend/database/migrations/add_property_id_to_transactions.py` pour ajouter `property_id` à la table `transactions` avec contrainte FK et ON DELETE CASCADE
+- [x] Créer migration `backend/database/migrations/add_property_id_to_enriched_transactions.py` pour ajouter `property_id` à la table `enriched_transactions` avec contrainte FK et ON DELETE CASCADE
+- [x] **Créer migration `backend/database/migrations/add_property_id_to_file_imports.py` pour ajouter `property_id` à la table `file_imports` avec contrainte FK et ON DELETE CASCADE**
+- [x] **Modifier l'index unique de `file_imports` : remplacer `filename` unique par `(property_id, filename)` unique**
+- [x] **Assigner `property_id=1` (ou première propriété) à tous les `FileImport` existants**
+- [x] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [x] Vérifier que les index sont créés
 
 **3. Fonction de validation property_id** :
-- [ ] Créer fonction utilitaire `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
-- [ ] Cette fonction vérifie que `property_id` existe dans la table `properties`
-- [ ] Retourne `True` si valide, lève `HTTPException(400)` si invalide
-- [ ] Ajouter logs : `[Transactions] Validation property_id={property_id}`
+- [x] Créer fonction utilitaire `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
+- [x] Cette fonction vérifie que `property_id` existe dans la table `properties`
+- [x] Retourne `True` si valide, lève `HTTPException(400)` si invalide
+- [x] Ajouter logs : `[Transactions] Validation property_id={property_id}`
 
 **4. Endpoints API - Modifications avec logs** :
-- [ ] Modifier `GET /api/transactions` :
+- [x] Modifier `GET /api/transactions` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Ajouter log : `[Transactions] GET /api/transactions - property_id={property_id}`
   - Filtrer toutes les requêtes : `query = query.filter(Transaction.property_id == property_id)`
   - Valider property_id avec `validate_property_id(db, property_id)`
   - Ajouter log : `[Transactions] Retourné {count} transactions pour property_id={property_id}`
-- [ ] Modifier `POST /api/transactions` :
+- [x] Modifier `POST /api/transactions` :
   - Ajouter `property_id` dans `TransactionCreate` model
   - Ajouter log : `[Transactions] POST /api/transactions - property_id={property_id}`
   - Valider property_id avant création
   - Ajouter log : `[Transactions] Transaction créée: id={id}, property_id={property_id}`
-- [ ] Modifier `PUT /api/transactions/{id}` :
+- [x] Modifier `PUT /api/transactions/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Ajouter log : `[Transactions] PUT /api/transactions/{id} - property_id={property_id}`
   - Filtrer : `transaction = db.query(Transaction).filter(Transaction.id == id, Transaction.property_id == property_id).first()`
   - Retourner 404 si transaction n'appartient pas à property_id
   - Ajouter log : `[Transactions] Transaction {id} mise à jour pour property_id={property_id}`
-- [ ] Modifier `DELETE /api/transactions/{id}` :
+- [x] Modifier `DELETE /api/transactions/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Ajouter log : `[Transactions] DELETE /api/transactions/{id} - property_id={property_id}`
   - Filtrer : `transaction = db.query(Transaction).filter(Transaction.id == id, Transaction.property_id == property_id).first()`
   - Retourner 404 si transaction n'appartient pas à property_id
   - Ajouter log : `[Transactions] Transaction {id} supprimée pour property_id={property_id}`
-- [ ] Modifier `GET /api/transactions/unique-values` :
+- [x] Modifier `GET /api/transactions/unique-values` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Transactions] GET unique-values - property_id={property_id}, column={column}`
-- [ ] Modifier `GET /api/transactions/sum-by-level1` :
+- [x] Modifier `GET /api/transactions/sum-by-level1` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Transactions] GET sum-by-level1 - property_id={property_id}, level_1={level_1}`
-- [ ] Modifier `GET /api/transactions/export` :
+- [x] Modifier `GET /api/transactions/export` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Transactions] GET export - property_id={property_id}, format={format}`
-- [ ] Modifier `GET /api/transactions/{id}` :
+- [x] Modifier `GET /api/transactions/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer : `transaction = db.query(Transaction).filter(Transaction.id == id, Transaction.property_id == property_id).first()`
   - Retourner 404 si transaction n'appartient pas à property_id
   - Ajouter log : `[Transactions] GET /api/transactions/{id} - property_id={property_id}`
-- [ ] Modifier `POST /api/transactions/import` :
+- [x] Modifier `POST /api/transactions/import` :
   - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")`
   - Passer `property_id` à toutes les transactions créées
+  - **Enregistrer `property_id` dans `FileImport` lors de la création/mise à jour**
   - Ajouter log : `[Transactions] POST import - property_id={property_id}, file={filename}`
   - Ajouter log : `[Transactions] Import terminé: {count} transactions créées pour property_id={property_id}`
+- [x] Modifier `GET /api/transactions/imports` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `query = query.filter(FileImport.property_id == property_id)`
+  - Ajouter log : `[Transactions] GET imports - property_id={property_id}`
+  - Ajouter log : `[Transactions] Retourné {count} imports pour property_id={property_id}`
+- [x] Modifier `DELETE /api/transactions/imports` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `db.query(FileImport).filter(FileImport.property_id == property_id).delete()`
+  - Ajouter log : `[Transactions] DELETE imports - property_id={property_id}`
+- [x] Modifier `DELETE /api/transactions/imports/{import_id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `import_obj = db.query(FileImport).filter(FileImport.id == import_id, FileImport.property_id == property_id).first()`
+  - Retourner 404 si import n'appartient pas à property_id
+  - Ajouter log : `[Transactions] DELETE imports/{import_id} - property_id={property_id}`
 
 **5. Fonctions utilitaires** :
-- [ ] Modifier `recalculate_balances_from_date` dans `backend/api/utils/balance_utils.py` :
+- [x] Modifier `recalculate_balances_from_date` dans `backend/api/utils/balance_utils.py` :
   - Ajouter paramètre `property_id: int`
   - Filtrer toutes les requêtes : `query = query.filter(Transaction.property_id == property_id)`
   - Ajouter log : `[BalanceUtils] Recalcul soldes depuis {date} pour property_id={property_id}`
-- [ ] Modifier `recalculate_all_balances` dans `backend/api/utils/balance_utils.py` :
+- [x] Modifier `recalculate_all_balances` dans `backend/api/utils/balance_utils.py` :
   - Ajouter paramètre `property_id: int`
   - Filtrer toutes les requêtes : `query = query.filter(Transaction.property_id == property_id)`
   - Ajouter log : `[BalanceUtils] Recalcul tous les soldes pour property_id={property_id}`
-- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+- [x] Vérifier tous les appels à ces fonctions et passer `property_id`
 
 **6. Validation et gestion d'erreurs** :
-- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
-- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
-- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
-- [ ] Erreur 404 si transaction n'appartient pas à property_id demandé
-- [ ] Ajouter logs d'erreur : `[Transactions] ERREUR: {message} - property_id={property_id}`
+- [x] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
+- [x] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [x] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [x] Erreur 404 si transaction n'appartient pas à property_id demandé
+- [x] Ajouter logs d'erreur : `[Transactions] ERREUR: {message} - property_id={property_id}`
 
 **7. Tests d'isolation** :
-- [ ] Créer script de test : `backend/scripts/test_transactions_isolation_phase_11_bis_1_1.py`
-- [ ] Le script doit afficher des logs clairs pour chaque test
-- [ ] Vérifier l'isolation complète entre 2 propriétés
+- [x] Créer script de test : `backend/scripts/test_transactions_isolation_phase_11_bis_1_1.py`
+- [x] Le script doit afficher des logs clairs pour chaque test
+- [x] Vérifier l'isolation complète entre 2 propriétés
 
 **Tests d'isolation (script Python)**:
-- [ ] Créer 2 propriétés (prop1, prop2)
-- [ ] Créer 5 transactions pour prop1
-- [ ] Créer 3 transactions pour prop2
-- [ ] GET /api/transactions?property_id=prop1 → doit retourner uniquement les 5 transactions de prop1
-- [ ] GET /api/transactions?property_id=prop2 → doit retourner uniquement les 3 transactions de prop2
-- [ ] POST /api/transactions avec property_id=prop1 → doit créer une transaction pour prop1 uniquement
-- [ ] PUT /api/transactions/{id}?property_id=prop1 → ne peut modifier que les transactions de prop1
-- [ ] DELETE /api/transactions/{id}?property_id=prop1 → ne peut supprimer que les transactions de prop1
-- [ ] Tentative d'accès à une transaction de prop2 avec property_id=prop1 → doit retourner 404
-- [ ] Import de transactions avec property_id=prop1 → doit créer uniquement pour prop1
-- [ ] Recalcul des soldes pour prop1 → ne doit affecter que les transactions de prop1
+- [x] Créer 2 propriétés (prop1, prop2)
+- [x] Créer 5 transactions pour prop1
+- [x] Créer 3 transactions pour prop2
+- [x] GET /api/transactions?property_id=prop1 → doit retourner uniquement les 5 transactions de prop1
+- [x] GET /api/transactions?property_id=prop2 → doit retourner uniquement les 3 transactions de prop2
+- [x] POST /api/transactions avec property_id=prop1 → doit créer une transaction pour prop1 uniquement
+- [x] PUT /api/transactions/{id}?property_id=prop1 → ne peut modifier que les transactions de prop1
+- [x] DELETE /api/transactions/{id}?property_id=prop1 → ne peut supprimer que les transactions de prop1
+- [x] Tentative d'accès à une transaction de prop2 avec property_id=prop1 → doit retourner 404
+- [x] Import de transactions avec property_id=prop1 → doit créer uniquement pour prop1
+- [x] Recalcul des soldes pour prop1 → ne doit affecter que les transactions de prop1
 
 ---
 
 ### Step 1.2 : Frontend - Page Transactions avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ
 
 **Tasks**:
-- [ ] Modifier `frontend/app/dashboard/transactions/page.tsx` pour utiliser `useProperty()`
-- [ ] Modifier `TransactionsTable.tsx` pour passer `activeProperty.id` à tous les appels API
-- [ ] Modifier `UnclassifiedTransactionsTable.tsx` pour passer `activeProperty.id`
-- [ ] Modifier `FileUpload.tsx` / `ColumnMappingModal.tsx` pour passer `activeProperty.id` à l'import
-- [ ] Modifier `ImportLog.tsx` pour utiliser `activeProperty.id`
-- [ ] Ajouter réinitialisation de la page à 1 quand la propriété change
-- [ ] Ajouter réinitialisation du total et des transactions quand la propriété change
-- [ ] Vérifier que tous les filtres fonctionnent avec property_id
-- [ ] Vérifier que le tri fonctionne avec property_id
-- [ ] Vérifier que la pagination fonctionne avec property_id
-- [ ] Créer script de test frontend : `frontend/scripts/test_transactions_isolation_phase_11_bis_1_2.js`
+- [x] Modifier `frontend/app/dashboard/transactions/page.tsx` pour utiliser `useProperty()`
+- [x] Modifier `TransactionsTable.tsx` pour passer `activeProperty.id` à tous les appels API
+- [x] Modifier `UnclassifiedTransactionsTable.tsx` pour passer `activeProperty.id`
+- [x] Modifier `FileUpload.tsx` / `ColumnMappingModal.tsx` pour passer `activeProperty.id` à l'import
+- [x] Modifier `ImportLog.tsx` pour utiliser `activeProperty.id`
+- [x] Ajouter réinitialisation de la page à 1 quand la propriété change
+- [x] Ajouter réinitialisation du total et des transactions quand la propriété change
+- [x] Vérifier que tous les filtres fonctionnent avec property_id
+- [x] Vérifier que le tri fonctionne avec property_id
+- [x] Vérifier que la pagination fonctionne avec property_id
+- [x] Créer script de test frontend : `frontend/scripts/test_transactions_isolation_phase_11_bis_1_2.js`
 
 **Tests d'isolation (script frontend)**:
-- [ ] Créer 2 propriétés via l'interface
-- [ ] Sélectionner prop1
-- [ ] Créer 3 transactions pour prop1
-- [ ] Vérifier qu'elles s'affichent dans l'onglet Transactions
-- [ ] Changer pour prop2
-- [ ] Vérifier que les 3 transactions de prop1 ne s'affichent PAS
-- [ ] Créer 2 transactions pour prop2
-- [ ] Vérifier qu'elles s'affichent
-- [ ] Revenir à prop1
-- [ ] Vérifier que seules les 3 transactions de prop1 s'affichent
+- [x] Créer 2 propriétés via l'interface
+- [x] Sélectionner prop1
+- [x] Créer 3 transactions pour prop1
+- [x] Vérifier qu'elles s'affichent dans l'onglet Transactions
+- [x] Changer pour prop2
+- [x] Vérifier que les 3 transactions de prop1 ne s'affichent PAS
+- [x] Créer 2 transactions pour prop2
+- [x] Vérifier qu'elles s'affichent
+- [x] Revenir à prop1
+- [x] Vérifier que seules les 3 transactions de prop1 s'affichent
 
 **Tests de non-régression (manuel)**:
-- [ ] Onglet "Transactions" : Toutes les transactions s'affichent ✅
-- [ ] Tri par colonne fonctionne ✅
-- [ ] Filtres fonctionnent ✅
-- [ ] Pagination fonctionne ✅
-- [ ] Édition inline fonctionne ✅
-- [ ] Suppression fonctionne ✅
-- [ ] Suppression multiple fonctionne ✅
-- [ ] Classification inline fonctionne ✅
-- [ ] Export Excel/CSV fonctionne ✅
-- [ ] Onglet "Non classées" : Seules les non classées s'affichent ✅
-- [ ] Onglet "Load Trades" : Upload fonctionne ✅
-- [ ] Mapping des colonnes fonctionne ✅
-- [ ] Import fonctionne ✅
-- [ ] Détection des doublons fonctionne ✅
-- [ ] Affichage des erreurs fonctionne ✅
-- [ ] Compteur de transactions fonctionne ✅
-- [ ] Recalcul des soldes fonctionne ✅
+- [x] Onglet "Transactions" : Toutes les transactions s'affichent ✅
+- [x] Tri par colonne fonctionne ✅
+- [x] Filtres fonctionnent ✅
+- [x] Pagination fonctionne ✅
+- [x] Édition inline fonctionne ✅
+- [x] Suppression fonctionne ✅
+- [x] Suppression multiple fonctionne ✅
+- [x] Classification inline fonctionne ✅
+- [x] Export Excel/CSV fonctionne ✅
+- [x] Onglet "Non classées" : Seules les non classées s'affichent ✅
+- [x] Onglet "Load Trades" : Upload fonctionne ✅
+- [x] Mapping des colonnes fonctionne ✅
+- [x] Import fonctionne ✅
+- [x] Détection des doublons fonctionne ✅
+- [x] Affichage des erreurs fonctionne ✅
+- [x] Compteur de transactions fonctionne ✅
+- [x] Recalcul des soldes fonctionne ✅
 
 **Validation avant Step 1.3** :
-- [ ] Tous les tests d'isolation passent ✅
-- [ ] Tous les tests de non-régression passent ✅
-- [ ] Aucune erreur dans la console frontend ✅
-- [ ] Aucune erreur dans les logs backend ✅
-- [ ] Validation explicite de l'utilisateur ✅
+- [x] Tous les tests d'isolation passent ✅
+- [x] Tous les tests de non-régression passent ✅
+- [x] Aucune erreur dans la console frontend ✅
+- [x] Aucune erreur dans les logs backend ✅
+- [x] Validation explicite de l'utilisateur ✅
 
 ---
 
 ### Step 1.3 : Migration des données Transactions existantes
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ
 
 **Tasks**:
-- [ ] Créer un script de migration : `backend/scripts/migrate_transactions_phase_11_bis_1_3.py`
-- [ ] Créer une propriété par défaut ("Appartement 1")
-- [ ] Assigner toutes les transactions existantes à cette propriété
-- [ ] Vérifier qu'aucune transaction n'a property_id=NULL après migration
-- [ ] Recalculer tous les soldes pour la propriété par défaut
-- [ ] Créer script de validation : `backend/scripts/validate_transactions_migration_phase_11_bis_1_3.py`
+- [x] Créer un script de migration : `backend/scripts/migrate_transactions_phase_11_bis_1_3.py`
+- [x] Créer une propriété par défaut ("Appartement 1")
+- [x] Assigner toutes les transactions existantes à cette propriété
+- [x] Vérifier qu'aucune transaction n'a property_id=NULL après migration
+- [x] Recalculer tous les soldes pour la propriété par défaut
+- [x] Créer script de validation : `backend/scripts/validate_transactions_migration_phase_11_bis_1_3.py`
 
 **Tests**:
-- [ ] Toutes les transactions ont un property_id ✅
-- [ ] Aucune transaction orpheline (property_id=NULL) ✅
-- [ ] Les soldes sont corrects pour la propriété par défaut ✅
-- [ ] Le frontend affiche correctement les transactions après migration ✅
+- [x] Toutes les transactions ont un property_id ✅
+- [x] Aucune transaction orpheline (property_id=NULL) ✅
+- [x] Les soldes sont corrects pour la propriété par défaut ✅
+- [x] Le frontend affiche correctement les transactions après migration ✅
 
 ---
 
@@ -467,15 +487,21 @@ Cette phase implique :
 - [ ] Ajouter `property_id` au modèle `AllowedMapping` dans `backend/database/models.py` :
   - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
   - Ajouter relation : `property = relationship("Property", back_populates="allowed_mappings")`
+- [ ] **Ajouter `property_id` au modèle `MappingImport` avec `ForeignKey("properties.id", ondelete="CASCADE")`**
 - [ ] Modifier l'index unique de `AllowedMapping` pour inclure `property_id` : `UniqueConstraint('property_id', 'level_1', 'level_2', 'level_3')`
+- [ ] **Modifier l'index unique de `MappingImport` : remplacer `filename` unique par `(property_id, filename)` unique**
 - [ ] Ajouter index `idx_mappings_property_id` sur `mappings(property_id)`
 - [ ] Ajouter index `idx_allowed_mappings_property_id` sur `allowed_mappings(property_id)`
+- [ ] **Ajouter index `idx_mapping_imports_property_id` sur `mapping_imports(property_id)`**
 - [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
 
 **3. Migrations** :
 - [ ] Créer migration `backend/database/migrations/add_property_id_to_mappings.py` pour ajouter `property_id` à la table `mappings` avec contrainte FK et ON DELETE CASCADE
 - [ ] Créer migration `backend/database/migrations/add_property_id_to_allowed_mappings.py` pour ajouter `property_id` à la table `allowed_mappings` avec contrainte FK et ON DELETE CASCADE
+- [ ] **Créer migration `backend/database/migrations/add_property_id_to_mapping_imports.py` pour ajouter `property_id` à la table `mapping_imports` avec contrainte FK et ON DELETE CASCADE**
 - [ ] Modifier l'index unique de `allowed_mappings` pour inclure `property_id`
+- [ ] **Modifier l'index unique de `mapping_imports` : remplacer `filename` unique par `(property_id, filename)` unique**
+- [ ] **Assigner `property_id=1` (ou première propriété) à tous les `MappingImport` existants**
 - [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
 - [ ] Vérifier que les index sont créés
 
@@ -537,7 +563,22 @@ Cette phase implique :
 - [ ] Modifier `POST /api/mappings/import` :
   - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")`
   - Passer `property_id` à tous les mappings créés
+  - **Enregistrer `property_id` dans `MappingImport` lors de la création/mise à jour**
   - Ajouter log : `[Mappings] POST import - property_id={property_id}, file={filename}`
+- [ ] Modifier `GET /api/mappings/imports` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `query = query.filter(MappingImport.property_id == property_id)`
+  - Ajouter log : `[Mappings] GET imports - property_id={property_id}`
+  - Ajouter log : `[Mappings] Retourné {count} imports pour property_id={property_id}`
+- [ ] Modifier `DELETE /api/mappings/imports` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `db.query(MappingImport).filter(MappingImport.property_id == property_id).delete()`
+  - Ajouter log : `[Mappings] DELETE imports - property_id={property_id}`
+- [ ] Modifier `DELETE /api/mappings/imports/{import_id}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer : `import_obj = db.query(MappingImport).filter(MappingImport.id == import_id, MappingImport.property_id == property_id).first()`
+  - Retourner 404 si import n'appartient pas à property_id
+  - Ajouter log : `[Mappings] DELETE imports/{import_id} - property_id={property_id}`
   - Ajouter log : `[Mappings] Import terminé: {count} mappings créés pour property_id={property_id}`
 - [ ] Modifier `GET /api/mappings/imports/history` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`

@@ -4,6 +4,8 @@ API routes for properties.
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 """
 
+import logging
+import traceback
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -88,7 +90,14 @@ async def create_property(
     
     - **name**: Nom de la propriété (obligatoire, unique)
     - **address**: Adresse de la propriété (optionnel)
+    
+    Les mappings autorisés (hardcodés) sont automatiquement chargés depuis le fichier Excel.
     """
+    from backend.api.utils.logger_config import get_logger
+    from backend.api.services.mapping_obligatoire_service import load_allowed_mappings_from_excel
+    
+    logger = get_logger(__name__)
+    
     # Vérifier si une propriété avec le même nom existe déjà
     existing = db.query(Property).filter(Property.name == property_data.name).first()
     if existing:
@@ -105,6 +114,20 @@ async def create_property(
     db.add(property)
     db.commit()
     db.refresh(property)
+    
+    logger.info(f"[Properties] POST /api/properties - Propriété créée: {property.name} (ID: {property.id})")
+    
+    # Charger automatiquement les mappings autorisés depuis le fichier Excel
+    try:
+        logger.info(f"[Properties] POST /api/properties - Chargement des mappings autorisés pour la propriété {property.id}...")
+        loaded_count = load_allowed_mappings_from_excel(db, property_id=property.id)
+        logger.info(f"[Properties] POST /api/properties - {loaded_count} mappings autorisés chargés pour la propriété {property.id}")
+    except FileNotFoundError as e:
+        logger.warning(f"[Properties] POST /api/properties - Fichier Excel des mappings autorisés non trouvé: {e}")
+        # Ne pas faire échouer la création de la propriété si le fichier n'existe pas
+    except Exception as e:
+        logger.error(f"[Properties] POST /api/properties - Erreur lors du chargement des mappings autorisés: {e}", exc_info=True)
+        # Ne pas faire échouer la création de la propriété si le chargement échoue
     
     return PropertyResponse(
         id=property.id,
@@ -177,18 +200,80 @@ async def delete_property(
     
     Aucune donnée orpheline ne sera laissée en base de données.
     """
-    property = db.query(Property).filter(Property.id == property_id).first()
+    from backend.api.utils.logger_config import get_logger
+    logger = get_logger(__name__)
     
-    if not property:
-        raise HTTPException(status_code=404, detail="Propriété non trouvée")
+    logger.info(f"[Properties] DELETE /api/properties/{property_id} - Début de la suppression")
     
-    # Activer les foreign keys pour SQLite (déjà activé dans connection.py, mais on le fait aussi ici pour être sûr)
-    from sqlalchemy import text
-    db.execute(text("PRAGMA foreign_keys = ON"))
-    
-    # Supprimer la propriété (les contraintes FK avec ON DELETE CASCADE supprimeront automatiquement toutes les données associées)
-    # Cela inclut : transactions, mappings, crédits, amortissements, comptes de résultat, bilans, etc.
-    db.delete(property)
-    db.commit()
-    
-    return None
+    try:
+        property = db.query(Property).filter(Property.id == property_id).first()
+        
+        if not property:
+            logger.warning(f"[Properties] DELETE /api/properties/{property_id} - Propriété non trouvée")
+            raise HTTPException(status_code=404, detail="Propriété non trouvée")
+        
+        logger.info(f"[Properties] DELETE /api/properties/{property_id} - Propriété trouvée: {property.name}")
+        
+        # Activer les foreign keys pour SQLite (déjà activé dans connection.py, mais on le fait aussi ici pour être sûr)
+        from sqlalchemy import text
+        db.execute(text("PRAGMA foreign_keys = ON"))
+        
+        # IMPORTANT: Supprimer manuellement les AmortizationResult avant de supprimer les transactions
+        # car SQLAlchemy essaie de mettre à jour transaction_id à None au lieu de supprimer
+        from backend.database.models import Transaction, AmortizationResult
+        from sqlalchemy import text
+        
+        # Récupérer toutes les transactions de cette propriété
+        transactions = db.query(Transaction).filter(Transaction.property_id == property_id).all()
+        transaction_ids = [t.id for t in transactions]
+        
+        if transaction_ids:
+            logger.info(f"[Properties] DELETE /api/properties/{property_id} - {len(transaction_ids)} transactions trouvées")
+            logger.info(f"[Properties] DELETE /api/properties/{property_id} - Suppression des AmortizationResult associés...")
+            
+            # Utiliser une requête SQL directe pour éviter que SQLAlchemy ne charge les relations
+            # et essaie de mettre à jour transaction_id à None
+            # SQLAlchemy text() attend un dictionnaire ou une séquence de tuples
+            placeholders = ','.join([f':id{i}' for i in range(len(transaction_ids))])
+            params = {f'id{i}': tid for i, tid in enumerate(transaction_ids)}
+            result = db.execute(
+                text(f"DELETE FROM amortization_results WHERE transaction_id IN ({placeholders})"),
+                params
+            )
+            deleted_count = result.rowcount
+            logger.info(f"[Properties] DELETE /api/properties/{property_id} - {deleted_count} AmortizationResult supprimés via SQL direct")
+            
+            # Flush pour s'assurer que les suppressions sont appliquées avant la suppression de la propriété
+            db.flush()
+        
+        # Supprimer la propriété (les contraintes FK avec ON DELETE CASCADE supprimeront automatiquement toutes les données associées)
+        # Cela inclut : transactions, mappings, crédits, amortissements, comptes de résultat, bilans, etc.
+        logger.info(f"[Properties] DELETE /api/properties/{property_id} - Suppression de la propriété et de toutes ses données associées")
+        db.delete(property)
+        db.commit()
+        
+        logger.info(f"[Properties] DELETE /api/properties/{property_id} - Propriété supprimée avec succès")
+        return None
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Logger dans le logger root (backend) pour qu'il apparaisse dans backend_*.log
+        root_logger = logging.getLogger()
+        root_logger.error(
+            f"❌ ERREUR lors de la suppression de la propriété {property_id}: {type(e).__name__}: {str(e)}",
+            exc_info=True
+        )
+        
+        # Logger aussi dans le logger API
+        logger.error(f"[Properties] DELETE /api/properties/{property_id} - Erreur lors de la suppression: {e}", exc_info=True)
+        
+        # Afficher aussi dans le terminal (via print pour être sûr)
+        import traceback
+        print(f"\n{'='*80}")
+        print(f"❌ ERREUR suppression propriété {property_id}: {type(e).__name__}: {str(e)}")
+        print(f"   Traceback:")
+        traceback.print_exc()
+        print(f"{'='*80}\n")
+        
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression de la propriété: {str(e)}")

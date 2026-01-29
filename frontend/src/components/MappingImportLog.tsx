@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { useImportLog, ImportLogEntry } from '@/contexts/ImportLogContext';
+import { useProperty } from '@/contexts/PropertyContext';
 import { mappingsAPI, MappingImportHistory } from '@/api/client';
 
 interface MappingImportLogProps {
@@ -17,6 +18,7 @@ interface MappingImportLogProps {
 }
 
 export default function MappingImportLog({ hideHeader = false, onMappingCountChange, hideDbHistory = false }: MappingImportLogProps) {
+  const { activeProperty } = useProperty();
   const { logs: memoryLogs, updateLog } = useImportLog();
   const [dbHistory, setDbHistory] = useState<MappingImportHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,9 +41,17 @@ export default function MappingImportLog({ hideHeader = false, onMappingCountCha
   // Load database history
   const loadHistory = async () => {
     setIsLoading(true);
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[MappingImportLog] loadHistory - Aucune propriété active ou ID invalide, ne charge pas l\'historique.');
+      setDbHistory([]);
+      setIsLoading(false);
+      return;
+    }
     try {
-      const data = await mappingsAPI.getImportsHistory();
+      console.log('[MappingImportLog] loadHistory - Appel API avec propertyId:', activeProperty.id);
+      const data = await mappingsAPI.getImportsHistory(activeProperty.id);
       setDbHistory(data);
+      console.log('[MappingImportLog] loadHistory - Réponse:', { count: data.length, propertyId: activeProperty.id });
     } catch (error) {
       console.error('Error loading mapping import history:', error);
     } finally {
@@ -51,14 +61,22 @@ export default function MappingImportLog({ hideHeader = false, onMappingCountCha
 
   // Load mapping count
   const loadMappingCount = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[MappingImportLog] loadMappingCount - PROPERTY INVALIDE. Skipping API call.');
+      setMappingCount(null);
+      return;
+    }
+    
+    console.log('[MappingImportLog] loadMappingCount - Appel avec propertyId:', activeProperty.id);
     try {
-      const response = await mappingsAPI.getCount();
+      const response = await mappingsAPI.getCount(activeProperty.id);
+      console.log('[MappingImportLog] loadMappingCount - Réponse:', { count: response.count, propertyId: activeProperty.id });
       setMappingCount(response.count);
       if (onMappingCountChange) {
         onMappingCountChange(response.count);
       }
     } catch (error) {
-      console.error('Error loading mapping count:', error);
+      console.error('[MappingImportLog] loadMappingCount - Erreur:', error);
     }
   };
 
@@ -68,7 +86,7 @@ export default function MappingImportLog({ hideHeader = false, onMappingCountCha
       loadHistory();
     }
     loadMappingCount();
-  }, []);
+  }, [activeProperty?.id, showDbHistory]);
 
   // Auto-refresh selected log if in progress
   useEffect(() => {

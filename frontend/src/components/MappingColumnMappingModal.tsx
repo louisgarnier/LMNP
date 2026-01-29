@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { mappingsAPI, ColumnMapping, MappingPreviewResponse, MappingImportResponse } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface MappingColumnMappingModalProps {
   file: File;
@@ -30,6 +31,7 @@ export default function MappingColumnMappingModal({
   onImportComplete,
   onClose,
 }: MappingColumnMappingModalProps) {
+  const { activeProperty } = useProperty();
   const { addLog, updateLog, addLogEntry } = useImportLog();
   const [mapping, setMapping] = useState<ColumnMapping[]>(previewData.column_mapping);
   const [isImporting, setIsImporting] = useState(false);
@@ -78,10 +80,27 @@ export default function MappingColumnMappingModal({
       addLogEntry(newLogId, 'Étape 2: Analyse du fichier', `${previewData.stats.detected_columns} colonnes détectées`, 'info');
       addLogEntry(newLogId, 'Étape 2: Analyse du fichier', `${previewData.stats.required_columns_detected} colonnes requises détectées sur ${requiredColumns.length}`, 'success');
       
-      console.log('📤 [MappingColumnMappingModal] Appel API import...');
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        const errorMessage = 'Aucune propriété sélectionnée';
+        console.error('[MappingColumnMappingModal] handleConfirm - PROPERTY INVALIDE:', {
+          activeProperty,
+          id: activeProperty?.id
+        });
+        setImportError(errorMessage);
+        updateLog(newLogId, {
+          status: 'error',
+          endTime: new Date(),
+          error: errorMessage,
+        });
+        addLogEntry(newLogId, 'Étape 3: Erreur', `❌ ${errorMessage}`, 'error');
+        setIsImporting(false);
+        return;
+      }
+      
+      console.log('📤 [MappingColumnMappingModal] Appel API import avec propertyId:', activeProperty.id);
       addLogEntry(newLogId, 'Étape 3: Import en cours', 'Envoi du fichier au serveur...', 'info');
       
-      const result = await mappingsAPI.import(file, mapping);
+      const result = await mappingsAPI.import(activeProperty.id, file, mapping);
       
       // Afficher l'avertissement si fichier déjà chargé (dans le message)
       if (result.message && result.message.includes('⚠️')) {

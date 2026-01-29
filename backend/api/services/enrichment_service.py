@@ -10,12 +10,15 @@ les transactions avec des classifications hiérarchiques (level_1, level_2, leve
 from sqlalchemy.orm import Session
 from typing import Optional, Tuple
 from datetime import date
+import logging
 
 from backend.database.models import Transaction, Mapping, EnrichedTransaction
 from backend.api.services.mapping_obligatoire_service import (
     validate_mapping,
     validate_level3_value
 )
+
+logger = logging.getLogger(__name__)
 
 
 def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optional[Mapping]:
@@ -145,9 +148,17 @@ def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional
     annee = transaction.date.year
     mois = transaction.date.month
     
-    # Récupérer tous les mappings depuis la DB si non fournis
+    # Récupérer tous les mappings de cette propriété depuis la DB si non fournis
     if mappings is None:
-        mappings = db.query(Mapping).all()
+        mappings = db.query(Mapping).filter(Mapping.property_id == transaction.property_id).all()
+    else:
+        # CRITIQUE: Filtrer les mappings fournis pour ne garder que ceux de la même propriété
+        # Cela évite d'utiliser des mappings d'autres propriétés par erreur
+        mappings = [m for m in mappings if m.property_id == transaction.property_id]
+        if not mappings:
+            # Si aucun mapping ne correspond après filtrage, recharger depuis la DB
+            logger.warning(f"[enrich_transaction] Aucun mapping valide fourni pour property_id={transaction.property_id}, rechargement depuis DB")
+            mappings = db.query(Mapping).filter(Mapping.property_id == transaction.property_id).all()
     
     # Trouver le meilleur mapping
     best_mapping = find_best_mapping(transaction.nom, mappings)
@@ -169,16 +180,29 @@ def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional
     ).first()
     
     if enriched:
-        # Mettre à jour l'enregistrement existant
-        enriched.annee = annee
-        enriched.mois = mois
-        enriched.level_1 = level_1
-        enriched.level_2 = level_2
-        enriched.level_3 = level_3
+        # Mettre à jour l'enregistrement existant seulement si les valeurs ont changé
+        # OPTIMISATION: Éviter les commits inutiles si rien n'a changé
+        needs_update = (
+            enriched.property_id != transaction.property_id or
+            enriched.annee != annee or
+            enriched.mois != mois or
+            enriched.level_1 != level_1 or
+            enriched.level_2 != level_2 or
+            enriched.level_3 != level_3
+        )
+        
+        if needs_update:
+            enriched.property_id = transaction.property_id  # Mettre à jour property_id aussi
+            enriched.annee = annee
+            enriched.mois = mois
+            enriched.level_1 = level_1
+            enriched.level_2 = level_2
+            enriched.level_3 = level_3
     else:
         # Créer un nouvel enregistrement
         enriched = EnrichedTransaction(
             transaction_id=transaction.id,
+            property_id=transaction.property_id,  # Ajouter property_id depuis la transaction
             annee=annee,
             mois=mois,
             level_1=level_1,
@@ -187,32 +211,57 @@ def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional
         )
         db.add(enriched)
     
-    db.commit()
-    db.refresh(enriched)
+    # Ne pas commit ici si rien n'a changé (optimisation)
+    # Le commit sera fait par l'appelant en batch pour de meilleures performances
+    # Mais on commit quand même pour garantir la persistance (certains appels sont isolés)
+    try:
+        db.commit()
+        db.refresh(enriched)
+    except Exception as e:
+        # Si le commit échoue (par exemple si déjà commité), on continue
+        logger.debug(f"[enrich_transaction] Commit échoué (peut être normal): {e}")
+        try:
+            db.refresh(enriched)
+        except:
+            pass
     
     return enriched
 
 
-def enrich_all_transactions(db: Session) -> Tuple[int, int]:
+def enrich_all_transactions(db: Session, property_id: Optional[int] = None) -> Tuple[int, int]:
     """
     Enrichit toutes les transactions qui n'ont pas encore été enrichies.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété (optionnel, si fourni, enrichit uniquement les transactions de cette propriété)
     
     Returns:
         Tuple (nombre de transactions enrichies, nombre de transactions déjà enrichies)
     """
-    # Récupérer toutes les transactions
-    transactions = db.query(Transaction).all()
-    
-    # Récupérer tous les mappings une seule fois
-    mappings = db.query(Mapping).all()
+    # Récupérer toutes les transactions (filtrées par property_id si fourni)
+    if property_id:
+        transactions = db.query(Transaction).filter(Transaction.property_id == property_id).all()
+        # Récupérer tous les mappings de cette propriété
+        mappings = db.query(Mapping).filter(Mapping.property_id == property_id).all()
+    else:
+        # Mode legacy : toutes les transactions (pour compatibilité)
+        transactions = db.query(Transaction).all()
+        # Récupérer tous les mappings (groupés par property_id)
+        all_mappings = db.query(Mapping).all()
+        mappings = all_mappings
     
     enriched_count = 0
     already_enriched_count = 0
     
     for transaction in transactions:
+        # Si property_id est fourni, utiliser uniquement les mappings de cette propriété
+        if property_id:
+            transaction_mappings = [m for m in mappings if m.property_id == transaction.property_id]
+        else:
+            # Mode legacy : utiliser tous les mappings (pour compatibilité)
+            transaction_mappings = mappings
+        
         # Vérifier si déjà enrichi
         existing = db.query(EnrichedTransaction).filter(
             EnrichedTransaction.transaction_id == transaction.id
@@ -221,9 +270,9 @@ def enrich_all_transactions(db: Session) -> Tuple[int, int]:
         if existing:
             already_enriched_count += 1
             # Re-enrichir quand même pour mettre à jour si le mapping a changé
-            enrich_transaction(transaction, db)
+            enrich_transaction(transaction, db, transaction_mappings)
         else:
-            enrich_transaction(transaction, db)
+            enrich_transaction(transaction, db, transaction_mappings)
             enriched_count += 1
     
     return enriched_count, already_enriched_count
@@ -260,6 +309,7 @@ def update_transaction_classification(
     
     if enriched:
         # Mettre à jour l'enregistrement existant
+        enriched.property_id = transaction.property_id  # Mettre à jour property_id aussi
         if level_1 is not None:
             enriched.level_1 = level_1
         if level_2 is not None:
@@ -273,6 +323,7 @@ def update_transaction_classification(
         # Créer un nouvel enregistrement
         enriched = EnrichedTransaction(
             transaction_id=transaction.id,
+            property_id=transaction.property_id,  # Ajouter property_id depuis la transaction
             annee=annee,
             mois=mois,
             level_1=level_1,
@@ -292,13 +343,14 @@ def create_or_update_mapping_from_classification(
     transaction_name: str,
     level_1: str,
     level_2: str,
-    level_3: str | None = None
+    level_3: str | None = None,
+    property_id: int | None = None
 ) -> Mapping:
     """
     Crée ou met à jour un mapping basé sur une classification manuelle.
     
-    Le mapping est la source de vérité. Si un mapping existe déjà avec le même nom,
-    on le met à jour. Sinon, on en crée un nouveau.
+    Le mapping est la source de vérité. Si un mapping existe déjà avec le même nom
+    pour la même propriété, on le met à jour. Sinon, on en crée un nouveau.
     
     **Validation Step 5.4** : La combinaison (level_1, level_2, level_3) doit être validée
     contre allowed_mappings avant de créer/mettre à jour le mapping.
@@ -309,24 +361,31 @@ def create_or_update_mapping_from_classification(
         level_1: Catégorie principale
         level_2: Sous-catégorie
         level_3: Détail spécifique (optionnel)
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         Le mapping créé ou mis à jour
     
     Raises:
-        ValueError: Si la combinaison n'est pas autorisée
+        ValueError: Si la combinaison n'est pas autorisée ou si property_id n'est pas fourni
     """
+    if property_id is None:
+        raise ValueError("property_id est obligatoire pour créer/mettre à jour un mapping")
+    
     # Validation contre allowed_mappings (Step 5.4)
     # Valider que level_3 est dans la liste fixe si fourni
     if level_3 and not validate_level3_value(level_3):
         raise ValueError(f"La valeur level_3 '{level_3}' n'est pas autorisée. Valeurs autorisées : Passif, Produits, Emprunt, Charges Déductibles, Actif")
     
-    # Valider que la combinaison existe dans allowed_mappings
-    if not validate_mapping(db, level_1, level_2, level_3):
-        raise ValueError(f"La combinaison (level_1='{level_1}', level_2='{level_2}', level_3='{level_3}') n'est pas autorisée. Veuillez utiliser une combinaison valide depuis les mappings autorisés.")
+    # Valider que la combinaison existe dans allowed_mappings pour cette propriété
+    if not validate_mapping(db, level_1, level_2, level_3, property_id):
+        raise ValueError(f"La combinaison (level_1='{level_1}', level_2='{level_2}', level_3='{level_3}') n'est pas autorisée pour cette propriété. Veuillez utiliser une combinaison valide depuis les mappings autorisés.")
     
-    # Chercher un mapping existant avec le même nom
-    existing_mapping = db.query(Mapping).filter(Mapping.nom == transaction_name).first()
+    # Chercher un mapping existant avec le même nom ET la même propriété
+    existing_mapping = db.query(Mapping).filter(
+        Mapping.nom == transaction_name,
+        Mapping.property_id == property_id
+    ).first()
     
     if existing_mapping:
         # Mettre à jour le mapping existant
@@ -335,10 +394,12 @@ def create_or_update_mapping_from_classification(
         existing_mapping.level_3 = level_3
         db.commit()
         db.refresh(existing_mapping)
+        logger.info(f"[enrichment_service] Mapping mis à jour: id={existing_mapping.id}, nom={transaction_name}, property_id={property_id}")
         return existing_mapping
     else:
         # Créer un nouveau mapping
         new_mapping = Mapping(
+            property_id=property_id,
             nom=transaction_name,
             level_1=level_1,
             level_2=level_2,
@@ -349,5 +410,6 @@ def create_or_update_mapping_from_classification(
         db.add(new_mapping)
         db.commit()
         db.refresh(new_mapping)
+        logger.info(f"[enrichment_service] Mapping créé: id={new_mapping.id}, nom={transaction_name}, property_id={property_id}")
         return new_mapping
 

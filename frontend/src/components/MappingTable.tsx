@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { mappingsAPI, enrichmentAPI, Mapping, MappingCreate, MappingUpdate } from '../api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 type SortColumn = 'id' | 'nom' | 'level_1' | 'level_2' | 'level_3';
 type SortDirection = 'asc' | 'desc';
@@ -15,6 +16,7 @@ export interface MappingTableRef {
 }
 
 const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMappingChange }, ref) => {
+  const { activeProperty } = useProperty();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +76,24 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   });
 
   const loadMappings = async (resetPage: boolean = false) => {
+    console.log('[MappingTable] loadMappings appelé - activeProperty:', activeProperty);
+    console.log('[MappingTable] loadMappings - activeProperty?.id:', activeProperty?.id);
+    
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[MappingTable] loadMappings - PROPERTY INVALIDE:', {
+        activeProperty,
+        id: activeProperty?.id,
+        reason: !activeProperty ? 'activeProperty is null/undefined' : 
+                !activeProperty.id ? 'activeProperty.id is null/undefined' : 
+                'activeProperty.id <= 0'
+      });
+      setError('Aucune propriété sélectionnée');
+      setRawMappings([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
+    
     // Si resetPage est true, réinitialiser la page à 1
     if (resetPage) {
       setPage(1);
@@ -84,8 +104,25 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     try {
       // Utiliser la page actuelle (ou 1 si resetPage)
       const currentPage = resetPage ? 1 : page;
+      
+      console.log('[MappingTable] loadMappings - Appel API avec:', {
+        propertyId: activeProperty.id,
+        skip: (currentPage - 1) * pageSize,
+        limit: pageSize,
+        search,
+        sortColumn,
+        sortDirection,
+        filters: {
+          nom: appliedFilterNom,
+          level_1: appliedFilterLevel1,
+          level_2: appliedFilterLevel2,
+          level_3: appliedFilterLevel3
+        }
+      });
+      
       // Passer les filtres à l'API pour filtrage côté serveur
       const response = await mappingsAPI.list(
+        activeProperty.id,
         (currentPage - 1) * pageSize,
         pageSize,
         search || undefined,
@@ -97,12 +134,18 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
         appliedFilterLevel3 || undefined
       );
       
+      console.log('[MappingTable] loadMappings - Réponse API:', {
+        total: response.total,
+        count: response.mappings.length,
+        propertyId: activeProperty.id
+      });
+      
       // L'API fait déjà le filtrage, on utilise directement les résultats
       setRawMappings(response.mappings);
       setTotal(response.total);
     } catch (err: any) {
+      console.error('[MappingTable] loadMappings - Erreur:', err);
       setError(err.message || 'Erreur lors du chargement des mappings');
-      console.error('Erreur chargement mappings:', err);
     } finally {
       setLoading(false);
     }
@@ -119,6 +162,22 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   useEffect(() => {
     loadMappings();
   }, [page, pageSize, search, sortColumn, sortDirection, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3]);
+
+  // Écouter l'événement transactionUpdated pour rafraîchir les mappings
+  // quand une transaction est modifiée (ce qui peut créer/mettre à jour un mapping)
+  useEffect(() => {
+    const handleTransactionUpdated = (event: CustomEvent) => {
+      console.log('📢 [MappingTable] Événement transactionUpdated reçu, rechargement des mappings...', event.detail);
+      // Recharger les mappings pour afficher les changements
+      loadMappings(false); // Ne pas réinitialiser la page
+    };
+
+    window.addEventListener('transactionUpdated', handleTransactionUpdated as EventListener);
+    
+    return () => {
+      window.removeEventListener('transactionUpdated', handleTransactionUpdated as EventListener);
+    };
+  }, [activeProperty?.id]); // Re-créer le listener si la propriété change
 
   // L'API fait déjà le filtrage, on utilise directement les résultats
   const mappings = rawMappings;
@@ -169,13 +228,26 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   // Charger les valeurs uniques pour les filtres
   useEffect(() => {
     const loadUniqueValues = async () => {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[MappingTable] loadUniqueValues - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
+      
+      console.log('[MappingTable] loadUniqueValues - Appel API avec propertyId:', activeProperty.id);
       try {
         const [noms, level1s, level2s, level3s] = await Promise.all([
-          mappingsAPI.getUniqueValues('nom'),
-          mappingsAPI.getUniqueValues('level_1'),
-          mappingsAPI.getUniqueValues('level_2'),
-          mappingsAPI.getUniqueValues('level_3'),
+          mappingsAPI.getUniqueValues(activeProperty.id, 'nom'),
+          mappingsAPI.getUniqueValues(activeProperty.id, 'level_1'),
+          mappingsAPI.getUniqueValues(activeProperty.id, 'level_2'),
+          mappingsAPI.getUniqueValues(activeProperty.id, 'level_3'),
         ]);
+        console.log('[MappingTable] loadUniqueValues - Réponses:', {
+          noms: noms.values.length,
+          level1s: level1s.values.length,
+          level2s: level2s.values.length,
+          level3s: level3s.values.length,
+          propertyId: activeProperty.id
+        });
         setUniqueNoms(noms.values);
         setUniqueLevel1s(level1s.values);
         setUniqueLevel2s(level2s.values);
@@ -184,14 +256,21 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
         console.error('Error loading unique values:', err);
       }
     };
-    loadUniqueValues();
-  }, []);
+    if (activeProperty && activeProperty.id && activeProperty.id > 0) {
+      loadUniqueValues();
+    }
+  }, [activeProperty?.id]);
 
   // Charger les valeurs autorisées pour les dropdowns (Step 5.6)
   useEffect(() => {
     const loadAllowedValues = async () => {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[MappingTable] loadAllowedValues - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
+      
       try {
-        const level1Response = await mappingsAPI.getAllowedLevel1();
+        const level1Response = await mappingsAPI.getAllowedLevel1(activeProperty.id);
         const level1List = level1Response.level_1 || [];
         setAllowedLevel1List(level1List);
         setAvailableLevel1(level1List);
@@ -201,7 +280,7 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
       }
     };
     loadAllowedValues();
-  }, []);
+  }, [activeProperty?.id]);
 
   const handleSort = useCallback((column: SortColumn) => {
     if (sortColumn === column) {
@@ -245,13 +324,19 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   }, []);
 
   const handleCreate = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('Aucune propriété sélectionnée');
+      return;
+    }
+    
     if (!newMapping.nom || !newMapping.level_1 || !newMapping.level_2) {
       alert('Veuillez remplir au moins le nom, level_1 et level_2');
       return;
     }
 
+    console.log('[MappingTable] handleCreate - Appel avec propertyId:', activeProperty.id, 'mapping:', newMapping);
     try {
-      await mappingsAPI.create(newMapping);
+      await mappingsAPI.create({ ...newMapping, property_id: activeProperty.id });
       setShowCreateModal(false);
       setNewMapping({
         nom: '',
@@ -271,13 +356,19 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   };
 
   const handleDelete = async (id: number) => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('Aucune propriété sélectionnée');
+      return;
+    }
+    
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce mapping ?')) {
       return;
     }
 
+    console.log('[MappingTable] handleDelete - Appel avec propertyId:', activeProperty.id, 'id:', id);
     setDeletingId(id);
     try {
-      await mappingsAPI.delete(id);
+      await mappingsAPI.delete(activeProperty.id, id);
       loadMappings();
       onMappingChange?.();
     } catch (err: any) {
@@ -314,11 +405,17 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
       return;
     }
 
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('Aucune propriété sélectionnée');
+      return;
+    }
+    
+    console.log('[MappingTable] handleDeleteMultiple - Appel avec propertyId:', activeProperty.id, 'ids:', Array.from(selectedIds));
     setIsDeletingMultiple(true);
     try {
       const idsToDelete = Array.from(selectedIds);
       for (const id of idsToDelete) {
-        await mappingsAPI.delete(id);
+        await mappingsAPI.delete(activeProperty.id, id);
       }
       setSelectedIds(new Set());
       loadMappings();
@@ -346,8 +443,12 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     let selectedLevel3: string | undefined = undefined;
     
     if (value) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[MappingTable] handleLevel1Change - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
       try {
-        const level2Response = await mappingsAPI.getAllowedLevel2(value);
+        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id, value);
         const level2List = level2Response.level_2 || [];
         setAvailableLevel2(level2List);
         
@@ -355,7 +456,7 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
         if (level2List.length === 1) {
           selectedLevel2 = level2List[0];
           setEditingLevel2(selectedLevel2);
-          const level3Response = await mappingsAPI.getAllowedLevel3(value, selectedLevel2);
+          const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, value, selectedLevel2);
           const level3List = level3Response.level_3 || [];
           setAvailableLevel3(level3List);
           if (level3List.length === 1) {
@@ -384,8 +485,12 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     const level_1 = editingLevel1 || mapping.level_1;
     
     if (value && level_1) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[MappingTable] handleEditLevel2Change - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
       try {
-        const level3Response = await mappingsAPI.getAllowedLevel3(level_1, value);
+        const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, level_1, value);
         const level3List = level3Response.level_3 || [];
         setAvailableLevel3(level3List);
         
@@ -418,8 +523,12 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     setCreateAvailableLevel3([]);
     
     if (value) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[MappingTable] handleCreateLevel1Change - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
       try {
-        const level2Response = await mappingsAPI.getAllowedLevel2(value);
+        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id, value);
         const level2List = level2Response.level_2 || [];
         setCreateAvailableLevel2(level2List);
       } catch (err) {
@@ -434,8 +543,12 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     
     const level_1 = newMapping.level_1;
     if (value && level_1) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[MappingTable] handleCreateLevel2Change - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
       try {
-        const level3Response = await mappingsAPI.getAllowedLevel3(level_1, value);
+        const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, level_1, value);
         const level3List = level3Response.level_3 || [];
         setCreateAvailableLevel3(level3List);
       } catch (err) {
@@ -458,10 +571,14 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
     
     // Charger les valeurs disponibles pour ce mapping
     if (mapping.level_1) {
-      mappingsAPI.getAllowedLevel2(mapping.level_1).then(response => {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[MappingTable] handleEdit - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
+      mappingsAPI.getAllowedLevel2(activeProperty.id, mapping.level_1).then(response => {
         setAvailableLevel2(response.level_2 || []);
         if (mapping.level_2) {
-          mappingsAPI.getAllowedLevel3(mapping.level_1, mapping.level_2).then(response => {
+          mappingsAPI.getAllowedLevel3(activeProperty.id, mapping.level_1, mapping.level_2).then(response => {
             setAvailableLevel3(response.level_3 || []);
           }).catch(err => console.error('Error loading level_3:', err));
         }
@@ -473,8 +590,14 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   };
 
   const handleSaveEdit = async (mapping: Mapping, updates: MappingUpdate) => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('Aucune propriété sélectionnée');
+      return;
+    }
+    
+    console.log('[MappingTable] handleSaveEdit - Appel avec propertyId:', activeProperty.id, 'mapping.id:', mapping.id, 'updates:', updates);
     try {
-      await mappingsAPI.update(mapping.id, updates);
+      await mappingsAPI.update(activeProperty.id, mapping.id, updates);
       setEditingId(null);
       setEditingLevel1('');
       setEditingLevel2('');
@@ -497,16 +620,23 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   };
 
   const handleReEnrichAll = async () => {
-    if (!confirm('Êtes-vous sûr de vouloir re-enrichir toutes les transactions ? Cette opération peut prendre quelques instants.')) {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('❌ Aucune propriété active sélectionnée. Veuillez sélectionner une propriété avant de réenrichir.');
+      return;
+    }
+
+    if (!confirm(`Êtes-vous sûr de vouloir re-enrichir toutes les transactions de la propriété "${activeProperty.name}" ? Cette opération peut prendre quelques instants.`)) {
       return;
     }
 
     setIsReEnriching(true);
     try {
-      const result = await enrichmentAPI.reEnrichAll();
-      alert(`✅ ${result.message}\n\n${result.enriched_count} nouvelles transactions enrichies\n${result.already_enriched_count} transactions re-enrichies\nTotal: ${result.total_processed} transactions traitées`);
+      console.log('[MappingTable] handleReEnrichAll - Appel avec propertyId:', activeProperty.id);
+      const result = await enrichmentAPI.reEnrichAll(activeProperty.id);
+      alert(`✅ ${result.message}\n\n${result.enriched_count} nouvelles transactions enrichies\n${result.already_enriched_count} transactions re-enrichies\nTotal: ${result.total_processed} transactions traitées pour la propriété "${activeProperty.name}"`);
       onMappingChange?.(); // Rafraîchir les transactions si nécessaire
     } catch (err: any) {
+      console.error('[MappingTable] handleReEnrichAll - Erreur:', err);
       alert(`Erreur lors du re-enrichissement: ${err.message}`);
     } finally {
       setIsReEnriching(false);

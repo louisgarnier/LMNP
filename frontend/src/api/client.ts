@@ -7,6 +7,8 @@
  * Handles all communication with the backend API
  */
 
+import { frontendLogger } from '@/utils/logger';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
 /**
@@ -19,6 +21,10 @@ async function fetchAPI<T>(
   const url = `${API_BASE_URL}${endpoint}`;
   
   try {
+    // Logger l'appel API
+    if (typeof window !== 'undefined' && (window as any).frontendLogger) {
+      (window as any).frontendLogger.info('API', `Appel ${options?.method || 'GET'} ${endpoint}`, { url, options });
+    }
     console.log(`📤 [API] Appel ${options?.method || 'GET'} ${url}`);
     
     const response = await fetch(url, {
@@ -29,6 +35,7 @@ async function fetchAPI<T>(
       },
     });
 
+    frontendLogger.info('API', `Réponse ${response.status} pour ${endpoint}`, { status: response.status, endpoint });
     console.log(`📥 [API] Réponse ${response.status} pour ${endpoint}`);
 
     if (!response.ok) {
@@ -114,6 +121,7 @@ export interface Transaction {
 }
 
 export interface TransactionCreate {
+  property_id: number;
   date: string;
   quantite: number;
   nom: string;
@@ -150,6 +158,7 @@ export const healthAPI = {
  */
 export const transactionsAPI = {
   getAll: async (
+    propertyId: number,
     skip: number = 0,
     limit: number = 100,
     startDate?: string,
@@ -166,10 +175,27 @@ export const transactionsAPI = {
     filterSoldeMin?: number,
     filterSoldeMax?: number
   ): Promise<TransactionListResponse> => {
+    console.log('[transactionsAPI.getAll] Appel avec propertyId:', propertyId, 'type:', typeof propertyId);
+    
+    if (!propertyId || propertyId <= 0) {
+      console.error('[transactionsAPI.getAll] ❌ PROPERTY_ID INVALIDE:', {
+        propertyId,
+        type: typeof propertyId,
+        isZero: propertyId === 0,
+        isNegative: propertyId < 0,
+        isNull: propertyId === null,
+        isUndefined: propertyId === undefined
+      });
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       skip: skip.toString(),
       limit: limit.toString(),
     });
+    
+    console.log('[transactionsAPI.getAll] URL params:', params.toString());
     if (startDate) params.append('start_date', startDate);
     if (endDate) params.append('end_date', endDate);
     if (sortBy) params.append('sort_by', sortBy);
@@ -183,11 +209,14 @@ export const transactionsAPI = {
     if (filterQuantiteMax !== undefined) params.append('filter_quantite_max', filterQuantiteMax.toString());
     if (filterSoldeMin !== undefined) params.append('filter_solde_min', filterSoldeMin.toString());
     if (filterSoldeMax !== undefined) params.append('filter_solde_max', filterSoldeMax.toString());
-    return fetchAPI<TransactionListResponse>(`/api/transactions?${params}`);
+    
+    const url = `/api/transactions?${params}`;
+    console.log('[transactionsAPI.getAll] ✅ URL finale:', url);
+    return fetchAPI<TransactionListResponse>(url);
   },
 
-  getById: async (id: number): Promise<Transaction> => {
-    return fetchAPI<Transaction>(`/api/transactions/${id}`);
+  getById: async (id: number, propertyId: number): Promise<Transaction> => {
+    return fetchAPI<Transaction>(`/api/transactions/${id}?property_id=${propertyId}`);
   },
 
   create: async (data: TransactionCreate): Promise<Transaction> => {
@@ -197,10 +226,10 @@ export const transactionsAPI = {
     });
   },
 
-  update: async (id: number, data: TransactionUpdate): Promise<Transaction> => {
+  update: async (id: number, propertyId: number, data: TransactionUpdate): Promise<Transaction> => {
     console.log('📤 [API] Appel PUT /api/transactions/' + id, data);
     try {
-      const result = await fetchAPI<Transaction>(`/api/transactions/${id}`, {
+      const result = await fetchAPI<Transaction>(`/api/transactions/${id}?property_id=${propertyId}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       });
@@ -212,8 +241,8 @@ export const transactionsAPI = {
     }
   },
 
-  delete: async (id: number): Promise<void> => {
-    return fetchAPI<void>(`/api/transactions/${id}`, {
+  delete: async (id: number, propertyId: number): Promise<void> => {
+    return fetchAPI<void>(`/api/transactions/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -222,6 +251,7 @@ export const transactionsAPI = {
    * Récupérer les valeurs uniques d'une colonne pour les filtres
    */
   getUniqueValues: async (
+    propertyId: number,
     column: string,
     startDate?: string,
     endDate?: string,
@@ -229,6 +259,7 @@ export const transactionsAPI = {
     filterLevel3?: string[]
   ): Promise<{ column: string; values: string[] }> => {
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       column,
     });
     if (startDate) params.append('start_date', startDate);
@@ -245,6 +276,7 @@ export const transactionsAPI = {
    * Exporter les transactions au format Excel ou CSV
    */
   export: async (
+    propertyId: number,
     format: 'excel' | 'csv',
     startDate?: string,
     endDate?: string,
@@ -254,6 +286,7 @@ export const transactionsAPI = {
     filterNom?: string
   ): Promise<Blob> => {
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       format,
     });
     if (startDate) params.append('start_date', startDate);
@@ -287,10 +320,12 @@ export const transactionsAPI = {
    * Calculer la somme des transactions pour un level_1 donné
    */
   getSumByLevel1: async (
+    propertyId: number,
     level1: string,
     endDate?: string
   ): Promise<{ level_1: string; total: number; end_date: string | null }> => {
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       level_1: level1,
     });
     if (endDate) params.append('end_date', endDate);
@@ -333,12 +368,19 @@ export const enrichmentAPI = {
   },
 
   /**
-   * Re-enrichir toutes les transactions avec les mappings disponibles
+   * Re-enrichir toutes les transactions d'une propriété avec les mappings disponibles
    */
-  reEnrichAll: async (): Promise<ReEnrichResponse> => {
-    return fetchAPI<ReEnrichResponse>('/api/enrichment/re-enrich', {
+  reEnrichAll: async (propertyId: number): Promise<ReEnrichResponse> => {
+    console.log('[enrichmentAPI.reEnrichAll] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      console.error('[enrichmentAPI.reEnrichAll] ❌ PROPERTY_ID INVALIDE:', propertyId);
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const result = await fetchAPI<ReEnrichResponse>(`/api/enrichment/re-enrich?property_id=${propertyId}`, {
       method: 'POST',
     });
+    console.log('[enrichmentAPI.reEnrichAll] Réponse:', result);
+    return result;
   },
 };
 
@@ -504,6 +546,7 @@ export const mappingsAPI = {
    * Récupérer la liste des mappings
    */
   async list(
+    propertyId: number,
     skip: number = 0,
     limit: number = 100,
     search?: string,
@@ -514,7 +557,21 @@ export const mappingsAPI = {
     filterLevel2?: string,
     filterLevel3?: string
   ): Promise<MappingListResponse> {
+    console.log('[mappingsAPI.list] Appel avec propertyId:', propertyId, 'type:', typeof propertyId);
+    if (!propertyId || propertyId <= 0) {
+      console.error('[mappingsAPI.list] ❌ PROPERTY_ID INVALIDE:', {
+        propertyId,
+        type: typeof propertyId,
+        isZero: propertyId === 0,
+        isNegative: propertyId < 0,
+        isNull: propertyId === null,
+        isUndefined: propertyId === undefined
+      });
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       skip: skip.toString(),
       limit: limit.toString(),
     });
@@ -527,14 +584,24 @@ export const mappingsAPI = {
     if (filterLevel1) params.append('filter_level_1', filterLevel1);
     if (filterLevel2) params.append('filter_level_2', filterLevel2);
     if (filterLevel3) params.append('filter_level_3', filterLevel3);
-    return fetchAPI<MappingListResponse>(`/api/mappings?${params.toString()}`);
+    
+    console.log('[mappingsAPI.list] URL:', `/api/mappings?${params.toString()}`);
+    const result = await fetchAPI<MappingListResponse>(`/api/mappings?${params.toString()}`);
+    console.log('[mappingsAPI.list] Réponse:', { total: result.total, count: result.mappings.length, propertyId });
+    return result;
   },
 
   /**
    * Récupérer un mapping par ID
    */
-  async get(id: number): Promise<Mapping> {
-    return fetchAPI<Mapping>(`/api/mappings/${id}`);
+  async get(propertyId: number, id: number): Promise<Mapping> {
+    console.log('[mappingsAPI.get] Appel avec propertyId:', propertyId, 'id:', id);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const result = await fetchAPI<Mapping>(`/api/mappings/${id}?property_id=${propertyId}`);
+    console.log('[mappingsAPI.get] Réponse:', { id: result.id, propertyId });
+    return result;
   },
 
   /**
@@ -550,20 +617,31 @@ export const mappingsAPI = {
   /**
    * Modifier un mapping
    */
-  async update(id: number, mapping: MappingUpdate): Promise<Mapping> {
-    return fetchAPI<Mapping>(`/api/mappings/${id}`, {
+  async update(propertyId: number, id: number, mapping: MappingUpdate): Promise<Mapping> {
+    console.log('[mappingsAPI.update] Appel avec propertyId:', propertyId, 'id:', id);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const result = await fetchAPI<Mapping>(`/api/mappings/${id}?property_id=${propertyId}`, {
       method: 'PUT',
       body: JSON.stringify(mapping),
     });
+    console.log('[mappingsAPI.update] Réponse:', { id: result.id, propertyId });
+    return result;
   },
 
   /**
    * Supprimer un mapping
    */
-  async delete(id: number): Promise<void> {
-    return fetchAPI<void>(`/api/mappings/${id}`, {
+  async delete(propertyId: number, id: number): Promise<void> {
+    console.log('[mappingsAPI.delete] Appel avec propertyId:', propertyId, 'id:', id);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    await fetchAPI<void>(`/api/mappings/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
+    console.log('[mappingsAPI.delete] Mapping supprimé:', { id, propertyId });
   },
 
   /**
@@ -587,16 +665,27 @@ export const mappingsAPI = {
   /**
    * Récupérer toutes les valeurs level_1 autorisées (depuis allowed_mappings)
    */
-  async getAllowedLevel1(): Promise<{ level_1: string[] }> {
-    return fetchAPI<{ level_1: string[] }>('/api/mappings/allowed-level1');
+  async getAllowedLevel1(propertyId: number): Promise<{ level_1: string[] }> {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    return fetchAPI<{ level_1: string[] }>(`/api/mappings/allowed-level1?property_id=${propertyId}`);
   },
 
   /**
    * Exporter les mappings au format Excel ou CSV
    */
-  async export(format: 'excel' | 'csv'): Promise<Blob> {
-    const url = `${API_BASE_URL}/api/mappings/export?format=${format}`;
-    console.log(`📤 [API] Export mappings ${format.toUpperCase()}`);
+  async export(propertyId: number, format: 'excel' | 'csv'): Promise<Blob> {
+    console.log('[mappingsAPI.export] Appel avec propertyId:', propertyId, 'format:', format);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    if (!format || (format !== 'excel' && format !== 'csv')) {
+      console.error('[mappingsAPI.export] ❌ FORMAT INVALIDE:', format);
+      throw new Error(`Format invalide: ${format}. Format attendu: 'excel' ou 'csv'`);
+    }
+    const url = `${API_BASE_URL}/api/mappings/export?property_id=${propertyId}&format=${format}`;
+    console.log(`📤 [API] Export mappings ${format.toUpperCase()} - propertyId: ${propertyId}`);
     
     const response = await fetch(url);
     
@@ -611,7 +700,7 @@ export const mappingsAPI = {
     }
     
     const blob = await response.blob();
-    console.log(`📥 [API] Export mappings ${format.toUpperCase()} réussi`);
+    console.log(`📥 [API] Export mappings ${format.toUpperCase()} réussi - propertyId: ${propertyId}`);
     return blob;
   },
 
@@ -620,8 +709,13 @@ export const mappingsAPI = {
    * Si level_1 est fourni, retourne les level_2 pour ce level_1
    * Si level_1 n'est pas fourni, retourne tous les level_2 autorisés (pour scénario 2)
    */
-  async getAllowedLevel2(level_1?: string): Promise<{ level_2: string[] }> {
-    const params = new URLSearchParams();
+  async getAllowedLevel2(propertyId: number, level_1?: string): Promise<{ level_2: string[] }> {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const params = new URLSearchParams({
+      property_id: propertyId.toString(),
+    });
     if (level_1) {
       params.append('level_1', level_1);
     }
@@ -631,8 +725,12 @@ export const mappingsAPI = {
   /**
    * Récupérer les valeurs level_3 autorisées pour un couple (level_1, level_2) (depuis allowed_mappings)
    */
-  async getAllowedLevel3(level_1: string, level_2: string): Promise<{ level_3: string[] }> {
+  async getAllowedLevel3(propertyId: number, level_1: string, level_2: string): Promise<{ level_3: string[] }> {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       level_1,
       level_2,
     });
@@ -708,17 +806,19 @@ export const mappingsAPI = {
   /**
    * Importer un fichier Excel de mappings
    */
-  import: async (file: File, mapping: ColumnMapping[]): Promise<MappingImportResponse> => {
-    console.log('📤 [API] Appel POST /api/mappings/import');
-    console.log('📤 [API] Fichier:', file.name);
-    console.log('📤 [API] Mapping:', mapping);
+  import: async (propertyId: number, file: File, mapping: ColumnMapping[]): Promise<MappingImportResponse> => {
+    console.log('[mappingsAPI.import] Appel avec propertyId:', propertyId, 'file:', file.name);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     
     const formData = new FormData();
+    formData.append('property_id', propertyId.toString());
     formData.append('file', file);
     formData.append('mapping', JSON.stringify(mapping));
     
     const url = `${API_BASE_URL}/api/mappings/import`;
-    console.log('📤 [API] URL:', url);
+    console.log('📤 [API] POST /api/mappings/import - propertyId:', propertyId);
     
     const response = await fetch(url, {
       method: 'POST',
@@ -746,22 +846,34 @@ export const mappingsAPI = {
     }
 
     const result = await response.json();
-    console.log('✅ [API] Import réussi:', result);
+    console.log('✅ [API] Import réussi:', { ...result, propertyId });
     return result;
   },
 
   /**
    * Récupérer l'historique des imports de mappings
    */
-  getImportsHistory: async (): Promise<MappingImportHistory[]> => {
-    return fetchAPI<MappingImportHistory[]>('/api/mappings/imports');
+  getImportsHistory: async (propertyId: number): Promise<MappingImportHistory[]> => {
+    console.log('[mappingsAPI.getImportsHistory] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      console.error('[mappingsAPI.getImportsHistory] ❌ PROPERTY_ID INVALIDE:', propertyId);
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const result = await fetchAPI<MappingImportHistory[]>(`/api/mappings/imports?property_id=${propertyId}`);
+    console.log('[mappingsAPI.getImportsHistory] Réponse:', { count: result.length, propertyId });
+    return result;
   },
 
   /**
    * Supprimer un import de mapping de l'historique
    */
-  deleteImport: async (importId: number): Promise<void> => {
-    return fetchAPI<void>(`/api/mappings/imports/${importId}`, {
+  deleteImport: async (propertyId: number, importId: number): Promise<void> => {
+    console.log('[mappingsAPI.deleteImport] Appel avec propertyId:', propertyId, 'importId:', importId);
+    if (!propertyId || propertyId <= 0) {
+      console.error('[mappingsAPI.deleteImport] ❌ PROPERTY_ID INVALIDE:', propertyId);
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    return fetchAPI<void>(`/api/mappings/imports/${importId}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -769,26 +881,44 @@ export const mappingsAPI = {
   /**
    * Récupérer le nombre total de mappings
    */
-  getCount: async (): Promise<{ count: number }> => {
-    return fetchAPI<{ count: number }>('/api/mappings/count');
+  getCount: async (propertyId: number): Promise<{ count: number }> => {
+    console.log('[mappingsAPI.getCount] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const result = await fetchAPI<{ count: number }>(`/api/mappings/count?property_id=${propertyId}`);
+    console.log('[mappingsAPI.getCount] Réponse:', { count: result.count, propertyId });
+    return result;
   },
 
   /**
    * Récupérer les valeurs uniques d'une colonne pour les filtres
    */
-  getUniqueValues: async (column: string): Promise<{ column: string; values: string[] }> => {
+  getUniqueValues: async (propertyId: number, column: string): Promise<{ column: string; values: string[] }> => {
+    console.log('[mappingsAPI.getUniqueValues] Appel avec propertyId:', propertyId, 'column:', column);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       column,
     });
     
-    return fetchAPI<{ column: string; values: string[] }>(`/api/mappings/unique-values?${params}`);
+    const result = await fetchAPI<{ column: string; values: string[] }>(`/api/mappings/unique-values?${params}`);
+    console.log('[mappingsAPI.getUniqueValues] Réponse:', { column: result.column, valuesCount: result.values.length, propertyId });
+    return result;
   },
 
   /**
    * Supprimer tous les imports de mappings de l'historique
    */
-  deleteAllImports: async (): Promise<void> => {
-    return fetchAPI<void>('/api/mappings/imports', {
+  deleteAllImports: async (propertyId: number): Promise<void> => {
+    console.log('[mappingsAPI.deleteAllImports] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      console.error('[mappingsAPI.deleteAllImports] ❌ PROPERTY_ID INVALIDE:', propertyId);
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    return fetchAPI<void>(`/api/mappings/imports?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -800,8 +930,12 @@ export const mappingsAPI = {
   /**
    * Récupérer tous les mappings autorisés avec pagination
    */
-  getAllowedMappings: async (skip: number = 0, limit: number = 100): Promise<AllowedMappingListResponse> => {
+  getAllowedMappings: async (propertyId: number, skip: number = 0, limit: number = 100): Promise<AllowedMappingListResponse> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       skip: skip.toString(),
       limit: limit.toString(),
     });
@@ -812,11 +946,16 @@ export const mappingsAPI = {
    * Créer un nouveau mapping autorisé
    */
   createAllowedMapping: async (
+    propertyId: number,
     level_1: string,
     level_2: string,
     level_3?: string
   ): Promise<AllowedMapping> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       level_1,
       level_2,
     });
@@ -866,7 +1005,7 @@ export const fileUploadAPI = {
     return await response.json();
   },
 
-  getImportsHistory: async (): Promise<Array<{
+  getImportsHistory: async (propertyId: number): Promise<Array<{
     id: number;
     filename: string;
     imported_at: string;
@@ -876,7 +1015,12 @@ export const fileUploadAPI = {
     period_start?: string;
     period_end?: string;
   }>> => {
-    return fetchAPI<Array<{
+    console.log('[fileUploadAPI.getImportsHistory] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      console.error('[fileUploadAPI.getImportsHistory] ❌ PROPERTY_ID INVALIDE:', propertyId);
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const result = await fetchAPI<Array<{
       id: number;
       filename: string;
       imported_at: string;
@@ -885,21 +1029,30 @@ export const fileUploadAPI = {
       errors_count: number;
       period_start?: string;
       period_end?: string;
-    }>>('/api/transactions/imports');
+    }>>(`/api/transactions/imports?property_id=${propertyId}`);
+    console.log('[fileUploadAPI.getImportsHistory] Réponse:', { count: result.length, propertyId });
+    return result;
   },
 
-  deleteAllImports: async (): Promise<void> => {
-    return fetchAPI<void>('/api/transactions/imports', {
+  deleteAllImports: async (propertyId: number): Promise<void> => {
+    console.log('[fileUploadAPI.deleteAllImports] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      console.error('[fileUploadAPI.deleteAllImports] ❌ PROPERTY_ID INVALIDE:', propertyId);
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    return fetchAPI<void>(`/api/transactions/imports?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
 
-  import: async (file: File, mapping: ColumnMapping[]): Promise<FileImportResponse> => {
+  import: async (propertyId: number, file: File, mapping: ColumnMapping[]): Promise<FileImportResponse> => {
     console.log('📤 [API] Appel POST /api/transactions/import');
+    console.log('📤 [API] Property ID:', propertyId);
     console.log('📤 [API] Fichier:', file.name);
     console.log('📤 [API] Mapping:', mapping);
     
     const formData = new FormData();
+    formData.append('property_id', propertyId.toString());
     formData.append('file', file);
     formData.append('mapping', JSON.stringify(mapping));
     

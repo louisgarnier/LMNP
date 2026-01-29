@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { transactionsAPI, Transaction } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface EditTransactionModalProps {
   transaction: Transaction;
@@ -20,6 +21,7 @@ export default function EditTransactionModal({
   onClose,
   onSave,
 }: EditTransactionModalProps) {
+  const { activeProperty } = useProperty();
   // Initialiser la date au format YYYY-MM-DD pour l'input date
   const getInitialDate = () => {
     const dateStr = transaction.date;
@@ -54,18 +56,24 @@ export default function EditTransactionModal({
       return;
     }
 
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      setError('Aucune propriété sélectionnée');
+      return;
+    }
+    
     setIsSaving(true);
     setError(null);
 
     try {
       console.log('🔄 [EditTransactionModal] Mise à jour transaction:', {
         id: transaction.id,
+        property_id: activeProperty.id,
         date,
         quantite: quantiteNum,
         nom: nom.trim(),
       });
       
-      const result = await transactionsAPI.update(transaction.id, {
+      const result = await transactionsAPI.update(transaction.id, activeProperty.id, {
         date,
         quantite: quantiteNum,
         nom: nom.trim(),

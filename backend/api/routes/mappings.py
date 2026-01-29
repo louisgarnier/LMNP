@@ -18,6 +18,7 @@ from datetime import datetime
 
 from backend.database import get_db
 from backend.database.models import Mapping, Transaction, EnrichedTransaction, MappingImport, AllowedMapping
+from backend.api.utils.validation import validate_property_id
 from backend.api.models import (
     MappingCreate,
     MappingUpdate,
@@ -211,6 +212,7 @@ async def preview_mapping_file(
 
 @router.post("/mappings/import", response_model=MappingImportResponse)
 async def import_mapping_file(
+    property_id: int = Form(..., description="ID de la propriété (obligatoire)"),
     file: UploadFile = File(...),
     mapping: str = Form(..., description="Mapping JSON string"),
     db: Session = Depends(get_db)
@@ -218,27 +220,37 @@ async def import_mapping_file(
     """
     Importe un fichier Excel de mappings dans la base de données.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **file**: Fichier Excel (.xlsx ou .xls) à importer
     - **mapping**: Mapping des colonnes (JSON string)
     - Retourne: Statistiques d'import (imported, duplicates, errors)
     """
+    logger.info(f"[Mappings] POST /api/mappings/import - property_id={property_id}, file={file.filename}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    
     try:
         # Parser le mapping
         mapping_data = json.loads(mapping)
         column_mapping = {item['file_column']: item['db_column'] for item in mapping_data}
         
-        # Vérifier si fichier déjà chargé (avertissement mais on continue)
+        # Vérifier si fichier déjà chargé pour cette propriété (avertissement mais on continue)
         filename = file.filename or "unknown.xlsx"
-        existing_import = db.query(MappingImport).filter(MappingImport.filename == filename).first()
+        existing_import = db.query(MappingImport).filter(
+            MappingImport.filename == filename,
+            MappingImport.property_id == property_id
+        ).first()
         warning_message = None
         
         if existing_import:
-            warning_message = f"⚠️ Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')}. Le traitement continue, les doublons seront détectés."
+            warning_message = f"⚠️ Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')} pour cette propriété. Le traitement continue, les doublons seront détectés."
             # Mettre à jour l'enregistrement existant au lieu d'en créer un nouveau
             mapping_import = existing_import
         else:
-            # Créer un nouvel enregistrement
+            # Créer un nouvel enregistrement avec property_id
             mapping_import = MappingImport(
+                property_id=property_id,
                 filename=filename,
                 imported_count=0,
                 duplicates_count=0,
@@ -360,7 +372,7 @@ async def import_mapping_file(
                     continue
                 
                 # Valider que la combinaison (level_1, level_2, level_3) existe dans allowed_mappings
-                if not validate_mapping(db, level_1_value, level_2_value, level_3_value if level_3_value else None):
+                if not validate_mapping(db, level_1_value, level_2_value, level_3_value if level_3_value else None, property_id):
                     errors_count += 1
                     errors_list.append(MappingError(
                         line_number=line_number,
@@ -383,8 +395,11 @@ async def import_mapping_file(
                     ))
                     continue
                 
-                # Vérifier doublon dans la base de données
-                existing = db.query(Mapping).filter(Mapping.nom == nom_value).first()
+                # Vérifier doublon dans la base de données pour cette propriété
+                existing = db.query(Mapping).filter(
+                    Mapping.nom == nom_value,
+                    Mapping.property_id == property_id
+                ).first()
                 
                 if existing:
                     duplicates_count += 1
@@ -397,8 +412,9 @@ async def import_mapping_file(
                 # Ajouter à la liste des noms traités dans cette session
                 processed_noms_in_session.add(nom_value)
                 
-                # Créer le mapping
+                # Créer le mapping avec property_id
                 db_mapping = Mapping(
+                    property_id=property_id,
                     nom=nom_value,
                     level_1=level_1_value,
                     level_2=level_2_value,
@@ -413,18 +429,72 @@ async def import_mapping_file(
                 # Flush périodique pour que les objets soient visibles dans les requêtes suivantes
                 # et éviter les erreurs UNIQUE constraint au commit final
                 if imported_count % 50 == 0:
-                    db.flush()
+                    try:
+                        db.flush()
+                    except Exception as flush_error:
+                        # Si flush échoue, c'est probablement une contrainte UNIQUE
+                        # Vérifier à nouveau si le mapping existe (peut avoir été créé entre-temps)
+                        db.rollback()
+                        existing_check = db.query(Mapping).filter(
+                            Mapping.nom == nom_value,
+                            Mapping.property_id == property_id
+                        ).first()
+                        
+                        if existing_check:
+                            # C'est un doublon qui n'a pas été détecté précédemment
+                            duplicates_count += 1
+                            duplicates_list.append(DuplicateMapping(
+                                nom=nom_value,
+                                existing_id=existing_check.id
+                            ))
+                            imported_count -= 1  # Annuler l'incrémentation
+                            continue
+                        else:
+                            # Erreur inattendue, la propager
+                            raise
                 
             except Exception as e:
                 errors_count += 1
+                # Gérer les erreurs de contrainte UNIQUE de manière plus claire
+                error_str = str(e)
+                error_message = f"Erreur lors du traitement: {error_str}"
+                
+                if "UNIQUE constraint failed" in error_str or "IntegrityError" in error_str or "UNIQUE constraint" in error_str:
+                    # Si c'est une erreur de contrainte UNIQUE, c'est probablement un doublon
+                    # qui n'a pas été détecté par la vérification précédente
+                    error_message = f"Un mapping avec le nom '{nom_value}' existe déjà dans la base de données pour cette propriété. Les doublons ont été détectés et ignorés, mais cette erreur indique qu'un doublon n'a pas été correctement détecté. Veuillez vérifier votre fichier."
+                    # Essayer de rollback et vérifier si c'est vraiment un doublon
+                    try:
+                        db.rollback()
+                        existing_check = db.query(Mapping).filter(
+                            Mapping.nom == nom_value,
+                            Mapping.property_id == property_id
+                        ).first()
+                        if existing_check:
+                            # C'est un doublon, le traiter comme tel
+                            duplicates_count += 1
+                            errors_count -= 1  # Annuler l'incrémentation d'erreur
+                            duplicates_list.append(DuplicateMapping(
+                                nom=nom_value,
+                                existing_id=existing_check.id
+                            ))
+                            continue
+                    except:
+                        pass
+                
                 errors_list.append(MappingError(
                     line_number=idx + 2,
-                    nom=None,
-                    level_1=None,
-                    level_2=None,
-                    level_3=None,
-                    error_message=f"Erreur lors du traitement: {str(e)}"
+                    nom=nom_value if 'nom_value' in locals() else None,
+                    level_1=level_1_value if 'level_1_value' in locals() else None,
+                    level_2=level_2_value if 'level_2_value' in locals() else None,
+                    level_3=level_3_value if 'level_3_value' in locals() else None,
+                    error_message=error_message
                 ))
+                # Rollback de la transaction pour cette ligne en cas d'erreur
+                try:
+                    db.rollback()
+                except:
+                    pass
                 continue
         
         # Mettre à jour l'enregistrement MappingImport
@@ -481,30 +551,57 @@ async def import_mapping_file(
 
 @router.get("/mappings/imports", response_model=List[MappingImportHistory])
 async def get_mapping_imports_history(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupère l'historique des imports de fichiers de mappings.
+    Récupère l'historique des imports de fichiers de mappings pour une propriété.
+    
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
     
     Returns:
-        Liste des imports de mappings triés par date (plus récent en premier)
+        Liste des imports de mappings triés par date (plus récent en premier) pour cette propriété
     """
-    imports = db.query(MappingImport).order_by(MappingImport.imported_at.desc()).all()
+    logger.info(f"[Mappings] GET /api/mappings/imports - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    logger.debug(f"[Mappings] GET /api/mappings/imports - property_id={property_id} validé")
+    
+    # Filtrer par property_id
+    imports = db.query(MappingImport).filter(MappingImport.property_id == property_id).order_by(MappingImport.imported_at.desc()).all()
+    
+    logger.info(f"[Mappings] GET /api/mappings/imports - Retourné {len(imports)} import(s) pour property_id={property_id}")
     
     return [MappingImportHistory.model_validate(imp) for imp in imports]
 
 
 @router.delete("/mappings/imports", status_code=204)
 async def delete_all_mapping_imports(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Supprime tous les imports de mappings de l'historique.
+    Supprime tous les imports de mappings de l'historique pour une propriété.
     
-    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les historiques d'imports de mappings.
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
+    
+    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les historiques d'imports de mappings pour cette propriété.
     """
-    db.query(MappingImport).delete()
+    logger.info(f"[Mappings] DELETE /api/mappings/imports - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    
+    # Filtrer par property_id
+    deleted_count = db.query(MappingImport).filter(MappingImport.property_id == property_id).delete()
     db.commit()
+    
+    logger.info(f"[Mappings] DELETE /api/mappings/imports - {deleted_count} import(s) supprimé(s) pour property_id={property_id}")
     
     return None
 
@@ -512,48 +609,76 @@ async def delete_all_mapping_imports(
 @router.delete("/mappings/imports/{import_id}", status_code=204)
 async def delete_mapping_import(
     import_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Supprime un import de mapping de l'historique.
+    Supprime un import de mapping de l'historique pour une propriété.
     
     Args:
         import_id: ID de l'import à supprimer
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Raises:
-        HTTPException: Si l'import n'existe pas
+        HTTPException: Si l'import n'existe pas ou n'appartient pas à property_id
     """
-    mapping_import = db.query(MappingImport).filter(MappingImport.id == import_id).first()
+    logger.info(f"[Mappings] DELETE /api/mappings/imports/{import_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    
+    # Filtrer par property_id et import_id
+    mapping_import = db.query(MappingImport).filter(
+        MappingImport.id == import_id,
+        MappingImport.property_id == property_id
+    ).first()
+    
     if not mapping_import:
+        logger.warning(f"[Mappings] DELETE /api/mappings/imports/{import_id} - Import non trouvé pour property_id={property_id}")
         raise HTTPException(
             status_code=404,
-            detail=f"Import de mapping avec ID {import_id} non trouvé"
+            detail=f"Import de mapping avec ID {import_id} non trouvé pour cette propriété"
         )
     
     db.delete(mapping_import)
     db.commit()
+    
+    logger.info(f"[Mappings] DELETE /api/mappings/imports/{import_id} - Import supprimé pour property_id={property_id}")
     
     return None
 
 
 @router.get("/mappings/count")
 async def get_mappings_count(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupère le nombre total de mappings dans la base de données.
+    Récupère le nombre total de mappings dans la base de données pour une propriété.
+    
+    Args:
+        property_id: ID de la propriété (obligatoire)
     
     Returns:
-        Dictionnaire avec le nombre total de mappings
+        Dictionnaire avec le nombre total de mappings pour cette propriété
     """
-    count = db.query(Mapping).count()
+    logger.info(f"[Mappings] GET /api/mappings/count - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    logger.debug(f"[Mappings] GET /api/mappings/count - property_id={property_id} validé")
+    
+    # Compter les mappings pour cette propriété
+    count = db.query(Mapping).filter(Mapping.property_id == property_id).count()
+    logger.info(f"[Mappings] GET /api/mappings/count - Retourné count={count} pour property_id={property_id}")
     
     return {"count": count}
 
 
 @router.get("/mappings", response_model=MappingListResponse)
 async def get_mappings(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     search: Optional[str] = Query(None, description="Recherche dans le nom"),
@@ -569,6 +694,7 @@ async def get_mappings(
     Récupérer la liste des mappings.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         skip: Nombre d'éléments à sauter (pagination)
         limit: Nombre d'éléments à retourner
         search: Terme de recherche dans le nom
@@ -583,7 +709,16 @@ async def get_mappings(
     Returns:
         Liste des mappings avec pagination
     """
-    query = db.query(Mapping)
+    logger.info(f"[Mappings] GET /api/mappings - property_id={property_id}, skip={skip}, limit={limit}, search={search}, sort_by={sort_by}, filters={{nom:{filter_nom}, level_1:{filter_level_1}, level_2:{filter_level_2}, level_3:{filter_level_3}}}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    logger.debug(f"[Mappings] GET /api/mappings - property_id={property_id} validé")
+    
+    # Filtrer par property_id dès le début
+    query = db.query(Mapping).filter(Mapping.property_id == property_id)
+    total_before_filters = query.count()
+    logger.debug(f"[Mappings] GET /api/mappings - Total mappings pour property_id={property_id} (avant filtres): {total_before_filters}")
     
     # Filtre de recherche (legacy, pour compatibilité)
     if search:
@@ -643,6 +778,7 @@ async def get_mappings(
     
     # Comptage total (avant tri)
     total = query.count()
+    logger.debug(f"[Mappings] GET /api/mappings - Total après filtres: {total} pour property_id={property_id}")
     
     # Tri
     if sort_by:
@@ -679,6 +815,10 @@ async def get_mappings(
     # Pagination
     mappings = query.offset(skip).limit(limit).all()
     
+    logger.info(f"[Mappings] GET /api/mappings - Retourné {len(mappings)} mapping(s) sur {total} total pour property_id={property_id}")
+    if len(mappings) > 0:
+        logger.debug(f"[Mappings] GET /api/mappings - Premier mapping: id={mappings[0].id}, nom={mappings[0].nom}, property_id={mappings[0].property_id}")
+    
     return MappingListResponse(
         mappings=[MappingResponse.model_validate(m) for m in mappings],
         total=total
@@ -687,18 +827,29 @@ async def get_mappings(
 
 @router.get("/mappings/unique-values")
 async def get_mapping_unique_values(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     column: str = Query(..., description="Nom de la colonne (nom, level_1, level_2, level_3)"),
     db: Session = Depends(get_db)
 ):
     """
     Récupérer les valeurs uniques d'une colonne pour les filtres.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **column**: Nom de la colonne (nom, level_1, level_2, level_3)
     
     Returns:
         Liste des valeurs uniques (non null, triées)
     """
-    query = db.query(Mapping)
+    logger.info(f"[Mappings] GET /api/mappings/unique-values - property_id={property_id}, column={column}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    logger.debug(f"[Mappings] GET /api/mappings/unique-values - property_id={property_id} validé")
+    
+    # Filtrer par property_id dès le début
+    query = db.query(Mapping).filter(Mapping.property_id == property_id)
+    total_mappings = query.count()
+    logger.debug(f"[Mappings] GET /api/mappings/unique-values - Total mappings pour property_id={property_id}: {total_mappings}")
     
     # Récupérer les valeurs uniques selon la colonne
     if column == "nom":
@@ -716,6 +867,8 @@ async def get_mapping_unique_values(
     else:
         raise HTTPException(status_code=400, detail=f"Colonne '{column}' non supportée. Colonnes supportées: nom, level_1, level_2, level_3")
     
+    logger.info(f"[Mappings] GET /api/mappings/unique-values - Retourné {len(unique_values)} valeur(s) unique(s) pour property_id={property_id}, column={column}")
+    
     return {"column": column, "values": unique_values}
 
 
@@ -728,25 +881,34 @@ async def create_mapping(
     Créer un nouveau mapping.
     
     Args:
-        mapping: Données du mapping à créer
+        mapping: Données du mapping à créer (doit inclure property_id)
         db: Session de base de données
     
     Returns:
         Mapping créé
     
     Raises:
-        HTTPException: Si un mapping avec le même nom existe déjà
+        HTTPException: Si un mapping avec le même nom existe déjà pour cette propriété
     """
-    # Vérifier si un mapping avec le même nom existe déjà
-    existing = db.query(Mapping).filter(Mapping.nom == mapping.nom).first()
+    logger.info(f"[Mappings] POST /api/mappings - property_id={mapping.property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, mapping.property_id, "Mappings")
+    
+    # Vérifier si un mapping avec le même nom existe déjà pour cette propriété
+    existing = db.query(Mapping).filter(
+        Mapping.nom == mapping.nom,
+        Mapping.property_id == mapping.property_id
+    ).first()
     if existing:
         raise HTTPException(
             status_code=400,
-            detail=f"Un mapping avec le nom '{mapping.nom}' existe déjà"
+            detail=f"Un mapping avec le nom '{mapping.nom}' existe déjà pour cette propriété"
         )
     
     # Créer le nouveau mapping
     db_mapping = Mapping(
+        property_id=mapping.property_id,
         nom=mapping.nom,
         level_1=mapping.level_1,
         level_2=mapping.level_2,
@@ -759,13 +921,47 @@ async def create_mapping(
     db.commit()
     db.refresh(db_mapping)
     
+    logger.info(f"[Mappings] Mapping créé: id={db_mapping.id}, property_id={mapping.property_id}")
+    
+    # Re-enrichir toutes les transactions de cette propriété qui correspondent au nouveau mapping
+    # Trouver toutes les transactions de cette propriété dont le nom correspond au mapping
+    all_transactions = db.query(Transaction).filter(
+        Transaction.property_id == mapping.property_id,
+        Transaction.nom.like(f"%{mapping.nom}%")  # Pré-filtre SQL
+    ).all()
+    
+    transactions_to_re_enrich = []
+    for transaction in all_transactions:
+        # Utiliser la fonction utilitaire pour vérifier si la transaction correspond au mapping
+        if transaction_matches_mapping_name(transaction.nom, mapping.nom):
+            transactions_to_re_enrich.append(transaction)
+    
+    if transactions_to_re_enrich:
+        # Charger les mappings de cette propriété une seule fois
+        property_mappings = db.query(Mapping).filter(Mapping.property_id == mapping.property_id).all()
+        
+        logger.info(f"[Mappings] Re-enrichissement de {len(transactions_to_re_enrich)} transaction(s) après création du mapping pour property_id={mapping.property_id}")
+        
+        # OPTIMISATION: Faire le flush par batch
+        batch_size = 50
+        for i, transaction in enumerate(transactions_to_re_enrich):
+            enrich_transaction(transaction, db, property_mappings)
+            # Flush par batch pour améliorer les performances
+            if (i + 1) % batch_size == 0:
+                db.flush()
+                logger.debug(f"[Mappings] Flush batch: {i + 1}/{len(transactions_to_re_enrich)} transactions traitées")
+        
+        db.commit()
+        logger.info(f"[Mappings] Re-enrichissement terminé après création du mapping pour property_id={mapping.property_id}")
+    
     return MappingResponse.model_validate(db_mapping)
 
 
 @router.put("/mappings/{mapping_id}", response_model=MappingResponse)
 async def update_mapping(
     mapping_id: int,
-    mapping_update: MappingUpdate,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
+    mapping_update: MappingUpdate = ...,
     db: Session = Depends(get_db)
 ):
     """
@@ -778,6 +974,7 @@ async def update_mapping(
     
     Args:
         mapping_id: ID du mapping à modifier
+        property_id: ID de la propriété (obligatoire)
         mapping_update: Données à mettre à jour
         db: Session de base de données
     
@@ -785,30 +982,47 @@ async def update_mapping(
         Mapping mis à jour
     
     Raises:
-        HTTPException: Si le mapping n'existe pas ou si le nouveau nom existe déjà
+        HTTPException: Si le mapping n'existe pas ou si le nouveau nom existe déjà pour cette propriété
     """
-    mapping = db.query(Mapping).filter(Mapping.id == mapping_id).first()
-    if not mapping:
-        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
+    logger.info(f"[Mappings] PUT /api/mappings/{mapping_id} - property_id={property_id}")
     
-    # Vérifier si le nouveau nom (si modifié) existe déjà
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    
+    # Vérifier que le mapping existe ET appartient à cette propriété
+    mapping = db.query(Mapping).filter(
+        Mapping.id == mapping_id,
+        Mapping.property_id == property_id
+    ).first()
+    if not mapping:
+        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé pour cette propriété")
+    
+    # Vérifier si le nouveau nom (si modifié) existe déjà pour cette propriété
     if mapping_update.nom and mapping_update.nom != mapping.nom:
-        existing = db.query(Mapping).filter(Mapping.nom == mapping_update.nom).first()
+        existing = db.query(Mapping).filter(
+            Mapping.nom == mapping_update.nom,
+            Mapping.property_id == property_id
+        ).first()
         if existing:
             raise HTTPException(
                 status_code=400,
-                detail=f"Un mapping avec le nom '{mapping_update.nom}' existe déjà"
+                detail=f"Un mapping avec le nom '{mapping_update.nom}' existe déjà pour cette propriété"
             )
     
     # Sauvegarder le nom du mapping AVANT la mise à jour
     # pour trouver toutes les transactions qui correspondent à ce nom
     old_mapping_nom = mapping.nom
     
-    # Trouver TOUTES les transactions dont le nom correspond au mapping
+    # Trouver TOUTES les transactions de cette propriété dont le nom correspond au mapping
     # (peu importe leurs level_1/2/3 actuels)
     # Cela permet de re-enrichir toutes les transactions avec le même nom
     # même si elles n'avaient pas encore été enrichies ou avaient des valeurs différentes
-    all_transactions = db.query(Transaction).all()
+    # OPTIMISATION: Ne charger que les transactions qui correspondent potentiellement au mapping
+    # (celles qui commencent par le nom du mapping ou le contiennent)
+    all_transactions = db.query(Transaction).filter(
+        Transaction.property_id == property_id,
+        Transaction.nom.like(f"%{old_mapping_nom}%")  # Filtre SQL pour réduire le nombre de transactions
+    ).all()
     
     transactions_to_re_enrich = []
     for transaction in all_transactions:
@@ -825,10 +1039,22 @@ async def update_mapping(
     db.refresh(mapping)
     
     # Re-enrichir les transactions (elles utiliseront le nouveau mapping si elles correspondent toujours)
-    for transaction in transactions_to_re_enrich:
-        enrich_transaction(transaction, db)
+    # Charger les mappings de cette propriété une seule fois
+    property_mappings = db.query(Mapping).filter(Mapping.property_id == property_id).all()
+    
+    # OPTIMISATION: Faire le flush par batch au lieu d'une transaction par transaction
+    batch_size = 50
+    logger.info(f"[Mappings] Re-enrichissement de {len(transactions_to_re_enrich)} transaction(s) pour property_id={property_id}")
+    
+    for i, transaction in enumerate(transactions_to_re_enrich):
+        enrich_transaction(transaction, db, property_mappings)
+        # Flush par batch pour améliorer les performances
+        if (i + 1) % batch_size == 0:
+            db.flush()
+            logger.debug(f"[Mappings] Flush batch: {i + 1}/{len(transactions_to_re_enrich)} transactions traitées")
     
     db.commit()
+    logger.info(f"[Mappings] Re-enrichissement terminé pour property_id={property_id}")
     
     return MappingResponse.model_validate(mapping)
 
@@ -836,26 +1062,37 @@ async def update_mapping(
 @router.delete("/mappings/{mapping_id}", status_code=204)
 async def delete_mapping(
     mapping_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Supprimer un mapping et re-enrichir les transactions qui l'utilisaient.
     
     Lors de la suppression d'un mapping :
-    1. Trouve toutes les transactions dont le nom correspond au mapping
+    1. Trouve toutes les transactions de cette propriété dont le nom correspond au mapping
     2. Re-enrichit ces transactions (elles seront remises à NULL si aucun autre mapping ne correspond)
     3. Supprime le mapping
     
     Args:
         mapping_id: ID du mapping à supprimer
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Raises:
-        HTTPException: Si le mapping n'existe pas
+        HTTPException: Si le mapping n'existe pas pour cette propriété
     """
-    mapping = db.query(Mapping).filter(Mapping.id == mapping_id).first()
+    logger.info(f"[Mappings] DELETE /api/mappings/{mapping_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    
+    # Vérifier que le mapping existe ET appartient à cette propriété
+    mapping = db.query(Mapping).filter(
+        Mapping.id == mapping_id,
+        Mapping.property_id == property_id
+    ).first()
     if not mapping:
-        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
+        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé pour cette propriété")
     
     # Sauvegarder les informations du mapping avant suppression
     mapping_nom = mapping.nom
@@ -863,10 +1100,12 @@ async def delete_mapping(
     mapping_level_2 = mapping.level_2
     mapping_level_3 = mapping.level_3
     
-    # Trouver toutes les transactions enrichies qui utilisent ce mapping
+    # Trouver toutes les transactions enrichies de cette propriété qui utilisent ce mapping
     # On cherche les transactions qui ont les mêmes level_1, level_2, level_3
     # ET dont le nom correspond au mapping
     enriched_transactions = db.query(EnrichedTransaction).join(Transaction).filter(
+        EnrichedTransaction.property_id == property_id,
+        Transaction.property_id == property_id,
         EnrichedTransaction.level_1 == mapping_level_1,
         EnrichedTransaction.level_2 == mapping_level_2,
         EnrichedTransaction.level_3 == mapping_level_3
@@ -875,7 +1114,10 @@ async def delete_mapping(
     # Filtrer pour ne garder que celles dont le nom correspond au mapping
     transactions_to_re_enrich = []
     for enriched in enriched_transactions:
-        transaction = db.query(Transaction).filter(Transaction.id == enriched.transaction_id).first()
+        transaction = db.query(Transaction).filter(
+            Transaction.id == enriched.transaction_id,
+            Transaction.property_id == property_id
+        ).first()
         if transaction:
             # Vérifier si le nom de la transaction correspond au mapping
             transaction_name = transaction.nom.strip()
@@ -898,8 +1140,16 @@ async def delete_mapping(
     db.commit()
     
     # Re-enrichir les transactions (elles seront remises à NULL si aucun autre mapping ne correspond)
-    for transaction in transactions_to_re_enrich:
-        enrich_transaction(transaction, db)
+    # Charger les mappings de cette propriété une seule fois
+    property_mappings = db.query(Mapping).filter(Mapping.property_id == property_id).all()
+    
+    # OPTIMISATION: Faire le flush par batch au lieu d'une transaction par transaction
+    batch_size = 50
+    for i, transaction in enumerate(transactions_to_re_enrich):
+        enrich_transaction(transaction, db, property_mappings)
+        # Flush par batch pour améliorer les performances
+        if (i + 1) % batch_size == 0:
+            db.flush()
     
     db.commit()
     
@@ -910,53 +1160,64 @@ async def delete_mapping(
 
 @router.get("/mappings/allowed-level1")
 async def get_allowed_level1(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer toutes les valeurs level_1 autorisées.
+    Récupérer toutes les valeurs level_1 autorisées pour une propriété.
+    
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
     
     Returns:
         Liste des valeurs level_1 uniques, triées
     """
-    values = get_allowed_level1_values(db)
+    validate_property_id(db, property_id, "Mappings")
+    values = get_allowed_level1_values(db, property_id)
     return {"level_1": values}
 
 
 @router.get("/mappings/allowed-level2")
 async def get_allowed_level2(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     level_1: Optional[str] = Query(None, description="Valeur de level_1 (optionnel, si non fourni retourne tous les level_2)"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer les valeurs level_2 autorisées.
+    Récupérer les valeurs level_2 autorisées pour une propriété.
     
     Si level_1 est fourni, retourne les level_2 pour ce level_1.
     Si level_1 n'est pas fourni, retourne tous les level_2 autorisés (pour scénario 2).
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         level_1: Valeur de level_1 (optionnel)
         db: Session de base de données
     
     Returns:
         Liste des valeurs level_2 uniques, triées
     """
+    validate_property_id(db, property_id, "Mappings")
     if level_1:
-        values = get_allowed_level2_values(db, level_1)
+        values = get_allowed_level2_values(db, level_1, property_id)
     else:
-        values = get_all_allowed_level2_values(db)
+        values = get_all_allowed_level2_values(db, property_id)
     return {"level_2": values}
 
 
 @router.get("/mappings/allowed-level3")
 async def get_allowed_level3(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     level_1: str = Query(..., description="Valeur de level_1"),
     level_2: str = Query(..., description="Valeur de level_2"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer les valeurs level_3 autorisées pour un couple (level_1, level_2).
+    Récupérer les valeurs level_3 autorisées pour un couple (level_1, level_2) pour une propriété.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         level_1: Valeur de level_1
         level_2: Valeur de level_2
         db: Session de base de données
@@ -964,7 +1225,8 @@ async def get_allowed_level3(
     Returns:
         Liste des valeurs level_3 uniques pour ce couple, triées
     """
-    values = get_allowed_level3_values(db, level_1, level_2)
+    validate_property_id(db, property_id, "Mappings")
+    values = get_allowed_level3_values(db, level_1, level_2, property_id)
     return {"level_3": values}
 
 
@@ -1134,14 +1396,16 @@ async def get_mapping_combinations(
 
 @router.get("/mappings/allowed", response_model=AllowedMappingListResponse)
 async def get_allowed_mappings_endpoint(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupère tous les mappings autorisés avec pagination.
+    Récupère tous les mappings autorisés avec pagination pour une propriété.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         skip: Nombre d'éléments à sauter
         limit: Nombre d'éléments à retourner
         db: Session de base de données
@@ -1149,7 +1413,8 @@ async def get_allowed_mappings_endpoint(
     Returns:
         Liste des mappings autorisés avec total
     """
-    mappings, total = get_all_allowed_mappings(db, skip, limit)
+    validate_property_id(db, property_id, "AllowedMappings")
+    mappings, total = get_all_allowed_mappings(db, property_id, skip, limit)
     return AllowedMappingListResponse(
         mappings=[AllowedMappingResponse.model_validate(m) for m in mappings],
         total=total
@@ -1158,15 +1423,17 @@ async def get_allowed_mappings_endpoint(
 
 @router.post("/mappings/allowed", response_model=AllowedMappingResponse, status_code=201)
 async def create_allowed_mapping_endpoint(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     level_1: str = Query(..., description="Valeur de level_1"),
     level_2: str = Query(..., description="Valeur de level_2"),
     level_3: Optional[str] = Query(None, description="Valeur de level_3 (optionnel)"),
     db: Session = Depends(get_db)
 ):
     """
-    Crée un nouveau mapping autorisé.
+    Crée un nouveau mapping autorisé pour une propriété.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         level_1: Valeur de level_1
         level_2: Valeur de level_2
         level_3: Valeur de level_3 (optionnel)
@@ -1178,8 +1445,9 @@ async def create_allowed_mapping_endpoint(
     Raises:
         HTTPException: Si la combinaison existe déjà ou si level_3 n'est pas valide
     """
+    validate_property_id(db, property_id, "AllowedMappings")
     try:
-        mapping = create_allowed_mapping(db, level_1, level_2, level_3)
+        mapping = create_allowed_mapping(db, level_1, level_2, property_id, level_3)
         return AllowedMappingResponse.model_validate(mapping)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -1238,6 +1506,7 @@ async def reset_allowed_mappings_endpoint(
 
 @router.get("/mappings/export")
 async def export_mappings(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     format: str = Query("excel", description="Format d'export: 'excel' ou 'csv'"),
     db: Session = Depends(get_db)
 ):
@@ -1245,14 +1514,20 @@ async def export_mappings(
     Exporter tous les mappings au format Excel ou CSV.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         format: Format d'export ("excel" ou "csv", défaut: "excel")
         db: Session de base de données
     
     Returns:
-        Fichier Excel (.xlsx) ou CSV (.csv) avec tous les mappings
+        Fichier Excel (.xlsx) ou CSV (.csv) avec tous les mappings de la propriété
     """
-    # Récupérer tous les mappings
-    mappings = db.query(Mapping).order_by(Mapping.id).all()
+    logger.info(f"[Mappings] GET /api/mappings/export - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    
+    # Récupérer tous les mappings de cette propriété
+    mappings = db.query(Mapping).filter(Mapping.property_id == property_id).order_by(Mapping.id).all()
     
     if not mappings:
         raise HTTPException(status_code=404, detail="Aucun mapping à exporter")
@@ -1322,6 +1597,7 @@ async def export_mappings(
 @router.get("/mappings/{mapping_id}", response_model=MappingResponse)
 async def get_mapping(
     mapping_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -1329,17 +1605,27 @@ async def get_mapping(
     
     Args:
         mapping_id: ID du mapping
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Détails du mapping
     
     Raises:
-        HTTPException: Si le mapping n'existe pas
+        HTTPException: Si le mapping n'existe pas pour cette propriété
     """
-    mapping = db.query(Mapping).filter(Mapping.id == mapping_id).first()
+    logger.info(f"[Mappings] GET /api/mappings/{mapping_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Mappings")
+    
+    # Vérifier que le mapping existe ET appartient à cette propriété
+    mapping = db.query(Mapping).filter(
+        Mapping.id == mapping_id,
+        Mapping.property_id == property_id
+    ).first()
     if not mapping:
-        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé")
+        raise HTTPException(status_code=404, detail=f"Mapping avec ID {mapping_id} non trouvé pour cette propriété")
     
     return MappingResponse.model_validate(mapping)
 

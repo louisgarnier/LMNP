@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { compteResultatAPI, CompteResultatMapping, CompteResultatCalculateResponse, transactionsAPI, CompteResultatOverride } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface CompteResultatTableProps {
   refreshKey?: number; // Pour forcer le rechargement
@@ -61,48 +62,8 @@ const SPECIAL_CATEGORIES = [
   'Coût du financement (hors remboursement du capital)',
 ];
 
-// Fonction pour récupérer les années à afficher depuis les transactions
-const getYearsToDisplay = async (): Promise<number[]> => {
-  const currentYear = new Date().getFullYear();
-  
-  try {
-    // Récupérer la première transaction (triée par date croissante)
-    const firstTransactionResponse = await transactionsAPI.getAll(
-      0, // skip
-      1, // limit
-      undefined, // startDate
-      undefined, // endDate
-      'date', // sortBy
-      'asc' // sortDirection
-    );
-    
-    let startYear = 2020; // Valeur par défaut
-    
-    if (firstTransactionResponse.transactions && firstTransactionResponse.transactions.length > 0) {
-      const firstTransaction = firstTransactionResponse.transactions[0];
-      if (firstTransaction.date) {
-        const firstDate = new Date(firstTransaction.date);
-        startYear = firstDate.getFullYear();
-      }
-    }
-    
-    const years: number[] = [];
-    for (let year = startYear; year <= currentYear; year++) {
-      years.push(year);
-    }
-    return years;
-  } catch (error) {
-    console.error('Erreur lors de la récupération de la première transaction:', error);
-    // En cas d'erreur, utiliser 2020 comme valeur par défaut
-    const years: number[] = [];
-    for (let year = 2020; year <= currentYear; year++) {
-      years.push(year);
-    }
-    return years;
-  }
-};
-
 export default function CompteResultatTable({ refreshKey, isOverrideEnabled = false }: CompteResultatTableProps) {
+  const { activeProperty } = useProperty();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [years, setYears] = useState<number[]>([]);
@@ -113,14 +74,67 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   const [editingOverrideValue, setEditingOverrideValue] = useState<string>('');
   const [savingOverride, setSavingOverride] = useState<number | null>(null);
 
+  // Fonction pour récupérer les années à afficher depuis les transactions
+  const getYearsToDisplay = async (): Promise<number[]> => {
+    const currentYear = new Date().getFullYear();
+    
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[CompteResultatTable] getYearsToDisplay - Aucune propriété active ou ID invalide, utilisation de 2020 par défaut');
+      const years: number[] = [];
+      for (let year = 2020; year <= currentYear; year++) {
+        years.push(year);
+      }
+      return years;
+    }
+    
+    try {
+      // Récupérer la première transaction (triée par date croissante)
+      const firstTransactionResponse = await transactionsAPI.getAll(
+        activeProperty.id, // propertyId
+        0, // skip
+        1, // limit
+        undefined, // startDate
+        undefined, // endDate
+        'date', // sortBy
+        'asc' // sortDirection
+      );
+      
+      let startYear = 2020; // Valeur par défaut
+      
+      if (firstTransactionResponse.transactions && firstTransactionResponse.transactions.length > 0) {
+        const firstTransaction = firstTransactionResponse.transactions[0];
+        if (firstTransaction.date) {
+          const firstDate = new Date(firstTransaction.date);
+          startYear = firstDate.getFullYear();
+        }
+      }
+      
+      const years: number[] = [];
+      for (let year = startYear; year <= currentYear; year++) {
+        years.push(year);
+      }
+      return years;
+    } catch (error) {
+      console.error('Erreur lors de la récupération de la première transaction:', error);
+      // En cas d'erreur, utiliser 2020 comme valeur par défaut
+      const years: number[] = [];
+      for (let year = 2020; year <= currentYear; year++) {
+        years.push(year);
+      }
+      return years;
+    }
+  };
+
   // Calculer les années à afficher depuis les transactions
   useEffect(() => {
     const loadYears = async () => {
       const yearsToDisplay = await getYearsToDisplay();
       setYears(yearsToDisplay);
     };
-    loadYears();
-  }, []);
+    if (activeProperty && activeProperty.id && activeProperty.id > 0) {
+      loadYears();
+    }
+  }, [activeProperty?.id]);
 
   // Charger les mappings et les données depuis l'API
   useEffect(() => {

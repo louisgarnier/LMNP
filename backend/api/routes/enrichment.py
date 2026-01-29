@@ -77,11 +77,11 @@ async def update_transaction_classifications(
                 detail=f"La valeur level_3 '{final_level_3}' n'est pas autorisée. Valeurs autorisées : Passif, Produits, Emprunt, Charges Déductibles, Actif"
             )
         
-        # Valider que la combinaison existe dans allowed_mappings
-        if not validate_mapping(db, final_level_1, final_level_2, final_level_3):
+        # Valider que la combinaison existe dans allowed_mappings pour cette propriété
+        if not validate_mapping(db, final_level_1, final_level_2, final_level_3, transaction.property_id):
             raise HTTPException(
                 status_code=400,
-                detail=f"La combinaison (level_1='{final_level_1}', level_2='{final_level_2}', level_3='{final_level_3}') n'est pas autorisée. Veuillez utiliser une combinaison valide depuis les mappings autorisés."
+                detail=f"La combinaison (level_1='{final_level_1}', level_2='{final_level_2}', level_3='{final_level_3}') n'est pas autorisée pour cette propriété. Veuillez utiliser une combinaison valide depuis les mappings autorisés."
             )
     
     # Mettre à jour les classifications
@@ -103,7 +103,8 @@ async def update_transaction_classifications(
                 transaction_name=transaction.nom,
                 level_1=final_level_1,
                 level_2=final_level_2,
-                level_3=final_level_3
+                level_3=final_level_3,
+                property_id=transaction.property_id  # Passer property_id pour l'isolation multi-propriétés
             )
         except ValueError as e:
             # La validation dans create_or_update_mapping_from_classification a échoué
@@ -112,8 +113,10 @@ async def update_transaction_classifications(
         # Après avoir mis à jour le mapping, re-enrichir TOUTES les transactions
         # avec le même nom (correspondance exacte) pour qu'elles utilisent le nouveau mapping
         # Step 5.3 : Utiliser correspondance exacte du nom au lieu de matching par préfixe
+        # IMPORTANT: Filtrer par property_id pour l'isolation multi-propriétés
         all_transactions = db.query(Transaction).filter(
-            Transaction.nom == transaction.nom
+            Transaction.nom == transaction.nom,
+            Transaction.property_id == transaction.property_id
         ).all()
         
         # Liste des IDs de transactions à recalculer (incluant la transaction modifiée)
@@ -180,19 +183,37 @@ async def update_transaction_classifications(
 
 @router.post("/enrichment/re-enrich")
 async def re_enrich_all_transactions(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Re-enrichit toutes les transactions avec les mappings disponibles.
+    Re-enrichit toutes les transactions d'une propriété avec les mappings disponibles.
     
     Utile après avoir importé de nouveaux mappings pour que toutes les transactions
-    soient re-enrichies avec les nouveaux mappings.
+    de cette propriété soient re-enrichies avec les nouveaux mappings.
+    
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
     
     Returns:
-        Dict avec le nombre de transactions enrichies et déjà enrichies
+        Dict avec le nombre de transactions enrichies et déjà enrichies pour cette propriété
     """
-    enriched_count, already_enriched_count = enrich_all_transactions(db)
+    from backend.api.utils.validation import validate_property_id
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    logger.info(f"[Enrichment] POST /enrichment/re-enrich - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Enrichment")
+    
+    # Re-enrichir uniquement les transactions de cette propriété
+    enriched_count, already_enriched_count = enrich_all_transactions(db, property_id=property_id)
     db.commit()
+    
+    logger.info(f"[Enrichment] Re-enrichissement terminé pour property_id={property_id}: {enriched_count} nouvelles, {already_enriched_count} re-enrichies")
     
     return {
         "enriched_count": enriched_count,

@@ -23,7 +23,7 @@ class TransactionBase(BaseModel):
 
 class TransactionCreate(TransactionBase):
     """Model for creating a transaction."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class TransactionUpdate(BaseModel):
@@ -153,7 +153,7 @@ class MappingBase(BaseModel):
 
 class MappingCreate(MappingBase):
     """Model for creating a mapping."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 # Allowed mapping models

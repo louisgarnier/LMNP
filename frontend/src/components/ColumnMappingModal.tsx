@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { fileUploadAPI, ColumnMapping, FilePreviewResponse, FileImportResponse } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface ColumnMappingModalProps {
   file: File;
@@ -30,6 +31,7 @@ export default function ColumnMappingModal({
   onImportComplete,
   onClose,
 }: ColumnMappingModalProps) {
+  const { activeProperty } = useProperty();
   const { addLog, updateLog, addLogEntry } = useImportLog();
   const [mapping, setMapping] = useState<ColumnMapping[]>(previewData.column_mapping);
   const [isImporting, setIsImporting] = useState(false);
@@ -46,9 +48,15 @@ export default function ColumnMappingModal({
   };
 
   const handleConfirm = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('Aucune propriété sélectionnée');
+      return;
+    }
+    
     console.log('🔄 [ColumnMappingModal] Début de l\'import...');
     console.log('📋 [ColumnMappingModal] Mapping:', mapping);
     console.log('📁 [ColumnMappingModal] Fichier:', file.name);
+    console.log('🏠 [ColumnMappingModal] Property ID:', activeProperty.id);
     
     // Vérifier que tous les mappings requis sont présents (date, quantite, nom uniquement)
     const requiredColumns = ['date', 'quantite', 'nom'];
@@ -81,7 +89,7 @@ export default function ColumnMappingModal({
       console.log('📤 [ColumnMappingModal] Appel API import...');
       addLogEntry(newLogId, 'Étape 3: Import en cours', 'Envoi du fichier au serveur...', 'info');
       
-      const result = await fileUploadAPI.import(file, mapping);
+      const result = await fileUploadAPI.import(activeProperty.id, file, mapping);
       
       // Afficher l'avertissement si fichier déjà chargé (dans le message)
       if (result.message && result.message.includes('⚠️')) {

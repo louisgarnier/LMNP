@@ -25,6 +25,14 @@ class Property(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relations
+    transactions = relationship("Transaction", back_populates="property", cascade="all, delete-orphan")
+    enriched_transactions = relationship("EnrichedTransaction", back_populates="property", cascade="all, delete-orphan")
+    mappings = relationship("Mapping", back_populates="property", cascade="all, delete-orphan")
+    file_imports = relationship("FileImport", back_populates="property", cascade="all, delete-orphan")
+    mapping_imports = relationship("MappingImport", back_populates="property", cascade="all, delete-orphan")
+    allowed_mappings = relationship("AllowedMapping", back_populates="property", cascade="all, delete-orphan")
+    
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_property_name', 'name', unique=True),
@@ -36,6 +44,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
     date = Column(Date, nullable=False, index=True)
     quantite = Column(Float, nullable=False)  # Montant de la transaction
     nom = Column(String(500), nullable=False, index=True)  # Description/nom de la transaction
@@ -44,9 +53,13 @@ class Transaction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Index pour détection de doublons
+    # Relations
+    property = relationship("Property", back_populates="transactions")
+    
+    # Index pour détection de doublons et recherche par property_id
     __table_args__ = (
         Index('idx_transaction_unique', 'date', 'quantite', 'nom'),
+        Index('idx_transactions_property_id', 'property_id'),
     )
 
 
@@ -55,7 +68,8 @@ class EnrichedTransaction(Base):
     __tablename__ = "enriched_transactions"
     
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False, unique=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
     mois = Column(Integer, nullable=False, index=True)  # 1-12
     annee = Column(Integer, nullable=False, index=True)
     level_1 = Column(String(100), index=True)  # Catégorie principale
@@ -64,13 +78,15 @@ class EnrichedTransaction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relation
+    # Relations
     transaction = relationship("Transaction", backref="enriched")
+    property = relationship("Property", back_populates="enriched_transactions")
     
-    # Index pour recherches fréquentes
+    # Index pour recherches fréquentes et recherche par property_id
     __table_args__ = (
         Index('idx_enriched_year_month', 'annee', 'mois'),
         Index('idx_enriched_levels', 'level_1', 'level_2', 'level_3'),
+        Index('idx_enriched_transactions_property_id', 'property_id'),
     )
 
 
@@ -79,7 +95,8 @@ class Mapping(Base):
     __tablename__ = "mappings"
     
     id = Column(Integer, primary_key=True, index=True)
-    nom = Column(String(500), nullable=False, unique=True, index=True)  # Nom/pattern de transaction
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
+    nom = Column(String(500), nullable=False, index=True)  # Nom/pattern de transaction (plus unique, car isolé par property_id)
     level_1 = Column(String(100), nullable=False)
     level_2 = Column(String(100), nullable=False)
     level_3 = Column(String(100))
@@ -87,6 +104,15 @@ class Mapping(Base):
     priority = Column(Integer, default=0)  # Priorité pour résolution de conflits
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relations
+    property = relationship("Property", back_populates="mappings")
+    
+    # Index pour recherche par property_id et unicité par property
+    __table_args__ = (
+        Index('idx_mappings_property_id', 'property_id'),
+        Index('idx_mappings_property_nom_unique', 'property_id', 'nom', unique=True),  # Unique par propriété
+    )
 
 
 class Parameter(Base):
@@ -158,7 +184,8 @@ class FileImport(Base):
     __tablename__ = "file_imports"
     
     id = Column(Integer, primary_key=True, index=True)
-    filename = Column(String(255), nullable=False, unique=True, index=True)  # Nom du fichier (unique)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255), nullable=False, index=True)  # Plus unique globalement, unique par property_id
     imported_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     imported_count = Column(Integer, default=0)  # Nombre de transactions importées
     duplicates_count = Column(Integer, default=0)  # Nombre de doublons détectés
@@ -168,10 +195,15 @@ class FileImport(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Index pour recherches
+    # Relations
+    property = relationship("Property", back_populates="file_imports")
+    
+    # Index pour recherches et unicité par property
     __table_args__ = (
+        Index('idx_file_imports_property_id', 'property_id'),
         Index('idx_file_imports_filename', 'filename'),
         Index('idx_file_imports_imported_at', 'imported_at'),
+        Index('idx_file_imports_property_filename_unique', 'property_id', 'filename', unique=True),  # Unique par propriété
     )
 
 
@@ -180,7 +212,8 @@ class MappingImport(Base):
     __tablename__ = "mapping_imports"
     
     id = Column(Integer, primary_key=True, index=True)
-    filename = Column(String(255), nullable=False, unique=True, index=True)  # Nom du fichier (unique)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(255), nullable=False, index=True)  # Plus unique globalement, unique par property_id
     imported_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     imported_count = Column(Integer, default=0)  # Nombre de mappings importés
     duplicates_count = Column(Integer, default=0)  # Nombre de doublons détectés
@@ -188,10 +221,15 @@ class MappingImport(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Index pour recherches
+    # Relations
+    property = relationship("Property", back_populates="mapping_imports")
+    
+    # Index pour recherches et unicité par property
     __table_args__ = (
+        Index('idx_mapping_imports_property_id', 'property_id'),
         Index('idx_mapping_imports_filename', 'filename'),
         Index('idx_mapping_imports_imported_at', 'imported_at'),
+        Index('idx_mapping_imports_property_filename_unique', 'property_id', 'filename', unique=True),  # Unique par propriété
     )
 
 
@@ -216,6 +254,7 @@ class AllowedMapping(Base):
     __tablename__ = "allowed_mappings"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     level_1 = Column(String(100), nullable=False, index=True)  # Catégorie principale
     level_2 = Column(String(100), nullable=False, index=True)  # Sous-catégorie
     level_3 = Column(String(100), index=True)  # Détail spécifique (nullable)
@@ -223,10 +262,13 @@ class AllowedMapping(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Contrainte unique sur la combinaison (level_1, level_2, level_3)
+    # Relation avec Property
+    property = relationship("Property", back_populates="allowed_mappings")
+    
+    # Contrainte unique sur la combinaison (property_id, level_1, level_2, level_3)
     # Index pour recherches fréquentes
     __table_args__ = (
-        Index('idx_allowed_mapping_unique', 'level_1', 'level_2', 'level_3', unique=True),
+        Index('idx_allowed_mapping_unique', 'property_id', 'level_1', 'level_2', 'level_3', unique=True),
         Index('idx_allowed_mapping_level_1', 'level_1'),
         Index('idx_allowed_mapping_level_2', 'level_2'),
         Index('idx_allowed_mapping_level_3', 'level_3'),
@@ -258,7 +300,7 @@ class AmortizationResult(Base):
     __tablename__ = "amortization_results"
     
     id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
     year = Column(Integer, nullable=False, index=True)  # Année d'amortissement (ex: 2021, 2022)
     category = Column(String(255), nullable=False, index=True)  # Nom du type d'amortissement (ex: "Immobilisation terrain")
     amount = Column(Float, nullable=False)  # Montant amorti pour cette année (négatif)

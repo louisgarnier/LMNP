@@ -38,14 +38,15 @@ def validate_level3_value(level_3: str) -> bool:
     return level_3 in ALLOWED_LEVEL_3_VALUES
 
 
-def load_allowed_mappings_from_excel(db: Session, excel_path: Optional[Path] = None) -> int:
+def load_allowed_mappings_from_excel(db: Session, property_id: int, excel_path: Optional[Path] = None) -> int:
     """
-    Charge le fichier Excel et insère les combinaisons dans la table allowed_mappings.
+    Charge le fichier Excel et insère les combinaisons dans la table allowed_mappings pour une propriété spécifique.
     
     Les combinaisons sont marquées avec is_hardcoded = True (protégées).
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété pour laquelle charger les mappings
         excel_path: Chemin vers le fichier Excel (par défaut: scripts/mappings_obligatoires.xlsx)
     
     Returns:
@@ -77,7 +78,7 @@ def load_allowed_mappings_from_excel(db: Session, excel_path: Optional[Path] = N
     # Compter les combinaisons chargées
     loaded_count = 0
     
-        # Parcourir les lignes et insérer les combinaisons
+    # Parcourir les lignes et insérer les combinaisons
     for idx, row in df.iterrows():
         level_1 = str(row['Level 1']).strip() if pd.notna(row['Level 1']) else None
         level_2 = str(row['Level 2']).strip() if pd.notna(row['Level 2']) else None
@@ -91,8 +92,9 @@ def load_allowed_mappings_from_excel(db: Session, excel_path: Optional[Path] = N
         if level_3 and not validate_level3_value(level_3):
             continue  # Ignorer les lignes avec level_3 invalide
         
-        # Vérifier si la combinaison existe déjà
+        # Vérifier si la combinaison existe déjà pour cette propriété
         query = db.query(AllowedMapping).filter(
+            AllowedMapping.property_id == property_id,
             AllowedMapping.level_1 == level_1,
             AllowedMapping.level_2 == level_2
         )
@@ -107,12 +109,13 @@ def load_allowed_mappings_from_excel(db: Session, excel_path: Optional[Path] = N
             # Mettre à jour is_hardcoded si nécessaire
             if not existing.is_hardcoded:
                 existing.is_hardcoded = True
-                db.commit()
+                db.flush()
             continue
         
         # Créer la nouvelle combinaison
         try:
             allowed_mapping = AllowedMapping(
+                property_id=property_id,
                 level_1=level_1,
                 level_2=level_2,
                 level_3=level_3,
@@ -130,71 +133,79 @@ def load_allowed_mappings_from_excel(db: Session, excel_path: Optional[Path] = N
     return loaded_count
 
 
-def get_allowed_level1_values(db: Session) -> List[str]:
+def get_allowed_level1_values(db: Session, property_id: int) -> List[str]:
     """
-    Retourne toutes les valeurs level_1 autorisées (distinct).
+    Retourne toutes les valeurs level_1 autorisées (distinct) pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     
     Returns:
         Liste des valeurs level_1 uniques, triées
     """
     values = db.query(distinct(AllowedMapping.level_1)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_1.isnot(None)
     ).order_by(AllowedMapping.level_1).all()
     return [v[0] for v in values if v[0]]
 
 
-def get_allowed_level2_values(db: Session, level_1: str) -> List[str]:
+def get_allowed_level2_values(db: Session, level_1: str, property_id: int) -> List[str]:
     """
-    Retourne les valeurs level_2 autorisées pour un level_1 donné (distinct).
+    Retourne les valeurs level_2 autorisées pour un level_1 donné (distinct) pour une propriété.
     
     Args:
         db: Session de base de données
         level_1: Valeur de level_1
+        property_id: ID de la propriété
     
     Returns:
         Liste des valeurs level_2 uniques pour ce level_1, triées
     """
     values = db.query(distinct(AllowedMapping.level_2)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_1 == level_1,
         AllowedMapping.level_2.isnot(None)
     ).order_by(AllowedMapping.level_2).all()
     return [v[0] for v in values if v[0]]
 
 
-def get_all_allowed_level2_values(db: Session) -> List[str]:
+def get_all_allowed_level2_values(db: Session, property_id: int) -> List[str]:
     """
-    Retourne toutes les valeurs level_2 autorisées (distinct, sans filtre level_1).
+    Retourne toutes les valeurs level_2 autorisées (distinct, sans filtre level_1) pour une propriété.
     
     Utilisé pour le scénario 2 : quand on peut sélectionner level_2 avant level_1.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     
     Returns:
         Liste de toutes les valeurs level_2 uniques, triées
     """
     values = db.query(distinct(AllowedMapping.level_2)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_2.isnot(None)
     ).order_by(AllowedMapping.level_2).all()
     return [v[0] for v in values if v[0]]
 
 
-def get_allowed_level3_values(db: Session, level_1: str, level_2: str) -> List[str]:
+def get_allowed_level3_values(db: Session, level_1: str, level_2: str, property_id: int) -> List[str]:
     """
-    Retourne les valeurs level_3 autorisées pour un couple (level_1, level_2) (distinct).
+    Retourne les valeurs level_3 autorisées pour un couple (level_1, level_2) (distinct) pour une propriété.
     
     Args:
         db: Session de base de données
         level_1: Valeur de level_1
         level_2: Valeur de level_2
+        property_id: ID de la propriété
     
     Returns:
         Liste des valeurs level_3 uniques pour ce couple, triées
     """
     values = db.query(distinct(AllowedMapping.level_3)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_1 == level_1,
         AllowedMapping.level_2 == level_2,
         AllowedMapping.level_3.isnot(None)
@@ -202,7 +213,7 @@ def get_allowed_level3_values(db: Session, level_1: str, level_2: str) -> List[s
     return [v[0] for v in values if v[0]]
 
 
-def validate_mapping(db: Session, level_1: str, level_2: str, level_3: Optional[str] = None) -> bool:
+def validate_mapping(db: Session, level_1: str, level_2: str, level_3: Optional[str] = None, property_id: Optional[int] = None) -> bool:
     """
     Valide qu'une combinaison existe dans la table allowed_mappings.
     
@@ -211,11 +222,16 @@ def validate_mapping(db: Session, level_1: str, level_2: str, level_3: Optional[
         level_1: Valeur de level_1
         level_2: Valeur de level_2
         level_3: Valeur de level_3 (optionnel)
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         True si la combinaison existe, False sinon
     """
+    if property_id is None:
+        raise ValueError("property_id est obligatoire pour valider un mapping")
+    
     query = db.query(AllowedMapping).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_1 == level_1,
         AllowedMapping.level_2 == level_2
     )
@@ -331,20 +347,21 @@ def get_allowed_level3_for_level2(db: Session, level_2: str) -> List[str]:
     return [v[0] for v in values if v[0]]
 
 
-def get_all_allowed_mappings(db: Session, skip: int = 0, limit: int = 100) -> tuple[List[AllowedMapping], int]:
+def get_all_allowed_mappings(db: Session, property_id: int, skip: int = 0, limit: int = 100) -> tuple[List[AllowedMapping], int]:
     """
-    Récupère tous les mappings autorisés avec pagination.
+    Récupère tous les mappings autorisés avec pagination pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
         skip: Nombre d'éléments à sauter
         limit: Nombre d'éléments à retourner
     
     Returns:
         Tuple (liste des mappings, total)
     """
-    total = db.query(AllowedMapping).count()
-    mappings = db.query(AllowedMapping).order_by(
+    total = db.query(AllowedMapping).filter(AllowedMapping.property_id == property_id).count()
+    mappings = db.query(AllowedMapping).filter(AllowedMapping.property_id == property_id).order_by(
         AllowedMapping.is_hardcoded.desc(),  # Hard codés en premier
         AllowedMapping.level_1,
         AllowedMapping.level_2,
@@ -353,14 +370,15 @@ def get_all_allowed_mappings(db: Session, skip: int = 0, limit: int = 100) -> tu
     return mappings, total
 
 
-def create_allowed_mapping(db: Session, level_1: str, level_2: str, level_3: Optional[str] = None) -> AllowedMapping:
+def create_allowed_mapping(db: Session, level_1: str, level_2: str, property_id: int, level_3: Optional[str] = None) -> AllowedMapping:
     """
-    Crée un nouveau mapping autorisé.
+    Crée un nouveau mapping autorisé pour une propriété.
     
     Args:
         db: Session de base de données
         level_1: Valeur de level_1
         level_2: Valeur de level_2
+        property_id: ID de la propriété
         level_3: Valeur de level_3 (optionnel)
     
     Returns:
@@ -373,12 +391,13 @@ def create_allowed_mapping(db: Session, level_1: str, level_2: str, level_3: Opt
     if level_3 is not None and not validate_level3_value(level_3):
         raise ValueError(f"level_3='{level_3}' n'est pas autorisé. Valeurs autorisées: {', '.join(ALLOWED_LEVEL_3_VALUES)}")
     
-    # Vérifier si la combinaison existe déjà
-    if validate_mapping(db, level_1, level_2, level_3):
-        raise ValueError(f"La combinaison (level_1='{level_1}', level_2='{level_2}', level_3={level_3}) existe déjà")
+    # Vérifier si la combinaison existe déjà pour cette propriété
+    if validate_mapping(db, level_1, level_2, level_3, property_id):
+        raise ValueError(f"La combinaison (level_1='{level_1}', level_2='{level_2}', level_3={level_3}) existe déjà pour cette propriété")
     
     # Créer le mapping (is_hardcoded = False car ajouté manuellement)
     mapping = AllowedMapping(
+        property_id=property_id,
         level_1=level_1,
         level_2=level_2,
         level_3=level_3,

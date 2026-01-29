@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import { useImportLog, ImportLogEntry } from '@/contexts/ImportLogContext';
 import { transactionsAPI, fileUploadAPI } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -30,6 +31,7 @@ interface ImportLogProps {
 }
 
 export default function ImportLog({ hideHeader = false, onTransactionCountChange, hideDbHistory = false }: ImportLogProps) {
+  const { activeProperty } = useProperty();
   const { logs: memoryLogs, updateLog } = useImportLog();
   const [dbHistory, setDbHistory] = useState<FileImportHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -52,9 +54,17 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
   // Load database history
   const loadHistory = async () => {
     setIsLoading(true);
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[ImportLog] loadHistory - Aucune propriété active ou ID invalide, ne charge pas l\'historique.');
+      setDbHistory([]);
+      setIsLoading(false);
+      return;
+    }
     try {
-      const data = await fileUploadAPI.getImportsHistory();
+      console.log('[ImportLog] loadHistory - Appel API avec propertyId:', activeProperty.id);
+      const data = await fileUploadAPI.getImportsHistory(activeProperty.id);
       setDbHistory(data);
+      console.log('[ImportLog] loadHistory - Réponse:', { count: data.length, propertyId: activeProperty.id });
     } catch (error) {
       console.error('Error loading import history:', error);
     } finally {
@@ -64,14 +74,38 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
 
   // Load transaction count
   const loadTransactionCount = async () => {
+    console.log('[ImportLog] loadTransactionCount - activeProperty:', activeProperty);
+    console.log('[ImportLog] loadTransactionCount - activeProperty?.id:', activeProperty?.id);
+    
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[ImportLog] loadTransactionCount - PROPERTY INVALIDE, pas de chargement:', {
+        activeProperty,
+        id: activeProperty?.id,
+        reason: !activeProperty ? 'activeProperty is null/undefined' : 
+                !activeProperty.id ? 'activeProperty.id is null/undefined' : 
+                'activeProperty.id <= 0'
+      });
+      setTransactionCount(null);
+      if (onTransactionCountChange) {
+        onTransactionCountChange(0);
+      }
+      return;
+    }
+    
+    console.log('[ImportLog] loadTransactionCount - Appel API avec property_id:', activeProperty.id);
     try {
-      const response = await transactionsAPI.getAll(0, 1);
+      const response = await transactionsAPI.getAll(activeProperty.id, 0, 1);
+      console.log('[ImportLog] loadTransactionCount - Réponse:', response.total);
       setTransactionCount(response.total);
       if (onTransactionCountChange) {
         onTransactionCountChange(response.total);
       }
     } catch (error) {
-      console.error('Error loading transaction count:', error);
+      console.error('[ImportLog] Error loading transaction count:', error);
+      setTransactionCount(null);
+      if (onTransactionCountChange) {
+        onTransactionCountChange(0);
+      }
     }
   };
 
@@ -80,8 +114,11 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
     if (showDbHistory) {
       loadHistory();
     }
-    loadTransactionCount();
-  }, []);
+    // Ne charger le compteur que si une propriété est sélectionnée
+    if (activeProperty && activeProperty.id && activeProperty.id > 0) {
+      loadTransactionCount();
+    }
+  }, [activeProperty?.id]);
 
   // Auto-refresh selected log if in progress
   useEffect(() => {
@@ -100,7 +137,10 @@ export default function ImportLog({ hideHeader = false, onTransactionCountChange
       if (showDbHistory) {
         loadHistory();
       }
-      loadTransactionCount();
+      // Ne rafraîchir le compteur que si une propriété est sélectionnée
+      if (activeProperty && activeProperty.id && activeProperty.id > 0) {
+        loadTransactionCount();
+      }
     }, 2500); // Every 2.5 seconds
 
     return () => clearInterval(interval);

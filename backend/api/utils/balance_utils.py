@@ -9,16 +9,19 @@ from backend.database.models import Transaction
 from datetime import date
 
 
-def recalculate_balances_from_date(db: Session, from_date: date) -> None:
+def recalculate_balances_from_date(db: Session, from_date: date, property_id: int) -> None:
     """
-    Recalcule les soldes de toutes les transactions à partir d'une date donnée.
+    Recalcule les soldes de toutes les transactions à partir d'une date donnée pour une propriété.
     
     Args:
         db: Session de base de données
         from_date: Date à partir de laquelle recalculer (inclusive)
+        property_id: ID de la propriété (obligatoire)
     """
-    # Récupérer toutes les transactions triées par date
-    all_transactions = db.query(Transaction).order_by(Transaction.date, Transaction.id).all()
+    # Récupérer toutes les transactions triées par date - FILTRER PAR PROPERTY_ID
+    all_transactions = db.query(Transaction).filter(
+        Transaction.property_id == property_id
+    ).order_by(Transaction.date, Transaction.id).all()
     
     if not all_transactions:
         return
@@ -46,14 +49,16 @@ def recalculate_balances_from_date(db: Session, from_date: date) -> None:
     db.commit()
 
 
-def recalculate_all_balances(db: Session) -> None:
+def recalculate_all_balances(db: Session, property_id: int) -> None:
     """
     Recalcule tous les soldes depuis le début (solde initial = 0).
     
     Args:
         db: Session de base de données
     """
-    transactions = db.query(Transaction).order_by(Transaction.date, Transaction.id).all()
+    transactions = db.query(Transaction).filter(
+        Transaction.property_id == property_id
+    ).order_by(Transaction.date, Transaction.id).all()
     
     current_solde = 0.0
     for transaction in transactions:

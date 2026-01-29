@@ -18,6 +18,7 @@ import MappingImportLog from '@/components/MappingImportLog';
 import AllowedMappingsTable from '@/components/AllowedMappingsTable';
 import { transactionsAPI, mappingsAPI, fileUploadAPI } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
+import { useProperty } from '@/contexts/PropertyContext';
 
 // Helper function to download a blob as a file
 const downloadBlob = (blob: Blob, filename: string) => {
@@ -32,6 +33,17 @@ const downloadBlob = (blob: Blob, filename: string) => {
 };
 
 export default function TransactionsPage() {
+  const { activeProperty } = useProperty();
+  
+  // Log pour déboguer les changements de activeProperty
+  useEffect(() => {
+    console.log('[TransactionsPage] 🔍 activeProperty changé:', activeProperty);
+    console.log('[TransactionsPage] 🔍 activeProperty?.id:', activeProperty?.id, 'type:', typeof activeProperty?.id);
+    if (activeProperty) {
+      console.log('[TransactionsPage] 🔍 activeProperty complet:', JSON.stringify(activeProperty, null, 2));
+    }
+  }, [activeProperty]);
+  
   const searchParams = useSearchParams();
   const filter = searchParams?.get('filter');
   const tab = searchParams?.get('tab');
@@ -46,9 +58,27 @@ export default function TransactionsPage() {
   const [exportError, setExportError] = useState<string | null>(null);
 
   const loadTransactionCount = async () => {
+    console.log('[TransactionsPage] loadTransactionCount - activeProperty:', activeProperty);
+    console.log('[TransactionsPage] loadTransactionCount - activeProperty?.id:', activeProperty?.id);
+    
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[TransactionsPage] loadTransactionCount - PROPERTY INVALIDE:', {
+        activeProperty,
+        id: activeProperty?.id,
+        reason: !activeProperty ? 'activeProperty is null/undefined' : 
+                !activeProperty.id ? 'activeProperty.id is null/undefined' : 
+                'activeProperty.id <= 0'
+      });
+      setTransactionCount(null);
+      setIsLoadingCount(false);
+      return;
+    }
+    
+    console.log('[TransactionsPage] loadTransactionCount - Appel API avec property_id:', activeProperty.id);
     setIsLoadingCount(true);
     try {
-      const response = await transactionsAPI.getAll(0, 1);
+      const response = await transactionsAPI.getAll(activeProperty.id, 0, 1);
+      console.log('[TransactionsPage] loadTransactionCount - Réponse:', response.total);
       setTransactionCount(response.total);
     } catch (error) {
       console.error('Error loading transaction count:', error);
@@ -59,12 +89,21 @@ export default function TransactionsPage() {
   };
 
   const loadMappingCount = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[TransactionsPage] loadMappingCount - PROPERTY INVALIDE. Skipping API call.');
+      setMappingCount(null);
+      setIsLoadingMappingCount(false);
+      return;
+    }
+    
+    console.log('[TransactionsPage] loadMappingCount - Appel avec propertyId:', activeProperty.id);
     setIsLoadingMappingCount(true);
     try {
-      const response = await mappingsAPI.getCount();
+      const response = await mappingsAPI.getCount(activeProperty.id);
+      console.log('[TransactionsPage] loadMappingCount - Réponse:', { count: response.count, propertyId: activeProperty.id });
       setMappingCount(response.count);
     } catch (error) {
-      console.error('Error loading mapping count:', error);
+      console.error('[TransactionsPage] loadMappingCount - Erreur:', error);
       setMappingCount(null);
     } finally {
       setIsLoadingMappingCount(false);
@@ -72,11 +111,17 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
-    if (tab === 'load_trades') {
+    if (tab === 'load_trades' && activeProperty && activeProperty.id && activeProperty.id > 0) {
       loadTransactionCount();
       loadMappingCount();
+    } else if (tab === 'load_trades') {
+      // Pas de propriété valide, réinitialiser les compteurs
+      setTransactionCount(null);
+      setMappingCount(null);
+      setIsLoadingCount(false);
+      setIsLoadingMappingCount(false);
     }
-  }, [tab]);
+  }, [tab, activeProperty?.id]);
 
   const handleFileSelect = (file: File) => {
     console.log('📁 [TransactionsPage] Fichier sélectionné:', file.name);
@@ -95,7 +140,11 @@ export default function TransactionsPage() {
     setIsExportingMappings(true);
     setExportError(null);
     try {
-      const blob = await mappingsAPI.export(format);
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        alert('❌ Aucune propriété active sélectionnée. Veuillez sélectionner une propriété avant d\'exporter.');
+        return;
+      }
+      const blob = await mappingsAPI.export(activeProperty.id, format);
       const extension = format === 'excel' ? 'xlsx' : 'csv';
       const today = new Date().toISOString().split('T')[0];
       const filename = `mappings_${today}.${extension}`;
@@ -253,14 +302,18 @@ export default function TransactionsPage() {
                 <button
                   onClick={async () => {
                     if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer DÉFINITIVEMENT tous les historiques d\'imports ?\n\nCette action est irréversible et supprimera tous les logs de transactions ET de mappings de la base de données.')) {
+                      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+                        alert('❌ Aucune propriété active sélectionnée. Veuillez sélectionner une propriété avant de supprimer les imports.');
+                        return;
+                      }
                       try {
-                        // Supprimer tous les imports de transactions
-                        await fileUploadAPI.deleteAllImports();
-                        console.log('✅ Tous les imports de transactions supprimés');
+                        // Supprimer tous les imports de transactions pour cette propriété
+                        await fileUploadAPI.deleteAllImports(activeProperty.id);
+                        console.log('✅ Tous les imports de transactions supprimés pour property_id:', activeProperty.id);
                         
-                        // Supprimer tous les imports de mappings
-                        await mappingsAPI.deleteAllImports();
-                        console.log('✅ Tous les imports de mappings supprimés');
+                        // Supprimer tous les imports de mappings pour cette propriété
+                        await mappingsAPI.deleteAllImports(activeProperty.id);
+                        console.log('✅ Tous les imports de mappings supprimés pour property_id:', activeProperty.id);
                         
                         // Vider les logs en mémoire
                         clearLogs();

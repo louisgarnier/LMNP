@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { transactionsAPI, Transaction, TransactionUpdate, enrichmentAPI, mappingsAPI } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface TransactionsTableProps {
   onDelete?: () => void;
@@ -19,6 +20,7 @@ type SortColumn = 'date' | 'quantite' | 'nom' | 'solde' | 'level_1' | 'level_2' 
 type SortDirection = 'asc' | 'desc';
 
 export default function TransactionsTable({ onDelete, unclassifiedOnly = false, onUpdate }: TransactionsTableProps) {
+  const { activeProperty } = useProperty();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
@@ -69,6 +71,25 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [exportError, setExportError] = useState<string | null>(null);
 
   const loadTransactions = async () => {
+    console.log('[TransactionsTable] loadTransactions - activeProperty:', activeProperty);
+    console.log('[TransactionsTable] loadTransactions - activeProperty?.id:', activeProperty?.id);
+    
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[TransactionsTable] loadTransactions - PROPERTY INVALIDE:', {
+        activeProperty,
+        id: activeProperty?.id,
+        reason: !activeProperty ? 'activeProperty is null/undefined' : 
+                !activeProperty.id ? 'activeProperty.id is null/undefined' : 
+                'activeProperty.id <= 0'
+      });
+      setError('Aucune propriété sélectionnée');
+      setRawTransactions([]);
+      setTotal(0);
+      setIsLoading(false);
+      return;
+    }
+    
+    console.log('[TransactionsTable] loadTransactions - Appel API avec property_id:', activeProperty.id, 'page:', page);
     setIsLoading(true);
     setError(null);
     try {
@@ -78,8 +99,9 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       // Le backend ne supporte pas encore ce type de filtre pour les nombres, donc on les garde côté client
       // Pour l'instant, on ne passe pas ces filtres à l'API
       
-      // Appel API avec tri et filtres côté serveur (texte uniquement)
+      // Appel API avec tri et filtres côté serveur (texte uniquement) - AJOUTER PROPERTY_ID
       const response = await transactionsAPI.getAll(
+        activeProperty.id,
         skip,
         pageSize,
         undefined, // startDate (supprimé)
@@ -115,10 +137,40 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     }
   }, [appliedFilterDate, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
 
-  // Recharger depuis l'API quand page, tri, date range ou filtres changent
+  // Recharger depuis l'API quand page, tri, date range, filtres ou propriété changent
   useEffect(() => {
-    loadTransactions();
-  }, [page, pageSize, sortColumn, sortDirection, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
+    console.log('[TransactionsTable] useEffect déclenché - activeProperty:', activeProperty);
+    console.log('[TransactionsTable] useEffect - activeProperty?.id:', activeProperty?.id);
+    console.log('[TransactionsTable] useEffect - Dépendances:', { 
+      page, 
+      pageSize, 
+      sortColumn, 
+      sortDirection, 
+      activePropertyId: activeProperty?.id 
+    });
+    
+    if (activeProperty && activeProperty.id && activeProperty.id > 0) {
+      console.log('[TransactionsTable] useEffect - ✅ Property valide, chargement des transactions');
+      loadTransactions();
+      // Réinitialiser la page à 1 quand la propriété change
+      setPage(1);
+    } else {
+      console.warn('[TransactionsTable] useEffect - ❌ PROPERTY INVALIDE, vidage des transactions:', {
+        activeProperty,
+        id: activeProperty?.id,
+        type: typeof activeProperty?.id,
+        reason: !activeProperty ? 'activeProperty is null/undefined' : 
+                !activeProperty.id ? 'activeProperty.id is null/undefined' : 
+                activeProperty.id <= 0 ? `activeProperty.id (${activeProperty.id}) <= 0` : 
+                'unknown'
+      });
+      // Pas de propriété sélectionnée, vider les transactions
+      setRawTransactions([]);
+      setTotal(0);
+      setError('Aucune propriété sélectionnée');
+      setIsLoading(false);
+    }
+  }, [page, pageSize, sortColumn, sortDirection, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde, activeProperty?.id]);
 
   // L'API fait déjà le filtrage pour les filtres texte (nom, level_1/2/3)
   // On doit encore filtrer localement pour date, quantité et solde (non supportés côté serveur)
@@ -212,26 +264,32 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   // Step 5.5.3: Charger les level_1 autorisés au montage
   useEffect(() => {
     const loadAllowedLevel1 = async () => {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[TransactionsTable] loadAllowedLevel1 - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
       try {
-        const response = await mappingsAPI.getAllowedLevel1();
+        const response = await mappingsAPI.getAllowedLevel1(activeProperty.id);
         setAllowedLevel1List(response.level_1 || []);
       } catch (err) {
         console.error('Error loading allowed level_1:', err);
       }
     };
     loadAllowedLevel1();
-  }, []);
+  }, [activeProperty?.id]);
   // Cela évite de filtrer pendant la saisie et de tout cacher si aucune transaction ne correspond
 
   // Charger les valeurs uniques pour les filtres
   useEffect(() => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) return;
+    
     const loadUniqueValues = async () => {
       try {
         const [noms, level1s, level2s, level3s] = await Promise.all([
-          transactionsAPI.getUniqueValues('nom'),
-          transactionsAPI.getUniqueValues('level_1'),
-          transactionsAPI.getUniqueValues('level_2'),
-          transactionsAPI.getUniqueValues('level_3'),
+        transactionsAPI.getUniqueValues(activeProperty.id, 'nom'),
+        transactionsAPI.getUniqueValues(activeProperty.id, 'level_1'),
+        transactionsAPI.getUniqueValues(activeProperty.id, 'level_2'),
+        transactionsAPI.getUniqueValues(activeProperty.id, 'level_3'),
         ]);
         setUniqueNoms(noms.values);
         setUniqueLevel1s(level1s.values);
@@ -242,7 +300,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       }
     };
     loadUniqueValues();
-  }, []);
+  }, [activeProperty?.id]);
 
   const handleSort = useCallback((column: SortColumn) => {
     if (sortColumn === column) {
@@ -266,6 +324,11 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   }, []);
 
   const handleExport = useCallback(async (format: 'excel' | 'csv') => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      setExportError('Aucune propriété sélectionnée');
+      return;
+    }
+    
     setIsExporting(true);
     setExportError(null);
     try {
@@ -280,6 +343,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       }
 
       const blob = await transactionsAPI.export(
+        activeProperty.id,
         format,
         startDate,
         endDate,
@@ -397,13 +461,18 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
 
 
   const handleDelete = async (id: number) => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('Aucune propriété sélectionnée');
+      return;
+    }
+    
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) {
       return;
     }
 
     setDeletingId(id);
     try {
-      await transactionsAPI.delete(id);
+      await transactionsAPI.delete(id, activeProperty.id);
       setSelectedIds(prev => {
         const newSet = new Set(prev);
         newSet.delete(id);
@@ -444,6 +513,11 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   };
 
   const handleDeleteMultiple = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      alert('Aucune propriété sélectionnée');
+      return;
+    }
+    
     if (selectedIds.size === 0) {
       return;
     }
@@ -456,7 +530,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     setIsDeletingMultiple(true);
     try {
       // Supprimer toutes les transactions sélectionnées
-      const deletePromises = Array.from(selectedIds).map(id => transactionsAPI.delete(id));
+      const deletePromises = Array.from(selectedIds).map(id => transactionsAPI.delete(id, activeProperty.id));
       await Promise.all(deletePromises);
       
       setSelectedIds(new Set());
@@ -526,7 +600,12 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
 
       // Si des modifications ont été faites, sauvegarder
       if (Object.keys(updates).length > 0) {
-        await transactionsAPI.update(transaction.id, updates);
+        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+          alert('Aucune propriété sélectionnée');
+          return;
+        }
+        
+        await transactionsAPI.update(transaction.id, activeProperty.id, updates);
         setEditingId(null);
         setEditingValues({});
         await loadTransactions();
@@ -570,10 +649,15 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     
     
     // Step 5.5.3: Charger les level_1 autorisés depuis allowed_mappings
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[TransactionsTable] handleLevel1Change - PROPERTY INVALIDE. Skipping API calls.');
+      return;
+    }
+    
     try {
       // Utiliser la liste déjà chargée au montage, ou la recharger si nécessaire
       if (allowedLevel1List.length === 0) {
-        const response = await mappingsAPI.getAllowedLevel1();
+        const response = await mappingsAPI.getAllowedLevel1(activeProperty.id);
         setAllowedLevel1List(response.level_1 || []);
         setAvailableLevel1(response.level_1 || []);
       } else {
@@ -582,7 +666,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       
       // Step 5.5.4: Charger tous les level_2 disponibles pour permettre le scénario 2 (level_2 avant level_1)
       try {
-        const level2Response = await mappingsAPI.getAllowedLevel2();
+        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id);
         const level2List = level2Response.level_2 || [];
         setAvailableLevel2(level2List);
       } catch (err) {
@@ -598,13 +682,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       // Step 5.5.3: Si level_1 existe, charger les level_2 spécifiques et level_3 autorisés
       if (currentLevel1) {
         try {
-          const level2Response = await mappingsAPI.getAllowedLevel2(currentLevel1);
+          const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id, currentLevel1);
           const level2List = level2Response.level_2 || [];
           setAvailableLevel2(level2List);
           
           // Si level_2 existe aussi, charger les level_3 autorisés pour cette combinaison
           if (currentLevel2) {
-            const level3Response = await mappingsAPI.getAllowedLevel3(currentLevel1, currentLevel2);
+            const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, currentLevel1, currentLevel2);
             const level3List = level3Response.level_3 || [];
             setAvailableLevel3(level3List);
           }
@@ -653,9 +737,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     
     // Step 5.5.3: Charger level_2 et level_3 automatiquement pour ce level_1
     if (value) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[TransactionsTable] handleLevel1Change - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
       try {
         // Charger les level_2 autorisés pour ce level_1
-        const level2Response = await mappingsAPI.getAllowedLevel2(value);
+        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id, value);
         const level2List = level2Response.level_2 || [];
         setAvailableLevel2(level2List);
         
@@ -668,7 +756,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         // Charger les level_3 autorisés
         let selectedLevel3: string | undefined = undefined;
         if (selectedLevel2) {
-          const level3Response = await mappingsAPI.getAllowedLevel3(value, selectedLevel2);
+          const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, value, selectedLevel2);
           const level3List = level3Response.level_3 || [];
           setAvailableLevel3(level3List);
           
@@ -764,9 +852,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     } 
     // Si level_1 est déjà sélectionné, utiliser la logique normale
     else if (level_1 && value) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.warn('[TransactionsTable] handleLevel2Change - PROPERTY INVALIDE. Skipping API calls.');
+        return;
+      }
       try {
         // Charger les level_3 possibles pour cette combinaison level_1 + level_2
-        const level3Response = await mappingsAPI.getAllowedLevel3(level_1, value);
+        const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, level_1, value);
         const level3List = level3Response.level_3 || [];
         setAvailableLevel3(level3List);
         

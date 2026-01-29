@@ -8,8 +8,10 @@
 
 import { useEffect, useState } from 'react';
 import { healthAPI, transactionsAPI } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 export default function DashboardPage() {
+  const { activeProperty } = useProperty();
   const [apiStatus, setApiStatus] = useState<string>('checking...');
   const [transactionsCount, setTransactionsCount] = useState<number | null>(null);
 
@@ -18,14 +20,18 @@ export default function DashboardPage() {
       try {
         const healthResponse = await healthAPI.check();
         setApiStatus(healthResponse.status);
-        const transactionsResponse = await transactionsAPI.getAll(0, 1);
-        setTransactionsCount(transactionsResponse.total);
+        if (activeProperty && activeProperty.id && activeProperty.id > 0) {
+          const transactionsResponse = await transactionsAPI.getAll(activeProperty.id, 0, 1);
+          setTransactionsCount(transactionsResponse.total);
+        } else {
+          setTransactionsCount(null);
+        }
       } catch (error) {
         setApiStatus('error');
       }
     };
     checkAPI();
-  }, []);
+  }, [activeProperty?.id]);
 
   return (
     <div style={{ padding: '24px' }}>

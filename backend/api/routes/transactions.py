@@ -14,10 +14,14 @@ import os
 from pathlib import Path
 import pandas as pd
 import io
+import logging
 
 from backend.database import get_db
 from backend.database.models import Transaction, FileImport, EnrichedTransaction
 from backend.api.services.enrichment_service import enrich_transaction
+from backend.api.utils.validation import validate_property_id
+
+logger = logging.getLogger(__name__)
 from backend.api.models import (
     TransactionCreate,
     TransactionUpdate,
@@ -43,6 +47,7 @@ router = APIRouter()
 
 @router.get("/transactions", response_model=TransactionListResponse)
 async def get_transactions(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     start_date: Optional[date] = Query(None, description="Date de début (filtre)"),
@@ -63,6 +68,7 @@ async def get_transactions(
     """
     Récupérer la liste des transactions.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **skip**: Nombre d'éléments à sauter (pagination)
     - **limit**: Nombre d'éléments à retourner (max 1000)
     - **start_date**: Filtrer par date de début (optionnel)
@@ -78,8 +84,13 @@ async def get_transactions(
     - **filter_solde_min**: Filtrer par solde minimum
     - **filter_solde_max**: Filtrer par solde maximum
     """
-    # Base query - on va joindre avec EnrichedTransaction si nécessaire pour le tri ou les filtres
-    base_query = db.query(Transaction)
+    logger.info(f"[Transactions] GET /api/transactions - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
+    # Base query - filtrer par property_id dès le début
+    base_query = db.query(Transaction).filter(Transaction.property_id == property_id)
     
     # Déterminer si on doit joindre avec EnrichedTransaction
     needs_join = (
@@ -229,6 +240,8 @@ async def get_transactions(
     # Pagination
     transactions = query.offset(skip).limit(limit).all()
     
+    logger.info(f"[Transactions] Retourné {len(transactions)} transactions pour property_id={property_id} (total={total})")
+    
     # Récupérer les données enrichies pour chaque transaction
     transaction_responses = []
     for t in transactions:
@@ -263,6 +276,7 @@ async def get_transactions(
 
 @router.get("/transactions/unique-values")
 async def get_transaction_unique_values(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     column: str = Query(..., description="Nom de la colonne (nom, level_1, level_2, level_3)"),
     start_date: Optional[date] = Query(None, description="Date de début (filtre optionnel)"),
     end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel)"),
@@ -371,33 +385,64 @@ async def get_transaction_unique_values(
 
 @router.get("/transactions/imports", response_model=List[FileImportHistory])
 async def get_imports_history(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupère l'historique des imports de fichiers.
+    Récupère l'historique des imports de fichiers pour une propriété.
+    
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
+    
+    Returns:
+        Liste des imports de transactions triés par date (plus récent en premier) pour cette propriété
     """
-    imports = db.query(FileImport).order_by(FileImport.imported_at.desc()).all()
+    logger.info(f"[Transactions] GET /api/transactions/imports - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    logger.debug(f"[Transactions] GET /api/transactions/imports - property_id={property_id} validé")
+    
+    # Filtrer par property_id
+    imports = db.query(FileImport).filter(FileImport.property_id == property_id).order_by(FileImport.imported_at.desc()).all()
+    
+    logger.info(f"[Transactions] GET /api/transactions/imports - Retourné {len(imports)} import(s) pour property_id={property_id}")
     
     return [FileImportHistory.model_validate(imp) for imp in imports]
 
 
 @router.delete("/transactions/imports", status_code=204)
 async def delete_all_imports(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Supprime tous les imports de transactions de l'historique.
+    Supprime tous les imports de transactions de l'historique pour une propriété.
     
-    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les historiques d'imports.
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
+    
+    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les historiques d'imports pour cette propriété.
     """
-    db.query(FileImport).delete()
+    logger.info(f"[Transactions] DELETE /api/transactions/imports - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
+    # Filtrer par property_id
+    deleted_count = db.query(FileImport).filter(FileImport.property_id == property_id).delete()
     db.commit()
+    
+    logger.info(f"[Transactions] DELETE /api/transactions/imports - {deleted_count} import(s) supprimé(s) pour property_id={property_id}")
     
     return None
 
 
 @router.get("/transactions/sum-by-level1")
 async def get_transaction_sum_by_level1(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     level_1: str = Query(..., description="Valeur de level_1 à filtrer"),
     end_date: Optional[date] = Query(None, description="Date de fin (filtre optionnel, cumul jusqu'à cette date)"),
     db: Session = Depends(get_db)
@@ -407,17 +452,24 @@ async def get_transaction_sum_by_level1(
     
     Utile pour valider que le montant du crédit configuré correspond aux transactions réelles.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **level_1**: Valeur de level_1 à filtrer (ex: "Dettes financières (emprunt bancaire)")
     - **end_date**: Date de fin optionnelle (cumul jusqu'à cette date, sinon toutes les transactions)
     
     Returns:
         Montant total (somme des quantite) pour ce level_1
     """
+    logger.info(f"[Transactions] GET sum-by-level1 - property_id={property_id}, level_1={level_1}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
     query = db.query(
         func.sum(Transaction.quantite)
     ).join(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
+        Transaction.property_id == property_id,
         EnrichedTransaction.level_1 == level_1
     )
     
@@ -435,6 +487,7 @@ async def get_transaction_sum_by_level1(
 
 @router.get("/transactions/export")
 async def export_transactions(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     format: str = Query("excel", description="Format d'export: 'excel' ou 'csv'"),
     start_date: Optional[date] = Query(None, description="Date de début (filtre)"),
     end_date: Optional[date] = Query(None, description="Date de fin (filtre)"),
@@ -448,6 +501,7 @@ async def export_transactions(
     Exporter les transactions au format Excel ou CSV.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         format: Format d'export ("excel" ou "csv", défaut: "excel")
         start_date: Date de début (filtre optionnel)
         end_date: Date de fin (filtre optionnel)
@@ -460,8 +514,13 @@ async def export_transactions(
     Returns:
         Fichier Excel (.xlsx) ou CSV (.csv) avec les transactions
     """
-    # Construire la requête avec les mêmes filtres que GET /api/transactions
-    query = db.query(Transaction).outerjoin(
+    logger.info(f"[Transactions] GET export - property_id={property_id}, format={format}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
+    # Construire la requête avec les mêmes filtres que GET /api/transactions - FILTRER PAR PROPERTY_ID
+    query = db.query(Transaction).filter(Transaction.property_id == property_id).outerjoin(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     )
     
@@ -560,15 +619,24 @@ async def export_transactions(
 @router.get("/transactions/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Récupérer une transaction par son ID.
     """
-    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    logger.info(f"[Transactions] GET /api/transactions/{transaction_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.property_id == property_id
+    ).first()
     
     if not transaction:
-        raise HTTPException(status_code=404, detail="Transaction non trouvée")
+        raise HTTPException(status_code=404, detail="Transaction non trouvée ou n'appartient pas à cette propriété")
     
     # Récupérer les données enrichies
     enriched = db.query(EnrichedTransaction).filter(
@@ -602,6 +670,11 @@ async def create_transaction(
     Créer une nouvelle transaction.
     Note: Enrichit automatiquement la transaction et recalcule les amortissements si applicable.
     """
+    logger.info(f"[Transactions] POST /api/transactions - property_id={transaction.property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, transaction.property_id, "Transactions")
+    
     from backend.api.services.amortization_service import recalculate_transaction_amortization
     from backend.api.utils.balance_utils import recalculate_balances_from_date
     
@@ -609,6 +682,8 @@ async def create_transaction(
     db.add(db_transaction)
     db.commit()
     db.refresh(db_transaction)
+    
+    logger.info(f"[Transactions] Transaction créée: id={db_transaction.id}, property_id={transaction.property_id}")
     
     # Enrichir automatiquement la transaction
     try:
@@ -642,7 +717,7 @@ async def create_transaction(
     
     # Recalculer les soldes à partir de la date de la transaction
     try:
-        recalculate_balances_from_date(db, db_transaction.date)
+        recalculate_balances_from_date(db, db_transaction.date, transaction.property_id)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
@@ -673,18 +748,27 @@ async def create_transaction(
 async def update_transaction(
     transaction_id: int,
     transaction_update: TransactionUpdate,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Mettre à jour une transaction existante.
     Note: Recalcule automatiquement les soldes après modification.
     """
+    logger.info(f"[Transactions] PUT /api/transactions/{transaction_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
     from backend.api.utils.balance_utils import recalculate_balances_from_date
     
-    db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    db_transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.property_id == property_id
+    ).first()
     
     if not db_transaction:
-        raise HTTPException(status_code=404, detail="Transaction non trouvée")
+        raise HTTPException(status_code=404, detail="Transaction non trouvée ou n'appartient pas à cette propriété")
     
     # Sauvegarder la date avant modification pour recalculer les soldes
     old_date = db_transaction.date
@@ -725,7 +809,7 @@ async def update_transaction(
     
     # Recalculer les soldes à partir de la date la plus ancienne
     try:
-        recalculate_balances_from_date(db, min_date)
+        recalculate_balances_from_date(db, min_date, property_id)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
@@ -769,25 +853,36 @@ async def update_transaction(
     
     db.refresh(db_transaction)
     
+    logger.info(f"[Transactions] Transaction {transaction_id} mise à jour pour property_id={property_id}")
+    
     return TransactionResponse.model_validate(db_transaction)
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
 async def delete_transaction(
     transaction_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Supprimer une transaction.
     Note: Supprime également les données enrichies associées, les résultats d'amortissement et recalcule les soldes.
     """
+    logger.info(f"[Transactions] DELETE /api/transactions/{transaction_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
     from backend.database.models import EnrichedTransaction, Amortization, AmortizationResult
     from backend.api.utils.balance_utils import recalculate_balances_from_date
     
-    db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    db_transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.property_id == property_id
+    ).first()
     
     if not db_transaction:
-        raise HTTPException(status_code=404, detail="Transaction non trouvée")
+        raise HTTPException(status_code=404, detail="Transaction non trouvée ou n'appartient pas à cette propriété")
     
     # Sauvegarder la date pour recalculer les soldes après
     transaction_date = db_transaction.date
@@ -811,7 +906,7 @@ async def delete_transaction(
     db.commit()
     
     # Recalculer les soldes des transactions suivantes
-    recalculate_balances_from_date(db, transaction_date)
+    recalculate_balances_from_date(db, transaction_date, property_id)
     
     # Invalider le bilan pour l'année de la transaction supprimée
     try:
@@ -894,6 +989,7 @@ async def preview_file(
 
 @router.post("/transactions/import", response_model=FileImportResponse)
 async def import_file(
+    property_id: int = Form(..., description="ID de la propriété (obligatoire)"),
     file: UploadFile = File(...),
     mapping: str = Form(..., description="Mapping JSON string"),
     db: Session = Depends(get_db)
@@ -901,24 +997,33 @@ async def import_file(
     """
     Importe un fichier CSV dans la base de données.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **file**: Fichier CSV à importer
     - **mapping**: Mapping des colonnes (JSON string)
     - Retourne: Statistiques d'import (imported, duplicates, errors)
     """
     import json
     
+    logger.info(f"[Transactions] POST import - property_id={property_id}, file={file.filename}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id)
+    
     try:
         # Parser le mapping
         mapping_data = json.loads(mapping)
         column_mapping = {item['file_column']: item['db_column'] for item in mapping_data}
         
-        # Vérifier si fichier déjà chargé (avertissement mais on continue)
+        # Vérifier si fichier déjà chargé pour cette propriété (avertissement mais on continue)
         filename = file.filename or "unknown.csv"
-        existing_import = db.query(FileImport).filter(FileImport.filename == filename).first()
+        existing_import = db.query(FileImport).filter(
+            FileImport.filename == filename,
+            FileImport.property_id == property_id
+        ).first()
         warning_message = None
         
         if existing_import:
-            warning_message = f"⚠️ Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')}. Le traitement continue, les doublons seront détectés."
+            warning_message = f"⚠️ Le fichier {filename} a déjà été chargé le {existing_import.imported_at.strftime('%d/%m/%Y %H:%M')} pour cette propriété. Le traitement continue, les doublons seront détectés."
         
         # Lire le fichier
         file_content = await file.read()
@@ -1146,6 +1251,7 @@ async def import_file(
                 
                 # Créer la transaction avec solde calculé
                 transaction = Transaction(
+                    property_id=property_id,  # Ajouter property_id
                     date=date_value,
                     quantite=quantite_value,
                     nom=nom_value,  # Utiliser la valeur déjà vérifiée (non vide)
@@ -1207,16 +1313,17 @@ async def import_file(
             min_inserted_date = min(t.date for t in transactions_to_insert)
             # Recalculer tous les soldes depuis le début pour garantir la cohérence
             # (plus simple et plus sûr que de recalculer depuis une date spécifique)
-            recalculate_all_balances(db)
+            recalculate_all_balances(db, property_id)
             
             # Enrichir automatiquement toutes les transactions insérées
-            # Charger les mappings une seule fois pour optimiser
+            # Charger les mappings de cette propriété une seule fois pour optimiser
             from backend.database.models import Mapping
             from backend.api.services.amortization_service import recalculate_transaction_amortization
-            mappings = db.query(Mapping).all()
+            property_mappings = db.query(Mapping).filter(Mapping.property_id == property_id).all()
             for transaction in transactions_to_insert:
                 # Enrichir la transaction (elle a déjà un ID après flush)
-                enrich_transaction(transaction, db, mappings)
+                # enrich_transaction filtrera automatiquement les mappings par property_id
+                enrich_transaction(transaction, db, property_mappings)
                 
                 # Recalculer les amortissements après enrichissement
                 # (gestion silencieuse des erreurs pour ne pas bloquer l'import)
@@ -1241,8 +1348,9 @@ async def import_file(
             existing_import.period_end = period_end
             db.commit()
         else:
-            # Créer un nouvel enregistrement
+            # Créer un nouvel enregistrement avec property_id
             file_import = FileImport(
+                property_id=property_id,
                 filename=filename,
                 imported_count=imported_count,
                 duplicates_count=duplicates_count,
@@ -1256,6 +1364,8 @@ async def import_file(
         message = f"Import terminé: {imported_count} transactions importées, {duplicates_count} doublons détectés"
         if warning_message:
             message = f"{warning_message} {message}"
+        
+        logger.info(f"[Transactions] Import terminé: {imported_count} transactions créées pour property_id={property_id}")
         
         # Invalider les comptes de résultat pour toutes les années des transactions importées
         if period_start and period_end:

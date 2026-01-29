@@ -3,14 +3,16 @@
 
 @router.get("/mappings/allowed", response_model=AllowedMappingListResponse)
 async def get_allowed_mappings_endpoint(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupère tous les mappings autorisés avec pagination.
+    Récupère tous les mappings autorisés avec pagination pour une propriété.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         skip: Nombre d'éléments à sauter
         limit: Nombre d'éléments à retourner
         db: Session de base de données
@@ -18,7 +20,9 @@ async def get_allowed_mappings_endpoint(
     Returns:
         Liste des mappings autorisés avec total
     """
-    mappings, total = get_all_allowed_mappings(db, skip, limit)
+    from backend.api.utils.validation import validate_property_id
+    validate_property_id(db, property_id, "AllowedMappings")
+    mappings, total = get_all_allowed_mappings(db, property_id, skip, limit)
     return AllowedMappingListResponse(
         mappings=[AllowedMappingResponse.model_validate(m) for m in mappings],
         total=total
@@ -27,15 +31,17 @@ async def get_allowed_mappings_endpoint(
 
 @router.post("/mappings/allowed", response_model=AllowedMappingResponse, status_code=201)
 async def create_allowed_mapping_endpoint(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     level_1: str = Query(..., description="Valeur de level_1"),
     level_2: str = Query(..., description="Valeur de level_2"),
     level_3: Optional[str] = Query(None, description="Valeur de level_3 (optionnel)"),
     db: Session = Depends(get_db)
 ):
     """
-    Crée un nouveau mapping autorisé.
+    Crée un nouveau mapping autorisé pour une propriété.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         level_1: Valeur de level_1
         level_2: Valeur de level_2
         level_3: Valeur de level_3 (optionnel)
@@ -47,8 +53,10 @@ async def create_allowed_mapping_endpoint(
     Raises:
         HTTPException: Si la combinaison existe déjà ou si level_3 n'est pas valide
     """
+    from backend.api.utils.validation import validate_property_id
+    validate_property_id(db, property_id, "AllowedMappings")
     try:
-        mapping = create_allowed_mapping(db, level_1, level_2, level_3)
+        mapping = create_allowed_mapping(db, level_1, level_2, property_id, level_3)
         return AllowedMappingResponse.model_validate(mapping)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

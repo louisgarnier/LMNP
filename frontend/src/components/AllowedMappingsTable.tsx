@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { mappingsAPI, AllowedMapping, AllowedMappingListResponse } from '../api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 export default function AllowedMappingsTable() {
+  const { activeProperty } = useProperty();
   const [mappings, setMappings] = useState<AllowedMapping[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -34,15 +36,40 @@ export default function AllowedMappingsTable() {
   const ALLOWED_LEVEL_3_VALUES = ['Passif', 'Produits', 'Emprunt', 'Charges Déductibles', 'Actif'];
 
   const loadMappings = async () => {
+    console.log('[AllowedMappingsTable] loadMappings appelé - activeProperty:', activeProperty);
+    
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.warn('[AllowedMappingsTable] loadMappings - PROPERTY INVALIDE:', {
+        activeProperty,
+        id: activeProperty?.id,
+        reason: !activeProperty ? 'activeProperty is null/undefined' : 
+                !activeProperty.id ? 'activeProperty.id is null/undefined' : 
+                'activeProperty.id <= 0'
+      });
+      setError('Aucune propriété sélectionnée');
+      setMappings([]);
+      setTotal(0);
+      setLoading(false);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {
-      const response = await mappingsAPI.getAllowedMappings((page - 1) * pageSize, pageSize);
+      console.log('[AllowedMappingsTable] loadMappings - Appel API avec propertyId:', activeProperty.id, 'page:', page, 'pageSize:', pageSize);
+      const response = await mappingsAPI.getAllowedMappings(activeProperty.id, (page - 1) * pageSize, pageSize);
+      console.log('[AllowedMappingsTable] loadMappings - Réponse API:', {
+        total: response.total,
+        count: response.mappings.length,
+        propertyId: activeProperty.id
+      });
       setMappings(response.mappings);
       setTotal(response.total);
     } catch (err: any) {
+      console.error('[AllowedMappingsTable] loadMappings - Erreur:', err);
       setError(err.message || 'Erreur lors du chargement des mappings autorisés');
-      console.error('Error loading allowed mappings:', err);
+      setMappings([]);
+      setTotal(0);
     } finally {
       setLoading(false);
     }
@@ -50,7 +77,7 @@ export default function AllowedMappingsTable() {
 
   useEffect(() => {
     loadMappings();
-  }, [page, pageSize]);
+  }, [page, pageSize, activeProperty?.id]);
 
   // Fonction pour détecter les valeurs similaires
   const findSimilarValues = (value: string, existingValues: string[]): string[] => {
@@ -89,14 +116,17 @@ export default function AllowedMappingsTable() {
   // Charger les valeurs autorisées au montage
   useEffect(() => {
     const loadAllowedValues = async () => {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        return;
+      }
       try {
-        const level1Response = await mappingsAPI.getAllowedLevel1();
+        const level1Response = await mappingsAPI.getAllowedLevel1(activeProperty.id);
         const level1List = level1Response.level_1 || [];
         setAllowedLevel1List(level1List);
         setCreateAvailableLevel1(level1List);
         
         // Charger aussi tous les level_2 pour la détection de similarité
-        const level2Response = await mappingsAPI.getAllowedLevel2();
+        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id);
         const level2List = level2Response.level_2 || [];
         setAllowedLevel2List(level2List);
       } catch (err) {
@@ -104,7 +134,7 @@ export default function AllowedMappingsTable() {
       }
     };
     loadAllowedValues();
-  }, []);
+  }, [activeProperty?.id]);
 
   // Handlers pour la modal de création
   const handleCreateLevel1Change = async (value: string) => {
@@ -113,8 +143,11 @@ export default function AllowedMappingsTable() {
       setNewLevel1('');
       setSimilarLevel1Warning([]);
       // Quand on crée un nouveau level_1, charger TOUS les level_2 disponibles
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        return;
+      }
       try {
-        const level2Response = await mappingsAPI.getAllowedLevel2();
+        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id);
         const level2List = level2Response.level_2 || [];
         setCreateAvailableLevel2(level2List);
       } catch (err) {
@@ -131,7 +164,10 @@ export default function AllowedMappingsTable() {
       
       if (value) {
         try {
-          const level2Response = await mappingsAPI.getAllowedLevel2(value);
+          if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+            return;
+          }
+          const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id, value);
           const level2List = level2Response.level_2 || [];
           setCreateAvailableLevel2(level2List);
         } catch (err) {
@@ -154,8 +190,11 @@ export default function AllowedMappingsTable() {
     
     // Quand on tape un nouveau level_1, s'assurer que tous les level_2 sont disponibles
     if (value && value.trim() !== '' && createAvailableLevel2.length === 0) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        return;
+      }
       try {
-        const level2Response = await mappingsAPI.getAllowedLevel2();
+        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id);
         const level2List = level2Response.level_2 || [];
         setCreateAvailableLevel2(level2List);
       } catch (err) {
@@ -225,7 +264,11 @@ export default function AllowedMappingsTable() {
     }
 
     try {
-      await mappingsAPI.createAllowedMapping(newLevel1.trim(), newLevel2.trim(), newLevel3?.trim() || undefined);
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        alert('Aucune propriété sélectionnée');
+        return;
+      }
+      await mappingsAPI.createAllowedMapping(activeProperty.id, newLevel1.trim(), newLevel2.trim(), newLevel3?.trim() || undefined);
       setShowCreateModal(false);
       setNewLevel1('');
       setNewLevel2('');
