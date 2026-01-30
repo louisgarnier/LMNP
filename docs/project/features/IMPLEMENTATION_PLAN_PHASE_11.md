@@ -442,6 +442,41 @@ Cette phase implique :
 ---
 
 ## ONGLET 2 : MAPPINGS
+**Status**: ⏳ PARTIELLEMENT COMPLÉTÉ (Backend ~80%, Frontend ~80%)
+
+**⚠️ IMPORTANT** : Les mappings ont été partiellement implémentés lors de l'onglet 1 (Transactions) car ils sont nécessaires pour l'enrichissement. Il reste des endpoints et services à compléter.
+
+### 📊 Récapitulatif de l'état actuel
+
+**✅ COMPLÉTÉ** :
+- Modèles SQLAlchemy : `property_id` ajouté à `Mapping`, `AllowedMapping`, `MappingImport`
+- Migrations : Créées et appliquées
+- 19/25 endpoints backend ont `property_id` et filtrent correctement
+- Services d'enrichissement : `enrich_transaction`, `enrich_all_transactions`, `create_or_update_mapping_from_classification`, `validate_mapping` ont `property_id`
+- Re-enrichment : Optimisé avec SQL filtering et batch processing
+- Frontend : `MappingTable.tsx`, `AllowedMappingsTable.tsx`, `MappingColumnMappingModal.tsx`, `MappingImportLog.tsx` utilisent `useProperty()`
+- 19/25 méthodes frontend dans `mappingsAPI` ont `propertyId`
+
+**❌ MANQUANT (6 endpoints backend + 4 services + 6 méthodes frontend)** :
+- **Backend endpoints** :
+  1. `GET /api/mappings/combinations` - ❌ Pas de `property_id`, ne filtre pas par `property_id` dans les requêtes SQL
+  2. `POST /api/mappings/preview` - ❌ Pas de `property_id`
+  3. `GET /api/mappings/allowed-level2-for-level3` - ❌ Pas de `property_id`
+  4. `GET /api/mappings/allowed-level1-for-level2` - ❌ Pas de `property_id`
+  5. `GET /api/mappings/allowed-level1-for-level2-and-level3` - ❌ Pas de `property_id`
+  6. `GET /api/mappings/allowed-level3-for-level2` - ❌ Pas de `property_id`
+- **Backend services** :
+  1. `get_allowed_level2_for_level3` - ❌ Pas de `property_id`
+  2. `get_allowed_level1_for_level2` - ❌ Pas de `property_id`
+  3. `get_allowed_level1_for_level2_and_level3` - ❌ Pas de `property_id`
+  4. `get_allowed_level3_for_level2` - ❌ Pas de `property_id`
+- **Frontend méthodes** :
+  1. `getCombinations` - ❌ Pas de `propertyId`
+  2. `preview` - ❌ Pas de `propertyId`
+  3. `getAllowedLevel3ForLevel2` - ❌ Pas de `propertyId`
+  4. `getAllowedLevel2ForLevel3` - ❌ Pas de `propertyId`
+  5. `getAllowedLevel1ForLevel2` - ❌ Pas de `propertyId`
+  6. `getAllowedLevel1ForLevel2AndLevel3` - ❌ Pas de `propertyId`
 
 ### Fonctionnalités existantes à préserver
 
@@ -472,42 +507,77 @@ Cette phase implique :
 ---
 
 ### Step 2.1 : Backend - Endpoints Mappings avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ⏳ PARTIELLEMENT COMPLÉTÉ (~80%)
+
+**⚠️ ÉTAT ACTUEL** :
+- ✅ Modèles SQLAlchemy : `property_id` ajouté à `Mapping`, `AllowedMapping`, `MappingImport`
+- ✅ Migrations : Créées et appliquées
+- ✅ 19/25 endpoints ont `property_id` et filtrent correctement
+- ❌ 6 endpoints manquent `property_id` (voir section "Endpoints manquants" ci-dessous)
+- ❌ 4 services manquent `property_id` (voir section "Services manquants" ci-dessous)
 
 **1. Vérifications avant modification** :
-- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
-- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/mappings.py`
-- [ ] Identifier toutes les fonctions utilitaires qui utilisent les modèles `Mapping` et `AllowedMapping`
-- [ ] Vérifier les imports et dépendances
+- [x] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
+- [x] Lister tous les endpoints à modifier dans `backend/api/routes/mappings.py`
+- [x] Identifier toutes les fonctions utilitaires qui utilisent les modèles `Mapping` et `AllowedMapping`
+- [x] Vérifier les imports et dépendances
 
 **2. Modèles SQLAlchemy** :
-- [ ] Ajouter `property_id` au modèle `Mapping` dans `backend/database/models.py` :
+- [x] Ajouter `property_id` au modèle `Mapping` dans `backend/database/models.py` :
   - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
   - Ajouter relation : `property = relationship("Property", back_populates="mappings")`
-- [ ] Ajouter `property_id` au modèle `AllowedMapping` dans `backend/database/models.py` :
+  - **Modifier l'index unique dans `__table_args__` : remplacer l'index unique sur `nom` seul par un index unique sur `(property_id, nom)`**
+  - **Ajouter index `idx_mappings_property_id` dans `__table_args__` : `Index('idx_mappings_property_id', 'property_id')`**
+- [x] Ajouter `property_id` au modèle `AllowedMapping` dans `backend/database/models.py` :
   - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
   - Ajouter relation : `property = relationship("Property", back_populates="allowed_mappings")`
-- [ ] **Ajouter `property_id` au modèle `MappingImport` avec `ForeignKey("properties.id", ondelete="CASCADE")`**
-- [ ] Modifier l'index unique de `AllowedMapping` pour inclure `property_id` : `UniqueConstraint('property_id', 'level_1', 'level_2', 'level_3')`
-- [ ] **Modifier l'index unique de `MappingImport` : remplacer `filename` unique par `(property_id, filename)` unique**
-- [ ] Ajouter index `idx_mappings_property_id` sur `mappings(property_id)`
-- [ ] Ajouter index `idx_allowed_mappings_property_id` sur `allowed_mappings(property_id)`
-- [ ] **Ajouter index `idx_mapping_imports_property_id` sur `mapping_imports(property_id)`**
-- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+  - **Modifier l'index unique dans `__table_args__` : remplacer l'index unique sur `(level_1, level_2, level_3)` par un index unique sur `(property_id, level_1, level_2, level_3)`**
+  - **Ajouter index `idx_allowed_mappings_property_id` dans `__table_args__` : `Index('idx_allowed_mappings_property_id', 'property_id')`**
+- [x] **Ajouter `property_id` au modèle `MappingImport` dans `backend/database/models.py`** :
+  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
+  - Ajouter relation : `property = relationship("Property", back_populates="mapping_imports")`
+  - **Modifier l'index unique dans `__table_args__` : remplacer l'index unique sur `filename` seul par un index unique sur `(property_id, filename)`**
+  - **Ajouter index `idx_mapping_imports_property_id` dans `__table_args__` : `Index('idx_mapping_imports_property_id', 'property_id')`**
+- [x] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
+- [x] **Vérifier que les relations sont bien configurées dans le modèle `Property`** :
+  - `mappings = relationship("Mapping", back_populates="property", cascade="all, delete-orphan")`
+  - `allowed_mappings = relationship("AllowedMapping", back_populates="property", cascade="all, delete-orphan")`
+  - `mapping_imports = relationship("MappingImport", back_populates="property", cascade="all, delete-orphan")`
 
 **3. Migrations** :
-- [ ] Créer migration `backend/database/migrations/add_property_id_to_mappings.py` pour ajouter `property_id` à la table `mappings` avec contrainte FK et ON DELETE CASCADE
-- [ ] Créer migration `backend/database/migrations/add_property_id_to_allowed_mappings.py` pour ajouter `property_id` à la table `allowed_mappings` avec contrainte FK et ON DELETE CASCADE
-- [ ] **Créer migration `backend/database/migrations/add_property_id_to_mapping_imports.py` pour ajouter `property_id` à la table `mapping_imports` avec contrainte FK et ON DELETE CASCADE**
-- [ ] Modifier l'index unique de `allowed_mappings` pour inclure `property_id`
-- [ ] **Modifier l'index unique de `mapping_imports` : remplacer `filename` unique par `(property_id, filename)` unique**
-- [ ] **Assigner `property_id=1` (ou première propriété) à tous les `MappingImport` existants**
-- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
-- [ ] Vérifier que les index sont créés
+- [x] Créer migration `backend/database/migrations/add_property_id_to_mappings.py` :
+  - Ajouter colonne `property_id INTEGER NOT NULL` à la table `mappings`
+  - Ajouter contrainte FK : `FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE`
+  - **Supprimer l'ancien index unique sur `nom` seul (s'il existe)**
+  - **Créer nouvel index unique : `CREATE UNIQUE INDEX idx_mappings_property_nom_unique ON mappings(property_id, nom)`**
+  - **Créer index pour performance : `CREATE INDEX idx_mappings_property_id ON mappings(property_id)`**
+  - **Assigner `property_id=1` (ou première propriété) à tous les `Mapping` existants**
+  - Ajouter contrainte `NOT NULL` sur `property_id` après assignation
+- [x] Créer migration `backend/database/migrations/add_property_id_to_allowed_mappings.py` :
+  - Ajouter colonne `property_id INTEGER NOT NULL` à la table `allowed_mappings`
+  - Ajouter contrainte FK : `FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE`
+  - **Supprimer l'ancien index unique sur `(level_1, level_2, level_3)` (s'il existe)**
+  - **Créer nouvel index unique : `CREATE UNIQUE INDEX idx_allowed_mapping_unique ON allowed_mappings(property_id, level_1, level_2, level_3)`**
+  - **Créer index pour performance : `CREATE INDEX idx_allowed_mappings_property_id ON allowed_mappings(property_id)`**
+  - **Assigner `property_id=1` (ou première propriété) à tous les `AllowedMapping` existants**
+  - Ajouter contrainte `NOT NULL` sur `property_id` après assignation
+- [x] **Créer migration `backend/database/migrations/add_property_id_to_mapping_imports.py`** :
+  - Ajouter colonne `property_id INTEGER NOT NULL` à la table `mapping_imports`
+  - Ajouter contrainte FK : `FOREIGN KEY (property_id) REFERENCES properties(id) ON DELETE CASCADE`
+  - **Supprimer l'ancien index unique sur `filename` seul (s'il existe)**
+  - **Créer nouvel index unique : `CREATE UNIQUE INDEX idx_mapping_imports_property_filename_unique ON mapping_imports(property_id, filename)`**
+  - **Créer index pour performance : `CREATE INDEX idx_mapping_imports_property_id ON mapping_imports(property_id)`**
+  - **Assigner `property_id=1` (ou première propriété) à tous les `MappingImport` existants**
+  - Ajouter contrainte `NOT NULL` sur `property_id` après assignation
+- [x] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
+- [x] Vérifier que les index sont créés
+- [x] **Vérifier qu'aucun doublon n'est créé lors de la modification des index uniques** (vérifier les données existantes avant de créer les nouveaux index)
 
 **4. Fonction de validation property_id** :
-- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
-- [ ] Ajouter logs : `[Mappings] Validation property_id={property_id}`
+- [x] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int, category: str = "Mappings") -> bool` dans `backend/api/utils/validation.py`
+- [x] **Vérifier que la fonction accepte un paramètre `category` pour les logs** (ex: `validate_property_id(db, property_id, "Mappings")`)
+- [x] Ajouter logs : `[Mappings] Validation property_id={property_id}`
+- [x] **Vérifier que la fonction lève `HTTPException(400)` si property_id invalide** (comme pour l'onglet 1)
 
 **5. Endpoints API - Modifications avec logs** :
 - [ ] Modifier `GET /api/mappings` :
@@ -516,105 +586,226 @@ Cette phase implique :
   - Filtrer toutes les requêtes : `query = query.filter(Mapping.property_id == property_id)`
   - Valider property_id avec `validate_property_id(db, property_id)`
   - Ajouter log : `[Mappings] Retourné {count} mappings pour property_id={property_id}`
-- [ ] Modifier `POST /api/mappings` :
+- [x] Modifier `POST /api/mappings` :
   - Ajouter `property_id` dans `MappingCreate` model
   - Ajouter log : `[Mappings] POST /api/mappings - property_id={property_id}`
   - Valider property_id avant création
   - Ajouter log : `[Mappings] Mapping créé: id={id}, property_id={property_id}`
-- [ ] Modifier `PUT /api/mappings/{id}` :
+- [x] Modifier `PUT /api/mappings/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Ajouter log : `[Mappings] PUT /api/mappings/{id} - property_id={property_id}`
   - Filtrer : `mapping = db.query(Mapping).filter(Mapping.id == id, Mapping.property_id == property_id).first()`
   - Retourner 404 si mapping n'appartient pas à property_id
   - Ajouter log : `[Mappings] Mapping {id} mis à jour pour property_id={property_id}`
-- [ ] Modifier `DELETE /api/mappings/{id}` :
+- [x] Modifier `DELETE /api/mappings/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Ajouter log : `[Mappings] DELETE /api/mappings/{id} - property_id={property_id}`
   - Filtrer : `mapping = db.query(Mapping).filter(Mapping.id == id, Mapping.property_id == property_id).first()`
   - Retourner 404 si mapping n'appartient pas à property_id
   - Ajouter log : `[Mappings] Mapping {id} supprimé pour property_id={property_id}`
-- [ ] Modifier `GET /api/mappings/{id}` :
+- [x] Modifier `GET /api/mappings/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer : `mapping = db.query(Mapping).filter(Mapping.id == id, Mapping.property_id == property_id).first()`
   - Retourner 404 si mapping n'appartient pas à property_id
   - Ajouter log : `[Mappings] GET /api/mappings/{id} - property_id={property_id}`
-- [ ] Modifier `GET /api/mappings/export` :
+- [x] Modifier `GET /api/mappings/export` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] GET export - property_id={property_id}`
-- [ ] Modifier `GET /api/mappings/unique-values` :
+- [x] Modifier `GET /api/mappings/unique-values` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] GET unique-values - property_id={property_id}, column={column}`
-- [ ] Modifier `GET /api/mappings/allowed` :
+- [x] Modifier `GET /api/mappings/allowed` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] GET allowed - property_id={property_id}`
-- [ ] Modifier `POST /api/mappings/allowed` :
+- [x] Modifier `POST /api/mappings/allowed` :
   - Ajouter `property_id` dans `AllowedMappingCreate` model
   - Ajouter log : `[Mappings] POST allowed - property_id={property_id}`
   - Valider property_id avant création
   - Ajouter log : `[Mappings] AllowedMapping créé: id={id}, property_id={property_id}`
-- [ ] Modifier `DELETE /api/mappings/allowed/{id}` :
+- [x] Modifier `DELETE /api/mappings/allowed/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer : `allowed_mapping = db.query(AllowedMapping).filter(AllowedMapping.id == id, AllowedMapping.property_id == property_id).first()`
   - Retourner 404 si allowed_mapping n'appartient pas à property_id
   - Ajouter log : `[Mappings] DELETE allowed/{id} - property_id={property_id}`
-- [ ] Modifier `POST /api/mappings/import` :
+- [x] Modifier `POST /api/mappings/import` :
   - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")`
   - Passer `property_id` à tous les mappings créés
   - **Enregistrer `property_id` dans `MappingImport` lors de la création/mise à jour**
   - Ajouter log : `[Mappings] POST import - property_id={property_id}, file={filename}`
-- [ ] Modifier `GET /api/mappings/imports` :
+- [x] Modifier `GET /api/mappings/imports` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer : `query = query.filter(MappingImport.property_id == property_id)`
   - Ajouter log : `[Mappings] GET imports - property_id={property_id}`
   - Ajouter log : `[Mappings] Retourné {count} imports pour property_id={property_id}`
-- [ ] Modifier `DELETE /api/mappings/imports` :
+- [x] Modifier `DELETE /api/mappings/imports` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer : `db.query(MappingImport).filter(MappingImport.property_id == property_id).delete()`
   - Ajouter log : `[Mappings] DELETE imports - property_id={property_id}`
-- [ ] Modifier `DELETE /api/mappings/imports/{import_id}` :
+- [x] Modifier `DELETE /api/mappings/imports/{import_id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer : `import_obj = db.query(MappingImport).filter(MappingImport.id == import_id, MappingImport.property_id == property_id).first()`
   - Retourner 404 si import n'appartient pas à property_id
   - Ajouter log : `[Mappings] DELETE imports/{import_id} - property_id={property_id}`
   - Ajouter log : `[Mappings] Import terminé: {count} mappings créés pour property_id={property_id}`
-- [ ] Modifier `GET /api/mappings/imports/history` :
+- [x] Modifier `GET /api/mappings/imports/history` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] GET imports/history - property_id={property_id}`
-- [ ] Modifier `DELETE /api/mappings/imports/all` :
+- [x] Modifier `DELETE /api/mappings/imports/all` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] DELETE imports/all - property_id={property_id}`
-- [ ] Modifier `GET /api/mappings/allowed/level-1` :
+- [x] Modifier `GET /api/mappings/allowed/level-1` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] GET allowed/level-1 - property_id={property_id}`
-- [ ] Modifier `GET /api/mappings/allowed/level-2` :
+- [x] Modifier `GET /api/mappings/allowed/level-2` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] GET allowed/level-2 - property_id={property_id}`
-- [ ] Modifier `GET /api/mappings/allowed/level-3` :
+- [x] Modifier `GET /api/mappings/allowed/level-3` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Filtrer toutes les requêtes par `property_id`
   - Ajouter log : `[Mappings] GET allowed/level-3 - property_id={property_id}`
+- [x] Modifier `GET /api/mappings/count` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET count - property_id={property_id}`
+- [x] Modifier `GET /api/mappings/allowed/level-2/{level_1}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed/level-2/{level_1} - property_id={property_id}`
+- [x] Modifier `GET /api/mappings/allowed/level-3/{level_2}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed/level-3/{level_2} - property_id={property_id}`
+- [x] Modifier `GET /api/mappings/allowed/level-1/{level_2}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed/level-1/{level_2} - property_id={property_id}`
+- [x] Modifier `GET /api/mappings/allowed/level-1/{level_2}/{level_3}` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] GET allowed/level-1/{level_2}/{level_3} - property_id={property_id}`
+- [x] Modifier `POST /api/mappings/allowed/reset` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Filtrer toutes les requêtes par `property_id`
+  - Ajouter log : `[Mappings] POST allowed/reset - property_id={property_id}`
+**❌ Endpoints manquants (6/25) - À COMPLÉTER** :
+- [ ] Modifier `GET /api/mappings/combinations` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - **CRITIQUE** : Filtrer TOUTES les requêtes SQL par `property_id` : `query = query.filter(Mapping.property_id == property_id)`
+  - Ajouter log : `[Mappings] GET combinations - property_id={property_id}`
+- [ ] Modifier `POST /api/mappings/preview` :
+  - Ajouter `property_id: int = Form(..., description="ID de la propriété (obligatoire)")` (car c'est un POST avec FormData)
+  - **Note** : Preview ne filtre pas de données existantes, mais `property_id` peut être utile pour les logs
+  - Ajouter log : `[Mappings] POST preview - property_id={property_id}, file={filename}`
+- [ ] Modifier `GET /api/mappings/allowed-level2-for-level3` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Modifier l'appel à `get_allowed_level2_for_level3(db, level_3, property_id)` pour passer `property_id`
+  - Ajouter log : `[Mappings] GET allowed-level2-for-level3 - property_id={property_id}, level_3={level_3}`
+- [ ] Modifier `GET /api/mappings/allowed-level1-for-level2` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Modifier l'appel à `get_allowed_level1_for_level2(db, level_2, property_id)` pour passer `property_id`
+  - Ajouter log : `[Mappings] GET allowed-level1-for-level2 - property_id={property_id}, level_2={level_2}`
+- [ ] Modifier `GET /api/mappings/allowed-level1-for-level2-and-level3` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Modifier l'appel à `get_allowed_level1_for_level2_and_level3(db, level_2, level_3, property_id)` pour passer `property_id`
+  - Ajouter log : `[Mappings] GET allowed-level1-for-level2-and-level3 - property_id={property_id}, level_2={level_2}, level_3={level_3}`
+- [ ] Modifier `GET /api/mappings/allowed-level3-for-level2` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Modifier l'appel à `get_allowed_level3_for_level2(db, level_2, property_id)` pour passer `property_id`
+  - Ajouter log : `[Mappings] GET allowed-level3-for-level2 - property_id={property_id}, level_2={level_2}`
 
-**6. Fonctions utilitaires** :
-- [ ] Modifier toutes les fonctions de validation pour accepter `property_id`
-- [ ] Filtrer toutes les requêtes par `property_id`
-- [ ] Ajouter logs pour le debugging
-- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+**6. Services d'enrichissement (CRITIQUE - Isolation)** :
 
-**7. Validation et gestion d'erreurs** :
-- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
-- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
-- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
-- [ ] Erreur 404 si mapping n'appartient pas à property_id demandé
-- [ ] Ajouter logs d'erreur : `[Mappings] ERREUR: {message} - property_id={property_id}`
+**✅ Services déjà complétés** :
+- [x] Modifier `enrich_transaction` dans `backend/api/services/enrichment_service.py` :
+  - Filtrer les mappings fournis par `property_id` : `mappings = [m for m in mappings if m.property_id == transaction.property_id]`
+  - Si aucun mapping valide après filtrage, recharger depuis DB avec filtre `property_id`
+  - Ajouter log : `[Enrichment] enrich_transaction - transaction_id={id}, property_id={property_id}`
+- [ ] Modifier `enrich_all_transactions` dans `backend/api/services/enrichment_service.py` :
+  - Accepter `property_id: int` comme paramètre obligatoire
+  - Filtrer toutes les requêtes : `query = query.filter(Transaction.property_id == property_id)`
+  - Filtrer les mappings chargés : `mappings = db.query(Mapping).filter(Mapping.property_id == property_id).all()`
+  - Ajouter log : `[Enrichment] enrich_all_transactions - property_id={property_id}`
+- [ ] Modifier `create_or_update_mapping_from_classification` dans `backend/api/services/enrichment_service.py` :
+  - Accepter `property_id: int` comme paramètre obligatoire
+  - Filtrer les mappings existants : `query = query.filter(Mapping.property_id == property_id)`
+  - Assigner `property_id` lors de la création d'un nouveau mapping
+  - Ajouter log : `[Enrichment] create_or_update_mapping_from_classification - property_id={property_id}`
+- [x] Modifier `validate_mapping` dans `backend/api/services/mapping_obligatoire_service.py` :
+  - Accepter `property_id: int` comme paramètre obligatoire
+  - Filtrer les allowed_mappings : `query = query.filter(AllowedMapping.property_id == property_id)`
+  - Ajouter log : `[MappingObligatoire] validate_mapping - property_id={property_id}`
 
-**8. Tests d'isolation** :
+**❌ Services manquants (4) - À COMPLÉTER** :
+- [ ] Modifier `get_allowed_level2_for_level3` dans `backend/api/services/mapping_obligatoire_service.py` :
+  - Accepter `property_id: int` comme paramètre obligatoire
+  - Filtrer les requêtes : `query = query.filter(AllowedMapping.property_id == property_id, AllowedMapping.level_3 == level_3)`
+  - Ajouter log : `[MappingObligatoire] get_allowed_level2_for_level3 - property_id={property_id}, level_3={level_3}`
+- [ ] Modifier `get_allowed_level1_for_level2` dans `backend/api/services/mapping_obligatoire_service.py` :
+  - Accepter `property_id: int` comme paramètre obligatoire
+  - Filtrer les requêtes : `query = query.filter(AllowedMapping.property_id == property_id, AllowedMapping.level_2 == level_2)`
+  - Ajouter log : `[MappingObligatoire] get_allowed_level1_for_level2 - property_id={property_id}, level_2={level_2}`
+- [ ] Modifier `get_allowed_level1_for_level2_and_level3` dans `backend/api/services/mapping_obligatoire_service.py` :
+  - Accepter `property_id: int` comme paramètre obligatoire
+  - Filtrer les requêtes : `query = query.filter(AllowedMapping.property_id == property_id, AllowedMapping.level_2 == level_2, AllowedMapping.level_3 == level_3)`
+  - Ajouter log : `[MappingObligatoire] get_allowed_level1_for_level2_and_level3 - property_id={property_id}, level_2={level_2}, level_3={level_3}`
+- [ ] Modifier `get_allowed_level3_for_level2` dans `backend/api/services/mapping_obligatoire_service.py` :
+  - Accepter `property_id: int` comme paramètre obligatoire
+  - Filtrer les requêtes : `query = query.filter(AllowedMapping.property_id == property_id, AllowedMapping.level_2 == level_2)`
+  - Ajouter log : `[MappingObligatoire] get_allowed_level3_for_level2 - property_id={property_id}, level_2={level_2}`
+
+**7. Re-enrichment lors de création/modification/suppression de mapping (CRITIQUE)** :
+- [x] Modifier `POST /api/mappings` :
+  - Après création du mapping, déclencher re-enrichment uniquement pour cette propriété
+  - Utiliser SQL filtering : `db.query(Transaction).filter(Transaction.property_id == property_id, Transaction.nom.like(f"%{mapping.nom}%")).all()`
+  - Utiliser batch processing (flush par batch de 50, commit final)
+  - Ajouter log : `[Mappings] POST /api/mappings - Re-enrichment déclenché pour property_id={property_id}, {count} transactions`
+- [x] Modifier `PUT /api/mappings/{id}` :
+  - Après modification du mapping, déclencher re-enrichment uniquement pour cette propriété
+  - Utiliser SQL filtering avec l'ancien nom ET le nouveau nom du mapping
+  - Utiliser batch processing
+  - Ajouter log : `[Mappings] PUT /api/mappings/{id} - Re-enrichment déclenché pour property_id={property_id}, {count} transactions`
+- [x] Modifier `DELETE /api/mappings/{id}` :
+  - Après suppression du mapping, déclencher re-enrichment uniquement pour cette propriété
+  - Utiliser SQL filtering avec le nom du mapping supprimé
+  - Utiliser batch processing
+  - Ajouter log : `[Mappings] DELETE /api/mappings/{id} - Re-enrichment déclenché pour property_id={property_id}, {count} transactions`
+- [x] Modifier `POST /api/mappings/import` :
+  - Après import des mappings, déclencher re-enrichment uniquement pour cette propriété
+  - Utiliser SQL filtering pour toutes les transactions de cette propriété
+  - Utiliser batch processing
+  - Ajouter log : `[Mappings] POST /api/mappings/import - Re-enrichment déclenché pour property_id={property_id}, {count} transactions`
+
+**8. Endpoints d'enrichment** :
+- [x] Modifier `GET /api/enrichment/re-enrich` dans `backend/api/routes/enrichment.py` :
+  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
+  - Appeler `enrich_all_transactions(db, property_id=property_id)`
+  - Ajouter log : `[Enrichment] GET /api/enrichment/re-enrich - property_id={property_id}`
+  - Ajouter log : `[Enrichment] Re-enrichment terminé: {new_count} nouvelles, {updated_count} mises à jour pour property_id={property_id}`
+- [x] Modifier `PUT /api/enrichment/update-classifications` dans `backend/api/routes/enrichment.py` :
+  - Passer `transaction.property_id` à `create_or_update_mapping_from_classification` et `validate_mapping`
+  - Ajouter log : `[Enrichment] PUT /api/enrichment/update-classifications - property_id={property_id}`
+
+**9. Fonctions utilitaires** :
+- [x] Modifier toutes les fonctions de validation pour accepter `property_id` (sauf les 4 services manquants listés ci-dessus)
+- [x] Filtrer toutes les requêtes par `property_id` (sauf les 4 services manquants)
+- [x] Ajouter logs pour le debugging
+- [x] Vérifier tous les appels à ces fonctions et passer `property_id` (sauf les 4 services manquants)
+
+**10. Validation et gestion d'erreurs** :
+- [x] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début (pour les endpoints complétés)
+- [x] Erreur 400 si property_id invalide (n'existe pas dans properties)
+- [x] Erreur 422 si property_id manquant (FastAPI validation automatique)
+- [x] Erreur 404 si mapping n'appartient pas à property_id demandé
+- [x] Ajouter logs d'erreur : `[Mappings] ERREUR: {message} - property_id={property_id}`
+
+**11. Tests d'isolation** :
 - [ ] Créer script de test : `backend/scripts/test_mappings_isolation_phase_11_bis_2_1.py`
 - [ ] Le script doit afficher des logs clairs pour chaque test
 - [ ] Vérifier l'isolation complète entre 2 propriétés
@@ -632,26 +823,84 @@ Cette phase implique :
 - [ ] GET /api/mappings/allowed?property_id=prop1 → doit retourner uniquement les mappings autorisés de prop1
 - [ ] POST /api/mappings/allowed avec property_id=prop1 → doit créer un mapping autorisé pour prop1 uniquement
 - [ ] Import de mappings avec property_id=prop1 → doit créer uniquement pour prop1
+- [ ] **CRITIQUE** : Créer des transactions pour prop1 et prop2 avec des noms similaires
+- [ ] **CRITIQUE** : Créer un mapping pour prop1 qui correspond à une transaction de prop1
+- [ ] **CRITIQUE** : Vérifier que le mapping de prop1 n'enrichit PAS les transactions de prop2
+- [ ] **CRITIQUE** : Re-enrichment après création mapping prop1 → ne doit affecter que les transactions de prop1
+- [ ] **CRITIQUE** : Re-enrichment après modification mapping prop1 → ne doit affecter que les transactions de prop1
+- [ ] **CRITIQUE** : Re-enrichment après suppression mapping prop1 → ne doit affecter que les transactions de prop1
+- [ ] **CRITIQUE** : GET /api/enrichment/re-enrich?property_id=prop1 → ne doit enrichir que les transactions de prop1
 
 ---
 
 ### Step 2.2 : Frontend - Page Mappings avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ⏳ PARTIELLEMENT COMPLÉTÉ (~80%)
+
+**⚠️ ÉTAT ACTUEL** :
+- ✅ `MappingTable.tsx` utilise `useProperty()` et passe `activeProperty.id` à la plupart des appels API
+- ✅ `AllowedMappingsTable.tsx` utilise `useProperty()` et passe `activeProperty.id`
+- ✅ `MappingColumnMappingModal.tsx` utilise `useProperty()` et passe `activeProperty.id`
+- ✅ `MappingImportLog.tsx` utilise `useProperty()` et passe `activeProperty.id`
+- ✅ Validation stricte ajoutée dans plusieurs composants
+- ❌ 6 méthodes dans `mappingsAPI` manquent `propertyId` (voir section "Frontend manquant" ci-dessous)
 
 **Tasks**:
-- [ ] Modifier `MappingTable.tsx` pour passer `activeProperty.id` à tous les appels API
-- [ ] Modifier `AllowedMappingsTable.tsx` pour passer `activeProperty.id`
-- [ ] Modifier `MappingFileUpload.tsx` pour passer `activeProperty.id` à l'import
-- [ ] Modifier `MappingImportLog.tsx` pour utiliser `activeProperty.id`
-- [ ] Vérifier que tous les filtres fonctionnent avec property_id
-- [ ] Vérifier que la pagination fonctionne avec property_id
-- [ ] Vérifier que la validation des combinaisons fonctionne avec property_id
+- [x] Modifier `MappingTable.tsx` pour passer `activeProperty.id` à tous les appels API
+- [x] Modifier `AllowedMappingsTable.tsx` pour passer `activeProperty.id`
+- [x] Modifier `MappingFileUpload.tsx` / `MappingColumnMappingModal.tsx` pour passer `activeProperty.id` à l'import
+- [x] Modifier `MappingImportLog.tsx` pour utiliser `activeProperty.id`
+- [x] **CRITIQUE** : Ajouter validation stricte `if (!activeProperty || !activeProperty.id || activeProperty.id <= 0)` avant chaque appel API
+- [x] **CRITIQUE** : Ajouter logs détaillés pour debugging : `[MappingTable] propertyId={activeProperty.id}`
+- [x] Ajouter réinitialisation de la page à 1 quand la propriété change
+- [x] Ajouter réinitialisation du total et des mappings quand la propriété change
+- [x] Vérifier que tous les filtres fonctionnent avec property_id
+- [x] Vérifier que la pagination fonctionne avec property_id
+- [x] Vérifier que la validation des combinaisons fonctionne avec property_id
+- [x] Modifier `mappingsAPI` dans `frontend/src/api/client.ts` :
+  - Ajouter validation stricte pour `propertyId` dans la plupart des méthodes
+  - Ajouter logs détaillés pour chaque appel API
+  - Vérifier que `propertyId` est passé à la plupart des endpoints
+
+**❌ Frontend manquant (6 méthodes) - À COMPLÉTER** :
+- [ ] Modifier `getCombinations` dans `frontend/src/api/client.ts` :
+  - Ajouter `propertyId: number` comme premier paramètre
+  - Passer `property_id` dans les query params
+  - Ajouter validation stricte : `if (!propertyId || propertyId <= 0)`
+  - Ajouter logs : `[mappingsAPI.getCombinations] propertyId={propertyId}`
+- [ ] Modifier `preview` dans `frontend/src/api/client.ts` :
+  - Ajouter `propertyId: number` comme premier paramètre
+  - Passer `property_id` dans le FormData
+  - Ajouter validation stricte : `if (!propertyId || propertyId <= 0)`
+  - Ajouter logs : `[mappingsAPI.preview] propertyId={propertyId}`
+- [ ] Modifier `getAllowedLevel3ForLevel2` dans `frontend/src/api/client.ts` :
+  - Ajouter `propertyId: number` comme premier paramètre
+  - Passer `property_id` dans les query params
+  - Ajouter validation stricte : `if (!propertyId || propertyId <= 0)`
+  - Ajouter logs : `[mappingsAPI.getAllowedLevel3ForLevel2] propertyId={propertyId}`
+- [ ] Modifier `getAllowedLevel2ForLevel3` dans `frontend/src/api/client.ts` :
+  - Ajouter `propertyId: number` comme premier paramètre
+  - Passer `property_id` dans les query params
+  - Ajouter validation stricte : `if (!propertyId || propertyId <= 0)`
+  - Ajouter logs : `[mappingsAPI.getAllowedLevel2ForLevel3] propertyId={propertyId}`
+- [ ] Modifier `getAllowedLevel1ForLevel2` dans `frontend/src/api/client.ts` :
+  - Ajouter `propertyId: number` comme premier paramètre
+  - Passer `property_id` dans les query params
+  - Ajouter validation stricte : `if (!propertyId || propertyId <= 0)`
+  - Ajouter logs : `[mappingsAPI.getAllowedLevel1ForLevel2] propertyId={propertyId}`
+- [ ] Modifier `getAllowedLevel1ForLevel2AndLevel3` dans `frontend/src/api/client.ts` :
+  - Ajouter `propertyId: number` comme premier paramètre
+  - Passer `property_id` dans les query params
+  - Ajouter validation stricte : `if (!propertyId || propertyId <= 0)`
+  - Ajouter logs : `[mappingsAPI.getAllowedLevel1ForLevel2AndLevel3] propertyId={propertyId}`
+- [ ] Mettre à jour tous les appels à ces 6 méthodes dans les composants frontend pour passer `activeProperty.id`
 - [ ] Créer script de test frontend : `frontend/scripts/test_mappings_isolation_phase_11_bis_2_2.js`
 
 **Tests d'isolation (script frontend)**:
 - [ ] Sélectionner prop1
+- [ ] Vérifier que `activeProperty.id` est valide (> 0)
 - [ ] Créer 3 mappings pour prop1
 - [ ] Vérifier qu'ils s'affichent dans l'onglet "Mapping"
+- [ ] **CRITIQUE** : Vérifier dans les logs frontend que `propertyId` est bien passé à tous les appels API
 - [ ] Changer pour prop2
 - [ ] Vérifier que les 3 mappings de prop1 ne s'affichent PAS
 - [ ] Créer 2 mappings pour prop2
@@ -659,6 +908,12 @@ Cette phase implique :
 - [ ] Revenir à prop1
 - [ ] Vérifier que seuls les 3 mappings de prop1 s'affichent
 - [ ] Vérifier que les mappings autorisés sont isolés par propriété
+- [ ] **CRITIQUE** : Créer une transaction pour prop1 avec un nom qui correspond à un mapping de prop1
+- [ ] **CRITIQUE** : Vérifier que la transaction de prop1 est enrichie avec le mapping de prop1
+- [ ] **CRITIQUE** : Créer une transaction pour prop2 avec un nom similaire
+- [ ] **CRITIQUE** : Vérifier que la transaction de prop2 n'est PAS enrichie avec le mapping de prop1
+- [ ] **CRITIQUE** : Tester le re-enrichment depuis l'interface (bouton "Re-enrichir toutes les transactions")
+- [ ] **CRITIQUE** : Vérifier que le re-enrichment n'affecte que la propriété active
 
 **Tests de non-régression (manuel)**:
 - [ ] Onglet "Mapping" : Tous les mappings s'affichent ✅
