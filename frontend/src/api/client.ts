@@ -454,6 +454,7 @@ export interface MappingCreate {
   level_3?: string;
   is_prefix_match?: boolean;
   priority?: number;
+  property_id?: number; // Optionnel car ajouté automatiquement par create()
 }
 
 export interface MappingUpdate {
@@ -607,10 +608,15 @@ export const mappingsAPI = {
   /**
    * Créer un nouveau mapping
    */
-  async create(mapping: MappingCreate): Promise<Mapping> {
+  async create(propertyId: number, mapping: MappingCreate): Promise<Mapping> {
+    console.log('[mappingsAPI.create] Appel avec propertyId:', propertyId, 'mapping:', mapping);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const mappingWithPropertyId = { ...mapping, property_id: propertyId };
     return fetchAPI<Mapping>('/api/mappings', {
       method: 'POST',
-      body: JSON.stringify(mapping),
+      body: JSON.stringify(mappingWithPropertyId),
     });
   },
 
@@ -647,12 +653,18 @@ export const mappingsAPI = {
   /**
    * Récupérer les combinaisons possibles pour les dropdowns intelligents
    */
-  async getCombinations(level_1?: string, level_2?: string, all_level_2?: boolean, all_level_3?: boolean): Promise<{
+  async getCombinations(propertyId: number, level_1?: string, level_2?: string, all_level_2?: boolean, all_level_3?: boolean): Promise<{
     level_1?: string[];
     level_2?: string[];
     level_3?: string[];
   }> {
-    const params = new URLSearchParams();
+    console.log('[mappingsAPI.getCombinations] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    const params = new URLSearchParams({
+      property_id: propertyId.toString(),
+    });
     if (level_1) params.append('level_1', level_1);
     if (level_2) params.append('level_2', level_2);
     if (all_level_2) params.append('all_level_2', 'true');
@@ -741,8 +753,13 @@ export const mappingsAPI = {
    * Récupérer les valeurs level_3 autorisées pour un level_2 donné (depuis allowed_mappings)
    * Utilisé pour le scénario 2 : quand level_2 est sélectionné en premier
    */
-  async getAllowedLevel3ForLevel2(level_2: string): Promise<{ level_3: string[] }> {
+  async getAllowedLevel3ForLevel2(propertyId: number, level_2: string): Promise<{ level_3: string[] }> {
+    console.log('[mappingsAPI.getAllowedLevel3ForLevel2] Appel avec propertyId:', propertyId, 'level_2:', level_2);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       level_2,
     });
     return fetchAPI<{ level_3: string[] }>(`/api/mappings/allowed-level3-for-level2?${params.toString()}`);
@@ -752,8 +769,13 @@ export const mappingsAPI = {
    * Récupérer les valeurs level_2 autorisées pour un level_3 donné (filtrage bidirectionnel)
    * Utilisé quand level_3 est sélectionné en premier
    */
-  async getAllowedLevel2ForLevel3(level_3: string): Promise<{ level_2: string[] }> {
+  async getAllowedLevel2ForLevel3(propertyId: number, level_3: string): Promise<{ level_2: string[] }> {
+    console.log('[mappingsAPI.getAllowedLevel2ForLevel3] Appel avec propertyId:', propertyId, 'level_3:', level_3);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       level_3,
     });
     return fetchAPI<{ level_2: string[] }>(`/api/mappings/allowed-level2-for-level3?${params.toString()}`);
@@ -763,8 +785,13 @@ export const mappingsAPI = {
    * Récupérer les valeurs level_1 autorisées pour un level_2 donné (filtrage bidirectionnel)
    * Utilisé quand level_2 est sélectionné en premier
    */
-  async getAllowedLevel1ForLevel2(level_2: string): Promise<{ level_1: string[] }> {
+  async getAllowedLevel1ForLevel2(propertyId: number, level_2: string): Promise<{ level_1: string[] }> {
+    console.log('[mappingsAPI.getAllowedLevel1ForLevel2] Appel avec propertyId:', propertyId, 'level_2:', level_2);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       level_2,
     });
     return fetchAPI<{ level_1: string[] }>(`/api/mappings/allowed-level1-for-level2?${params.toString()}`);
@@ -774,8 +801,13 @@ export const mappingsAPI = {
    * Récupérer les valeurs level_1 autorisées pour un couple (level_2, level_3) (filtrage bidirectionnel)
    * Utilisé quand level_3 puis level_2 sont sélectionnés
    */
-  async getAllowedLevel1ForLevel2AndLevel3(level_2: string, level_3: string): Promise<{ level_1: string[] }> {
+  async getAllowedLevel1ForLevel2AndLevel3(propertyId: number, level_2: string, level_3: string): Promise<{ level_1: string[] }> {
+    console.log('[mappingsAPI.getAllowedLevel1ForLevel2AndLevel3] Appel avec propertyId:', propertyId, 'level_2:', level_2, 'level_3:', level_3);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const params = new URLSearchParams({
+      property_id: propertyId.toString(),
       level_2,
       level_3,
     });
@@ -785,8 +817,13 @@ export const mappingsAPI = {
   /**
    * Prévisualiser un fichier Excel de mappings
    */
-  preview: async (file: File): Promise<MappingPreviewResponse> => {
+  preview: async (propertyId: number, file: File): Promise<MappingPreviewResponse> => {
+    console.log('[mappingsAPI.preview] Appel avec propertyId:', propertyId, 'file:', file.name);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
     const formData = new FormData();
+    formData.append('property_id', propertyId.toString());
     formData.append('file', file);
     
     const url = `${API_BASE_URL}/api/mappings/preview`;
@@ -970,8 +1007,12 @@ export const mappingsAPI = {
   /**
    * Supprimer un mapping autorisé (uniquement si is_hardcoded = False)
    */
-  deleteAllowedMapping: async (mappingId: number): Promise<void> => {
-    return fetchAPI<void>(`/api/mappings/allowed/${mappingId}`, {
+  deleteAllowedMapping: async (propertyId: number, mappingId: number): Promise<void> => {
+    console.log('[mappingsAPI.deleteAllowedMapping] Appel avec propertyId:', propertyId, 'mappingId:', mappingId);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    return fetchAPI<void>(`/api/mappings/allowed/${mappingId}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -979,8 +1020,12 @@ export const mappingsAPI = {
   /**
    * Reset les mappings autorisés : supprime uniquement les combinaisons ajoutées manuellement
    */
-  resetAllowedMappings: async (): Promise<AllowedMappingResetResponse> => {
-    return fetchAPI<AllowedMappingResetResponse>('/api/mappings/allowed/reset', {
+  resetAllowedMappings: async (propertyId: number): Promise<AllowedMappingResetResponse> => {
+    console.log('[mappingsAPI.resetAllowedMappings] Appel avec propertyId:', propertyId);
+    if (!propertyId || propertyId <= 0) {
+      throw new Error(`Property ID invalide: ${propertyId}`);
+    }
+    return fetchAPI<AllowedMappingResetResponse>(`/api/mappings/allowed/reset?property_id=${propertyId}`, {
       method: 'POST',
     });
   },

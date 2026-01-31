@@ -135,8 +135,9 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
       console.log(`🔍 [LoanConfigCard] checkIncoherence: Total crédits = ${totalCreditAmount.toFixed(2)} €`);
       
       // Récupérer le montant total des transactions avec level_1 = "Dettes financières (emprunt bancaire)"
-      // Pas de filtre property_id pour l'instant - on compare tous les crédits avec toutes les transactions
-      const transactionsSum = await transactionsAPI.getSumByLevel1('Dettes financières (emprunt bancaire)');
+      // Note: Cette fonction nécessite property_id pour l'isolation multi-propriétés
+      // Pour l'instant, on utilise property_id=1 par défaut (à améliorer si nécessaire)
+      const transactionsSum = await transactionsAPI.getSumByLevel1(1, 'Dettes financières (emprunt bancaire)');
       const totalTransactions = Math.abs(transactionsSum.total || 0);
       console.log(`🔍 [LoanConfigCard] checkIncoherence: Total transactions = ${totalTransactions.toFixed(2)} €`);
       

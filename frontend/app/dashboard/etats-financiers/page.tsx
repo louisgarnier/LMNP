@@ -18,6 +18,7 @@ import CompteResultatTable from '@/components/CompteResultatTable';
 import BilanConfigCard from '@/components/BilanConfigCard';
 import BilanTable from '@/components/BilanTable';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI, transactionsAPI } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface CreditTabContentProps {
   activeTab: string;
@@ -25,6 +26,7 @@ interface CreditTabContentProps {
 }
 
 function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
+  const { activeProperty } = useProperty();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(true);
@@ -52,11 +54,15 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
   }, [loanConfigs, refreshTrigger]);
 
   const validateCreditAmounts = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[CreditTabContent] Property ID invalide pour validateCreditAmounts');
+      return;
+    }
     try {
       const level1Value = "Dettes financières (emprunt bancaire)";
       
       // Calculer la somme totale des transactions
-      const transactionSum = await transactionsAPI.getSumByLevel1(level1Value);
+      const transactionSum = await transactionsAPI.getSumByLevel1(activeProperty.id, level1Value);
       const totalFromTransactions = transactionSum.total;
       
       // Calculer la somme totale des montants configurés

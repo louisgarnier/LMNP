@@ -119,14 +119,18 @@ def detect_mapping_columns(df: pd.DataFrame) -> Dict[str, str]:
 @router.post("/mappings/preview", response_model=MappingPreviewResponse)
 async def preview_mapping_file(
     file: UploadFile = File(...),
+    property_id: int = Form(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Prévisualise un fichier Excel de mappings et détecte le mapping des colonnes.
     
     - **file**: Fichier Excel (.xlsx ou .xls) à analyser
+    - **property_id**: ID de la propriété (obligatoire pour les logs)
     - Retourne: Preview, mapping proposé, statistiques
     """
+    logger.info(f"[Mappings] POST preview - property_id={property_id}, file={file.filename}")
+    validate_property_id(db, property_id, "Mappings")
     # Vérifier l'extension du fichier
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nom de fichier manquant")
@@ -1233,6 +1237,7 @@ async def get_allowed_level3(
 @router.get("/mappings/allowed-level2-for-level3")
 async def get_allowed_level2_for_level3_endpoint(
     level_3: str = Query(..., description="Valeur de level_3"),
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -1243,18 +1248,22 @@ async def get_allowed_level2_for_level3_endpoint(
     
     Args:
         level_3: Valeur de level_3
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Liste des valeurs level_2 uniques pour ce level_3, triées
     """
-    values = get_allowed_level2_for_level3(db, level_3)
+    logger.info(f"[Mappings] GET allowed-level2-for-level3 - property_id={property_id}, level_3={level_3}")
+    validate_property_id(db, property_id, "Mappings")
+    values = get_allowed_level2_for_level3(db, level_3, property_id)
     return {"level_2": values}
 
 
 @router.get("/mappings/allowed-level1-for-level2")
 async def get_allowed_level1_for_level2_endpoint(
     level_2: str = Query(..., description="Valeur de level_2"),
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -1265,12 +1274,15 @@ async def get_allowed_level1_for_level2_endpoint(
     
     Args:
         level_2: Valeur de level_2
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Liste des valeurs level_1 uniques pour ce level_2, triées
     """
-    values = get_allowed_level1_for_level2(db, level_2)
+    logger.info(f"[Mappings] GET allowed-level1-for-level2 - property_id={property_id}, level_2={level_2}")
+    validate_property_id(db, property_id, "Mappings")
+    values = get_allowed_level1_for_level2(db, level_2, property_id)
     return {"level_1": values}
 
 
@@ -1278,6 +1290,7 @@ async def get_allowed_level1_for_level2_endpoint(
 async def get_allowed_level1_for_level2_and_level3_endpoint(
     level_2: str = Query(..., description="Valeur de level_2"),
     level_3: str = Query(..., description="Valeur de level_3"),
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -1289,18 +1302,22 @@ async def get_allowed_level1_for_level2_and_level3_endpoint(
     Args:
         level_2: Valeur de level_2
         level_3: Valeur de level_3
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Liste des valeurs level_1 uniques pour ce couple, triées
     """
-    values = get_allowed_level1_for_level2_and_level3(db, level_2, level_3)
+    logger.info(f"[Mappings] GET allowed-level1-for-level2-and-level3 - property_id={property_id}, level_2={level_2}, level_3={level_3}")
+    validate_property_id(db, property_id, "Mappings")
+    values = get_allowed_level1_for_level2_and_level3(db, level_2, level_3, property_id)
     return {"level_1": values}
 
 
 @router.get("/mappings/allowed-level3-for-level2")
 async def get_allowed_level3_for_level2_endpoint(
     level_2: str = Query(..., description="Valeur de level_2"),
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -1311,17 +1328,21 @@ async def get_allowed_level3_for_level2_endpoint(
     
     Args:
         level_2: Valeur de level_2
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Liste des valeurs level_3 uniques pour ce level_2, triées
     """
-    values = get_allowed_level3_for_level2(db, level_2)
+    logger.info(f"[Mappings] GET allowed-level3-for-level2 - property_id={property_id}, level_2={level_2}")
+    validate_property_id(db, property_id, "Mappings")
+    values = get_allowed_level3_for_level2(db, level_2, property_id)
     return {"level_3": values}
 
 
 @router.get("/mappings/combinations")
 async def get_mapping_combinations(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     level_1: Optional[str] = Query(None, description="Filtrer par level_1"),
     level_2: Optional[str] = Query(None, description="Filtrer par level_2 (nécessite level_1)"),
     all_level_2: Optional[bool] = Query(False, description="Retourner tous les level_2 (ignorer le filtre level_1)"),
@@ -1329,7 +1350,7 @@ async def get_mapping_combinations(
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer toutes les combinaisons possibles de level_1, level_2, level_3.
+    Récupérer toutes les combinaisons possibles de level_1, level_2, level_3 pour une propriété spécifique.
     
     Utilisé pour les dropdowns intelligents dans l'interface :
     - Si level_1 est fourni, retourne uniquement les level_2 possibles pour ce level_1
@@ -1339,6 +1360,7 @@ async def get_mapping_combinations(
     - Sinon, retourne tous les level_1 disponibles
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         level_1: Filtrer par level_1 (optionnel)
         level_2: Filtrer par level_2 (optionnel, nécessite level_1)
         all_level_2: Si True, retourner tous les level_2 (ignorer level_1)
@@ -1353,35 +1375,45 @@ async def get_mapping_combinations(
             "level_3": ["valeur1", "valeur2", ...]
         }
     """
+    logger.info(f"[Mappings] GET combinations - property_id={property_id}")
+    validate_property_id(db, property_id, "Mappings")
+    
     result: Dict[str, List[str]] = {}
     
     if all_level_3:
-        # Retourner tous les level_3 disponibles (sans filtre)
+        # Retourner tous les level_3 disponibles (sans filtre) pour cette propriété
         level_3_values = db.query(distinct(Mapping.level_3)).filter(
+            Mapping.property_id == property_id,
             Mapping.level_3.isnot(None)
         ).all()
         result["level_3"] = [v[0] for v in level_3_values if v[0] is not None]
     elif all_level_2:
-        # Retourner tous les level_2 disponibles (sans filtre level_1)
-        level_2_values = db.query(distinct(Mapping.level_2)).all()
+        # Retourner tous les level_2 disponibles (sans filtre level_1) pour cette propriété
+        level_2_values = db.query(distinct(Mapping.level_2)).filter(
+            Mapping.property_id == property_id
+        ).all()
         result["level_2"] = [v[0] for v in level_2_values if v[0] is not None]
     elif level_1 and level_2:
-        # Récupérer tous les level_3 possibles pour cette combinaison level_1 + level_2
+        # Récupérer tous les level_3 possibles pour cette combinaison level_1 + level_2 pour cette propriété
         level_3_values = db.query(distinct(Mapping.level_3)).filter(
+            Mapping.property_id == property_id,
             Mapping.level_1 == level_1,
             Mapping.level_2 == level_2,
             Mapping.level_3.isnot(None)
         ).all()
         result["level_3"] = [v[0] for v in level_3_values if v[0] is not None]
     elif level_1:
-        # Récupérer tous les level_2 possibles pour ce level_1
+        # Récupérer tous les level_2 possibles pour ce level_1 pour cette propriété
         level_2_values = db.query(distinct(Mapping.level_2)).filter(
+            Mapping.property_id == property_id,
             Mapping.level_1 == level_1
         ).all()
         result["level_2"] = [v[0] for v in level_2_values if v[0] is not None]
     else:
-        # Récupérer tous les level_1 disponibles
-        level_1_values = db.query(distinct(Mapping.level_1)).all()
+        # Récupérer tous les level_1 disponibles pour cette propriété
+        level_1_values = db.query(distinct(Mapping.level_1)).filter(
+            Mapping.property_id == property_id
+        ).all()
         # Extraire les valeurs (distinct retourne des tuples)
         result["level_1"] = [v[0] for v in level_1_values if v[0] is not None]
     
@@ -1456,6 +1488,7 @@ async def create_allowed_mapping_endpoint(
 @router.delete("/mappings/allowed/{mapping_id}", status_code=204)
 async def delete_allowed_mapping_endpoint(
     mapping_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -1463,36 +1496,43 @@ async def delete_allowed_mapping_endpoint(
     
     Args:
         mapping_id: ID du mapping à supprimer
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Raises:
         HTTPException: Si le mapping n'existe pas ou s'il est hard codé (403)
     """
+    logger.info(f"[Mappings] DELETE allowed/{mapping_id} - property_id={property_id}")
+    validate_property_id(db, property_id, "Mappings")
     try:
-        deleted = delete_allowed_mapping(db, mapping_id)
+        deleted = delete_allowed_mapping(db, mapping_id, property_id)
         if not deleted:
-            raise HTTPException(status_code=404, detail=f"Mapping autorisé avec ID {mapping_id} non trouvé")
+            raise HTTPException(status_code=404, detail=f"Mapping autorisé avec ID {mapping_id} non trouvé pour la propriété {property_id}")
     except ValueError as e:
         raise HTTPException(status_code=403, detail=str(e))
 
 
 @router.post("/mappings/allowed/reset")
 async def reset_allowed_mappings_endpoint(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Reset les mappings autorisés : supprime uniquement les combinaisons ajoutées manuellement.
+    Reset les mappings autorisés : supprime uniquement les combinaisons ajoutées manuellement pour une propriété spécifique.
     
     Supprime aussi les mappings invalides et marque les transactions associées comme non assignées.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Statistiques de l'opération
     """
+    logger.info(f"[Mappings] POST allowed/reset - property_id={property_id}")
+    validate_property_id(db, property_id, "Mappings")
     try:
-        stats = reset_allowed_mappings(db)
+        stats = reset_allowed_mappings(db, property_id)
         return {
             "message": "Reset effectué avec succès",
             "deleted_allowed": stats["deleted_allowed"],

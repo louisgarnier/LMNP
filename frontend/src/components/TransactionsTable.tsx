@@ -698,8 +698,12 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       }
       // Step 5.5.4: Si level_2 existe (sans level_1), charger les level_3 pour ce level_2
       else if (currentLevel2) {
+        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+          console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel3ForLevel2');
+          return;
+        }
         try {
-          const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(currentLevel2);
+          const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(activeProperty.id, currentLevel2);
           const level3List = level3Response.level_3 || [];
           setAvailableLevel3(level3List);
         } catch (err) {
@@ -708,8 +712,12 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       }
       // Step 5.5.5: Si level_3 existe (sans level_1 ni level_2), charger les level_2 pour ce level_3
       else if (currentLevel3) {
+        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+          console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel2ForLevel3');
+          return;
+        }
         try {
-          const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(currentLevel3);
+          const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(activeProperty.id, currentLevel3);
           const level2List = level2Response.level_2 || [];
           setAvailableLevel2(level2List);
         } catch (err) {
@@ -817,9 +825,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     
     // Step 5.5.4: Scénario 2 - Si level_1 n'est pas encore sélectionné
     if (!level_1 && value) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.error('[TransactionsTable] Property ID invalide pour handleLevel2Change');
+        return;
+      }
       try {
         // Charger les level_3 possibles pour ce level_2
-        const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(value);
+        const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(activeProperty.id, value);
         const level3List = level3Response.level_3 || [];
         setAvailableLevel3(level3List);
         
@@ -830,7 +842,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
         }
         
         // Charger les level_1 autorisés pour ce level_2
-        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2(value);
+        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2(activeProperty.id, value);
         const level1List = level1Response.level_1 || [];
         setAvailableLevel1(level1List);
         
@@ -887,9 +899,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     else if (!level_1 && value) {
       const level_3 = editingClassificationValues.level_3;
       if (level_3) {
+        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+          console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel1ForLevel2AndLevel3');
+          return;
+        }
         try {
           // Charger les level_1 autorisés pour le couple (level_2, level_3)
-          const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(value, level_3);
+          const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(activeProperty.id, value, level_3);
           const level1List = level1Response.level_1 || [];
           setAvailableLevel1(level1List);
           
@@ -929,9 +945,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     
     // Step 5.5.5: Scénario 3 - Si level_1 et level_2 ne sont pas encore sélectionnés
     if (!level_1 && !level_2 && value) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel2ForLevel3');
+        return;
+      }
       try {
         // Charger les level_2 autorisés pour ce level_3
-        const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(value);
+        const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(activeProperty.id, value);
         const level2List = level2Response.level_2 || [];
         setAvailableLevel2(level2List);
         
@@ -954,9 +974,13 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     }
     // Si level_2 est déjà sélectionné (mais pas level_1), charger les level_1 pour le couple
     else if (!level_1 && level_2 && value) {
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel1ForLevel2AndLevel3');
+        return;
+      }
       try {
         // Charger les level_1 autorisés pour le couple (level_2, level_3)
-        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(level_2, value);
+        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(activeProperty.id, level_2, value);
         const level1List = level1Response.level_1 || [];
         setAvailableLevel1(level1List);
         

@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { transactionsAPI, bilanAPI, BilanMapping } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface BilanConfigCardProps {
   onConfigUpdated?: () => void;
@@ -51,6 +52,7 @@ export default function BilanConfigCard({
   onLevel3Change,
   isActive = true,
 }: BilanConfigCardProps) {
+  const { activeProperty } = useProperty();
   
   const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>([]);
   const [level3Values, setLevel3Values] = useState<string[]>([]);
@@ -88,10 +90,14 @@ export default function BilanConfigCard({
   // Charger les valeurs Level 3 disponibles
   const loadLevel3Values = async () => {
     if (!isActive) return; // Ne pas charger si l'onglet n'est pas actif
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[BilanConfigCard] Property ID invalide pour loadLevel3Values');
+      return;
+    }
     
     try {
       setLoadingValues(true);
-      const response = await transactionsAPI.getUniqueValues('level_3');
+      const response = await transactionsAPI.getUniqueValues(activeProperty.id, 'level_3');
       const values = response.values || [];
       setLevel3Values(values);
     } catch (err: any) {
@@ -149,10 +155,14 @@ export default function BilanConfigCard({
       return;
     }
 
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[BilanConfigCard] Property ID invalide pour loadLevel1Values');
+      return;
+    }
     try {
       setLoadingLevel1Values(true);
       // Ne charger que si on a vraiment besoin (éviter les appels inutiles)
-      const response = await transactionsAPI.getUniqueValues('level_1', undefined, undefined, undefined, selectedLevel3Values);
+      const response = await transactionsAPI.getUniqueValues(activeProperty.id, 'level_1', undefined, undefined, undefined, selectedLevel3Values);
       setLevel1Values(response.values || []);
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_1:', err);

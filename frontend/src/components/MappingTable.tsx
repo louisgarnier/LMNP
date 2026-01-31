@@ -66,7 +66,7 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
   const [isReEnriching, setIsReEnriching] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newMapping, setNewMapping] = useState<MappingCreate>({
+  const [newMapping, setNewMapping] = useState<Omit<MappingCreate, 'property_id'>>({
     nom: '',
     level_1: '',
     level_2: '',
@@ -336,7 +336,7 @@ const MappingTable = forwardRef<MappingTableRef, MappingTableProps>(({ onMapping
 
     console.log('[MappingTable] handleCreate - Appel avec propertyId:', activeProperty.id, 'mapping:', newMapping);
     try {
-      await mappingsAPI.create({ ...newMapping, property_id: activeProperty.id });
+      await mappingsAPI.create(activeProperty.id, newMapping);
       setShowCreateModal(false);
       setNewMapping({
         nom: '',

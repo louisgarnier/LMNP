@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { transactionsAPI, compteResultatAPI, CompteResultatMapping } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface CompteResultatConfigCardProps {
   onConfigUpdated?: () => void;
@@ -27,6 +28,7 @@ export default function CompteResultatConfigCard({
   onLevel3ValuesLoaded,
   onOverrideEnabledChange,
 }: CompteResultatConfigCardProps) {
+  const { activeProperty } = useProperty();
   
   const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>([]);
   const [level3Values, setLevel3Values] = useState<string[]>([]);
@@ -156,9 +158,13 @@ export default function CompteResultatConfigCard({
 
   // Charger les valeurs Level 3 depuis l'API
   const loadLevel3Values = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour loadLevel3Values');
+      return;
+    }
     try {
       setLoadingValues(true);
-      const response = await transactionsAPI.getUniqueValues('level_3');
+      const response = await transactionsAPI.getUniqueValues(activeProperty.id, 'level_3');
       const values = response.values || [];
       setLevel3Values(values);
       setLevel3ValuesLoaded(true);
@@ -238,9 +244,13 @@ export default function CompteResultatConfigCard({
       return;
     }
 
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour loadLevel1Values');
+      return;
+    }
     try {
       setLoadingLevel1Values(true);
-      const response = await transactionsAPI.getUniqueValues('level_1', undefined, undefined, undefined, selectedLevel3Values);
+      const response = await transactionsAPI.getUniqueValues(activeProperty.id, 'level_1', undefined, undefined, undefined, selectedLevel3Values);
       setLevel1Values(response.values || []);
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_1:', err);

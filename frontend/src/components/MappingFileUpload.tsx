@@ -8,6 +8,7 @@
 
 import { useState, useRef } from 'react';
 import { mappingsAPI, MappingPreviewResponse } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 import MappingColumnMappingModal from './MappingColumnMappingModal';
 
 interface MappingFileUploadProps {
@@ -16,6 +17,7 @@ interface MappingFileUploadProps {
 }
 
 export default function MappingFileUpload({ onFileSelect, onImportComplete }: MappingFileUploadProps) {
+  const { activeProperty } = useProperty();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<MappingPreviewResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -42,9 +44,14 @@ export default function MappingFileUpload({ onFileSelect, onImportComplete }: Ma
       
       // Appeler preview automatiquement
       console.log('⏳ [MappingFileUpload] Début du preview...');
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.error('❌ [MappingFileUpload] Property ID invalide:', activeProperty);
+        alert('Veuillez sélectionner une propriété valide');
+        return;
+      }
       setIsLoadingPreview(true);
       try {
-        const preview = await mappingsAPI.preview(file);
+        const preview = await mappingsAPI.preview(activeProperty.id, file);
         console.log('✅ [MappingFileUpload] Preview réussi!', preview);
         console.log('📊 [MappingFileUpload] Stats:', {
           total_rows: preview.total_rows,

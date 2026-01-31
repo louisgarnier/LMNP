@@ -141,9 +141,13 @@ export default function MappingImportLog({ hideHeader = false, onMappingCountCha
     if (!confirm('Êtes-vous sûr de vouloir supprimer cet import de l\'historique ?')) {
       return;
     }
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[MappingImportLog] Property ID invalide pour deleteImport');
+      return;
+    }
     
     try {
-      await mappingsAPI.deleteImport(historyId);
+      await mappingsAPI.deleteImport(activeProperty.id, historyId);
       // Reload history
       if (showDbHistory) {
         loadHistory();

@@ -261,9 +261,9 @@ def reset_to_hardcoded_values(db: Session) -> int:
     return deleted_count
 
 
-def get_allowed_level2_for_level3(db: Session, level_3: str) -> List[str]:
+def get_allowed_level2_for_level3(db: Session, level_3: str, property_id: int) -> List[str]:
     """
-    Retourne les valeurs level_2 autorisées pour un level_3 donné (distinct).
+    Retourne les valeurs level_2 autorisées pour un level_3 donné (distinct) pour une propriété spécifique.
     
     Utilisé pour le filtrage bidirectionnel : quand level_3 est sélectionné en premier,
     on peut filtrer les level_2 possibles.
@@ -271,20 +271,26 @@ def get_allowed_level2_for_level3(db: Session, level_3: str) -> List[str]:
     Args:
         db: Session de base de données
         level_3: Valeur de level_3
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         Liste des valeurs level_2 uniques pour ce level_3, triées
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[MappingObligatoire] get_allowed_level2_for_level3 - property_id={property_id}, level_3={level_3}")
+    
     values = db.query(distinct(AllowedMapping.level_2)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_3 == level_3,
         AllowedMapping.level_2.isnot(None)
     ).order_by(AllowedMapping.level_2).all()
     return [v[0] for v in values if v[0]]
 
 
-def get_allowed_level1_for_level2(db: Session, level_2: str) -> List[str]:
+def get_allowed_level1_for_level2(db: Session, level_2: str, property_id: int) -> List[str]:
     """
-    Retourne les valeurs level_1 autorisées pour un level_2 donné (distinct).
+    Retourne les valeurs level_1 autorisées pour un level_2 donné (distinct) pour une propriété spécifique.
     
     Utilisé pour le filtrage bidirectionnel : quand level_2 est sélectionné en premier,
     on peut filtrer les level_1 possibles.
@@ -292,20 +298,26 @@ def get_allowed_level1_for_level2(db: Session, level_2: str) -> List[str]:
     Args:
         db: Session de base de données
         level_2: Valeur de level_2
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         Liste des valeurs level_1 uniques pour ce level_2, triées
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[MappingObligatoire] get_allowed_level1_for_level2 - property_id={property_id}, level_2={level_2}")
+    
     values = db.query(distinct(AllowedMapping.level_1)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_2 == level_2,
         AllowedMapping.level_1.isnot(None)
     ).order_by(AllowedMapping.level_1).all()
     return [v[0] for v in values if v[0]]
 
 
-def get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3: str) -> List[str]:
+def get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3: str, property_id: int) -> List[str]:
     """
-    Retourne les valeurs level_1 autorisées pour un couple (level_2, level_3) (distinct).
+    Retourne les valeurs level_1 autorisées pour un couple (level_2, level_3) (distinct) pour une propriété spécifique.
     
     Utilisé pour le filtrage bidirectionnel : quand level_3 puis level_2 sont sélectionnés,
     on peut filtrer les level_1 possibles pour validation.
@@ -314,11 +326,17 @@ def get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3:
         db: Session de base de données
         level_2: Valeur de level_2
         level_3: Valeur de level_3
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         Liste des valeurs level_1 uniques pour ce couple, triées
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[MappingObligatoire] get_allowed_level1_for_level2_and_level3 - property_id={property_id}, level_2={level_2}, level_3={level_3}")
+    
     values = db.query(distinct(AllowedMapping.level_1)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_2 == level_2,
         AllowedMapping.level_3 == level_3,
         AllowedMapping.level_1.isnot(None)
@@ -326,9 +344,9 @@ def get_allowed_level1_for_level2_and_level3(db: Session, level_2: str, level_3:
     return [v[0] for v in values if v[0]]
 
 
-def get_allowed_level3_for_level2(db: Session, level_2: str) -> List[str]:
+def get_allowed_level3_for_level2(db: Session, level_2: str, property_id: int) -> List[str]:
     """
-    Retourne les valeurs level_3 autorisées pour un level_2 donné (distinct).
+    Retourne les valeurs level_3 autorisées pour un level_2 donné (distinct) pour une propriété spécifique.
     
     Utilisé pour le filtrage bidirectionnel : quand level_2 est sélectionné en premier,
     on peut trouver le level_3 unique (si unique) pour pré-remplir automatiquement.
@@ -336,11 +354,17 @@ def get_allowed_level3_for_level2(db: Session, level_2: str) -> List[str]:
     Args:
         db: Session de base de données
         level_2: Valeur de level_2
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         Liste des valeurs level_3 uniques pour ce level_2, triées
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[MappingObligatoire] get_allowed_level3_for_level2 - property_id={property_id}, level_2={level_2}")
+    
     values = db.query(distinct(AllowedMapping.level_3)).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.level_2 == level_2,
         AllowedMapping.level_3.isnot(None)
     ).order_by(AllowedMapping.level_3).all()
@@ -409,13 +433,14 @@ def create_allowed_mapping(db: Session, level_1: str, level_2: str, property_id:
     return mapping
 
 
-def delete_allowed_mapping(db: Session, mapping_id: int) -> bool:
+def delete_allowed_mapping(db: Session, mapping_id: int, property_id: int) -> bool:
     """
-    Supprime un mapping autorisé (uniquement si is_hardcoded = False).
+    Supprime un mapping autorisé (uniquement si is_hardcoded = False) pour une propriété spécifique.
     
     Args:
         db: Session de base de données
         mapping_id: ID du mapping à supprimer
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         True si supprimé, False si non trouvé
@@ -423,7 +448,14 @@ def delete_allowed_mapping(db: Session, mapping_id: int) -> bool:
     Raises:
         ValueError: Si le mapping est hard codé (is_hardcoded = True)
     """
-    mapping = db.query(AllowedMapping).filter(AllowedMapping.id == mapping_id).first()
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[MappingObligatoire] delete_allowed_mapping - property_id={property_id}, mapping_id={mapping_id}")
+    
+    mapping = db.query(AllowedMapping).filter(
+        AllowedMapping.id == mapping_id,
+        AllowedMapping.property_id == property_id
+    ).first()
     if not mapping:
         return False
     
@@ -435,41 +467,52 @@ def delete_allowed_mapping(db: Session, mapping_id: int) -> bool:
     return True
 
 
-def reset_allowed_mappings(db: Session) -> dict:
+def reset_allowed_mappings(db: Session, property_id: int) -> dict:
     """
-    Reset les mappings autorisés : supprime uniquement les combinaisons ajoutées manuellement.
+    Reset les mappings autorisés : supprime uniquement les combinaisons ajoutées manuellement pour une propriété spécifique.
     
     Supprime aussi les mappings invalides et marque les transactions associées comme non assignées.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
     
     Returns:
         Dictionnaire avec les statistiques (deleted_allowed, deleted_mappings, unassigned_transactions)
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"[MappingObligatoire] reset_allowed_mappings - property_id={property_id}")
+    
     from backend.database.models import Mapping, EnrichedTransaction
     
-    # 1. Supprimer les allowed_mappings non hard codés
+    # 1. Supprimer les allowed_mappings non hard codés pour cette propriété
     deleted_allowed = db.query(AllowedMapping).filter(
+        AllowedMapping.property_id == property_id,
         AllowedMapping.is_hardcoded == False
     ).delete()
     db.commit()
     
-    # 2. Supprimer les mappings invalides (combinaisons qui ne sont plus dans allowed_mappings)
-    all_allowed = db.query(AllowedMapping).all()
+    # 2. Supprimer les mappings invalides (combinaisons qui ne sont plus dans allowed_mappings) pour cette propriété
+    all_allowed = db.query(AllowedMapping).filter(
+        AllowedMapping.property_id == property_id
+    ).all()
     allowed_combinations = {
         (m.level_1, m.level_2, m.level_3) for m in all_allowed
     }
     
-    all_mappings = db.query(Mapping).all()
+    all_mappings = db.query(Mapping).filter(
+        Mapping.property_id == property_id
+    ).all()
     deleted_mappings = 0
     transactions_to_unassign = set()
     
     for mapping in all_mappings:
         combination = (mapping.level_1, mapping.level_2, mapping.level_3)
         if combination not in allowed_combinations:
-            # Récupérer les transactions associées avant de supprimer
+            # Récupérer les transactions associées avant de supprimer (filtrées par property_id)
             transactions = db.query(Transaction).filter(
+                Transaction.property_id == property_id,
                 Transaction.nom == mapping.nom
             ).all()
             transactions_to_unassign.update(t.id for t in transactions)

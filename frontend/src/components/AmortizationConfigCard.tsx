@@ -13,6 +13,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { transactionsAPI, amortizationTypesAPI, amortizationAPI, AmortizationType } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface AmortizationConfigCardProps {
   onConfigUpdated?: () => void;
@@ -30,6 +31,7 @@ export default function AmortizationConfigCard({
   onLevel2ValuesLoaded,
   onRefreshRequested,
 }: AmortizationConfigCardProps) {
+  const { activeProperty } = useProperty();
   const [selectedLevel2Value, setSelectedLevel2Value] = useState<string>('');
   const [level2Values, setLevel2Values] = useState<string[]>([]);
   const [loadingValues, setLoadingValues] = useState<boolean>(false);
@@ -89,9 +91,13 @@ export default function AmortizationConfigCard({
 
   // Charger les valeurs Level 2 depuis l'API
   const loadLevel2Values = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[AmortizationConfigCard] Property ID invalide pour loadLevel2Values');
+      return;
+    }
     try {
       setLoadingValues(true);
-      const response = await transactionsAPI.getUniqueValues('level_2');
+      const response = await transactionsAPI.getUniqueValues(activeProperty.id, 'level_2');
       const values = response.values || [];
       setLevel2Values(values);
       setLevel2ValuesLoaded(true);
@@ -233,10 +239,14 @@ export default function AmortizationConfigCard({
       setLevel1Values([]);
       return;
     }
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[AmortizationConfigCard] Property ID invalide pour loadLevel1Values');
+      return;
+    }
 
     try {
       setLoadingLevel1Values(true);
-      const response = await transactionsAPI.getUniqueValues('level_1', undefined, undefined, selectedLevel2Value);
+      const response = await transactionsAPI.getUniqueValues(activeProperty.id, 'level_1', undefined, undefined, selectedLevel2Value);
       setLevel1Values(response.values || []);
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_1:', err);

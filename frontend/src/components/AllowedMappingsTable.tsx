@@ -219,9 +219,13 @@ export default function AllowedMappingsTable() {
       
       // Si level_2 existe (même avec un nouveau level_1), charger les level_3 déjà mappés
       if (value) {
+        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+          console.error('[AllowedMappingsTable] Property ID invalide pour getAllowedLevel3ForLevel2');
+          return;
+        }
         try {
           // Charger les level_3 pour ce level_2 (peu importe le level_1)
-          const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(value);
+          const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(activeProperty.id, value);
           const level3List = level3Response.level_3 || [];
           setCreateAvailableLevel3(level3List);
         } catch (err) {
@@ -292,7 +296,11 @@ export default function AllowedMappingsTable() {
 
     setDeletingId(id);
     try {
-      await mappingsAPI.deleteAllowedMapping(id);
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.error('[AllowedMappingsTable] Property ID invalide pour deleteAllowedMapping');
+        return;
+      }
+      await mappingsAPI.deleteAllowedMapping(activeProperty.id, id);
       loadMappings();
     } catch (err: any) {
       alert(`Erreur lors de la suppression: ${err.message}`);
@@ -308,7 +316,11 @@ export default function AllowedMappingsTable() {
 
     setIsResetting(true);
     try {
-      const result = await mappingsAPI.resetAllowedMappings();
+      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+        console.error('[AllowedMappingsTable] Property ID invalide pour resetAllowedMappings');
+        return;
+      }
+      const result = await mappingsAPI.resetAllowedMappings(activeProperty.id);
       alert(`Reset effectué avec succès :\n- ${result.deleted_allowed} mapping(s) autorisé(s) supprimé(s)\n- ${result.deleted_mappings} mapping(s) invalide(s) supprimé(s)\n- ${result.unassigned_transactions} transaction(s) non assignée(s)`);
       loadMappings();
     } catch (err: any) {

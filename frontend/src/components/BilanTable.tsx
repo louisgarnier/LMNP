@@ -297,6 +297,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
       categoryName?: string;
       amounts: Record<number, number | null>;
       isTotal?: boolean;
+      isBalance?: boolean;
     }> = [];
 
     // Parcourir les données par année pour construire la structure
