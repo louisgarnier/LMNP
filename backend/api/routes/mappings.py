@@ -937,7 +937,7 @@ async def create_mapping(
     transactions_to_re_enrich = []
     for transaction in all_transactions:
         # Utiliser la fonction utilitaire pour vérifier si la transaction correspond au mapping
-        if transaction_matches_mapping_name(transaction.nom, mapping.nom):
+        if transaction_matches_mapping_name(transaction.nom, mapping.nom, mapping.is_prefix_match):
             transactions_to_re_enrich.append(transaction)
     
     if transactions_to_re_enrich:
@@ -1013,9 +1013,10 @@ async def update_mapping(
                 detail=f"Un mapping avec le nom '{mapping_update.nom}' existe déjà pour cette propriété"
             )
     
-    # Sauvegarder le nom du mapping AVANT la mise à jour
+    # Sauvegarder le nom et is_prefix_match du mapping AVANT la mise à jour
     # pour trouver toutes les transactions qui correspondent à ce nom
     old_mapping_nom = mapping.nom
+    old_is_prefix_match = mapping.is_prefix_match
     
     # Trouver TOUTES les transactions de cette propriété dont le nom correspond au mapping
     # (peu importe leurs level_1/2/3 actuels)
@@ -1031,7 +1032,7 @@ async def update_mapping(
     transactions_to_re_enrich = []
     for transaction in all_transactions:
         # Utiliser la fonction utilitaire pour vérifier si la transaction correspond au mapping
-        if transaction_matches_mapping_name(transaction.nom, old_mapping_nom):
+        if transaction_matches_mapping_name(transaction.nom, old_mapping_nom, old_is_prefix_match):
             transactions_to_re_enrich.append(transaction)
     
     # Mettre à jour les champs

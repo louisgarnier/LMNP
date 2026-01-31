@@ -28,9 +28,16 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
     Logique de matching :
     1. Cas spécial PRLV SEPA : Recherche par préfixe avec "PRLV SEPA" dans le nom
     2. Cas spécial VIR STRIPE : Correspondance exacte si nom = "VIR STRIPE"
-    3. Cas général : Recherche par préfixe le plus long qui correspond
-    4. Matching "smart" : Recherche par pattern/contient (si le nom de la transaction
-       contient le nom du mapping)
+    3. Correspondance exacte : Si transaction_name == mapping_name → toujours utiliser
+    4. Cas général : Recherche par préfixe (si is_prefix_match = True) avec seuil de similarité
+       - Le ratio longueur_mapping / longueur_transaction doit être >= 70%
+       - Cela évite qu'un mapping générique mappe des transactions spécifiques
+    5. Matching "smart" : Recherche par pattern/contient (si le nom de la transaction
+       contient le nom du mapping) - avec le même seuil de similarité
+    
+    **Règle importante** : Un mapping générique ne doit PAS mapper automatiquement une transaction
+    spécifique. Si aucun mapping spécifique n'existe, la transaction reste non mappée (unassigned)
+    pour que l'utilisateur puisse choisir manuellement.
     
     **Règle importante (Step 5.3 modifiée)** : Si plusieurs mappings correspondent à une transaction,
     choisir celui avec le nom le plus long (correspondance exacte ou préfixe le plus long).
@@ -42,7 +49,7 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
     
     Returns:
         Le meilleur mapping trouvé (le plus long qui correspond), ou None si aucun mapping ne correspond
-        ou si plusieurs mappings de même longueur correspondent
+        ou si plusieurs mappings de même longueur correspondent, ou si le mapping est trop générique
     """
     best_match = None
     best_length = 0
@@ -50,14 +57,25 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
     
     # Normaliser le nom de la transaction (supprimer espaces en début/fin)
     transaction_name = transaction_name.strip()
+    transaction_length = len(transaction_name)
+    
+    # Seuil minimum de similarité pour les mappings préfixes (70%)
+    # Cela évite qu'un mapping générique comme "achat appart" (12 chars) 
+    # mappe "achat appart (Immobilisation Facade/Toiture)" (47 chars)
+    MIN_SIMILARITY_RATIO = 0.70
     
     for mapping in mappings:
         mapping_name = mapping.nom.strip()
         matches = False
         match_length = 0
         
+        # Correspondance exacte → toujours utiliser (même si court)
+        if transaction_name == mapping_name:
+            matches = True
+            match_length = len(mapping_name)
+        
         # Cas spécial pour PRLV SEPA
-        if 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
+        elif 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
             if transaction_name.startswith(mapping_name):
                 matches = True
                 match_length = len(mapping_name)
@@ -68,16 +86,40 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
             match_length = len(mapping_name)
         
         # Cas général : recherche par préfixe (si is_prefix_match = True)
+        # MAIS seulement si le ratio de similarité est suffisant
         elif mapping.is_prefix_match:
             if transaction_name.startswith(mapping_name):
-                matches = True
-                match_length = len(mapping_name)
+                mapping_length = len(mapping_name)
+                similarity_ratio = mapping_length / transaction_length if transaction_length > 0 else 0
+                # Utiliser le mapping seulement si le ratio est >= 70%
+                if similarity_ratio >= MIN_SIMILARITY_RATIO:
+                    matches = True
+                    match_length = mapping_length
+                else:
+                    # Mapping trop générique → ignorer
+                    logger.debug(
+                        f"[find_best_mapping] Mapping générique ignoré: "
+                        f"'{mapping_name}' ({mapping_length} chars) vs '{transaction_name}' ({transaction_length} chars) "
+                        f"(ratio={similarity_ratio:.2%} < {MIN_SIMILARITY_RATIO:.2%})"
+                    )
         
         # Matching "smart" : recherche par pattern/contient
         # Si le nom de la transaction contient le nom du mapping
+        # MAIS seulement si le ratio de similarité est suffisant
         elif mapping_name in transaction_name:
-            matches = True
-            match_length = len(mapping_name)
+            mapping_length = len(mapping_name)
+            similarity_ratio = mapping_length / transaction_length if transaction_length > 0 else 0
+            # Utiliser le mapping seulement si le ratio est >= 70%
+            if similarity_ratio >= MIN_SIMILARITY_RATIO:
+                matches = True
+                match_length = mapping_length
+            else:
+                # Mapping trop générique → ignorer
+                logger.debug(
+                    f"[find_best_mapping] Mapping générique ignoré: "
+                    f"'{mapping_name}' ({mapping_length} chars) vs '{transaction_name}' ({transaction_length} chars) "
+                    f"(ratio={similarity_ratio:.2%} < {MIN_SIMILARITY_RATIO:.2%})"
+                )
         
         if matches:
             matching_mappings.append((mapping, match_length))
@@ -100,22 +142,33 @@ def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optiona
     return best_match
 
 
-def transaction_matches_mapping_name(transaction_name: str, mapping_name: str) -> bool:
+def transaction_matches_mapping_name(transaction_name: str, mapping_name: str, is_prefix_match: bool = True) -> bool:
     """
     Vérifie si une transaction correspond à un nom de mapping.
     
     Utilise la même logique que find_best_mapping pour déterminer si une transaction
-    correspond à un mapping donné.
+    correspond à un mapping donné, avec le même seuil de similarité pour éviter
+    les mappings génériques.
     
     Args:
         transaction_name: Nom de la transaction
         mapping_name: Nom du mapping
+        is_prefix_match: Si True, utilise le matching par préfixe (défaut: True)
     
     Returns:
         True si la transaction correspond au mapping, False sinon
     """
     transaction_name = transaction_name.strip()
     mapping_name = mapping_name.strip()
+    transaction_length = len(transaction_name)
+    mapping_length = len(mapping_name)
+    
+    # Seuil minimum de similarité (70%)
+    MIN_SIMILARITY_RATIO = 0.70
+    
+    # Correspondance exacte → toujours OK
+    if transaction_name == mapping_name:
+        return True
     
     # Cas spécial pour PRLV SEPA
     if 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
@@ -126,8 +179,13 @@ def transaction_matches_mapping_name(transaction_name: str, mapping_name: str) -
         return True
     
     # Cas général : recherche par préfixe ou contient
-    if mapping_name in transaction_name or transaction_name.startswith(mapping_name):
-        return True
+    # MAIS seulement si le ratio de similarité est suffisant
+    if is_prefix_match and transaction_name.startswith(mapping_name):
+        similarity_ratio = mapping_length / transaction_length if transaction_length > 0 else 0
+        return similarity_ratio >= MIN_SIMILARITY_RATIO
+    elif mapping_name in transaction_name:
+        similarity_ratio = mapping_length / transaction_length if transaction_length > 0 else 0
+        return similarity_ratio >= MIN_SIMILARITY_RATIO
     
     return False
 

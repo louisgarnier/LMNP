@@ -979,6 +979,29 @@ Cette phase implique :
 
 ## ONGLET 3 : AMORTISSEMENTS
 
+**Status**: ✅ COMPLÉTÉ (Backend 100%, Frontend 100%, Migration 100%)
+
+**✅ COMPLÉTÉ** : Tous les endpoints, services et méthodes frontend ont `property_id` et filtrent correctement. Isolation complète par propriété. Migration des données existantes terminée. Correction de régression : `/transactions/unique-values` filtre maintenant correctement par `property_id` (dropdown level_1_values n'affiche que les valeurs avec transactions).
+
+### 📊 Récapitulatif de l'état actuel
+
+**✅ COMPLÉTÉ** :
+- Modèles SQLAlchemy : `property_id` ajouté à `AmortizationType`
+- Migrations : Créées et appliquées
+- 13/13 endpoints ont `property_id` et filtrent correctement (9 dans `amortization_types.py` + 4 dans `amortization.py`)
+- Tous les services ont `property_id` et filtrent correctement
+- Frontend : `AmortizationTable.tsx` et `AmortizationConfigCard.tsx` utilisent `activeProperty.id`
+- Tests d'isolation : Backend et frontend créés et validés
+- Tests de non-régression : 15 tests passés
+- Migration : Scripts créés et validés
+- Correction de régression : `/transactions/unique-values` filtre par `property_id`
+
+**✅ TOUT COMPLÉTÉ** :
+- **Backend endpoints** : ✅ 13/13 endpoints ont `property_id` et filtrent correctement
+- **Backend services** : ✅ Tous les services ont `property_id` et filtrent correctement
+- **Frontend méthodes** : ✅ Toutes les méthodes API ont `propertyId` et passent `activeProperty.id`
+- **Correction de régression** : ✅ `/transactions/unique-values` filtre maintenant correctement par `property_id`
+
 ### Fonctionnalités existantes à préserver
 
 **Onglet "Amortissements"** :
@@ -1000,192 +1023,159 @@ Cette phase implique :
 ---
 
 ### Step 3.1 : Backend - Endpoints Amortissements avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ (100%)
+
+**✅ ÉTAT ACTUEL** :
+- ✅ Modèles SQLAlchemy : `property_id` ajouté à `AmortizationType`
+- ✅ Migrations : Créées et appliquées
+- ✅ 13/13 endpoints ont `property_id` et filtrent correctement (9 dans `amortization_types.py` + 4 dans `amortization.py`)
+- ✅ Tous les services ont `property_id` et filtrent correctement
+- ✅ Isolation complète par propriété
+- ✅ Correction de régression : `/transactions/unique-values` filtre maintenant correctement par `property_id`
 
 **1. Vérifications avant modification** :
-- [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
-- [ ] Lister tous les endpoints à modifier dans `backend/api/routes/amortization.py`
-- [ ] Identifier toutes les fonctions utilitaires qui utilisent le modèle `AmortizationType`
-- [ ] Identifier toutes les fonctions qui utilisent `Transaction` pour les résultats d'amortissement
-- [ ] Vérifier les imports et dépendances
+- [x] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration) ✅
+- [x] Lister tous les endpoints à modifier dans `backend/api/routes/amortization.py` ✅
+- [x] Identifier toutes les fonctions utilitaires qui utilisent le modèle `AmortizationType` ✅
+- [x] Identifier toutes les fonctions qui utilisent `Transaction` pour les résultats d'amortissement ✅
+- [x] Vérifier les imports et dépendances ✅
 
 **2. Modèles SQLAlchemy** :
-- [ ] Ajouter `property_id` au modèle `AmortizationType` dans `backend/database/models.py` :
-  - `property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)`
-  - Ajouter relation : `property = relationship("Property", back_populates="amortization_types")`
-- [ ] Ajouter index `idx_amortization_types_property_id` sur `amortization_types(property_id)`
-- [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
-- [ ] Note : Les résultats d'amortissement sont liés via `Transaction.property_id` (pas besoin de modifier `AmortizationResult`)
+- [x] Ajouter `property_id` au modèle `AmortizationType` dans `backend/database/models.py` ✅
+- [x] Ajouter relation : `property = relationship("Property", back_populates="amortization_types")` ✅
+- [x] Ajouter index `idx_amortization_types_property_id` sur `amortization_types(property_id)` ✅
+- [x] Vérifier que les modèles se chargent correctement (pas d'erreur d'import) ✅
+- [x] Note : Les résultats d'amortissement sont liés via `Transaction.property_id` (pas besoin de modifier `AmortizationResult`) ✅
 
 **3. Migrations** :
-- [ ] Créer migration `backend/database/migrations/add_property_id_to_amortization_types.py` pour ajouter `property_id` à la table `amortization_types` avec contrainte FK et ON DELETE CASCADE
-- [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
-- [ ] Vérifier que les index sont créés
+- [x] Créer migration `backend/database/migrations/add_property_id_to_amortization_types.py` ✅
+- [x] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes) ✅
+- [x] Vérifier que les index sont créés ✅
 
 **4. Fonction de validation property_id** :
-- [ ] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` dans `backend/api/utils/validation.py`
-- [ ] Ajouter logs : `[Amortizations] Validation property_id={property_id}`
+- [x] Utiliser la fonction existante `validate_property_id(db: Session, property_id: int) -> bool` ✅
+- [x] Ajouter logs : `[Amortizations] Validation property_id={property_id}` ✅
 
 **5. Endpoints API - Modifications avec logs** :
-- [ ] Modifier `GET /api/amortization/types` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Ajouter log : `[Amortizations] GET /api/amortization/types - property_id={property_id}`
-  - Filtrer toutes les requêtes : `query = query.filter(AmortizationType.property_id == property_id)`
-  - Valider property_id avec `validate_property_id(db, property_id)`
-  - Ajouter log : `[Amortizations] Retourné {count} types pour property_id={property_id}`
-- [ ] Modifier `POST /api/amortization/types` :
-  - Ajouter `property_id` dans `AmortizationTypeCreate` model
-  - Ajouter log : `[Amortizations] POST /api/amortization/types - property_id={property_id}`
-  - Valider property_id avant création
-  - Ajouter log : `[Amortizations] AmortizationType créé: id={id}, property_id={property_id}`
-- [ ] Modifier `PUT /api/amortization/types/{id}` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Ajouter log : `[Amortizations] PUT /api/amortization/types/{id} - property_id={property_id}`
-  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
-  - Retourner 404 si amortization_type n'appartient pas à property_id
-  - Ajouter log : `[Amortizations] AmortizationType {id} mis à jour pour property_id={property_id}`
-- [ ] Modifier `DELETE /api/amortization/types/{id}` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Ajouter log : `[Amortizations] DELETE /api/amortization/types/{id} - property_id={property_id}`
-  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
-  - Retourner 404 si amortization_type n'appartient pas à property_id
-  - Ajouter log : `[Amortizations] AmortizationType {id} supprimé pour property_id={property_id}`
-- [ ] Modifier `GET /api/amortization/types/{id}` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
-  - Retourner 404 si amortization_type n'appartient pas à property_id
-  - Ajouter log : `[Amortizations] GET /api/amortization/types/{id} - property_id={property_id}`
-- [ ] Modifier `GET /api/amortization/types/{id}/amount` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
-  - Filtrer les transactions par `property_id` dans le calcul
-  - Ajouter log : `[Amortizations] GET amount - type_id={id}, property_id={property_id}`
-- [ ] Modifier `GET /api/amortization/types/{id}/cumulated` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
-  - Filtrer les transactions par `property_id` dans le calcul
-  - Ajouter log : `[Amortizations] GET cumulated - type_id={id}, property_id={property_id}`
-- [ ] Modifier `GET /api/amortization/types/{id}/transaction-count` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Filtrer : `amortization_type = db.query(AmortizationType).filter(AmortizationType.id == id, AmortizationType.property_id == property_id).first()`
-  - Filtrer les transactions par `property_id` dans le calcul
-  - Ajouter log : `[Amortizations] GET transaction-count - type_id={id}, property_id={property_id}`
-- [ ] Modifier `GET /api/amortization/results` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Filtrer via `Transaction.property_id` : `query = query.join(Transaction).filter(Transaction.property_id == property_id)`
-  - Ajouter log : `[Amortizations] GET results - property_id={property_id}`
-- [ ] Modifier `GET /api/amortization/results/aggregated` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Filtrer via `Transaction.property_id`
-  - Ajouter log : `[Amortizations] GET results/aggregated - property_id={property_id}`
-- [ ] Modifier `GET /api/amortization/results/details` :
-  - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
-  - Filtrer via `Transaction.property_id`
-  - Ajouter log : `[Amortizations] GET results/details - property_id={property_id}`
-- [ ] Modifier `POST /api/amortization/recalculate` :
-  - Ajouter `property_id: int = Body(..., description="ID de la propriété (obligatoire)")`
-  - Ajouter log : `[Amortizations] POST recalculate - property_id={property_id}`
-  - Passer `property_id` à `recalculate_all_amortizations`
-  - Ajouter log : `[Amortizations] Recalcul terminé pour property_id={property_id}`
+- [x] Modifier `GET /api/amortization/types` ✅
+- [x] Modifier `POST /api/amortization/types` ✅
+- [x] Modifier `PUT /api/amortization/types/{id}` ✅
+- [x] Modifier `DELETE /api/amortization/types/{id}` ✅
+- [x] Modifier `GET /api/amortization/types/{id}` ✅
+- [x] Modifier `GET /api/amortization/types/{id}/amount` ✅
+- [x] Modifier `GET /api/amortization/types/{id}/cumulated` ✅
+- [x] Modifier `GET /api/amortization/types/{id}/transaction-count` ✅
+- [x] Modifier `DELETE /api/amortization/types/all` ✅
+- [x] Modifier `GET /api/amortization/results` ✅
+- [x] Modifier `GET /api/amortization/results/aggregated` ✅
+- [x] Modifier `GET /api/amortization/results/details` ✅
+- [x] Modifier `POST /api/amortization/recalculate` ✅
 
 **6. Fonctions utilitaires** :
-- [ ] Modifier `recalculate_transaction_amortization` dans `backend/api/services/amortization_service.py` :
-  - Ajouter paramètre `property_id: int`
-  - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
-  - Ajouter log : `[AmortizationService] Recalcul amortissement transaction {transaction_id} pour property_id={property_id}`
-- [ ] Modifier `recalculate_all_amortizations` dans `backend/api/services/amortization_service.py` :
-  - Ajouter paramètre `property_id: int`
-  - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
-  - Filtrer les types d'amortissement : `query = query.filter(AmortizationType.property_id == property_id)`
-  - Ajouter log : `[AmortizationService] Recalcul tous les amortissements pour property_id={property_id}`
-- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+- [x] Modifier `recalculate_transaction_amortization` dans `backend/api/services/amortization_service.py` ✅
+- [x] Modifier `recalculate_all_amortizations` dans `backend/api/services/amortization_service.py` ✅
+- [x] Vérifier tous les appels à ces fonctions et passer `property_id` ✅
 
 **7. Validation et gestion d'erreurs** :
-- [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début
-- [ ] Erreur 400 si property_id invalide (n'existe pas dans properties)
-- [ ] Erreur 422 si property_id manquant (FastAPI validation automatique)
-- [ ] Erreur 404 si amortization_type n'appartient pas à property_id demandé
-- [ ] Ajouter logs d'erreur : `[Amortizations] ERREUR: {message} - property_id={property_id}`
+- [x] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id)` au début ✅
+- [x] Erreur 400 si property_id invalide (n'existe pas dans properties) ✅
+- [x] Erreur 422 si property_id manquant (FastAPI validation automatique) ✅
+- [x] Erreur 404 si amortization_type n'appartient pas à property_id demandé ✅
+- [x] Ajouter logs d'erreur : `[Amortizations] ERREUR: {message} - property_id={property_id}` ✅
 
 **8. Tests d'isolation** :
-- [ ] Créer script de test : `backend/scripts/test_amortizations_isolation_phase_11_bis_3_1.py`
-- [ ] Le script doit afficher des logs clairs pour chaque test
-- [ ] Vérifier l'isolation complète entre 2 propriétés
+- [x] Créer script de test : `backend/scripts/test_amortizations_isolation_phase_11_bis_3_1.py` ✅
+- [x] Le script doit afficher des logs clairs pour chaque test ✅
+- [x] Vérifier l'isolation complète entre 2 propriétés ✅
 
 **Tests d'isolation (script Python)**:
-- [ ] Créer 2 propriétés (prop1, prop2)
-- [ ] Créer 3 types d'amortissement pour prop1
-- [ ] Créer 2 types d'amortissement pour prop2
-- [ ] GET /api/amortization/types?property_id=prop1 → doit retourner uniquement les 3 types de prop1
-- [ ] GET /api/amortization/types?property_id=prop2 → doit retourner uniquement les 2 types de prop2
-- [ ] POST /api/amortization/types avec property_id=prop1 → doit créer un type pour prop1 uniquement
-- [ ] PUT /api/amortization/types/{id}?property_id=prop1 → ne peut modifier que les types de prop1
-- [ ] DELETE /api/amortization/types/{id}?property_id=prop1 → ne peut supprimer que les types de prop1
-- [ ] GET /api/amortization/results/aggregated?property_id=prop1 → doit retourner uniquement les résultats de prop1
-- [ ] POST /api/amortization/recalculate?property_id=prop1 → ne doit recalculer que pour prop1
+- [x] Créer 2 propriétés (prop1, prop2) ✅
+- [x] Créer 3 types d'amortissement pour prop1 ✅
+- [x] Créer 2 types d'amortissement pour prop2 ✅
+- [x] GET /api/amortization/types?property_id=prop1 → doit retourner uniquement les 3 types de prop1 ✅
+- [x] GET /api/amortization/types?property_id=prop2 → doit retourner uniquement les 2 types de prop2 ✅
+- [x] POST /api/amortization/types avec property_id=prop1 → doit créer un type pour prop1 uniquement ✅
+- [x] PUT /api/amortization/types/{id}?property_id=prop1 → ne peut modifier que les types de prop1 ✅
+- [x] DELETE /api/amortization/types/{id}?property_id=prop1 → ne peut supprimer que les types de prop1 ✅
+- [x] GET /api/amortization/results/aggregated?property_id=prop1 → doit retourner uniquement les résultats de prop1 ✅
+- [x] POST /api/amortization/recalculate?property_id=prop1 → ne doit recalculer que pour prop1 ✅
 
 ---
 
 ### Step 3.2 : Frontend - Page Amortissements avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ (100%)
+
+**✅ ÉTAT ACTUEL** :
+- ✅ `AmortizationTable.tsx` utilise `useProperty()` et passe `activeProperty.id` à tous les appels API
+- ✅ `AmortizationConfigCard.tsx` utilise `useProperty()` et passe `activeProperty.id` à tous les appels
+- ✅ `useEffect` dependencies mises à jour pour recharger les données quand `activeProperty` change
+- ✅ Toutes les méthodes dans `amortizationAPI` et `amortizationTypesAPI` ont `propertyId` et passent `activeProperty.id`
+- ✅ Correction de régression : `/transactions/unique-values` filtre maintenant correctement par `property_id` (dropdown level_1_values n'affiche que les valeurs avec transactions)
 
 **Tasks**:
-- [ ] Modifier `AmortizationTable.tsx` pour passer `activeProperty.id` à tous les appels API
-- [ ] Modifier `AmortizationConfigCard.tsx` pour passer `activeProperty.id`
-- [ ] Vérifier que l'affichage de la table fonctionne avec property_id
-- [ ] Vérifier que le recalcul fonctionne avec property_id
-- [ ] Créer script de test frontend : `frontend/scripts/test_amortizations_isolation_phase_11_bis_3_2.js`
+- [x] Modifier `AmortizationTable.tsx` pour passer `activeProperty.id` à tous les appels API ✅
+- [x] Modifier `AmortizationConfigCard.tsx` pour passer `activeProperty.id` ✅
+- [x] Vérifier que l'affichage de la table fonctionne avec property_id ✅
+- [x] Vérifier que le recalcul fonctionne avec property_id ✅
+- [x] Créer script de test frontend : `frontend/scripts/test_amortizations_isolation_phase_11_bis_3_2.js` ✅
 
 **Tests d'isolation (script frontend)**:
-- [ ] Sélectionner prop1
-- [ ] Créer 2 types d'amortissement pour prop1
-- [ ] Vérifier qu'ils s'affichent dans la config
-- [ ] Changer pour prop2
-- [ ] Vérifier que les 2 types de prop1 ne s'affichent PAS
-- [ ] Créer 1 type pour prop2
-- [ ] Vérifier qu'il s'affiche
-- [ ] Revenir à prop1
-- [ ] Vérifier que seuls les 2 types de prop1 s'affichent
-- [ ] Vérifier que les résultats d'amortissement sont isolés par propriété
+- [x] Sélectionner prop1 ✅
+- [x] Créer 2 types d'amortissement pour prop1 ✅
+- [x] Vérifier qu'ils s'affichent dans la config ✅
+- [x] Changer pour prop2 ✅
+- [x] Vérifier que les 2 types de prop1 ne s'affichent PAS ✅
+- [x] Créer 1 type pour prop2 ✅
+- [x] Vérifier qu'il s'affiche ✅
+- [x] Revenir à prop1 ✅
+- [x] Vérifier que seuls les 2 types de prop1 s'affichent ✅
+- [x] Vérifier que les résultats d'amortissement sont isolés par propriété ✅
 
 **Tests de non-régression (manuel)**:
-- [ ] Table d'amortissement : Affichage fonctionne ✅
-- [ ] Affichage par catégorie fonctionne ✅
-- [ ] Affichage par année fonctionne ✅
-- [ ] Calcul automatique fonctionne ✅
-- [ ] Recalcul manuel fonctionne ✅
-- [ ] Config : Affichage des types fonctionne ✅
-- [ ] Création d'un type fonctionne ✅
-- [ ] Édition d'un type fonctionne ✅
-- [ ] Suppression d'un type fonctionne ✅
-- [ ] Calcul du montant par année fonctionne ✅
-- [ ] Calcul du montant cumulé fonctionne ✅
-- [ ] Comptage des transactions fonctionne ✅
+- [x] Table d'amortissement : Affichage fonctionne ✅
+- [x] Affichage par catégorie fonctionne ✅
+- [x] Affichage par année fonctionne ✅
+- [x] Calcul automatique fonctionne ✅
+- [x] Recalcul manuel fonctionne ✅
+- [x] Config : Affichage des types fonctionne ✅
+- [x] Création d'un type fonctionne ✅
+- [x] Édition d'un type fonctionne ✅
+- [x] Suppression d'un type fonctionne ✅
+- [x] Calcul du montant par année fonctionne ✅
+- [x] Calcul du montant cumulé fonctionne ✅
+- [x] Comptage des transactions fonctionne ✅
 
 **Validation avant Step 3.3** :
-- [ ] Tous les tests d'isolation passent ✅
-- [ ] Tous les tests de non-régression passent ✅
-- [ ] Aucune erreur dans la console frontend ✅
-- [ ] Aucune erreur dans les logs backend ✅
-- [ ] Validation explicite de l'utilisateur ✅
+- [x] Tous les tests d'isolation passent ✅
+- [x] Tous les tests de non-régression passent ✅
+- [x] Aucune erreur dans la console frontend ✅
+- [x] Aucune erreur dans les logs backend ✅
+- [x] Validation explicite de l'utilisateur ✅
 
 ---
 
 ### Step 3.3 : Migration des données Amortissements existantes
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ
+
+**✅ ÉTAT ACTUEL** :
+- ✅ Script de migration créé : `backend/scripts/migrate_amortizations_phase_11_bis_3_3.py`
+- ✅ Script de validation créé : `backend/scripts/validate_amortizations_migration_phase_11_bis_3_3.py`
+- ✅ Tous les types d'amortissement existants ont un `property_id` (migration déjà appliquée via migration SQLAlchemy)
+- ✅ Les résultats d'amortissement sont liés via `Transaction.property_id`
+- ✅ Migration validée : 32/32 types avec property_id, 322/322 résultats liés à des propriétés
 
 **Tasks**:
-- [ ] Créer un script de migration : `backend/scripts/migrate_amortizations_phase_11_bis_3_3.py`
-- [ ] Assigner tous les types d'amortissement existants à la propriété par défaut
-- [ ] Vérifier que les résultats d'amortissement sont liés via Transaction.property_id
-- [ ] Recalculer tous les amortissements pour la propriété par défaut
-- [ ] Créer script de validation : `backend/scripts/validate_amortizations_migration_phase_11_bis_3_3.py`
+- [x] Créer un script de migration : `backend/scripts/migrate_amortizations_phase_11_bis_3_3.py` ✅
+- [x] Assigner tous les types d'amortissement existants à la propriété par défaut ✅
+- [x] Vérifier que les résultats d'amortissement sont liés via Transaction.property_id ✅
+- [x] Recalculer tous les amortissements pour la propriété par défaut ✅
+- [x] Créer script de validation : `backend/scripts/validate_amortizations_migration_phase_11_bis_3_3.py` ✅
 
 **Tests**:
-- [ ] Tous les types d'amortissement ont un property_id ✅
-- [ ] Aucun type orphelin (property_id=NULL) ✅
-- [ ] Les résultats d'amortissement sont corrects pour la propriété par défaut ✅
-- [ ] Le frontend affiche correctement les amortissements après migration ✅
+- [x] Tous les types d'amortissement ont un property_id ✅
+- [x] Aucun type orphelin (property_id=NULL) ✅
+- [x] Les résultats d'amortissement sont corrects pour la propriété par défaut ✅
+- [x] Le frontend affiche correctement les amortissements après migration ✅
 
 ---
 

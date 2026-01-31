@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { amortizationAPI, AmortizationAggregatedResponse } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface AmortizationTableProps {
   onCellClick?: (year: number, category: string) => void;
@@ -16,13 +17,14 @@ interface AmortizationTableProps {
 }
 
 export default function AmortizationTable({ onCellClick, refreshKey, level2Value }: AmortizationTableProps) {
+  const { activeProperty } = useProperty();
   const [data, setData] = useState<AmortizationAggregatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
-  }, [refreshKey, level2Value]); // Recharger quand refreshKey ou level2Value change
+  }, [refreshKey, level2Value, activeProperty?.id]); // Recharger quand refreshKey, level2Value ou activeProperty change
 
   const loadData = async () => {
     // Si aucun Level 2 n'est sélectionné, ne pas charger les données
@@ -40,7 +42,13 @@ export default function AmortizationTable({ onCellClick, refreshKey, level2Value
       console.log(`📊 [AmortizationTable] Chargement des résultats - level2Value: ${level2Value}`);
       
       // Récupérer les résultats agrégés
-      const response = await amortizationAPI.getResultsAggregated();
+      if (!activeProperty || !activeProperty.id) {
+        console.error('[AmortizationTable] Property ID invalide');
+        setError('Property ID invalide');
+        setLoading(false);
+        return;
+      }
+      const response = await amortizationAPI.getResultsAggregated(activeProperty.id);
       
       console.log(`✅ [AmortizationTable] Résultats reçus:`, {
         categories: response.categories?.length || 0,

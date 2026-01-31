@@ -32,6 +32,7 @@ class Property(Base):
     file_imports = relationship("FileImport", back_populates="property", cascade="all, delete-orphan")
     mapping_imports = relationship("MappingImport", back_populates="property", cascade="all, delete-orphan")
     allowed_mappings = relationship("AllowedMapping", back_populates="property", cascade="all, delete-orphan")
+    amortization_types = relationship("AmortizationType", back_populates="property", cascade="all, delete-orphan")
     
     # Index pour recherches fréquentes
     __table_args__ = (
@@ -280,6 +281,7 @@ class AmortizationType(Base):
     __tablename__ = "amortization_types"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)  # Nom du type (ex: "Immobilisation terrain")
     level_2_value = Column(String(100), nullable=False, index=True)  # Valeur level_2 à considérer (ex: "ammortissements")
     level_1_values = Column(Text, nullable=False, default="[]")  # JSON array des valeurs level_1 mappées
@@ -289,9 +291,13 @@ class AmortizationType(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Index pour recherches fréquentes
+    # Relations
+    property = relationship("Property", back_populates="amortization_types")
+    
+    # Index pour recherches fréquentes et recherche par property_id
     __table_args__ = (
         Index('idx_amortization_type_level_2', 'level_2_value'),
+        Index('idx_amortization_types_property_id', 'property_id'),
     )
 
 

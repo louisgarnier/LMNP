@@ -4,7 +4,8 @@ API routes for amortization calculations and results.
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import logging
+from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import Dict, List, Optional
@@ -17,25 +18,41 @@ from backend.api.models import (
     AmortizationAggregatedResponse,
     AmortizationDetailsResponse,
     AmortizationResultDetail,
+    AmortizationRecalculateRequest,
     AmortizationRecalculateResponse
 )
 from backend.api.services.amortization_service import recalculate_all_amortizations
+from backend.api.utils.validation import validate_property_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
 @router.get("/amortization/results", response_model=AmortizationResultsResponse)
 async def get_amortization_results(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Récupère les résultats d'amortissement agrégés par année et catégorie.
     
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
+    
     Returns:
         Résultats agrégés avec totaux par année, par catégorie et total général
     """
-    # Récupérer tous les résultats
-    results = db.query(AmortizationResult).all()
+    logger.info(f"[Amortizations] GET results - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    # Récupérer tous les résultats filtrés par property_id via Transaction
+    results = db.query(AmortizationResult).join(
+        Transaction, AmortizationResult.transaction_id == Transaction.id
+    ).filter(Transaction.property_id == property_id).all()
     
     # Agréger par année et catégorie
     results_by_year = defaultdict(lambda: defaultdict(float))
@@ -70,16 +87,28 @@ async def get_amortization_results(
 
 @router.get("/amortization/results/aggregated", response_model=AmortizationAggregatedResponse)
 async def get_amortization_results_aggregated(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Récupère les résultats d'amortissement sous forme de tableau croisé prêt pour affichage.
     
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
+    
     Returns:
         Tableau croisé avec catégories en lignes, années en colonnes, et totaux
     """
-    # Récupérer tous les résultats
-    results = db.query(AmortizationResult).all()
+    logger.info(f"[Amortizations] GET results/aggregated - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    # Récupérer tous les résultats filtrés par property_id via Transaction
+    results = db.query(AmortizationResult).join(
+        Transaction, AmortizationResult.transaction_id == Transaction.id
+    ).filter(Transaction.property_id == property_id).all()
     
     if not results:
         return AmortizationAggregatedResponse(
@@ -141,6 +170,7 @@ async def get_amortization_results_aggregated(
 
 @router.get("/amortization/results/details", response_model=AmortizationDetailsResponse)
 async def get_amortization_results_details(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     year: Optional[int] = Query(None, description="Filtrer par année"),
     category: Optional[str] = Query(None, description="Filtrer par catégorie"),
     page: int = Query(1, ge=1, description="Numéro de page"),
@@ -151,6 +181,7 @@ async def get_amortization_results_details(
     Récupère les détails des transactions pour un drill-down depuis le tableau croisé.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         year: Année à filtrer (optionnel)
         category: Catégorie à filtrer (optionnel)
         page: Numéro de page
@@ -159,13 +190,18 @@ async def get_amortization_results_details(
     Returns:
         Liste des transactions correspondantes avec pagination
     """
-    # Construire la requête avec filtres
+    logger.info(f"[Amortizations] GET results/details - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    # Construire la requête avec filtres (filtrée par property_id)
     query = db.query(
         AmortizationResult,
         Transaction
     ).join(
         Transaction, AmortizationResult.transaction_id == Transaction.id
-    )
+    ).filter(Transaction.property_id == property_id)
     
     if year is not None:
         query = query.filter(AmortizationResult.year == year)
@@ -203,18 +239,31 @@ async def get_amortization_results_details(
 
 @router.post("/amortization/recalculate", response_model=AmortizationRecalculateResponse)
 async def recalculate_amortizations(
+    request: AmortizationRecalculateRequest,
     db: Session = Depends(get_db)
 ):
     """
-    Force le recalcul complet de tous les amortissements.
+    Force le recalcul complet de tous les amortissements pour une propriété.
     
     Utile pour recalculer après changement de configuration.
+    
+    Args:
+        request: Requête contenant property_id
+        db: Session de base de données
     
     Returns:
         Message de confirmation avec nombre de résultats créés
     """
+    property_id = request.property_id
+    logger.info(f"[Amortizations] POST recalculate - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
     try:
-        results_created = recalculate_all_amortizations(db)
+        results_created = recalculate_all_amortizations(db, property_id=property_id)
+        
+        logger.info(f"[Amortizations] Recalcul terminé pour property_id={property_id}: {results_created} résultats créés")
         
         # Invalider tous les comptes de résultat (les amortissements ont changé)
         try:

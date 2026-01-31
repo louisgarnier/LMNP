@@ -1339,37 +1339,40 @@ export const amortizationAPI = {
   /**
    * Récupère les résultats d'amortissement agrégés par année et catégorie
    */
-  getResults: async (): Promise<AmortizationResultsResponse> => {
-    return fetchAPI<AmortizationResultsResponse>('/api/amortization/results');
+  getResults: async (propertyId: number): Promise<AmortizationResultsResponse> => {
+    return fetchAPI<AmortizationResultsResponse>(`/api/amortization/results?property_id=${propertyId}`);
   },
 
   /**
    * Récupère les résultats d'amortissement sous forme de tableau croisé
    */
-  getResultsAggregated: async (): Promise<AmortizationAggregatedResponse> => {
-    return fetchAPI<AmortizationAggregatedResponse>('/api/amortization/results/aggregated');
+  getResultsAggregated: async (propertyId: number): Promise<AmortizationAggregatedResponse> => {
+    return fetchAPI<AmortizationAggregatedResponse>(`/api/amortization/results/aggregated?property_id=${propertyId}`);
   },
 
   /**
    * Récupère les détails des transactions pour un drill-down
    */
-  getResultsDetails: async (params?: { year?: number; category?: string; page?: number; page_size?: number }): Promise<AmortizationDetailsResponse> => {
+  getResultsDetails: async (propertyId: number, params?: { year?: number; category?: string; page?: number; page_size?: number }): Promise<AmortizationDetailsResponse> => {
     const queryParams = new URLSearchParams();
+    queryParams.append('property_id', propertyId.toString());
     if (params?.year !== undefined) queryParams.append('year', params.year.toString());
     if (params?.category) queryParams.append('category', params.category);
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
     
     const queryString = queryParams.toString();
-    return fetchAPI<AmortizationDetailsResponse>(`/api/amortization/results/details${queryString ? `?${queryString}` : ''}`);
+    return fetchAPI<AmortizationDetailsResponse>(`/api/amortization/results/details?${queryString}`);
   },
 
   /**
    * Force le recalcul complet de tous les amortissements
    */
-  recalculate: async (): Promise<AmortizationRecalculateResponse> => {
+  recalculate: async (propertyId: number): Promise<AmortizationRecalculateResponse> => {
     return fetchAPI<AmortizationRecalculateResponse>('/api/amortization/recalculate', {
       method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ property_id: propertyId }),
     });
   },
 };
@@ -1391,6 +1394,7 @@ export interface AmortizationType {
 }
 
 export interface AmortizationTypeCreate {
+  property_id: number;
   name: string;
   level_2_value: string;
   level_1_values: string[];
@@ -1435,16 +1439,18 @@ export const amortizationTypesAPI = {
   /**
    * Liste tous les types d'amortissement
    */
-  getAll: async (level_2_value?: string): Promise<AmortizationTypeListResponse> => {
-    const params = level_2_value ? `?level_2_value=${encodeURIComponent(level_2_value)}` : '';
-    return fetchAPI<AmortizationTypeListResponse>(`/api/amortization/types${params}`);
+  getAll: async (propertyId: number, level_2_value?: string): Promise<AmortizationTypeListResponse> => {
+    const queryParams = new URLSearchParams();
+    queryParams.append('property_id', propertyId.toString());
+    if (level_2_value) queryParams.append('level_2_value', level_2_value);
+    return fetchAPI<AmortizationTypeListResponse>(`/api/amortization/types?${queryParams.toString()}`);
   },
 
   /**
    * Récupère un type d'amortissement par ID
    */
-  getById: async (id: number): Promise<AmortizationType> => {
-    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}`);
+  getById: async (propertyId: number, id: number): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}?property_id=${propertyId}`);
   },
 
   /**
@@ -1461,8 +1467,8 @@ export const amortizationTypesAPI = {
   /**
    * Met à jour un type d'amortissement
    */
-  update: async (id: number, data: AmortizationTypeUpdate): Promise<AmortizationType> => {
-    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}`, {
+  update: async (propertyId: number, id: number, data: AmortizationTypeUpdate): Promise<AmortizationType> => {
+    return fetchAPI<AmortizationType>(`/api/amortization/types/${id}?property_id=${propertyId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1472,8 +1478,8 @@ export const amortizationTypesAPI = {
   /**
    * Supprime un type d'amortissement
    */
-  delete: async (id: number): Promise<void> => {
-    return fetchAPI<void>(`/api/amortization/types/${id}`, {
+  delete: async (propertyId: number, id: number): Promise<void> => {
+    return fetchAPI<void>(`/api/amortization/types/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -1481,8 +1487,8 @@ export const amortizationTypesAPI = {
   /**
    * Supprime TOUS les types d'amortissement (toute la table)
    */
-  deleteAll: async (): Promise<{ deleted_count: number }> => {
-    return fetchAPI<{ deleted_count: number }>('/api/amortization/types/all', {
+  deleteAll: async (propertyId: number): Promise<{ deleted_count: number }> => {
+    return fetchAPI<{ deleted_count: number }>(`/api/amortization/types/all?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -1490,22 +1496,22 @@ export const amortizationTypesAPI = {
   /**
    * Calcule le montant total d'immobilisation pour un type
    */
-  getAmount: async (id: number): Promise<AmortizationTypeAmountResponse> => {
-    return fetchAPI<AmortizationTypeAmountResponse>(`/api/amortization/types/${id}/amount`);
+  getAmount: async (propertyId: number, id: number): Promise<AmortizationTypeAmountResponse> => {
+    return fetchAPI<AmortizationTypeAmountResponse>(`/api/amortization/types/${id}/amount?property_id=${propertyId}`);
   },
 
   /**
    * Calcule le montant cumulé d'amortissement pour un type
    */
-  getCumulated: async (id: number): Promise<AmortizationTypeCumulatedResponse> => {
-    return fetchAPI<AmortizationTypeCumulatedResponse>(`/api/amortization/types/${id}/cumulated`);
+  getCumulated: async (propertyId: number, id: number): Promise<AmortizationTypeCumulatedResponse> => {
+    return fetchAPI<AmortizationTypeCumulatedResponse>(`/api/amortization/types/${id}/cumulated?property_id=${propertyId}`);
   },
 
   /**
    * Compte le nombre de transactions correspondant à un type
    */
-  getTransactionCount: async (id: number): Promise<AmortizationTypeTransactionCountResponse> => {
-    return fetchAPI<AmortizationTypeTransactionCountResponse>(`/api/amortization/types/${id}/transaction-count`);
+  getTransactionCount: async (propertyId: number, id: number): Promise<AmortizationTypeTransactionCountResponse> => {
+    return fetchAPI<AmortizationTypeTransactionCountResponse>(`/api/amortization/types/${id}/transaction-count?property_id=${propertyId}`);
   },
 };
 

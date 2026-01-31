@@ -287,6 +287,7 @@ async def get_transaction_unique_values(
     """
     Récupérer les valeurs uniques d'une colonne pour les filtres.
     
+    - **property_id**: ID de la propriété (obligatoire) - filtre les valeurs par propriété
     - **column**: Nom de la colonne (nom, level_1, level_2, level_3)
     - **start_date**: Filtrer par date de début (optionnel)
     - **end_date**: Filtrer par date de fin (optionnel)
@@ -294,21 +295,23 @@ async def get_transaction_unique_values(
     - **filter_level_3**: Filtrer par level_3 (optionnel, valeurs séparées par virgule, pour filtrer les level_1 par plusieurs level_3)
     
     Returns:
-        Liste des valeurs uniques (non null, triées)
+        Liste des valeurs uniques (non null, triées) - UNIQUEMENT celles qui ont des transactions associées pour cette propriété
     """
-    # Optimisation: Pour level_1/2/3, on n'a besoin du JOIN que si on filtre par date
-    needs_date_filter = start_date or end_date
-    needs_join = needs_date_filter and column in ["level_1", "level_2", "level_3"]
+    logger.info(f"[Transactions] GET /api/transactions/unique-values - property_id={property_id}, column={column}")
     
-    # Base query avec join seulement si nécessaire
+    # Valider property_id
+    validate_property_id(db, property_id, "Transactions")
+    
+    # Pour level_1/2/3, on DOIT toujours faire le JOIN avec Transaction pour filtrer par property_id
+    # Pour les autres colonnes (nom, date), on utilise directement Transaction
     if column in ["level_1", "level_2", "level_3"]:
-        if needs_join:
-            query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
-        else:
-            # Pas besoin de JOIN si on ne filtre pas par date - beaucoup plus rapide
-            query = db.query(EnrichedTransaction)
+        # TOUJOURS faire le JOIN avec Transaction pour pouvoir filtrer par property_id
+        query = db.query(EnrichedTransaction).join(
+            Transaction, Transaction.id == EnrichedTransaction.transaction_id
+        ).filter(Transaction.property_id == property_id)
     else:
-        query = db.query(Transaction)
+        # Pour nom, date, etc., filtrer directement par property_id
+        query = db.query(Transaction).filter(Transaction.property_id == property_id)
     
     # Filtre par level_2 si fourni (utile pour filtrer les level_1 par level_2)
     if filter_level_2:
@@ -327,21 +330,9 @@ async def get_transaction_unique_values(
     
     # Filtres par date si fournis
     if start_date:
-        if column in ["level_1", "level_2", "level_3"]:
-            if not needs_join:
-                # Ajouter le JOIN si nécessaire
-                query = query.join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
-            query = query.filter(Transaction.date >= start_date)
-        else:
-            query = query.filter(Transaction.date >= start_date)
+        query = query.filter(Transaction.date >= start_date)
     if end_date:
-        if column in ["level_1", "level_2", "level_3"]:
-            if not needs_join and not start_date:
-                # Ajouter le JOIN si nécessaire
-                query = query.join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
-            query = query.filter(Transaction.date <= end_date)
-        else:
-            query = query.filter(Transaction.date <= end_date)
+        query = query.filter(Transaction.date <= end_date)
     
     # Récupérer les valeurs uniques selon la colonne
     if column == "nom":
@@ -362,7 +353,10 @@ async def get_transaction_unique_values(
         unique_values = [v[0].strftime('%Y-%m-%d') if v[0] else None for v in values if v[0]]
         unique_values = [v for v in unique_values if v]
     elif column == "mois":
-        query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
+        # Pour mois, on doit utiliser EnrichedTransaction avec JOIN et filtrer par property_id
+        query = db.query(EnrichedTransaction).join(
+            Transaction, Transaction.id == EnrichedTransaction.transaction_id
+        ).filter(Transaction.property_id == property_id)
         if start_date:
             query = query.filter(Transaction.date >= start_date)
         if end_date:
@@ -370,7 +364,10 @@ async def get_transaction_unique_values(
         values = query.with_entities(EnrichedTransaction.mois).distinct().filter(EnrichedTransaction.mois.isnot(None)).order_by(EnrichedTransaction.mois).all()
         unique_values = [str(v[0]) for v in values if v[0] is not None]
     elif column == "annee":
-        query = db.query(EnrichedTransaction).join(Transaction, Transaction.id == EnrichedTransaction.transaction_id)
+        # Pour annee, on doit utiliser EnrichedTransaction avec JOIN et filtrer par property_id
+        query = db.query(EnrichedTransaction).join(
+            Transaction, Transaction.id == EnrichedTransaction.transaction_id
+        ).filter(Transaction.property_id == property_id)
         if start_date:
             query = query.filter(Transaction.date >= start_date)
         if end_date:
@@ -379,6 +376,8 @@ async def get_transaction_unique_values(
         unique_values = [str(v[0]) for v in values if v[0] is not None]
     else:
         raise HTTPException(status_code=400, detail=f"Colonne '{column}' non supportée. Colonnes supportées: nom, level_1, level_2, level_3, date, mois, annee")
+    
+    logger.info(f"[Transactions] GET /api/transactions/unique-values - Retourné {len(unique_values)} valeur(s) unique(s) pour property_id={property_id}, column={column}")
     
     return {"column": column, "values": unique_values}
 

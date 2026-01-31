@@ -147,10 +147,10 @@ export default function AmortizationConfigCard({
     }
   };
 
-  // Charger les valeurs au montage
+  // Charger les valeurs au montage et quand activeProperty change
   useEffect(() => {
     loadLevel2Values();
-  }, []);
+  }, [activeProperty?.id]);
 
   // Les 7 types initiaux (template par défaut)
   const INITIAL_TYPES = [
@@ -171,6 +171,7 @@ export default function AmortizationConfigCard({
       // Créer les 7 types en parallèle
       const createPromises = INITIAL_TYPES.map(typeName =>
         amortizationTypesAPI.create({
+          property_id: activeProperty.id,
           name: typeName,
           level_2_value: level2Value,
           level_1_values: [],
@@ -201,7 +202,7 @@ export default function AmortizationConfigCard({
     try {
       setLoadingTypes(true);
       // Charger les types pour le Level 2 sélectionné (une seule valeur)
-      const response = await amortizationTypesAPI.getAll(level2ValueToUse);
+      const response = await amortizationTypesAPI.getAll(activeProperty.id, level2ValueToUse);
       
       if (response && response.items) {
         // Si aucun type n'existe ET que le Level 2 est "Immobilisations" ET qu'on n'est pas en train de réinitialiser, créer les 7 types initiaux automatiquement
@@ -210,7 +211,7 @@ export default function AmortizationConfigCard({
           await createInitialTypes(level2ValueToUse);
         
           // Recharger les types après création
-          const newResponse = await amortizationTypesAPI.getAll(level2ValueToUse);
+          const newResponse = await amortizationTypesAPI.getAll(activeProperty.id, level2ValueToUse);
           if (newResponse && newResponse.items) {
             const sortedTypes = [...newResponse.items].sort((a, b) => a.name.localeCompare(b.name));
             setAmortizationTypes(sortedTypes);
@@ -274,7 +275,7 @@ export default function AmortizationConfigCard({
       // Charger les compteurs pour tous les types en parallèle
       const countPromises = amortizationTypes.map(async (type) => {
           try {
-          const response = await amortizationTypesAPI.getTransactionCount(type.id);
+          const response = await amortizationTypesAPI.getTransactionCount(activeProperty.id, type.id);
           return { typeId: type.id, count: response.transaction_count };
           } catch (err: any) {
           // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
@@ -317,7 +318,7 @@ export default function AmortizationConfigCard({
     loadAmortizationTypes();
     loadLevel1Values(); // Recharger les valeurs Level 1 quand le Level 2 change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedLevel2Value]);
+  }, [selectedLevel2Value, activeProperty?.id]); // Recharger aussi quand activeProperty change
 
   // Charger le montant d'immobilisation pour tous les types
   const loadAmounts = async () => {
@@ -337,7 +338,7 @@ export default function AmortizationConfigCard({
       // Charger les montants pour tous les types en parallèle
       const amountPromises = amortizationTypes.map(async (type) => {
     try {
-          const response = await amortizationTypesAPI.getAmount(type.id);
+          const response = await amortizationTypesAPI.getAmount(activeProperty.id, type.id);
           return { typeId: type.id, amount: response.amount };
     } catch (err: any) {
           // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
@@ -389,7 +390,7 @@ export default function AmortizationConfigCard({
       // Charger les montants cumulés pour tous les types en parallèle
       const cumulatedPromises = amortizationTypes.map(async (type) => {
         try {
-          const response = await amortizationTypesAPI.getCumulated(type.id);
+          const response = await amortizationTypesAPI.getCumulated(activeProperty.id, type.id);
           return { typeId: type.id, cumulatedAmount: response.cumulated_amount };
     } catch (err: any) {
           // Ignorer silencieusement les erreurs 404 (type non trouvé - peut arriver après suppression ou réinitialisation)
@@ -466,6 +467,7 @@ export default function AmortizationConfigCard({
       
       // Créer le nouveau type avec valeurs par défaut
       const newType = await amortizationTypesAPI.create({
+        property_id: activeProperty.id,
         name: 'Nouveau type',
         level_2_value: selectedLevel2Value,
         level_1_values: [],
@@ -519,7 +521,7 @@ export default function AmortizationConfigCard({
       setIsDeletingType(typeId);
       closeContextMenu();
 
-      await amortizationTypesAPI.delete(typeId);
+      await amortizationTypesAPI.delete(activeProperty.id, typeId);
 
       console.log('[AmortizationConfigCard] Type supprimé:', typeId);
       
@@ -701,7 +703,7 @@ export default function AmortizationConfigCard({
       }
       
     try {
-      await amortizationTypesAPI.update(typeId, {
+      await amortizationTypesAPI.update(activeProperty.id, typeId, {
         name: editingNameValue.trim(),
       });
           
@@ -741,7 +743,7 @@ export default function AmortizationConfigCard({
       setIsAutoRecalculating(true);
       
       // Appel à l'API de recalcul
-      await amortizationAPI.recalculate();
+      await amortizationAPI.recalculate(activeProperty.id);
       
       // Recharger les montants cumulés après le recalcul
       await loadCumulatedAmounts();
@@ -776,7 +778,7 @@ export default function AmortizationConfigCard({
     }
 
     try {
-      await amortizationTypesAPI.update(typeId, {
+      await amortizationTypesAPI.update(activeProperty.id, typeId, {
         level_1_values: newValues,
       });
       
@@ -832,7 +834,7 @@ export default function AmortizationConfigCard({
         startDate = editingStartDateValue.trim();
       }
       
-      await amortizationTypesAPI.update(typeId, {
+      await amortizationTypesAPI.update(activeProperty.id, typeId, {
         start_date: startDate || null,
       });
       
@@ -853,7 +855,7 @@ export default function AmortizationConfigCard({
   // Supprimer la date de début
   const handleStartDateRemove = async (typeId: number) => {
     try {
-      await amortizationTypesAPI.update(typeId, {
+      await amortizationTypesAPI.update(activeProperty.id, typeId, {
         start_date: null,
       });
       
@@ -901,7 +903,7 @@ export default function AmortizationConfigCard({
       return;
     }
     
-      await amortizationTypesAPI.update(typeId, {
+      await amortizationTypesAPI.update(activeProperty.id, typeId, {
         duration: durationValue,
       });
       
@@ -974,7 +976,7 @@ export default function AmortizationConfigCard({
         annualAmountValue = parsedValue === 0 ? null : parsedValue;
         }
       
-      await amortizationTypesAPI.update(typeId, {
+      await amortizationTypesAPI.update(activeProperty.id, typeId, {
         annual_amount: annualAmountValue,
       });
     
@@ -1036,7 +1038,7 @@ export default function AmortizationConfigCard({
       console.log(`[AmortizationConfigCard] Réinitialisation des types d'amortissement pour Level 2: ${level2Value}...`);
       
       // 1. Supprimer TOUS les types de TOUS les Level 2 (toute la table)
-      await amortizationTypesAPI.deleteAll();
+      await amortizationTypesAPI.deleteAll(activeProperty.id);
       console.log('[AmortizationConfigCard] ✓ Tous les types supprimés');
 
       // 2. Recréer les 7 types par défaut UNIQUEMENT si le Level 2 est "Immobilisations"
@@ -1053,6 +1055,7 @@ export default function AmortizationConfigCard({
 
         const createPromises = INITIAL_TYPES.map(name =>
           amortizationTypesAPI.create({
+            property_id: activeProperty.id,
             name: name,
             level_2_value: level2Value,
             level_1_values: [],

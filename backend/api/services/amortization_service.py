@@ -10,6 +10,7 @@ Ce service implémente la logique de calcul des amortissements :
 """
 
 import json
+import logging
 from datetime import date, datetime
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
@@ -22,6 +23,8 @@ from backend.database.models import (
     AmortizationType,
     AmortizationResult
 )
+
+logger = logging.getLogger(__name__)
 
 
 def calculate_30_360_days(start_date: date, end_date: date) -> int:
@@ -166,8 +169,9 @@ def recalculate_transaction_amortization(
         db.commit()
         return 0
     
-    # Trouver le type d'amortissement correspondant
+    # Trouver le type d'amortissement correspondant (filtré par property_id de la transaction)
     amortization_types = db.query(AmortizationType).filter(
+        AmortizationType.property_id == transaction.property_id,
         AmortizationType.level_2_value == enriched.level_2
     ).all()
     
@@ -218,23 +222,32 @@ def recalculate_transaction_amortization(
     return created_count
 
 
-def recalculate_all_amortizations(db: Session) -> int:
+def recalculate_all_amortizations(db: Session, property_id: int) -> int:
     """
-    Recalcule tous les amortissements pour toutes les transactions.
+    Recalcule tous les amortissements pour toutes les transactions d'une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété (obligatoire)
     
     Returns:
         Nombre total de résultats d'amortissement créés
     """
-    # Récupérer toutes les transactions avec enrichissement
-    transactions = db.query(Transaction).join(EnrichedTransaction).all()
+    logger.info(f"[AmortizationService] Recalcul tous les amortissements pour property_id={property_id}")
+    
+    # Récupérer toutes les transactions avec enrichissement (filtrées par property_id)
+    transactions = db.query(Transaction).join(EnrichedTransaction).filter(
+        Transaction.property_id == property_id
+    ).all()
     
     total_created = 0
     for transaction in transactions:
         created = recalculate_transaction_amortization(db, transaction.id)
         total_created += created
+        if created > 0:
+            logger.debug(f"[AmortizationService] Recalcul amortissement transaction {transaction.id} pour property_id={property_id}: {created} résultats créés")
+    
+    logger.info(f"[AmortizationService] Recalcul terminé pour property_id={property_id}: {total_created} résultats créés au total")
     
     return total_created
 

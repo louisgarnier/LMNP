@@ -5,6 +5,7 @@ API routes for amortization types management.
 """
 
 import json
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_, func
@@ -28,26 +29,36 @@ from backend.api.models import (
     AmortizationTypeTransactionCountResponse
 )
 from backend.api.services.amortization_service import calculate_yearly_amounts
+from backend.api.utils.validation import validate_property_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
 @router.get("/amortization/types", response_model=AmortizationTypeListResponse)
 async def get_amortization_types(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     level_2_value: Optional[str] = Query(None, description="Filtrer par level_2_value"),
     db: Session = Depends(get_db)
 ):
     """
-    Liste tous les types d'amortissement.
+    Liste tous les types d'amortissement pour une propriété.
     
     Args:
+        property_id: ID de la propriété (obligatoire)
         level_2_value: Filtrer par valeur level_2 (optionnel)
         db: Session de base de données
     
     Returns:
-        Liste de tous les types d'amortissement
+        Liste de tous les types d'amortissement de la propriété
     """
-    query = db.query(AmortizationType)
+    logger.info(f"[Amortizations] GET /api/amortization/types - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    query = db.query(AmortizationType).filter(AmortizationType.property_id == property_id)
     
     if level_2_value:
         query = query.filter(AmortizationType.level_2_value == level_2_value)
@@ -70,6 +81,8 @@ async def get_amortization_types(
         }
         items.append(AmortizationTypeResponse(**type_dict))
     
+    logger.info(f"[Amortizations] Retourné {len(items)} types pour property_id={property_id}")
+    
     return AmortizationTypeListResponse(
         items=items,
         total=len(items)
@@ -85,14 +98,20 @@ async def create_amortization_type(
     Crée un nouveau type d'amortissement.
     
     Args:
-        type_data: Données du type à créer
+        type_data: Données du type à créer (inclut property_id)
         db: Session de base de données
     
     Returns:
         Type d'amortissement créé
     """
+    logger.info(f"[Amortizations] POST /api/amortization/types - property_id={type_data.property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, type_data.property_id, "Amortizations")
+    
     # Créer le type
     new_type = AmortizationType(
+        property_id=type_data.property_id,
         name=type_data.name,
         level_2_value=type_data.level_2_value,
         level_1_values=json.dumps(type_data.level_1_values or []),
@@ -104,6 +123,8 @@ async def create_amortization_type(
     db.add(new_type)
     db.commit()
     db.refresh(new_type)
+    
+    logger.info(f"[Amortizations] AmortizationType créé: id={new_type.id}, property_id={type_data.property_id}")
     
     # Retourner la réponse
     return AmortizationTypeResponse(
@@ -122,6 +143,7 @@ async def create_amortization_type(
 @router.get("/amortization/types/{type_id}", response_model=AmortizationTypeResponse)
 async def get_amortization_type(
     type_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -129,18 +151,29 @@ async def get_amortization_type(
     
     Args:
         type_id: ID du type
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Type d'amortissement
     
     Raises:
-        HTTPException: Si le type n'existe pas
+        HTTPException: Si le type n'existe pas ou n'appartient pas à property_id
     """
-    atype = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
+    logger.info(f"[Amortizations] GET /api/amortization/types/{type_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    atype = db.query(AmortizationType).filter(
+        AmortizationType.id == type_id,
+        AmortizationType.property_id == property_id
+    ).first()
     
     if not atype:
-        raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
+        error_msg = f"Type d'amortissement {type_id} non trouvé pour property_id={property_id}"
+        logger.error(f"[Amortizations] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     return AmortizationTypeResponse(
         id=atype.id,
@@ -159,6 +192,7 @@ async def get_amortization_type(
 async def update_amortization_type(
     type_id: int,
     type_data: AmortizationTypeUpdate,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -167,18 +201,29 @@ async def update_amortization_type(
     Args:
         type_id: ID du type
         type_data: Données à mettre à jour
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Type d'amortissement mis à jour
     
     Raises:
-        HTTPException: Si le type n'existe pas
+        HTTPException: Si le type n'existe pas ou n'appartient pas à property_id
     """
-    atype = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
+    logger.info(f"[Amortizations] PUT /api/amortization/types/{type_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    atype = db.query(AmortizationType).filter(
+        AmortizationType.id == type_id,
+        AmortizationType.property_id == property_id
+    ).first()
     
     if not atype:
-        raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
+        error_msg = f"Type d'amortissement {type_id} non trouvé pour property_id={property_id}"
+        logger.error(f"[Amortizations] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     # Mettre à jour les champs fournis
     # Utiliser model_dump(exclude_unset=True) pour ne mettre à jour que les champs fournis
@@ -212,12 +257,14 @@ async def update_amortization_type(
     if any(field in update_data for field in ["start_date", "duration", "annual_amount", "level_1_values", "level_2_value"]):
         try:
             from backend.api.services.amortization_service import recalculate_all_amortizations
-            recalculate_all_amortizations(db)
+            recalculate_all_amortizations(db, property_id=property_id)
         except Exception as e:
             # Log l'erreur mais ne bloque pas la mise à jour
             import traceback
             error_details = traceback.format_exc()
-            print(f"⚠️ [update_amortization_type] Erreur lors du recalcul des amortissements: {error_details}")
+            logger.error(f"[Amortizations] ERREUR lors du recalcul des amortissements: {error_details}")
+    
+    logger.info(f"[Amortizations] AmortizationType {type_id} mis à jour pour property_id={property_id}")
     
     return AmortizationTypeResponse(
         id=atype.id,
@@ -234,26 +281,41 @@ async def update_amortization_type(
 
 @router.delete("/amortization/types/all", status_code=200)
 async def delete_all_amortization_types(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Supprime TOUS les types d'amortissement de TOUS les Level 2 (toute la table).
+    Supprime TOUS les types d'amortissement d'une propriété.
     
-    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les types d'amortissement.
+    ⚠️ ATTENTION : Cette action est irréversible et supprime définitivement tous les types d'amortissement de la propriété.
     Supprime également tous les AmortizationResult associés pour éviter les erreurs de contrainte.
+    
+    Args:
+        property_id: ID de la propriété (obligatoire)
+        db: Session de base de données
     
     Returns:
         Nombre de types supprimés
     """
+    logger.info(f"[Amortizations] DELETE /api/amortization/types/all - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
     # Compter les types avant suppression
-    count_before = db.query(AmortizationType).count()
+    count_before = db.query(AmortizationType).filter(AmortizationType.property_id == property_id).count()
     
-    # Supprimer tous les résultats d'amortissement associés
-    db.query(AmortizationResult).delete()
+    # Supprimer tous les résultats d'amortissement associés aux transactions de cette propriété
+    transaction_ids = db.query(Transaction.id).filter(Transaction.property_id == property_id).all()
+    if transaction_ids:
+        transaction_id_list = [t[0] for t in transaction_ids]
+        db.query(AmortizationResult).filter(AmortizationResult.transaction_id.in_(transaction_id_list)).delete()
     
-    # Supprimer tous les types
-    db.query(AmortizationType).delete()
+    # Supprimer tous les types de cette propriété
+    db.query(AmortizationType).filter(AmortizationType.property_id == property_id).delete()
     db.commit()
+    
+    logger.info(f"[Amortizations] {count_before} AmortizationType(s) supprimé(s) pour property_id={property_id}")
     
     return {"deleted_count": count_before}
 
@@ -261,6 +323,7 @@ async def delete_all_amortization_types(
 @router.delete("/amortization/types/{type_id}", status_code=204)
 async def delete_amortization_type(
     type_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -270,15 +333,26 @@ async def delete_amortization_type(
     
     Args:
         type_id: ID du type
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Raises:
-        HTTPException: Si le type n'existe pas
+        HTTPException: Si le type n'existe pas ou n'appartient pas à property_id
     """
-    atype = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
+    logger.info(f"[Amortizations] DELETE /api/amortization/types/{type_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    atype = db.query(AmortizationType).filter(
+        AmortizationType.id == type_id,
+        AmortizationType.property_id == property_id
+    ).first()
     
     if not atype:
-        raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
+        error_msg = f"Type d'amortissement {type_id} non trouvé pour property_id={property_id}"
+        logger.error(f"[Amortizations] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     # Supprimer tous les résultats d'amortissement associés
     # Filtrer par category == type.name, level_2 == type.level_2_value, et level_1 IN type.level_1_values
@@ -309,12 +383,15 @@ async def delete_amortization_type(
     db.delete(atype)
     db.commit()
     
+    logger.info(f"[Amortizations] AmortizationType {type_id} supprimé pour property_id={property_id}")
+    
     return None
 
 
 @router.get("/amortization/types/{type_id}/amount", response_model=AmortizationTypeAmountResponse)
 async def get_amortization_type_amount(
     type_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -325,18 +402,29 @@ async def get_amortization_type_amount(
     
     Args:
         type_id: ID du type
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Montant total d'immobilisation
     
     Raises:
-        HTTPException: Si le type n'existe pas
+        HTTPException: Si le type n'existe pas ou n'appartient pas à property_id
     """
-    atype = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
+    logger.info(f"[Amortizations] GET amount - type_id={type_id}, property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    atype = db.query(AmortizationType).filter(
+        AmortizationType.id == type_id,
+        AmortizationType.property_id == property_id
+    ).first()
     
     if not atype:
-        raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
+        error_msg = f"Type d'amortissement {type_id} non trouvé pour property_id={property_id}"
+        logger.error(f"[Amortizations] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     level_1_values = json.loads(atype.level_1_values or "[]")
     
@@ -347,11 +435,12 @@ async def get_amortization_type_amount(
             amount=0.0
         )
     
-    # Calculer la somme des transactions correspondantes
+    # Calculer la somme des transactions correspondantes (filtrées par property_id)
     result = db.query(func.sum(Transaction.quantite)).join(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
+            Transaction.property_id == property_id,
             EnrichedTransaction.level_2 == atype.level_2_value,
             EnrichedTransaction.level_1.in_(level_1_values)
         )
@@ -369,6 +458,7 @@ async def get_amortization_type_amount(
 @router.get("/amortization/types/{type_id}/cumulated", response_model=AmortizationTypeCumulatedResponse)
 async def get_amortization_type_cumulated(
     type_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -383,18 +473,29 @@ async def get_amortization_type_cumulated(
     
     Args:
         type_id: ID du type
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Montant cumulé d'amortissement
     
     Raises:
-        HTTPException: Si le type n'existe pas
+        HTTPException: Si le type n'existe pas ou n'appartient pas à property_id
     """
-    atype = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
+    logger.info(f"[Amortizations] GET cumulated - type_id={type_id}, property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    atype = db.query(AmortizationType).filter(
+        AmortizationType.id == type_id,
+        AmortizationType.property_id == property_id
+    ).first()
     
     if not atype:
-        raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
+        error_msg = f"Type d'amortissement {type_id} non trouvé pour property_id={property_id}"
+        logger.error(f"[Amortizations] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     # Cas particuliers
     if atype.duration <= 0:
@@ -413,11 +514,12 @@ async def get_amortization_type_cumulated(
             cumulated_amount=0.0
         )
     
-    # Récupérer toutes les transactions correspondantes au type
+    # Récupérer toutes les transactions correspondantes au type (filtrées par property_id)
     transactions = db.query(Transaction).join(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
+            Transaction.property_id == property_id,
             EnrichedTransaction.level_2 == atype.level_2_value,
             EnrichedTransaction.level_1.in_(level_1_values)
         )
@@ -492,6 +594,7 @@ async def get_amortization_type_cumulated(
 @router.get("/amortization/types/{type_id}/transaction-count", response_model=AmortizationTypeTransactionCountResponse)
 async def get_amortization_type_transaction_count(
     type_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
@@ -499,18 +602,29 @@ async def get_amortization_type_transaction_count(
     
     Args:
         type_id: ID du type
+        property_id: ID de la propriété (obligatoire)
         db: Session de base de données
     
     Returns:
         Nombre de transactions correspondant au type
     
     Raises:
-        HTTPException: Si le type n'existe pas
+        HTTPException: Si le type n'existe pas ou n'appartient pas à property_id
     """
-    atype = db.query(AmortizationType).filter(AmortizationType.id == type_id).first()
+    logger.info(f"[Amortizations] GET transaction-count - type_id={type_id}, property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Amortizations")
+    
+    atype = db.query(AmortizationType).filter(
+        AmortizationType.id == type_id,
+        AmortizationType.property_id == property_id
+    ).first()
     
     if not atype:
-        raise HTTPException(status_code=404, detail="Type d'amortissement non trouvé")
+        error_msg = f"Type d'amortissement {type_id} non trouvé pour property_id={property_id}"
+        logger.error(f"[Amortizations] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     level_1_values = json.loads(atype.level_1_values or "[]")
     
@@ -521,11 +635,12 @@ async def get_amortization_type_transaction_count(
             transaction_count=0
         )
     
-    # Compter les transactions correspondantes
+    # Compter les transactions correspondantes (filtrées par property_id)
     count = db.query(Transaction).join(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
+            Transaction.property_id == property_id,
             EnrichedTransaction.level_2 == atype.level_2_value,
             EnrichedTransaction.level_1.in_(level_1_values)
         )

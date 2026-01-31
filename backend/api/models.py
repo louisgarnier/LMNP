@@ -340,6 +340,10 @@ class AmortizationDetailsResponse(BaseModel):
     page_size: int = 100
 
 
+class AmortizationRecalculateRequest(BaseModel):
+    """Model for amortization recalculate request."""
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
+
 class AmortizationRecalculateResponse(BaseModel):
     """Model for recalculate response."""
     message: str
@@ -360,7 +364,7 @@ class AmortizationTypeBase(BaseModel):
 
 class AmortizationTypeCreate(AmortizationTypeBase):
     """Model for creating an amortization type."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class AmortizationTypeUpdate(BaseModel):
