@@ -1541,6 +1541,7 @@ export interface LoanConfigCreate {
   loan_end_date?: string | null;
   monthly_insurance?: number;
   simulation_months?: string | null;  // JSON string array
+  property_id: number;
 }
 
 export interface LoanConfigUpdate {
@@ -1564,21 +1565,33 @@ export const loanConfigsAPI = {
   /**
    * Récupère la liste des configurations de crédit
    */
-  getAll: async (): Promise<LoanConfigListResponse> => {
-    return fetchAPI<LoanConfigListResponse>('/api/loan-configs');
+  getAll: async (propertyId: number): Promise<LoanConfigListResponse> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanConfigsAPI.getAll - propertyId=${propertyId}`);
+    return fetchAPI<LoanConfigListResponse>(`/api/loan-configs?property_id=${propertyId}`);
   },
 
   /**
    * Récupère une configuration par son ID
    */
-  getById: async (id: number): Promise<LoanConfig> => {
-    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}`);
+  getById: async (propertyId: number, id: number): Promise<LoanConfig> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanConfigsAPI.getById - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}?property_id=${propertyId}`);
   },
 
   /**
    * Crée une nouvelle configuration
    */
   create: async (config: LoanConfigCreate): Promise<LoanConfig> => {
+    if (!config.property_id || config.property_id <= 0) {
+      throw new Error('Property ID is required in config');
+    }
+    console.log(`[API] loanConfigsAPI.create - propertyId=${config.property_id}`);
     return fetchAPI<LoanConfig>('/api/loan-configs', {
       method: 'POST',
       body: JSON.stringify(config),
@@ -1588,8 +1601,12 @@ export const loanConfigsAPI = {
   /**
    * Met à jour une configuration
    */
-  update: async (id: number, config: LoanConfigUpdate): Promise<LoanConfig> => {
-    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}`, {
+  update: async (propertyId: number, id: number, config: LoanConfigUpdate): Promise<LoanConfig> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanConfigsAPI.update - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<LoanConfig>(`/api/loan-configs/${id}?property_id=${propertyId}`, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
@@ -1598,8 +1615,12 @@ export const loanConfigsAPI = {
   /**
    * Supprime une configuration
    */
-  delete: async (id: number): Promise<void> => {
-    return fetchAPI<void>(`/api/loan-configs/${id}`, {
+  delete: async (propertyId: number, id: number): Promise<void> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanConfigsAPI.delete - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<void>(`/api/loan-configs/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -1625,6 +1646,7 @@ export interface LoanPaymentCreate {
   insurance: number;
   total: number;
   loan_name: string;
+  property_id: number;
 }
 
 export interface LoanPaymentUpdate {
@@ -1679,7 +1701,7 @@ export const loanPaymentsAPI = {
   /**
    * Récupère la liste des mensualités
    */
-  getAll: async (params?: {
+  getAll: async (propertyId: number, params?: {
     skip?: number;
     limit?: number;
     start_date?: string;
@@ -1688,7 +1710,12 @@ export const loanPaymentsAPI = {
     sort_by?: string;
     sort_direction?: string;
   }): Promise<LoanPaymentListResponse> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanPaymentsAPI.getAll - propertyId=${propertyId}`);
     const queryParams = new URLSearchParams();
+    queryParams.append('property_id', String(propertyId));
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
@@ -1697,20 +1724,28 @@ export const loanPaymentsAPI = {
       });
     }
     const query = queryParams.toString();
-    return fetchAPI<LoanPaymentListResponse>(`/api/loan-payments${query ? `?${query}` : ''}`);
+    return fetchAPI<LoanPaymentListResponse>(`/api/loan-payments?${query}`);
   },
 
   /**
    * Récupère une mensualité par son ID
    */
-  getById: async (id: number): Promise<LoanPayment> => {
-    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}`);
+  getById: async (propertyId: number, id: number): Promise<LoanPayment> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanPaymentsAPI.getById - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}?property_id=${propertyId}`);
   },
 
   /**
    * Crée une nouvelle mensualité
    */
   create: async (payment: LoanPaymentCreate): Promise<LoanPayment> => {
+    if (!payment.property_id || payment.property_id <= 0) {
+      throw new Error('Property ID is required in payment');
+    }
+    console.log(`[API] loanPaymentsAPI.create - propertyId=${payment.property_id}`);
     return fetchAPI<LoanPayment>('/api/loan-payments', {
       method: 'POST',
       body: JSON.stringify(payment),
@@ -1720,8 +1755,12 @@ export const loanPaymentsAPI = {
   /**
    * Met à jour une mensualité
    */
-  update: async (id: number, payment: LoanPaymentUpdate): Promise<LoanPayment> => {
-    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}`, {
+  update: async (propertyId: number, id: number, payment: LoanPaymentUpdate): Promise<LoanPayment> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanPaymentsAPI.update - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<LoanPayment>(`/api/loan-payments/${id}?property_id=${propertyId}`, {
       method: 'PUT',
       body: JSON.stringify(payment),
     });
@@ -1730,8 +1769,12 @@ export const loanPaymentsAPI = {
   /**
    * Supprime une mensualité
    */
-  delete: async (id: number): Promise<void> => {
-    return fetchAPI<void>(`/api/loan-payments/${id}`, {
+  delete: async (propertyId: number, id: number): Promise<void> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanPaymentsAPI.delete - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<void>(`/api/loan-payments/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
@@ -1739,8 +1782,13 @@ export const loanPaymentsAPI = {
   /**
    * Preview d'un fichier Excel de mensualités
    */
-  preview: async (file: File): Promise<LoanPaymentPreviewResponse> => {
+  preview: async (propertyId: number, file: File): Promise<LoanPaymentPreviewResponse> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanPaymentsAPI.preview - propertyId=${propertyId}, file=${file.name}`);
     const formData = new FormData();
+    formData.append('property_id', String(propertyId));
     formData.append('file', file);
     
     // Ne pas utiliser fetchAPI car il ajoute 'Content-Type: application/json'
@@ -1787,13 +1835,19 @@ export const loanPaymentsAPI = {
   /**
    * Importe un fichier Excel de mensualités
    */
-  import: async (file: File, loanName: string = 'Prêt principal'): Promise<LoanPaymentImportResponse> => {
+  import: async (propertyId: number, file: File, loanName: string = 'Prêt principal'): Promise<LoanPaymentImportResponse> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('Property ID is required');
+    }
+    console.log(`[API] loanPaymentsAPI.import - propertyId=${propertyId}, file=${file.name}, loanName=${loanName}`);
     const formData = new FormData();
+    formData.append('property_id', String(propertyId));
     formData.append('file', file);
+    formData.append('loan_name', loanName);
     
     // Ne pas utiliser fetchAPI car il ajoute 'Content-Type: application/json'
     // Pour FormData, le navigateur doit définir automatiquement le Content-Type avec le boundary
-    const url = `${API_BASE_URL}/api/loan-payments/import?loan_name=${encodeURIComponent(loanName)}`;
+    const url = `${API_BASE_URL}/api/loan-payments/import`;
     const response = await fetch(url, {
       method: 'POST',
       body: formData,

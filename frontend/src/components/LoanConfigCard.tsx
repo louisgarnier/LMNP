@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from 'react';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI, transactionsAPI } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface LoanConfigCardProps {
   onConfigUpdated?: () => void;
@@ -90,6 +91,7 @@ function formatRemainingDuration(months: number | null): string {
 }
 
 export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps) {
+  const { activeProperty } = useProperty();
   const [configs, setConfigs] = useState<LoanConfig[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<{ [key: number]: boolean }>({});
@@ -97,8 +99,12 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
   const [incoherenceWarning, setIncoherenceWarning] = useState<string | null>(null);
 
-  // Charger les configurations au montage
+  // Charger les configurations au montage et quand activeProperty change
   useEffect(() => {
+    if (!activeProperty?.id) {
+      console.error('[LoanConfigCard] Property ID invalide');
+      return;
+    }
     loadConfigs();
     
     // Charger l'état collapsed depuis localStorage
@@ -110,18 +116,23 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
     } catch (err) {
       console.error('Erreur lors du chargement de l\'état collapsed:', err);
     }
-  }, []);
+  }, [activeProperty?.id]);
 
   const loadConfigs = async () => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[LoanConfigCard] Property ID invalide pour loadConfigs');
+      return;
+    }
     try {
       setLoading(true);
-      const response = await loanConfigsAPI.getAll();
+      console.log(`[LoanConfigCard] loadConfigs - propertyId=${activeProperty.id}`);
+      const response = await loanConfigsAPI.getAll(activeProperty.id);
       setConfigs(response.items);
       
       // Vérifier l'incohérence entre montant crédits et transactions
       await checkIncoherence(response.items);
     } catch (error) {
-      console.error('Erreur lors du chargement des configurations:', error);
+      console.error('[LoanConfigCard] Erreur lors du chargement des configurations:', error);
       setErrors({ global: 'Erreur lors du chargement des configurations' });
     } finally {
       setLoading(false);
@@ -129,15 +140,17 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
   };
 
   const checkIncoherence = async (configs: LoanConfig[]) => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[LoanConfigCard] Property ID invalide pour checkIncoherence');
+      return;
+    }
     try {
       // Calculer le montant total des crédits
       const totalCreditAmount = configs.reduce((sum, config) => sum + (config.credit_amount || 0), 0);
       console.log(`🔍 [LoanConfigCard] checkIncoherence: Total crédits = ${totalCreditAmount.toFixed(2)} €`);
       
       // Récupérer le montant total des transactions avec level_1 = "Dettes financières (emprunt bancaire)"
-      // Note: Cette fonction nécessite property_id pour l'isolation multi-propriétés
-      // Pour l'instant, on utilise property_id=1 par défaut (à améliorer si nécessaire)
-      const transactionsSum = await transactionsAPI.getSumByLevel1(1, 'Dettes financières (emprunt bancaire)');
+      const transactionsSum = await transactionsAPI.getSumByLevel1(activeProperty.id, 'Dettes financières (emprunt bancaire)');
       const totalTransactions = Math.abs(transactionsSum.total || 0);
       console.log(`🔍 [LoanConfigCard] checkIncoherence: Total transactions = ${totalTransactions.toFixed(2)} €`);
       
@@ -188,10 +201,13 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
 
       const updateData: any = { [field]: value };
       
-      await loanConfigsAPI.update(id, updateData);
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        throw new Error('Property ID is required');
+      }
+      await loanConfigsAPI.update(activeProperty.id, id, updateData);
       
       // Recharger pour avoir les données à jour
-      const response = await loanConfigsAPI.getAll();
+      const response = await loanConfigsAPI.getAll(activeProperty.id);
       setConfigs(response.items);
       
       // Vérifier l'incohérence après modification
@@ -217,6 +233,10 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
   };
 
   const handleAddConfig = async () => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[LoanConfigCard] Property ID invalide pour handleAddConfig');
+      return;
+    }
     try {
       const newConfig: LoanConfigCreate = {
         name: 'Nouveau crédit',
@@ -225,11 +245,12 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
         duration_years: 0,
         initial_deferral_months: 0,
         loan_start_date: null,
-        loan_end_date: null
+        loan_end_date: null,
+        property_id: activeProperty.id
       };
 
       const created = await loanConfigsAPI.create(newConfig);
-      const response = await loanConfigsAPI.getAll();
+      const response = await loanConfigsAPI.getAll(activeProperty.id);
       setConfigs(response.items);
       
       // Vérifier l'incohérence après création
@@ -254,10 +275,15 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
     const config = configs.find(c => c.id === id);
     if (!config) return;
 
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[LoanConfigCard] Property ID invalide pour handleDeleteConfig');
+      return;
+    }
+
     // Vérifier s'il y a des mensualités associées
     let hasPayments = false;
     try {
-      const paymentsResponse = await loanPaymentsAPI.getAll({ loan_name: config.name, limit: 1 });
+      const paymentsResponse = await loanPaymentsAPI.getAll(activeProperty.id, { loan_name: config.name, limit: 1 });
       hasPayments = paymentsResponse.items.length > 0;
     } catch (err) {
       console.error('Erreur lors de la vérification des mensualités:', err);
@@ -276,8 +302,8 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
       // Supprimer toutes les mensualités associées
       if (hasPayments) {
         try {
-          const allPayments = await loanPaymentsAPI.getAll({ loan_name: config.name, limit: 1000 });
-          const deletePromises = allPayments.items.map(payment => loanPaymentsAPI.delete(payment.id));
+          const allPayments = await loanPaymentsAPI.getAll(activeProperty.id, { loan_name: config.name, limit: 1000 });
+          const deletePromises = allPayments.items.map(payment => loanPaymentsAPI.delete(activeProperty.id, payment.id));
           await Promise.all(deletePromises);
           console.log(`✅ ${allPayments.items.length} mensualité(s) supprimée(s) pour le crédit "${config.name}"`);
           
@@ -295,8 +321,8 @@ export default function LoanConfigCard({ onConfigUpdated }: LoanConfigCardProps)
       }
 
       // Supprimer la configuration
-      await loanConfigsAPI.delete(id);
-      const response = await loanConfigsAPI.getAll();
+      await loanConfigsAPI.delete(activeProperty.id, id);
+      const response = await loanConfigsAPI.getAll(activeProperty.id);
       setConfigs(response.items);
       
       // Vérifier l'incohérence après suppression

@@ -9,6 +9,7 @@
 import { useState, useRef } from 'react';
 import { loanPaymentsAPI, LoanPaymentPreviewResponse } from '@/api/client';
 import LoanPaymentPreviewModal from './LoanPaymentPreviewModal';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface LoanPaymentFileUploadProps {
   loanName?: string; // Nom du crédit pour l'import (par défaut "Prêt principal")
@@ -21,6 +22,7 @@ export default function LoanPaymentFileUpload({
   onFileSelect, 
   onImportComplete 
 }: LoanPaymentFileUploadProps) {
+  const { activeProperty } = useProperty();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<LoanPaymentPreviewResponse | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
@@ -46,10 +48,15 @@ export default function LoanPaymentFileUpload({
       }
       
       // Appeler preview automatiquement
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        console.error('[LoanPaymentFileUpload] Property ID invalide');
+        alert('Property ID invalide');
+        return;
+      }
       console.log('⏳ [LoanPaymentFileUpload] Début du preview...');
       setIsLoadingPreview(true);
       try {
-        const preview = await loanPaymentsAPI.preview(file);
+        const preview = await loanPaymentsAPI.preview(activeProperty.id, file);
         console.log('✅ [LoanPaymentFileUpload] Preview réussi!', preview);
         console.log('📊 [LoanPaymentFileUpload] Stats:', {
           total_rows: preview.total_rows,

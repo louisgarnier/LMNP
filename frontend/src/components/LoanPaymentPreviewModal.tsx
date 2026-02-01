@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { loanPaymentsAPI, LoanPaymentPreviewResponse, LoanPaymentImportResponse } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface LoanPaymentPreviewModalProps {
   file: File;
@@ -24,6 +25,7 @@ export default function LoanPaymentPreviewModal({
   onImportComplete,
   onClose,
 }: LoanPaymentPreviewModalProps) {
+  const { activeProperty } = useProperty();
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<LoanPaymentImportResponse | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
@@ -37,9 +39,14 @@ export default function LoanPaymentPreviewModal({
     setImportError(null);
     setImportResult(null);
     
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[LoanPaymentPreviewModal] Property ID invalide');
+      setImportError('Property ID invalide');
+      return;
+    }
     try {
       console.log('📤 [LoanPaymentPreviewModal] Appel API import...');
-      const result = await loanPaymentsAPI.import(file, loanName);
+      const result = await loanPaymentsAPI.import(activeProperty.id, file, loanName);
       
       console.log('✅ [LoanPaymentPreviewModal] Import réussi!', result);
       setImportResult(result);

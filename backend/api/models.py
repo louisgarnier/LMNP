@@ -431,7 +431,7 @@ class LoanPaymentBase(BaseModel):
 
 class LoanPaymentCreate(LoanPaymentBase):
     """Model for creating a loan payment."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class LoanPaymentUpdate(BaseModel):
@@ -482,7 +482,7 @@ class LoanConfigBase(BaseModel):
 
 class LoanConfigCreate(LoanConfigBase):
     """Model for creating a loan configuration."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class LoanConfigUpdate(BaseModel):

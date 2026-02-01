@@ -4,7 +4,7 @@ API routes for loan payments.
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc, func
 from typing import List, Optional
@@ -12,6 +12,7 @@ from datetime import date, datetime
 import io
 import pandas as pd
 import numpy as np
+import logging
 
 from backend.database import get_db
 from backend.database.models import LoanPayment, LoanConfig
@@ -21,41 +22,55 @@ from backend.api.models import (
     LoanPaymentResponse,
     LoanPaymentListResponse
 )
+from backend.api.utils.validation import validate_property_id
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
-def update_loan_config_credit_amount(db: Session, loan_name: str) -> None:
+def update_loan_config_credit_amount(db: Session, loan_name: str, property_id: int) -> None:
     """
     Mettre à jour automatiquement le credit_amount d'un LoanConfig
     avec le Total Capital (somme de tous les LoanPayment.capital pour ce crédit).
     
     Si aucune mensualité n'existe, mettre credit_amount à 0.
+    
+    Args:
+        db: Session de base de données
+        loan_name: Nom du prêt
+        property_id: ID de la propriété (obligatoire)
     """
-    # Calculer le Total Capital (somme de tous les LoanPayment.capital pour ce crédit)
+    logger.info(f"[Credits] update_loan_config_credit_amount - loan_name={loan_name}, property_id={property_id}")
+    
+    # Calculer le Total Capital (somme de tous les LoanPayment.capital pour ce crédit et cette propriété)
     total_capital = db.query(
         func.sum(LoanPayment.capital)
     ).filter(
-        LoanPayment.loan_name == loan_name
+        LoanPayment.loan_name == loan_name,
+        LoanPayment.property_id == property_id
     ).scalar()
     
     total_capital = total_capital if total_capital is not None else 0.0
     
-    # Trouver le LoanConfig correspondant
-    loan_config = db.query(LoanConfig).filter(LoanConfig.name == loan_name).first()
+    # Trouver le LoanConfig correspondant pour cette propriété
+    loan_config = db.query(LoanConfig).filter(
+        LoanConfig.name == loan_name,
+        LoanConfig.property_id == property_id
+    ).first()
     
     if loan_config:
         # Mettre à jour credit_amount avec le Total Capital
         loan_config.credit_amount = total_capital
         loan_config.updated_at = datetime.utcnow()
         db.commit()
-        print(f"✅ [update_loan_config_credit_amount] {loan_name}: credit_amount mis à jour à {total_capital:.2f} €")
+        logger.info(f"[Credits] {loan_name}: credit_amount mis à jour à {total_capital:.2f} € pour property_id={property_id}")
     else:
-        print(f"⚠️ [update_loan_config_credit_amount] {loan_name}: LoanConfig non trouvé")
+        logger.warning(f"[Credits] {loan_name}: LoanConfig non trouvé pour property_id={property_id}")
 
 
 @router.get("/loan-payments", response_model=LoanPaymentListResponse)
 async def get_loan_payments(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     start_date: Optional[date] = Query(None, description="Date de début (filtre)"),
@@ -68,6 +83,7 @@ async def get_loan_payments(
     """
     Récupérer la liste des mensualités de crédit.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **skip**: Nombre d'éléments à sauter (pagination)
     - **limit**: Nombre d'éléments à retourner (max 1000)
     - **start_date**: Filtrer par date de début (optionnel)
@@ -76,7 +92,12 @@ async def get_loan_payments(
     - **sort_by**: Colonne de tri (date, loan_name)
     - **sort_direction**: Direction du tri (asc, desc)
     """
-    query = db.query(LoanPayment)
+    logger.info(f"[Credits] GET /api/loan-payments - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    query = db.query(LoanPayment).filter(LoanPayment.property_id == property_id)
     
     # Filtres par date
     if start_date:
@@ -131,6 +152,8 @@ async def get_loan_payments(
         for p in payments
     ]
     
+    logger.info(f"[Credits] Retourné {len(payment_responses)} payments pour property_id={property_id}")
+    
     return LoanPaymentListResponse(
         items=payment_responses,
         total=total,
@@ -147,6 +170,11 @@ async def create_loan_payment(
     """
     Créer une nouvelle mensualité de crédit.
     """
+    logger.info(f"[Credits] POST /api/loan-payments - property_id={payment.property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, payment.property_id, "Credits")
+    
     # Validation : vérifier que capital + interest + insurance = total
     calculated_total = payment.capital + payment.interest + payment.insurance
     if abs(calculated_total - payment.total) > 0.01:  # Tolérance de 1 centime
@@ -158,26 +186,30 @@ async def create_loan_payment(
     db.commit()
     db.refresh(db_payment)
     
+    logger.info(f"[Credits] LoanPayment créé: id={db_payment.id}, property_id={db_payment.property_id}")
+    
     # Mettre à jour automatiquement credit_amount avec le Total Capital
-    update_loan_config_credit_amount(db, db_payment.loan_name)
+    update_loan_config_credit_amount(db, db_payment.loan_name, db_payment.property_id)
     
     # Invalider les comptes de résultat pour l'année du payment
+    # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
     try:
         from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
         invalidate_compte_resultat_for_year(db, db_payment.date.year)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"⚠️ [create_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+        logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
     # Invalider le bilan pour l'année du payment
+    # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
     try:
         from backend.api.services.bilan_service import invalidate_bilan_for_year
         invalidate_bilan_for_year(db_payment.date.year, db)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"⚠️ [create_loan_payment] Erreur lors de l'invalidation du bilan: {error_details}")
+        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return LoanPaymentResponse(
         id=db_payment.id,
@@ -195,15 +227,26 @@ async def create_loan_payment(
 @router.get("/loan-payments/{payment_id}", response_model=LoanPaymentResponse)
 async def get_loan_payment(
     payment_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Récupérer une mensualité par son ID.
     """
-    payment = db.query(LoanPayment).filter(LoanPayment.id == payment_id).first()
+    logger.info(f"[Credits] GET /api/loan-payments/{payment_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    payment = db.query(LoanPayment).filter(
+        LoanPayment.id == payment_id,
+        LoanPayment.property_id == property_id
+    ).first()
     
     if not payment:
-        raise HTTPException(status_code=404, detail="Mensualité non trouvée")
+        error_msg = f"Mensualité {payment_id} non trouvée pour property_id={property_id}"
+        logger.error(f"[Credits] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     return LoanPaymentResponse(
         id=payment.id,
@@ -221,16 +264,27 @@ async def get_loan_payment(
 @router.put("/loan-payments/{payment_id}", response_model=LoanPaymentResponse)
 async def update_loan_payment(
     payment_id: int,
-    payment_update: LoanPaymentUpdate,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
+    payment_update: LoanPaymentUpdate = ...,
     db: Session = Depends(get_db)
 ):
     """
     Mettre à jour une mensualité de crédit.
     """
-    payment = db.query(LoanPayment).filter(LoanPayment.id == payment_id).first()
+    logger.info(f"[Credits] PUT /api/loan-payments/{payment_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    payment = db.query(LoanPayment).filter(
+        LoanPayment.id == payment_id,
+        LoanPayment.property_id == property_id
+    ).first()
     
     if not payment:
-        raise HTTPException(status_code=404, detail="Mensualité non trouvée")
+        error_msg = f"Mensualité {payment_id} non trouvée pour property_id={property_id}"
+        logger.error(f"[Credits] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     # Mettre à jour les champs fournis
     update_data = payment_update.dict(exclude_unset=True)
@@ -249,26 +303,30 @@ async def update_loan_payment(
     db.commit()
     db.refresh(payment)
     
+    logger.info(f"[Credits] LoanPayment {payment_id} mis à jour pour property_id={property_id}")
+    
     # Mettre à jour automatiquement credit_amount avec le Total Capital
-    update_loan_config_credit_amount(db, payment.loan_name)
+    update_loan_config_credit_amount(db, payment.loan_name, payment.property_id)
     
     # Invalider les comptes de résultat pour l'année du payment
+    # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
     try:
         from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
         invalidate_compte_resultat_for_year(db, payment.date.year)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"⚠️ [update_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+        logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
     # Invalider le bilan pour l'année du payment
+    # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
     try:
         from backend.api.services.bilan_service import invalidate_bilan_for_year
         invalidate_bilan_for_year(payment.date.year, db)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"⚠️ [update_loan_payment] Erreur lors de l'invalidation du bilan: {error_details}")
+        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return LoanPaymentResponse(
         id=payment.id,
@@ -286,49 +344,66 @@ async def update_loan_payment(
 @router.delete("/loan-payments/{payment_id}", status_code=204)
 async def delete_loan_payment(
     payment_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Supprimer une mensualité de crédit.
     """
-    payment = db.query(LoanPayment).filter(LoanPayment.id == payment_id).first()
+    logger.info(f"[Credits] DELETE /api/loan-payments/{payment_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    payment = db.query(LoanPayment).filter(
+        LoanPayment.id == payment_id,
+        LoanPayment.property_id == property_id
+    ).first()
     
     if not payment:
-        raise HTTPException(status_code=404, detail="Mensualité non trouvée")
+        error_msg = f"Mensualité {payment_id} non trouvée pour property_id={property_id}"
+        logger.error(f"[Credits] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     # Sauvegarder l'année et le nom du crédit avant suppression
     payment_year = payment.date.year
     loan_name = payment.loan_name
+    payment_property_id = payment.property_id
     
     db.delete(payment)
     db.commit()
     
+    logger.info(f"[Credits] LoanPayment {payment_id} supprimé pour property_id={property_id}")
+    
     # Mettre à jour automatiquement credit_amount avec le Total Capital
-    update_loan_config_credit_amount(db, loan_name)
+    update_loan_config_credit_amount(db, loan_name, payment_property_id)
     
     # Invalider les comptes de résultat pour l'année du payment
+    # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
     try:
         from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
         invalidate_compte_resultat_for_year(db, payment_year)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"⚠️ [delete_loan_payment] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+        logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
     
     # Invalider le bilan pour l'année du payment
+    # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
     try:
         from backend.api.services.bilan_service import invalidate_bilan_for_year
         invalidate_bilan_for_year(payment_year, db)
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
-        print(f"⚠️ [delete_loan_payment] Erreur lors de l'invalidation du bilan: {error_details}")
+        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return None
 
 
 @router.post("/loan-payments/preview")
 async def preview_loan_payment_file(
+    property_id: int = Form(..., description="ID de la propriété (obligatoire)"),
     file: UploadFile = File(...),
     db: Session = Depends(get_db)
 ):
@@ -342,6 +417,11 @@ async def preview_loan_payment_file(
     
     Retourne : Preview, colonnes détectées, années détectées, montants extraits
     """
+    logger.info(f"[Credits] POST preview - property_id={property_id}, file={file.filename}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
     # Vérifier l'extension du fichier
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nom de fichier manquant")
@@ -489,9 +569,10 @@ async def preview_loan_payment_file(
                     row_dict[col] = str(value)
             preview_rows.append(row_dict)
         
-        # Vérifier s'il existe déjà des données pour "Prêt principal"
+        # Vérifier s'il existe déjà des données pour "Prêt principal" et cette propriété
         existing_count = db.query(LoanPayment).filter(
-            LoanPayment.loan_name == "Prêt principal"
+            LoanPayment.loan_name == "Prêt principal",
+            LoanPayment.property_id == property_id
         ).count()
         
         warning = None
@@ -522,8 +603,9 @@ async def preview_loan_payment_file(
 
 @router.post("/loan-payments/import")
 async def import_loan_payment_file(
+    property_id: int = Form(..., description="ID de la propriété (obligatoire)"),
     file: UploadFile = File(...),
-    loan_name: str = Query("Prêt principal", description="Nom du prêt"),
+    loan_name: str = Form("Prêt principal", description="Nom du prêt"),
     db: Session = Depends(get_db)
 ):
     """
@@ -534,9 +616,14 @@ async def import_loan_payment_file(
     - Colonnes années : 2021, 2022, 2023, etc.
     - Chaque ligne = un type de montant pour toutes les années
     
-    Avant l'import, supprime toutes les mensualités existantes pour le loan_name.
+    Avant l'import, supprime toutes les mensualités existantes pour le loan_name et cette propriété.
     Pour chaque année, crée 1 enregistrement avec date = 01/01/année.
     """
+    logger.info(f"[Credits] POST import - property_id={property_id}, file={file.filename}, loan_name={loan_name}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
     # Vérifier l'extension du fichier
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nom de fichier manquant")
@@ -646,9 +733,10 @@ async def import_loan_payment_file(
             elif 'total' in annee_value:
                 total_row = row
         
-        # Supprimer toutes les mensualités existantes pour ce loan_name
+        # Supprimer toutes les mensualités existantes pour ce loan_name et cette propriété
         deleted_count = db.query(LoanPayment).filter(
-            LoanPayment.loan_name == loan_name
+            LoanPayment.loan_name == loan_name,
+            LoanPayment.property_id == property_id
         ).delete()
         db.commit()
         
@@ -705,7 +793,8 @@ async def import_loan_payment_file(
                         interest=interest,
                         insurance=insurance,
                         total=total,
-                        loan_name=loan_name
+                        loan_name=loan_name,
+                        property_id=property_id
                     )
                     db.add(payment)
                     created_count += 1
@@ -714,10 +803,13 @@ async def import_loan_payment_file(
         
         db.commit()
         
+        logger.info(f"[Credits] Import terminé: {created_count} payments créés pour property_id={property_id}, loan_name={loan_name}")
+        
         # Mettre à jour automatiquement credit_amount avec le Total Capital
-        update_loan_config_credit_amount(db, loan_name)
+        update_loan_config_credit_amount(db, loan_name, property_id)
         
         # Invalider les comptes de résultat pour toutes les années des payments importés
+        # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
         try:
             from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
             for year in year_columns:
@@ -725,7 +817,18 @@ async def import_loan_payment_file(
         except Exception as e:
             import traceback
             error_details = traceback.format_exc()
-            print(f"⚠️ [import_loan_payment_file] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+            logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
+        
+        # Invalider le bilan pour toutes les années des payments importés
+        # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
+        try:
+            from backend.api.services.bilan_service import invalidate_bilan_for_year
+            for year in year_columns:
+                invalidate_bilan_for_year(year, db)
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
         
         return {
             "message": "Import réussi",

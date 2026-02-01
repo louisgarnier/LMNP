@@ -33,6 +33,8 @@ class Property(Base):
     mapping_imports = relationship("MappingImport", back_populates="property", cascade="all, delete-orphan")
     allowed_mappings = relationship("AllowedMapping", back_populates="property", cascade="all, delete-orphan")
     amortization_types = relationship("AmortizationType", back_populates="property", cascade="all, delete-orphan")
+    loan_configs = relationship("LoanConfig", back_populates="property", cascade="all, delete-orphan")
+    loan_payments = relationship("LoanPayment", back_populates="property", cascade="all, delete-orphan")
     
     # Index pour recherches fréquentes
     __table_args__ = (
@@ -328,6 +330,7 @@ class LoanPayment(Base):
     __tablename__ = "loan_payments"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     date = Column(Date, nullable=False, index=True)  # Date de la mensualité (01/01/année)
     capital = Column(Float, nullable=False)  # Montant du capital remboursé
     interest = Column(Float, nullable=False)  # Montant des intérêts
@@ -337,11 +340,15 @@ class LoanPayment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relations
+    property = relationship("Property", back_populates="loan_payments")
+    
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_loan_payment_date', 'date'),
         Index('idx_loan_payment_loan_name', 'loan_name'),
         Index('idx_loan_payment_loan_name_date', 'loan_name', 'date', unique=True),
+        Index('idx_loan_payments_property_id', 'property_id'),
     )
 
 
@@ -350,7 +357,8 @@ class LoanConfig(Base):
     __tablename__ = "loan_configs"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(255), nullable=False, unique=True, index=True)  # Nom du crédit (ex: "Prêt principal", "Prêt construction")
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(255), nullable=False, index=True)  # Nom du crédit (ex: "Prêt principal", "Prêt construction")
     credit_amount = Column(Float, nullable=False)  # Montant du crédit accordé en euros
     interest_rate = Column(Float, nullable=False)  # Taux fixe actuel hors assurance en %
     duration_years = Column(Integer, nullable=False)  # Durée de l'emprunt en années
@@ -362,9 +370,14 @@ class LoanConfig(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relations
+    property = relationship("Property", back_populates="loan_configs")
+    
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_loan_config_name', 'name', unique=True),
+        Index('idx_loan_configs_property_id', 'property_id'),
+        Index('idx_loan_config_property_name', 'property_id', 'name', unique=True),  # Unique par propriété
     )
 
 

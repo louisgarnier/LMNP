@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { loanPaymentsAPI, LoanPayment, LoanPaymentUpdate, loanConfigsAPI, LoanConfig } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface LoanPaymentTableProps {
   loanConfigs?: LoanConfig[]; // Liste des configurations de crédit (optionnel, si non fourni, charge depuis l'API)
@@ -20,6 +21,7 @@ interface LoanPaymentTableProps {
 }
 
 export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onUpdate, refreshTrigger, onConfigsChange, onActiveLoanChange, initialActiveLoanName, hideSubTabs = false }: LoanPaymentTableProps) {
+  const { activeProperty } = useProperty();
   // État pour les configurations de crédit
   const [loanConfigs, setLoanConfigs] = useState<LoanConfig[]>([]);
   const [isLoadingConfigs, setIsLoadingConfigs] = useState(false);
@@ -86,9 +88,14 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
       }
       
       // Sinon, charger depuis l'API
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        console.error('[LoanPaymentTable] Property ID invalide pour loadLoanConfigs');
+        return;
+      }
       setIsLoadingConfigs(true);
       try {
-        const response = await loanConfigsAPI.getAll();
+        console.log(`[LoanPaymentTable] loadLoanConfigs - propertyId=${activeProperty.id}`);
+        const response = await loanConfigsAPI.getAll(activeProperty.id);
         const sortedConfigs = response.items.sort((a, b) => {
           const aDate = (a as any).created_at ? new Date((a as any).created_at).getTime() : a.id;
           const bDate = (b as any).created_at ? new Date((b as any).created_at).getTime() : b.id;
@@ -104,7 +111,7 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
           return prev;
         });
       } catch (err) {
-        console.error('Erreur lors du chargement des configurations:', err);
+        console.error('[LoanPaymentTable] Erreur lors du chargement des configurations:', err);
       } finally {
         setIsLoadingConfigs(false);
       }
@@ -112,10 +119,14 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
 
     loadLoanConfigs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger, externalLoanConfigs?.length, externalLoanConfigs?.map(c => c.id).join(',')]);
+  }, [activeProperty?.id, refreshTrigger, externalLoanConfigs?.length, externalLoanConfigs?.map(c => c.id).join(',')]);
 
   // Charger les mensualités pour le crédit actif
   const loadPayments = async () => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[LoanPaymentTable] Property ID invalide pour loadPayments');
+      return;
+    }
     if (!activeLoanName || activeLoanName.trim() === '') {
       console.log('🔍 [LoanPaymentTable] Pas de crédit actif, vidage du tableau');
       setPayments([]);
@@ -124,11 +135,11 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
       return;
     }
 
-    console.log(`🔍 [LoanPaymentTable] Chargement des mensualités pour: "${activeLoanName}"`);
+    console.log(`🔍 [LoanPaymentTable] Chargement des mensualités pour: "${activeLoanName}", propertyId=${activeProperty.id}`);
     setIsLoading(true);
     setError(null);
     try {
-      const response = await loanPaymentsAPI.getAll({
+      const response = await loanPaymentsAPI.getAll(activeProperty.id, {
         loan_name: activeLoanName,
         sort_by: 'date',
         sort_direction: 'desc',
@@ -153,7 +164,7 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
     // Charger les nouvelles mensualités
     loadPayments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLoanName, refreshTrigger]);
+  }, [activeLoanName, refreshTrigger, activeProperty?.id]);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -203,7 +214,10 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
       // Toujours mettre à jour le total (recalculé)
       updateData.total = calculatedTotal;
 
-      await loanPaymentsAPI.update(payment.id, updateData);
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        throw new Error('Property ID is required');
+      }
+      await loanPaymentsAPI.update(activeProperty.id, payment.id, updateData);
       
       // Recharger les données
       await loadPayments();
@@ -231,9 +245,12 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
     }
 
     try {
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        throw new Error('Property ID is required');
+      }
       setDeletingId(payment.id);
       const paymentYear = new Date(payment.date).getFullYear();
-      await loanPaymentsAPI.delete(payment.id);
+      await loanPaymentsAPI.delete(activeProperty.id, payment.id);
       await loadPayments();
       
       // Émettre un événement pour rafraîchir le bilan
@@ -280,11 +297,16 @@ export default function LoanPaymentTable({ loanConfigs: externalLoanConfigs, onU
       return;
     }
 
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[LoanPaymentTable] Property ID invalide pour handleDeleteMultiple');
+      return;
+    }
+
     setIsDeletingMultiple(true);
     try {
       // Supprimer les mensualités une par une et ignorer les erreurs 404 (déjà supprimées)
       const deleteResults = await Promise.allSettled(
-        Array.from(selectedIds).map(id => loanPaymentsAPI.delete(id))
+        Array.from(selectedIds).map(id => loanPaymentsAPI.delete(activeProperty.id, id))
       );
       
       // Compter les suppressions réussies et les erreurs

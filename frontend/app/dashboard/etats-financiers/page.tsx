@@ -39,10 +39,14 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
     difference: number;
   } | null>(null);
 
-  // Charger les configurations de crédit au montage
+  // Charger les configurations de crédit au montage et quand activeProperty change
   useEffect(() => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CreditTabContent] Property ID invalide');
+      return;
+    }
     loadLoanConfigs();
-  }, []);
+  }, [activeProperty?.id]);
 
   // Valider la cohérence entre montant configuré et transactions
   useEffect(() => {
@@ -51,7 +55,7 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
     } else {
       setValidationWarning(null);
     }
-  }, [loanConfigs, refreshTrigger]);
+  }, [loanConfigs, refreshTrigger, activeProperty?.id]);
 
   const validateCreditAmounts = async () => {
     if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
@@ -95,9 +99,14 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
   };
 
   const loadLoanConfigs = async () => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CreditTabContent] Property ID invalide pour loadLoanConfigs');
+      return;
+    }
     try {
       setIsLoadingConfigs(true);
-      const response = await loanConfigsAPI.getAll();
+      console.log(`[CreditTabContent] loadLoanConfigs - propertyId=${activeProperty.id}`);
+      const response = await loanConfigsAPI.getAll(activeProperty.id);
       const sortedConfigs = response.items.sort((a, b) => {
         // Trier par created_at si disponible, sinon par id
         const aDate = (a as any).created_at ? new Date((a as any).created_at).getTime() : a.id;
@@ -148,6 +157,9 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
         counter++;
       }
 
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        throw new Error('Property ID is required');
+      }
       // Créer un nouveau crédit avec valeurs par défaut
       const newConfig = await loanConfigsAPI.create({
         name: creditName,
@@ -156,7 +168,8 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
         duration_years: 0,
         initial_deferral_months: 0,
         loan_start_date: null,
-        loan_end_date: null
+        loan_end_date: null,
+        property_id: activeProperty.id
       });
 
       // Recharger la liste des crédits
@@ -171,14 +184,18 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
   };
 
   const handleDeleteCredit = async (configId: number, configName: string) => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CreditTabContent] Property ID invalide pour handleDeleteCredit');
+      return;
+    }
     // Vérifier s'il y a des mensualités associées
     let hasPayments = false;
     let paymentCount = 0;
     try {
-      const paymentsResponse = await loanPaymentsAPI.getAll({ loan_name: configName, limit: 1 });
+      const paymentsResponse = await loanPaymentsAPI.getAll(activeProperty.id, { loan_name: configName, limit: 1 });
       hasPayments = paymentsResponse.items.length > 0;
       if (hasPayments) {
-        const allPayments = await loanPaymentsAPI.getAll({ loan_name: configName, limit: 1000 });
+        const allPayments = await loanPaymentsAPI.getAll(activeProperty.id, { loan_name: configName, limit: 1000 });
         paymentCount = allPayments.items.length;
       }
     } catch (err) {
@@ -198,8 +215,8 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
       // Supprimer toutes les mensualités associées
       if (hasPayments) {
         try {
-          const allPayments = await loanPaymentsAPI.getAll({ loan_name: configName, limit: 1000 });
-          const deletePromises = allPayments.items.map(payment => loanPaymentsAPI.delete(payment.id));
+          const allPayments = await loanPaymentsAPI.getAll(activeProperty.id, { loan_name: configName, limit: 1000 });
+          const deletePromises = allPayments.items.map(payment => loanPaymentsAPI.delete(activeProperty.id, payment.id));
           await Promise.allSettled(deletePromises);
           console.log(`✅ ${allPayments.items.length} mensualité(s) supprimée(s) pour le crédit "${configName}"`);
         } catch (err) {
@@ -209,10 +226,10 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
       }
 
       // Supprimer la configuration
-      await loanConfigsAPI.delete(configId);
+      await loanConfigsAPI.delete(activeProperty.id, configId);
       
       // Recharger la liste des crédits
-      const response = await loanConfigsAPI.getAll();
+      const response = await loanConfigsAPI.getAll(activeProperty.id);
       const sortedConfigs = response.items.sort((a, b) => {
         const aDate = (a as any).created_at ? new Date((a as any).created_at).getTime() : a.id;
         const bDate = (b as any).created_at ? new Date((b as any).created_at).getTime() : b.id;
@@ -503,6 +520,7 @@ function CreditTabContent({ activeTab, hasCredit }: CreditTabContentProps) {
 }
 
 export default function EtatsFinanciersPage() {
+  const { activeProperty } = useProperty();
   const searchParams = useSearchParams();
   const router = useRouter();
   const tabParam = searchParams?.get('tab');
@@ -540,26 +558,30 @@ export default function EtatsFinanciersPage() {
       localStorage.setItem('etats_financiers_has_credit', 'true');
     } else {
       // Désactiver la checkbox : demander confirmation
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        console.error('[EtatsFinanciersPage] Property ID invalide pour handleCreditCheckboxChange');
+        return;
+      }
       const confirmMessage = 'Les données de crédit (si il y en a) vont être écrasées. Continuer ?';
       if (window.confirm(confirmMessage)) {
         try {
           // Récupérer tous les crédits configurés
-          const configsResponse = await loanConfigsAPI.getAll();
+          const configsResponse = await loanConfigsAPI.getAll(activeProperty.id);
           const configs = configsResponse.items;
           
           // Pour chaque crédit, supprimer les paiements puis le crédit
           for (const config of configs) {
             try {
               // Récupérer tous les paiements pour ce crédit
-              const paymentsResponse = await loanPaymentsAPI.getAll({ loan_name: config.name, limit: 1000 });
+              const paymentsResponse = await loanPaymentsAPI.getAll(activeProperty.id, { loan_name: config.name, limit: 1000 });
               
               // Supprimer tous les paiements
               for (const payment of paymentsResponse.items) {
-                await loanPaymentsAPI.delete(payment.id);
+                await loanPaymentsAPI.delete(activeProperty.id, payment.id);
               }
               
               // Supprimer la configuration du crédit
-              await loanConfigsAPI.delete(config.id);
+              await loanConfigsAPI.delete(activeProperty.id, config.id);
               
               console.log(`✅ Crédit "${config.name}" et ses paiements supprimés`);
             } catch (err) {

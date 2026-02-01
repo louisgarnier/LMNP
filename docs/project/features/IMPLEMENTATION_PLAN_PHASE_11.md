@@ -1196,7 +1196,7 @@ Cette phase implique :
 ---
 
 ### Step 4.1 : Backend - Endpoints Crédit avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ TERMINÉ (2026-02-01)
 
 **1. Vérifications avant modification** :
 - [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
@@ -1360,7 +1360,7 @@ Cette phase implique :
 ---
 
 ### Step 4.2 : Frontend - Page Crédit avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ TERMINÉ (2026-02-01)
 
 **Tasks**:
 - [ ] Modifier `frontend/src/api/client.ts` :
@@ -1439,7 +1439,7 @@ Cette phase implique :
 ---
 
 ### Step 4.3 : Migration des données Crédit existantes
-**Status**: ⏳ À FAIRE
+**Status**: ✅ TERMINÉ (2026-02-01)
 
 **Tasks**:
 - [ ] Créer un script de migration : `backend/scripts/migrate_credits_phase_11_bis_4_3.py`

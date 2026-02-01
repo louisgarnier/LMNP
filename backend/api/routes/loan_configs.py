@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
 from typing import Optional
 from datetime import datetime
+import logging
 
 from backend.database import get_db
 from backend.database.models import LoanConfig
@@ -19,12 +20,15 @@ from backend.api.models import (
     LoanConfigListResponse
 )
 from backend.api.services.bilan_service import invalidate_all_bilan
+from backend.api.utils.validation import validate_property_id
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/loan-configs", response_model=LoanConfigListResponse)
 async def get_loan_configs(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     sort_by: Optional[str] = Query("name", description="Colonne de tri (name, credit_amount, interest_rate, duration_years)"),
@@ -34,12 +38,18 @@ async def get_loan_configs(
     """
     Récupérer la liste des configurations de crédit.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **skip**: Nombre d'éléments à sauter (pagination)
     - **limit**: Nombre d'éléments à retourner (max 1000)
     - **sort_by**: Colonne de tri (name, credit_amount, interest_rate, duration_years)
     - **sort_direction**: Direction du tri (asc, desc)
     """
-    query = db.query(LoanConfig)
+    logger.info(f"[Credits] GET /api/loan-configs - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    query = db.query(LoanConfig).filter(LoanConfig.property_id == property_id)
     
     # Compter le total (avant tri)
     total = query.count()
@@ -91,6 +101,8 @@ async def get_loan_configs(
         for c in configs
     ]
     
+    logger.info(f"[Credits] Retourné {len(config_responses)} configs pour property_id={property_id}")
+    
     return LoanConfigListResponse(
         items=config_responses,
         total=total
@@ -105,12 +117,20 @@ async def create_loan_config(
     """
     Créer une nouvelle configuration de crédit.
     """
-    # Vérifier si une configuration avec le même nom existe déjà
-    existing = db.query(LoanConfig).filter(LoanConfig.name == config.name).first()
+    logger.info(f"[Credits] POST /api/loan-configs - property_id={config.property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, config.property_id, "Credits")
+    
+    # Vérifier si une configuration avec le même nom existe déjà pour cette propriété
+    existing = db.query(LoanConfig).filter(
+        LoanConfig.name == config.name,
+        LoanConfig.property_id == config.property_id
+    ).first()
     if existing:
         raise HTTPException(
             status_code=400,
-            detail=f"Une configuration avec le nom '{config.name}' existe déjà"
+            detail=f"Une configuration avec le nom '{config.name}' existe déjà pour cette propriété"
         )
     
     db_config = LoanConfig(**config.dict())
@@ -118,8 +138,14 @@ async def create_loan_config(
     db.commit()
     db.refresh(db_config)
     
+    logger.info(f"[Credits] LoanConfig créé: id={db_config.id}, property_id={db_config.property_id}")
+    
     # Invalider le bilan car un nouveau crédit affecte le calcul du capital restant dû
-    invalidate_all_bilan(db)
+    # TODO: invalidate_all_bilan sera modifié pour accepter property_id dans l'onglet Bilan
+    try:
+        invalidate_all_bilan(db)
+    except Exception as e:
+        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {e}")
     
     return LoanConfigResponse(
         id=db_config.id,
@@ -140,15 +166,26 @@ async def create_loan_config(
 @router.get("/loan-configs/{config_id}", response_model=LoanConfigResponse)
 async def get_loan_config(
     config_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Récupérer une configuration de crédit par son ID.
     """
-    config = db.query(LoanConfig).filter(LoanConfig.id == config_id).first()
+    logger.info(f"[Credits] GET /api/loan-configs/{config_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    config = db.query(LoanConfig).filter(
+        LoanConfig.id == config_id,
+        LoanConfig.property_id == property_id
+    ).first()
     
     if not config:
-        raise HTTPException(status_code=404, detail="Configuration de crédit non trouvée")
+        error_msg = f"Configuration de crédit {config_id} non trouvée pour property_id={property_id}"
+        logger.error(f"[Credits] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     return LoanConfigResponse(
         id=config.id,
@@ -169,28 +206,40 @@ async def get_loan_config(
 @router.put("/loan-configs/{config_id}", response_model=LoanConfigResponse)
 async def update_loan_config(
     config_id: int,
-    config_update: LoanConfigUpdate,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
+    config_update: LoanConfigUpdate = ...,
     db: Session = Depends(get_db)
 ):
     """
     Mettre à jour une configuration de crédit.
     """
-    config = db.query(LoanConfig).filter(LoanConfig.id == config_id).first()
+    logger.info(f"[Credits] PUT /api/loan-configs/{config_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    config = db.query(LoanConfig).filter(
+        LoanConfig.id == config_id,
+        LoanConfig.property_id == property_id
+    ).first()
     
     if not config:
-        raise HTTPException(status_code=404, detail="Configuration de crédit non trouvée")
+        error_msg = f"Configuration de crédit {config_id} non trouvée pour property_id={property_id}"
+        logger.error(f"[Credits] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
-    # Vérifier si le nouveau nom (si fourni) n'est pas déjà utilisé par une autre configuration
+    # Vérifier si le nouveau nom (si fourni) n'est pas déjà utilisé par une autre configuration de la même propriété
     update_data = config_update.dict(exclude_unset=True)
     if 'name' in update_data and update_data['name'] != config.name:
         existing = db.query(LoanConfig).filter(
             LoanConfig.name == update_data['name'],
+            LoanConfig.property_id == property_id,
             LoanConfig.id != config_id
         ).first()
         if existing:
             raise HTTPException(
                 status_code=400,
-                detail=f"Une configuration avec le nom '{update_data['name']}' existe déjà"
+                detail=f"Une configuration avec le nom '{update_data['name']}' existe déjà pour cette propriété"
             )
     
     # Mettre à jour les champs fournis
@@ -201,8 +250,14 @@ async def update_loan_config(
     db.commit()
     db.refresh(config)
     
+    logger.info(f"[Credits] LoanConfig {config_id} mis à jour pour property_id={property_id}")
+    
     # Invalider le bilan car une modification de crédit (credit_amount, dates, etc.) affecte le calcul du capital restant dû
-    invalidate_all_bilan(db)
+    # TODO: invalidate_all_bilan sera modifié pour accepter property_id dans l'onglet Bilan
+    try:
+        invalidate_all_bilan(db)
+    except Exception as e:
+        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {e}")
     
     return LoanConfigResponse(
         id=config.id,
@@ -223,20 +278,37 @@ async def update_loan_config(
 @router.delete("/loan-configs/{config_id}", status_code=204)
 async def delete_loan_config(
     config_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Supprimer une configuration de crédit.
     """
-    config = db.query(LoanConfig).filter(LoanConfig.id == config_id).first()
+    logger.info(f"[Credits] DELETE /api/loan-configs/{config_id} - property_id={property_id}")
+    
+    # Valider property_id
+    validate_property_id(db, property_id, "Credits")
+    
+    config = db.query(LoanConfig).filter(
+        LoanConfig.id == config_id,
+        LoanConfig.property_id == property_id
+    ).first()
     
     if not config:
-        raise HTTPException(status_code=404, detail="Configuration de crédit non trouvée")
+        error_msg = f"Configuration de crédit {config_id} non trouvée pour property_id={property_id}"
+        logger.error(f"[Credits] ERREUR: {error_msg}")
+        raise HTTPException(status_code=404, detail=error_msg)
     
     db.delete(config)
     db.commit()
     
+    logger.info(f"[Credits] LoanConfig {config_id} supprimé pour property_id={property_id}")
+    
     # Invalider le bilan car la suppression d'un crédit affecte le calcul du capital restant dû
-    invalidate_all_bilan(db)
+    # TODO: invalidate_all_bilan sera modifié pour accepter property_id dans l'onglet Bilan
+    try:
+        invalidate_all_bilan(db)
+    except Exception as e:
+        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {e}")
     
     return None

@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { loanConfigsAPI, LoanConfig } from '@/api/client';
 import LoanPaymentFileUpload from './LoanPaymentFileUpload';
 import { PMT, IPMT, PPMT, formatCurrency, roundTo2Decimals } from '@/utils/financial';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface LoanConfigSingleCardProps {
   loanConfig: LoanConfig;
@@ -91,6 +92,7 @@ function formatRemainingDuration(months: number | null): string {
 }
 
 export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConfigUpdated }: LoanConfigSingleCardProps) {
+  const { activeProperty } = useProperty();
   const [config, setConfig] = useState<LoanConfig>(initialConfig);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
@@ -246,9 +248,12 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
       setSaving(true);
       setError('');
 
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        throw new Error('Property ID is required');
+      }
       const updateData: any = { [field]: value };
       
-      const updated = await loanConfigsAPI.update(config.id, updateData);
+      const updated = await loanConfigsAPI.update(activeProperty.id, config.id, updateData);
       
       // Mettre à jour le config local avec la réponse
       setConfig(updated);
@@ -273,11 +278,14 @@ export default function LoanConfigSingleCard({ loanConfig: initialConfig, onConf
       setError('');
 
       const monthsSorted = [...months].sort((a, b) => a - b);
+      if (!activeProperty?.id || activeProperty.id <= 0) {
+        throw new Error('Property ID is required');
+      }
       const updateData = {
         simulation_months: JSON.stringify(monthsSorted)
       };
       
-      const updated = await loanConfigsAPI.update(config.id, updateData);
+      const updated = await loanConfigsAPI.update(activeProperty.id, config.id, updateData);
       setConfig(updated);
       
       if (onConfigUpdated) {
