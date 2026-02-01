@@ -528,7 +528,7 @@ class CompteResultatMappingBase(BaseModel):
 
 class CompteResultatMappingCreate(CompteResultatMappingBase):
     """Model for creating a compte de résultat mapping."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class CompteResultatMappingUpdate(BaseModel):
@@ -563,7 +563,7 @@ class CompteResultatDataBase(BaseModel):
 
 class CompteResultatDataCreate(CompteResultatDataBase):
     """Model for creating compte de résultat data."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class CompteResultatDataUpdate(BaseModel):
@@ -598,11 +598,12 @@ class CompteResultatConfigBase(BaseModel):
 
 class CompteResultatConfigCreate(CompteResultatConfigBase):
     """Model for creating compte de résultat config."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class CompteResultatConfigUpdate(BaseModel):
     """Model for updating compte de résultat config."""
+    property_id: Optional[int] = Field(None, description="ID de la propriété")
     level_3_values: Optional[str] = None
 
 
@@ -626,7 +627,7 @@ class CompteResultatOverrideBase(BaseModel):
 
 class CompteResultatOverrideCreate(CompteResultatOverrideBase):
     """Model for creating a compte de résultat override."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class CompteResultatOverrideUpdate(BaseModel):

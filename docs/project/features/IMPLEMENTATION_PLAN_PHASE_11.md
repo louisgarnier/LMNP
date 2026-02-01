@@ -1456,6 +1456,7 @@ Cette phase implique :
 ---
 
 ## ONGLET 5 : COMPTE DE RÉSULTAT
+**Status**: ✅ COMPLÉTÉ (01/02/2026)
 
 ### Fonctionnalités existantes à préserver
 
@@ -1477,7 +1478,7 @@ Cette phase implique :
 ---
 
 ### Step 5.1 : Backend - Endpoints Compte de résultat avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ TERMINÉ (01/02/2026)
 
 **1. Vérifications avant modification** :
 - [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
@@ -1756,7 +1757,7 @@ Cette phase implique :
 ---
 
 ### Step 5.2 : Frontend - Page Compte de résultat avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ TERMINÉ (01/02/2026)
 
 **Tasks**:
 - [ ] Modifier `frontend/src/api/client.ts` :
@@ -1865,7 +1866,7 @@ Cette phase implique :
 ---
 
 ### Step 5.3 : Migration des données Compte de résultat existantes
-**Status**: ⏳ À FAIRE
+**Status**: ✅ TERMINÉ (01/02/2026)
 
 **Tasks**:
 - [ ] Créer un script de migration : `backend/scripts/migrate_compte_resultat_phase_11_bis_5_3.py`

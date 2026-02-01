@@ -138,34 +138,40 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
 
   // Charger les mappings et les données depuis l'API
   useEffect(() => {
-    if (years.length > 0) {
+    if (years.length > 0 && activeProperty?.id) {
       loadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, years.length, isOverrideEnabled]);
+  }, [refreshKey, years.length, isOverrideEnabled, activeProperty?.id]);
 
   const loadData = async () => {
     if (years.length === 0) return;
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.warn('[CompteResultatTable] loadData - Aucune propriété active ou ID invalide');
+      return;
+    }
+    
+    console.log('[CompteResultatTable] loadData - propertyId:', activeProperty.id, 'years:', years);
     
     try {
       setLoading(true);
       setError(null);
       
       // Charger les mappings
-      const mappingsResponse = await compteResultatAPI.getMappings();
+      const mappingsResponse = await compteResultatAPI.getMappings(activeProperty.id);
       setMappings(mappingsResponse.items || []);
       
       // Charger les données calculées
-      const calculateResponse = await compteResultatAPI.calculate(years);
+      const calculateResponse = await compteResultatAPI.calculate(activeProperty.id, years);
       setData(calculateResponse);
       
       // Charger les overrides si la fonctionnalité est activée
       if (isOverrideEnabled) {
         try {
-          const overridesResponse = await compteResultatAPI.getOverrides();
+          const overridesResponse = await compteResultatAPI.getOverrides(activeProperty.id);
           setOverrides(overridesResponse);
         } catch (err: any) {
-          console.error('Erreur lors du chargement des overrides:', err);
+          console.error('[CompteResultatTable] Erreur lors du chargement des overrides:', err);
           // Ne pas bloquer l'affichage si les overrides ne peuvent pas être chargés
           setOverrides([]);
         }
@@ -454,20 +460,26 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
 
   // Sauvegarder l'override pour une année
   const handleSaveOverride = async (year: number, value: number | null) => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatTable] handleSaveOverride - Aucune propriété active');
+      return;
+    }
+    
     try {
       setSavingOverride(year);
+      console.log('[CompteResultatTable] handleSaveOverride - propertyId:', activeProperty.id, 'year:', year, 'value:', value);
       
       if (value === null || value === 0) {
         // Si la valeur est vide ou 0, supprimer l'override
         const existingOverride = overrides.find(o => o.year === year);
         if (existingOverride) {
-          await compteResultatAPI.deleteOverride(year);
+          await compteResultatAPI.deleteOverride(activeProperty.id, year);
           // Mettre à jour l'état local
           setOverrides(prev => prev.filter(o => o.year !== year));
         }
       } else {
         // Créer ou mettre à jour l'override
-        const savedOverride = await compteResultatAPI.createOrUpdateOverride(year, value);
+        const savedOverride = await compteResultatAPI.createOrUpdateOverride(activeProperty.id, year, value);
         // Mettre à jour l'état local
         setOverrides(prev => {
           const existing = prev.find(o => o.year === year);
@@ -479,7 +491,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
         });
       }
     } catch (err: any) {
-      console.error(`Erreur lors de la sauvegarde de l'override pour ${year}:`, err);
+      console.error(`[CompteResultatTable] Erreur lors de la sauvegarde de l'override pour ${year}:`, err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     } finally {
       setSavingOverride(null);

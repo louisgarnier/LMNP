@@ -9,9 +9,12 @@ Ce service implémente la logique de calcul du compte de résultat :
 - Calcul des produits et charges d'exploitation
 - Récupération des amortissements depuis amortization_result
 - Calcul du coût du financement depuis loan_payments
+
+Phase 11 : Toutes les fonctions acceptent property_id pour l'isolation multi-propriétés.
 """
 
 import json
+import logging
 from datetime import date
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
@@ -28,31 +31,42 @@ from backend.database.models import (
     LoanConfig
 )
 
+# Logger configuration
+logger = logging.getLogger(__name__)
 
-def get_mappings(db: Session) -> List[CompteResultatMapping]:
+
+def get_mappings(db: Session, property_id: int) -> List[CompteResultatMapping]:
     """
-    Charger tous les mappings depuis la table.
+    Charger tous les mappings depuis la table pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     
     Returns:
-        Liste des mappings configurés
+        Liste des mappings configurés pour la propriété
     """
-    return db.query(CompteResultatMapping).all()
+    logger.info(f"[CompteResultatService] get_mappings - property_id={property_id}")
+    return db.query(CompteResultatMapping).filter(
+        CompteResultatMapping.property_id == property_id
+    ).all()
 
 
-def get_level_3_values(db: Session) -> List[str]:
+def get_level_3_values(db: Session, property_id: int) -> List[str]:
     """
-    Récupérer les valeurs level_3 sélectionnées depuis la configuration.
+    Récupérer les valeurs level_3 sélectionnées depuis la configuration pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     
     Returns:
         Liste des valeurs level_3 sélectionnées (vide si aucune config)
     """
-    config = db.query(CompteResultatConfig).first()
+    logger.info(f"[CompteResultatService] get_level_3_values - property_id={property_id}")
+    config = db.query(CompteResultatConfig).filter(
+        CompteResultatConfig.property_id == property_id
+    ).first()
     if not config or not config.level_3_values:
         return []
     
@@ -66,7 +80,8 @@ def calculate_produits_exploitation(
     db: Session,
     year: int,
     mappings: List[CompteResultatMapping],
-    level_3_values: List[str]
+    level_3_values: List[str],
+    property_id: int
 ) -> Dict[str, float]:
     """
     Calculer les produits d'exploitation pour une année donnée.
@@ -74,19 +89,23 @@ def calculate_produits_exploitation(
     Logique :
     1. Filtrer d'abord par level_3 (seules les transactions avec level_3 dans level_3_values)
     2. Filtrer par année (date entre 01/01/année et 31/12/année)
-    3. Grouper par catégorie selon les mappings level_1
-    4. Sommer les montants par catégorie
-    5. Prendre en compte transactions positives ET négatives (revenus positifs - remboursements négatifs)
+    3. Filtrer par property_id
+    4. Grouper par catégorie selon les mappings level_1
+    5. Sommer les montants par catégorie
+    6. Prendre en compte transactions positives ET négatives (revenus positifs - remboursements négatifs)
     
     Args:
         db: Session de base de données
         year: Année à calculer
         mappings: Liste des mappings configurés
         level_3_values: Liste des valeurs level_3 à considérer
+        property_id: ID de la propriété
     
     Returns:
         Dictionnaire {category_name: amount} pour les produits d'exploitation
     """
+    logger.info(f"[CompteResultatService] calculate_produits_exploitation - year={year}, property_id={property_id}")
+    
     if not level_3_values:
         # Si aucune valeur level_3 sélectionnée, retourner des montants vides
         return {}
@@ -95,7 +114,7 @@ def calculate_produits_exploitation(
     start_date = date(year, 1, 1)
     end_date = date(year, 12, 31)
     
-    # Filtrer les transactions par level_3 et par année
+    # Filtrer les transactions par level_3, année ET property_id
     query = db.query(
         EnrichedTransaction.level_1,
         Transaction.quantite
@@ -103,6 +122,7 @@ def calculate_produits_exploitation(
         Transaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
+            Transaction.property_id == property_id,  # Filtre par property_id
             EnrichedTransaction.level_3.in_(level_3_values),
             Transaction.date >= start_date,
             Transaction.date <= end_date,
@@ -187,7 +207,8 @@ def calculate_charges_exploitation(
     db: Session,
     year: int,
     mappings: List[CompteResultatMapping],
-    level_3_values: List[str]
+    level_3_values: List[str],
+    property_id: int
 ) -> Dict[str, float]:
     """
     Calculer les charges d'exploitation pour une année donnée.
@@ -195,19 +216,23 @@ def calculate_charges_exploitation(
     Logique :
     1. Filtrer d'abord par level_3 (seules les transactions avec level_3 dans level_3_values)
     2. Filtrer par année (date entre 01/01/année et 31/12/année)
-    3. Grouper par catégorie selon les mappings level_1
-    4. Sommer les montants par catégorie
-    5. Prendre en compte transactions positives ET négatives (dépenses négatives - remboursements/crédits positifs)
+    3. Filtrer par property_id
+    4. Grouper par catégorie selon les mappings level_1
+    5. Sommer les montants par catégorie
+    6. Prendre en compte transactions positives ET négatives (dépenses négatives - remboursements/crédits positifs)
     
     Args:
         db: Session de base de données
         year: Année à calculer
         mappings: Liste des mappings configurés
         level_3_values: Liste des valeurs level_3 à considérer
+        property_id: ID de la propriété
     
     Returns:
         Dictionnaire {category_name: amount} pour les charges d'exploitation
     """
+    logger.info(f"[CompteResultatService] calculate_charges_exploitation - year={year}, property_id={property_id}")
+    
     if not level_3_values:
         # Si aucune valeur level_3 sélectionnée, retourner des montants vides
         return {}
@@ -216,7 +241,7 @@ def calculate_charges_exploitation(
     start_date = date(year, 1, 1)
     end_date = date(year, 12, 31)
     
-    # Filtrer les transactions par level_3 et par année
+    # Filtrer les transactions par level_3, année ET property_id
     query = db.query(
         EnrichedTransaction.level_1,
         Transaction.quantite
@@ -224,6 +249,7 @@ def calculate_charges_exploitation(
         Transaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
+            Transaction.property_id == property_id,  # Filtre par property_id
             EnrichedTransaction.level_3.in_(level_3_values),
             Transaction.date >= start_date,
             Transaction.date <= end_date,
@@ -304,49 +330,63 @@ def calculate_charges_exploitation(
     return results
 
 
-def get_amortissements(db: Session, year: int) -> float:
+def get_amortissements(db: Session, year: int, property_id: int) -> float:
     """
     Récupérer le total d'amortissement pour une année depuis la table amortization_result.
+    
+    Note: AmortizationResult n'a pas property_id directement, on fait un JOIN via Transaction.
     
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
     
     Returns:
         Total des amortissements pour l'année (somme de toutes les catégories)
     """
+    logger.info(f"[CompteResultatService] get_amortissements - year={year}, property_id={property_id}")
+    
+    # JOIN avec Transaction pour filtrer par property_id
     result = db.query(
         func.sum(AmortizationResult.amount)
+    ).join(
+        Transaction, Transaction.id == AmortizationResult.transaction_id
     ).filter(
-        AmortizationResult.year == year
+        AmortizationResult.year == year,
+        Transaction.property_id == property_id
     ).scalar()
     
     return result if result is not None else 0.0
 
 
-def get_cout_financement(db: Session, year: int) -> float:
+def get_cout_financement(db: Session, year: int, property_id: int) -> float:
     """
     Calculer le coût du financement (intérêts + assurance) pour une année.
     
     Logique :
-    - Récupérer tous les crédits configurés
-    - Filtrer loan_payments par année
+    - Récupérer tous les crédits configurés pour la propriété
+    - Filtrer loan_payments par année et property_id
     - Gérer le cas d'un seul crédit ou plusieurs crédits
     - Sommer interest + insurance de tous les crédits
     
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
     
     Returns:
         Total du coût du financement (interest + insurance) pour l'année
     """
+    logger.info(f"[CompteResultatService] get_cout_financement - year={year}, property_id={property_id}")
+    
     # Date de début et fin de l'année
     start_date = date(year, 1, 1)
     end_date = date(year, 12, 31)
     
-    # Récupérer tous les crédits configurés
-    loan_configs = db.query(LoanConfig).all()
+    # Récupérer les crédits configurés pour la propriété
+    loan_configs = db.query(LoanConfig).filter(
+        LoanConfig.property_id == property_id
+    ).all()
     
     if not loan_configs:
         return 0.0
@@ -354,9 +394,10 @@ def get_cout_financement(db: Session, year: int) -> float:
     # Récupérer les noms des crédits configurés
     loan_names = [config.name for config in loan_configs]
     
-    # Récupérer uniquement les loan_payments pour l'année qui correspondent aux crédits configurés
+    # Récupérer uniquement les loan_payments pour l'année, la propriété, et les crédits configurés
     payments = db.query(LoanPayment).filter(
         and_(
+            LoanPayment.property_id == property_id,  # Filtre par property_id
             LoanPayment.date >= start_date,
             LoanPayment.date <= end_date,
             LoanPayment.loan_name.in_(loan_names)  # Filtrer par les noms des crédits configurés
@@ -374,15 +415,17 @@ def get_cout_financement(db: Session, year: int) -> float:
 def calculate_compte_resultat(
     db: Session,
     year: int,
+    property_id: int,
     mappings: Optional[List[CompteResultatMapping]] = None,
     level_3_values: Optional[List[str]] = None
 ) -> Dict[str, any]:
     """
-    Calculer le compte de résultat complet pour une année.
+    Calculer le compte de résultat complet pour une année et une propriété.
     
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
         mappings: Liste des mappings (optionnel, sera chargée depuis DB si non fournie)
         level_3_values: Liste des valeurs level_3 (optionnel, sera chargée depuis config si non fournie)
     
@@ -396,26 +439,28 @@ def calculate_compte_resultat(
         - total_charges_exploitation: float - Total des charges d'exploitation (sans charges d'intérêt)
         - resultat_net: float - Résultat net (résultat d'exploitation - charges d'intérêt)
     """
+    logger.info(f"[CompteResultatService] calculate_compte_resultat - year={year}, property_id={property_id}")
+    
     # Charger les mappings si non fournis
     if mappings is None:
-        mappings = get_mappings(db)
+        mappings = get_mappings(db, property_id)
     
     # Charger les level_3_values si non fournis
     if level_3_values is None:
-        level_3_values = get_level_3_values(db)
+        level_3_values = get_level_3_values(db, property_id)
     
     # Calculer les produits d'exploitation
-    produits = calculate_produits_exploitation(db, year, mappings, level_3_values)
+    produits = calculate_produits_exploitation(db, year, mappings, level_3_values, property_id)
     
     # Calculer les charges d'exploitation
-    charges = calculate_charges_exploitation(db, year, mappings, level_3_values)
+    charges = calculate_charges_exploitation(db, year, mappings, level_3_values, property_id)
     
     # Ajouter les catégories spéciales
-    amortissements = get_amortissements(db, year)
+    amortissements = get_amortissements(db, year, property_id)
     if amortissements != 0.0:
         charges["Charges d'amortissements"] = amortissements
     
-    cout_financement = get_cout_financement(db, year)
+    cout_financement = get_cout_financement(db, year, property_id)
     if cout_financement != 0.0:
         charges["Coût du financement (hors remboursement du capital)"] = cout_financement
     
@@ -452,19 +497,22 @@ def calculate_compte_resultat(
 
 # ========== Invalidation Functions ==========
 
-def invalidate_compte_resultat_for_year(db: Session, year: int) -> int:
+def invalidate_compte_resultat_for_year(db: Session, year: int, property_id: int) -> int:
     """
-    Supprimer les comptes de résultat pour une année donnée.
+    Supprimer les comptes de résultat pour une année et une propriété donnée.
     
     Args:
         db: Session de base de données
         year: Année pour laquelle invalider les comptes de résultat
+        property_id: ID de la propriété
     
     Returns:
         Nombre de données supprimées
     """
+    logger.info(f"[CompteResultatService] invalidate_compte_resultat_for_year - year={year}, property_id={property_id}")
     deleted_count = db.query(CompteResultatData).filter(
-        CompteResultatData.annee == year
+        CompteResultatData.annee == year,
+        CompteResultatData.property_id == property_id
     ).delete()
     db.commit()
     return deleted_count
@@ -473,55 +521,65 @@ def invalidate_compte_resultat_for_year(db: Session, year: int) -> int:
 def invalidate_compte_resultat_for_date_range(
     db: Session,
     start_date: date,
-    end_date: date
+    end_date: date,
+    property_id: int
 ) -> int:
     """
-    Supprimer les comptes de résultat pour une plage de dates.
+    Supprimer les comptes de résultat pour une plage de dates et une propriété.
     
     Args:
         db: Session de base de données
         start_date: Date de début
         end_date: Date de fin
+        property_id: ID de la propriété
     
     Returns:
         Nombre de données supprimées
     """
+    logger.info(f"[CompteResultatService] invalidate_compte_resultat_for_date_range - property_id={property_id}")
     start_year = start_date.year
     end_year = end_date.year
     
     deleted_count = db.query(CompteResultatData).filter(
         CompteResultatData.annee >= start_year,
-        CompteResultatData.annee <= end_year
+        CompteResultatData.annee <= end_year,
+        CompteResultatData.property_id == property_id
     ).delete()
     db.commit()
     return deleted_count
 
 
-def invalidate_all_compte_resultat(db: Session) -> int:
+def invalidate_all_compte_resultat(db: Session, property_id: int) -> int:
     """
-    Supprimer tous les comptes de résultat.
+    Supprimer tous les comptes de résultat pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     
     Returns:
         Nombre de données supprimées
     """
-    deleted_count = db.query(CompteResultatData).delete()
+    logger.info(f"[CompteResultatService] invalidate_all_compte_resultat - property_id={property_id}")
+    deleted_count = db.query(CompteResultatData).filter(
+        CompteResultatData.property_id == property_id
+    ).delete()
     db.commit()
     return deleted_count
 
 
-def invalidate_compte_resultat_for_transaction_date(db: Session, transaction_date: date) -> int:
+def invalidate_compte_resultat_for_transaction_date(db: Session, transaction_date: date, property_id: int) -> int:
     """
     Invalider les comptes de résultat pour l'année d'une transaction.
     
     Args:
         db: Session de base de données
         transaction_date: Date de la transaction
+        property_id: ID de la propriété
     
     Returns:
         Nombre de données supprimées
     """
+    logger.info(f"[CompteResultatService] invalidate_compte_resultat_for_transaction_date - property_id={property_id}")
     year = transaction_date.year
-    return invalidate_compte_resultat_for_year(db, year)
+    return invalidate_compte_resultat_for_year(db, year, property_id)

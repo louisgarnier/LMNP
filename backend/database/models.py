@@ -35,6 +35,11 @@ class Property(Base):
     amortization_types = relationship("AmortizationType", back_populates="property", cascade="all, delete-orphan")
     loan_configs = relationship("LoanConfig", back_populates="property", cascade="all, delete-orphan")
     loan_payments = relationship("LoanPayment", back_populates="property", cascade="all, delete-orphan")
+    # Compte de résultat
+    compte_resultat_mappings = relationship("CompteResultatMapping", back_populates="property", cascade="all, delete-orphan")
+    compte_resultat_data = relationship("CompteResultatData", back_populates="property", cascade="all, delete-orphan")
+    compte_resultat_config = relationship("CompteResultatConfig", back_populates="property", cascade="all, delete-orphan")
+    compte_resultat_overrides = relationship("CompteResultatOverride", back_populates="property", cascade="all, delete-orphan")
     
     # Index pour recherches fréquentes
     __table_args__ = (
@@ -386,15 +391,20 @@ class CompteResultatMapping(Base):
     __tablename__ = "compte_resultat_mappings"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (ex: "Loyers hors charge encaissés")
     type = Column(String(50), nullable=True)  # Type: "Produits d'exploitation" ou "Charges d'exploitation" (pour les catégories personnalisées)
     level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relations
+    property = relationship("Property", back_populates="compte_resultat_mappings")
+    
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_compte_resultat_mapping_category', 'category_name'),
+        Index('idx_compte_resultat_mapping_property_id', 'property_id'),
     )
 
 
@@ -403,17 +413,22 @@ class CompteResultatData(Base):
     __tablename__ = "compte_resultat_data"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     annee = Column(Integer, nullable=False, index=True)  # Année du compte de résultat
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable
     amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relations
+    property = relationship("Property", back_populates="compte_resultat_data")
+    
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_compte_resultat_data_year_category', 'annee', 'category_name'),
         Index('idx_compte_resultat_data_year', 'annee'),
         Index('idx_compte_resultat_data_category', 'category_name'),
+        Index('idx_compte_resultat_data_property_id', 'property_id'),
     )
 
 
@@ -422,9 +437,18 @@ class CompteResultatConfig(Base):
     __tablename__ = "compte_resultat_config"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     level_3_values = Column(Text, nullable=False, default="[]")  # JSON array des level_3 sélectionnés (ex: '["VALEUR1", "VALEUR2"]')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relations
+    property = relationship("Property", back_populates="compte_resultat_config")
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_compte_resultat_config_property_id', 'property_id'),
+    )
 
 
 class CompteResultatOverride(Base):
@@ -432,14 +456,20 @@ class CompteResultatOverride(Base):
     __tablename__ = "compte_resultat_override"
     
     id = Column(Integer, primary_key=True, index=True)
-    year = Column(Integer, nullable=False, unique=True, index=True)  # Année du compte de résultat
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)  # Année du compte de résultat (unique par property_id)
     override_value = Column(Float, nullable=False)  # Valeur override du résultat de l'exercice
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Index pour recherches fréquentes
+    # Relations
+    property = relationship("Property", back_populates="compte_resultat_overrides")
+    
+    # Index pour recherches fréquentes - contrainte unique (year, property_id)
     __table_args__ = (
         Index('idx_compte_resultat_override_year', 'year'),
+        Index('idx_compte_resultat_override_property_id', 'property_id'),
+        Index('idx_compte_resultat_override_year_property', 'year', 'property_id', unique=True),
     )
 
 

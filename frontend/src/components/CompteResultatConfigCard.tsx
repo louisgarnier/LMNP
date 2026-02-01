@@ -176,7 +176,8 @@ export default function CompteResultatConfigCard({
       
       // Charger la configuration depuis l'API
       try {
-        const config = await compteResultatAPI.getConfig();
+        console.log('[CompteResultatConfigCard] loadLevel3Values - chargement config pour propertyId:', activeProperty.id);
+        const config = await compteResultatAPI.getConfig(activeProperty.id);
         if (config.level_3_values) {
           try {
             const savedValues: string[] = JSON.parse(config.level_3_values);
@@ -189,11 +190,11 @@ export default function CompteResultatConfigCard({
             }
           } catch (e) {
             // Si ce n'est pas du JSON valide, ignorer
-            console.warn('Configuration level_3_values invalide:', config.level_3_values);
+            console.warn('[CompteResultatConfigCard] Configuration level_3_values invalide:', config.level_3_values);
           }
         }
       } catch (err) {
-        console.error('Erreur lors du chargement de la configuration:', err);
+        console.error('[CompteResultatConfigCard] Erreur lors du chargement de la configuration:', err);
       }
       
       // Restaurer l'état collapsed depuis localStorage
@@ -225,13 +226,18 @@ export default function CompteResultatConfigCard({
 
   // Charger les mappings
   const loadMappings = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour loadMappings');
+      return;
+    }
     try {
       setLoadingMappings(true);
-      const response = await compteResultatAPI.getMappings();
+      console.log('[CompteResultatConfigCard] loadMappings - propertyId:', activeProperty.id);
+      const response = await compteResultatAPI.getMappings(activeProperty.id);
       const loadedMappings = response.items || [];
       setMappings(loadedMappings);
     } catch (err: any) {
-      console.error('Erreur lors du chargement des mappings:', err);
+      console.error('[CompteResultatConfigCard] Erreur lors du chargement des mappings:', err);
     } finally {
       setLoadingMappings(false);
     }
@@ -260,16 +266,19 @@ export default function CompteResultatConfigCard({
     }
   };
 
-  // Charger les valeurs au montage
+  // Charger les valeurs quand la propriété active change
   useEffect(() => {
-    loadLevel3Values();
-    loadMappings();
-  }, []);
+    if (activeProperty?.id && activeProperty.id > 0) {
+      console.log('[CompteResultatConfigCard] Chargement des données pour propertyId:', activeProperty.id);
+      loadLevel3Values();
+      loadMappings();
+    }
+  }, [activeProperty?.id]);
 
   // Charger les level_1 quand les level_3 sélectionnés changent
   useEffect(() => {
     loadLevel1Values();
-  }, [selectedLevel3Values]);
+  }, [selectedLevel3Values, activeProperty?.id]);
 
   // Gérer le changement de checkbox Level 3
   const handleLevel3CheckboxChange = async (value: string, checked: boolean) => {
@@ -283,8 +292,13 @@ export default function CompteResultatConfigCard({
     setSelectedLevel3Values(newValues);
     
     // Sauvegarder via API
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour updateConfig');
+      return;
+    }
     try {
-      await compteResultatAPI.updateConfig({
+      console.log('[CompteResultatConfigCard] handleLevel3CheckboxChange - propertyId:', activeProperty.id);
+      await compteResultatAPI.updateConfig(activeProperty.id, {
         level_3_values: JSON.stringify(newValues),
       });
       
@@ -325,10 +339,16 @@ export default function CompteResultatConfigCard({
 
   // Gérer l'ajout/suppression d'une valeur Level 1
   const handleLevel1Toggle = async (categoryName: string, level1Value: string, mappingId?: number) => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour handleLevel1Toggle');
+      return;
+    }
+    
     // Si pas de mappingId, créer le mapping d'abord
     if (!mappingId) {
       try {
-        const newMapping = await compteResultatAPI.createMapping({
+        console.log('[CompteResultatConfigCard] createMapping - propertyId:', activeProperty.id);
+        const newMapping = await compteResultatAPI.createMapping(activeProperty.id, {
           category_name: categoryName,
           level_1_values: JSON.stringify([level1Value]),
         });
@@ -339,7 +359,7 @@ export default function CompteResultatConfigCard({
         }
         return;
       } catch (err: any) {
-        console.error('Erreur lors de la création du mapping:', err);
+        console.error('[CompteResultatConfigCard] Erreur lors de la création du mapping:', err);
         alert(`Erreur lors de la création: ${err.message || 'Erreur inconnue'}`);
         return;
       }
@@ -372,7 +392,8 @@ export default function CompteResultatConfigCard({
     }
 
     try {
-      await compteResultatAPI.updateMapping(mappingId, {
+      console.log('[CompteResultatConfigCard] updateMapping level_1 - propertyId:', activeProperty.id, 'mappingId:', mappingId);
+      await compteResultatAPI.updateMapping(activeProperty.id, mappingId, {
         level_1_values: JSON.stringify(newValues),
       });
       
@@ -383,7 +404,7 @@ export default function CompteResultatConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la mise à jour des valeurs level_1:', err);
+      console.error('[CompteResultatConfigCard] Erreur lors de la mise à jour des valeurs level_1:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -418,12 +439,17 @@ export default function CompteResultatConfigCard({
     if (selectedLevel3Values.length === 0 || isCreatingCategory) {
       return;
     }
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour handleCreateNewCategory');
+      return;
+    }
 
     try {
       setIsCreatingCategory(true);
       
+      console.log('[CompteResultatConfigCard] createMapping nouvelle catégorie - propertyId:', activeProperty.id);
       // Créer toujours un nouveau mapping avec "nouvelle categorie" par défaut
-      const newMapping = await compteResultatAPI.createMapping({
+      const newMapping = await compteResultatAPI.createMapping(activeProperty.id, {
         category_name: 'nouvelle categorie',
         type: 'Charges d\'exploitation', // Type par défaut
         level_1_values: null,
@@ -439,7 +465,7 @@ export default function CompteResultatConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la création de la catégorie:', err);
+      console.error('[CompteResultatConfigCard] Erreur lors de la création de la catégorie:', err);
       alert(`Erreur lors de la création: ${err.message || 'Erreur inconnue'}`);
     } finally {
       setIsCreatingCategory(false);
@@ -461,9 +487,14 @@ export default function CompteResultatConfigCard({
       setEditingCategoryNameValue('');
       return;
     }
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour handleCategoryNameEditSave');
+      return;
+    }
     
     try {
-      await compteResultatAPI.updateMapping(mappingId, {
+      console.log('[CompteResultatConfigCard] updateMapping category_name - propertyId:', activeProperty.id);
+      await compteResultatAPI.updateMapping(activeProperty.id, mappingId, {
         category_name: trimmedValue,
       });
       
@@ -477,7 +508,7 @@ export default function CompteResultatConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la sauvegarde de la catégorie:', err);
+      console.error('[CompteResultatConfigCard] Erreur lors de la sauvegarde de la catégorie:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -499,8 +530,13 @@ export default function CompteResultatConfigCard({
 
   // Gérer le changement de Type (stocké en backend)
   const handleTypeChange = async (mappingId: number, newType: 'Produits d\'exploitation' | 'Charges d\'exploitation') => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour handleTypeChange');
+      return;
+    }
     try {
-      await compteResultatAPI.updateMapping(mappingId, {
+      console.log('[CompteResultatConfigCard] updateMapping type - propertyId:', activeProperty.id);
+      await compteResultatAPI.updateMapping(activeProperty.id, mappingId, {
         type: newType,
       });
       
@@ -511,7 +547,7 @@ export default function CompteResultatConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la mise à jour du Type:', err);
+      console.error('[CompteResultatConfigCard] Erreur lors de la mise à jour du Type:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -533,6 +569,11 @@ export default function CompteResultatConfigCard({
 
   // Fonction pour supprimer un mapping
   const handleDeleteMapping = async (mappingId: number) => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour handleDeleteMapping');
+      return;
+    }
+    
     const mapping = mappings.find(m => m.id === mappingId);
     if (!mapping) return;
 
@@ -544,7 +585,8 @@ export default function CompteResultatConfigCard({
       setIsDeletingMapping(mappingId);
       closeContextMenu();
 
-      await compteResultatAPI.deleteMapping(mappingId);
+      console.log('[CompteResultatConfigCard] deleteMapping - propertyId:', activeProperty.id, 'mappingId:', mappingId);
+      await compteResultatAPI.deleteMapping(activeProperty.id, mappingId);
 
       console.log('[CompteResultatConfigCard] Mapping supprimé:', mappingId);
       
@@ -580,6 +622,11 @@ export default function CompteResultatConfigCard({
 
   // Fonction pour réinitialiser tous les mappings
   const handleResetMappings = async () => {
+    if (!activeProperty?.id || activeProperty.id <= 0) {
+      console.error('[CompteResultatConfigCard] Property ID invalide pour handleResetMappings');
+      return;
+    }
+    
     if (mappings.length === 0) {
       alert('Aucun mapping à réinitialiser.');
       return;
@@ -595,10 +642,10 @@ export default function CompteResultatConfigCard({
 
     try {
       setIsResetting(true);
-      console.log(`[CompteResultatConfigCard] Réinitialisation de ${mappings.length} mapping(s)...`);
+      console.log(`[CompteResultatConfigCard] Réinitialisation de ${mappings.length} mapping(s) pour propertyId:`, activeProperty.id);
       
       // Supprimer tous les mappings un par un
-      const deletePromises = mappings.map(mapping => compteResultatAPI.deleteMapping(mapping.id));
+      const deletePromises = mappings.map(mapping => compteResultatAPI.deleteMapping(activeProperty.id, mapping.id));
       await Promise.all(deletePromises);
       
       console.log(`[CompteResultatConfigCard] ✓ ${mappings.length} mapping(s) supprimé(s)`);
@@ -612,7 +659,7 @@ export default function CompteResultatConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la réinitialisation:', err);
+      console.error('[CompteResultatConfigCard] Erreur lors de la réinitialisation:', err);
       alert(`Erreur lors de la réinitialisation: ${err.message || 'Erreur inconnue'}`);
     } finally {
       setIsResetting(false);

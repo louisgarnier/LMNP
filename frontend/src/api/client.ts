@@ -1953,79 +1953,115 @@ export interface CompteResultatOverrideUpdate {
 
 export const compteResultatAPI = {
   /**
-   * Récupère tous les mappings
+   * Récupère tous les mappings pour une propriété
    */
-  getMappings: async (): Promise<CompteResultatMappingListResponse> => {
-    return fetchAPI<CompteResultatMappingListResponse>('/api/compte-resultat/mappings');
+  getMappings: async (propertyId: number): Promise<CompteResultatMappingListResponse> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] getMappings: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.getMappings - propertyId:', propertyId);
+    return fetchAPI<CompteResultatMappingListResponse>(`/api/compte-resultat/mappings?property_id=${propertyId}`);
   },
 
   /**
-   * Crée un nouveau mapping
+   * Crée un nouveau mapping pour une propriété
    */
-  createMapping: async (mapping: CompteResultatMappingCreate): Promise<CompteResultatMapping> => {
+  createMapping: async (propertyId: number, mapping: CompteResultatMappingCreate): Promise<CompteResultatMapping> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] createMapping: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.createMapping - propertyId:', propertyId);
     return fetchAPI<CompteResultatMapping>('/api/compte-resultat/mappings', {
       method: 'POST',
-      body: JSON.stringify(mapping),
+      body: JSON.stringify({ ...mapping, property_id: propertyId }),
     });
   },
 
   /**
-   * Met à jour un mapping
+   * Met à jour un mapping pour une propriété
    */
-  updateMapping: async (id: number, mapping: CompteResultatMappingUpdate): Promise<CompteResultatMapping> => {
-    return fetchAPI<CompteResultatMapping>(`/api/compte-resultat/mappings/${id}`, {
+  updateMapping: async (propertyId: number, id: number, mapping: CompteResultatMappingUpdate): Promise<CompteResultatMapping> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] updateMapping: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.updateMapping - propertyId:', propertyId, 'id:', id);
+    return fetchAPI<CompteResultatMapping>(`/api/compte-resultat/mappings/${id}?property_id=${propertyId}`, {
       method: 'PUT',
       body: JSON.stringify(mapping),
     });
   },
 
   /**
-   * Supprime un mapping
+   * Supprime un mapping pour une propriété
    */
-  deleteMapping: async (id: number): Promise<void> => {
-    return fetchAPI<void>(`/api/compte-resultat/mappings/${id}`, {
+  deleteMapping: async (propertyId: number, id: number): Promise<void> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] deleteMapping: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.deleteMapping - propertyId:', propertyId, 'id:', id);
+    return fetchAPI<void>(`/api/compte-resultat/mappings/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
 
   /**
-   * Récupère la configuration (level_3_values)
+   * Récupère la configuration (level_3_values) pour une propriété
    */
-  getConfig: async (): Promise<CompteResultatConfig> => {
-    return fetchAPI<CompteResultatConfig>('/api/compte-resultat/config');
+  getConfig: async (propertyId: number): Promise<CompteResultatConfig> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] getConfig: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.getConfig - propertyId:', propertyId);
+    return fetchAPI<CompteResultatConfig>(`/api/compte-resultat/config?property_id=${propertyId}`);
   },
 
   /**
-   * Met à jour la configuration (level_3_values)
+   * Met à jour la configuration (level_3_values) pour une propriété
    */
-  updateConfig: async (config: CompteResultatConfigUpdate): Promise<CompteResultatConfig> => {
-    return fetchAPI<CompteResultatConfig>('/api/compte-resultat/config', {
+  updateConfig: async (propertyId: number, config: CompteResultatConfigUpdate): Promise<CompteResultatConfig> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] updateConfig: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.updateConfig - propertyId:', propertyId);
+    return fetchAPI<CompteResultatConfig>(`/api/compte-resultat/config?property_id=${propertyId}`, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
   },
 
   /**
-   * Calcule les montants du compte de résultat pour plusieurs années
+   * Calcule les montants du compte de résultat pour plusieurs années et une propriété
    */
-  calculate: async (years: number[]): Promise<CompteResultatCalculateResponse> => {
+  calculate: async (propertyId: number, years: number[]): Promise<CompteResultatCalculateResponse> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] calculate: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.calculate - propertyId:', propertyId, 'years:', years);
     const yearsParam = years.join(',');
-    return fetchAPI<CompteResultatCalculateResponse>(`/api/compte-resultat/calculate?years=${yearsParam}`);
+    return fetchAPI<CompteResultatCalculateResponse>(`/api/compte-resultat/calculate?property_id=${propertyId}&years=${yearsParam}`);
   },
 
   /**
-   * Récupère tous les overrides
+   * Récupère tous les overrides pour une propriété
    */
-  getOverrides: async (): Promise<CompteResultatOverride[]> => {
-    return fetchAPI<CompteResultatOverride[]>('/api/compte-resultat/override');
+  getOverrides: async (propertyId: number): Promise<CompteResultatOverride[]> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] getOverrides: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.getOverrides - propertyId:', propertyId);
+    return fetchAPI<CompteResultatOverride[]>(`/api/compte-resultat/override?property_id=${propertyId}`);
   },
 
   /**
-   * Récupère l'override pour une année spécifique
+   * Récupère l'override pour une année spécifique et une propriété
    */
-  getOverride: async (year: number): Promise<CompteResultatOverride | null> => {
+  getOverride: async (propertyId: number, year: number): Promise<CompteResultatOverride | null> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] getOverride: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.getOverride - propertyId:', propertyId, 'year:', year);
     try {
-      return await fetchAPI<CompteResultatOverride>(`/api/compte-resultat/override/${year}`);
+      return await fetchAPI<CompteResultatOverride>(`/api/compte-resultat/override/${year}?property_id=${propertyId}`);
     } catch (error: any) {
       if (error.status === 404) {
         return null;
@@ -2035,12 +2071,17 @@ export const compteResultatAPI = {
   },
 
   /**
-   * Crée ou met à jour un override pour une année
+   * Crée ou met à jour un override pour une année et une propriété
    */
-  createOrUpdateOverride: async (year: number, overrideValue: number): Promise<CompteResultatOverride> => {
+  createOrUpdateOverride: async (propertyId: number, year: number, overrideValue: number): Promise<CompteResultatOverride> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] createOrUpdateOverride: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.createOrUpdateOverride - propertyId:', propertyId, 'year:', year);
     return fetchAPI<CompteResultatOverride>('/api/compte-resultat/override', {
       method: 'POST',
       body: JSON.stringify({
+        property_id: propertyId,
         year,
         override_value: overrideValue,
       }),
@@ -2048,10 +2089,14 @@ export const compteResultatAPI = {
   },
 
   /**
-   * Supprime l'override pour une année
+   * Supprime l'override pour une année et une propriété
    */
-  deleteOverride: async (year: number): Promise<void> => {
-    return fetchAPI<void>(`/api/compte-resultat/override/${year}`, {
+  deleteOverride: async (propertyId: number, year: number): Promise<void> => {
+    if (!propertyId || propertyId <= 0) {
+      throw new Error('[compteResultatAPI] deleteOverride: propertyId invalide');
+    }
+    console.log('[API] compteResultatAPI.deleteOverride - propertyId:', propertyId, 'year:', year);
+    return fetchAPI<void>(`/api/compte-resultat/override/${year}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
