@@ -2281,6 +2281,27 @@ Cette phase implique :
 ### Step 7.1 : Backend - Endpoints Pivot avec property_id
 **Status**: ⏳ À FAIRE
 
+**RÉCAPITULATIF COMPLET DES FICHIERS À MODIFIER** :
+
+**Backend (8 fichiers)** :
+1. `backend/database/models.py` : Modèle `PivotConfig` (ajouter property_id) + Modèle `Property` (ajouter relation)
+2. `backend/api/models.py` : `PivotConfigCreate` et `PivotConfigUpdate` (ajouter property_id)
+3. `backend/database/migrations/add_property_id_to_pivot_configs.py` : Nouvelle migration
+4. `backend/api/routes/pivot_configs.py` : 5 endpoints à modifier
+5. `backend/api/routes/analytics.py` : 2 endpoints à modifier + 1 fonction utilitaire `apply_filters`
+
+**Frontend (6 fichiers)** :
+1. `frontend/src/api/client.ts` : `pivotConfigsAPI` (5 méthodes) + `analyticsAPI` (2 méthodes)
+2. `frontend/app/dashboard/pivot/page.tsx` : Composant principal (4 appels API)
+3. `frontend/src/components/PivotTable.tsx` : 1 appel API (getPivot)
+4. `frontend/src/components/PivotDetailsTable.tsx` : 1 appel API (getPivotDetails)
+5. `frontend/src/components/PivotFieldSelector.tsx` : 1 appel API (getUniqueValues, déjà isolé)
+6. `frontend/src/components/PivotTabs.tsx` : AUCUNE modification (composant UI pur)
+
+**TOTAL : 7 endpoints backend + 7 méthodes API frontend + 1 fonction utilitaire**
+
+---
+
 **1. Vérifications avant modification** :
 - [ ] Vérifier qu'aucune donnée existante ne sera impactée (ou gérer la migration)
 - [ ] Lister tous les endpoints à modifier :
@@ -2294,12 +2315,13 @@ Cette phase implique :
   - `apply_filters` dans `analytics.py` : doit filtrer par `property_id` si applicable
 - [ ] Identifier tous les appels API frontend dans `client.ts` :
   - `pivotConfigsAPI` : getAll, getById, create, update, delete (5 méthodes)
-  - `analyticsAPI` : getPivotData (1 méthode)
+  - `analyticsAPI` : getPivot, getPivotDetails (2 méthodes)
 - [ ] Identifier tous les composants frontend :
-  - `PivotTable.tsx` : utilise `analyticsAPI.getPivotData()`, `pivotConfigsAPI.getAll()`, `pivotConfigsAPI.create()`, `pivotConfigsAPI.update()`, `pivotConfigsAPI.delete()`
-  - `PivotFieldSelector.tsx` : utilise `transactionsAPI.getUniqueValues()` (pour les champs disponibles)
-  - `PivotDetailsTable.tsx` : utilise `analyticsAPI.getPivotData()` (pour les détails)
-  - `PivotTabs.tsx` : utilise `pivotConfigsAPI.getAll()`, `pivotConfigsAPI.getById()`
+  - `app/dashboard/pivot/page.tsx` : **Composant principal** utilisant `pivotConfigsAPI.getAll()`, `pivotConfigsAPI.create()`, `pivotConfigsAPI.update()`, `pivotConfigsAPI.delete()` (4 méthodes)
+  - `PivotTable.tsx` : utilise `analyticsAPI.getPivot()` (1 méthode)
+  - `PivotDetailsTable.tsx` : utilise `analyticsAPI.getPivotDetails()` (1 méthode)
+  - `PivotFieldSelector.tsx` : utilise `transactionsAPI.getUniqueValues()` (pour les champs disponibles, déjà isolé par property_id)
+  - `PivotTabs.tsx` : Composant UI pur, aucun appel API
 - [ ] Vérifier les imports et dépendances
 
 **2. Modèles SQLAlchemy** :
@@ -2309,6 +2331,7 @@ Cette phase implique :
 - [ ] **CRITIQUE** : Ajouter la relation dans le modèle `Property` dans `backend/database/models.py` :
   - `pivot_configs = relationship("PivotConfig", back_populates="property", cascade="all, delete-orphan")`
 - [ ] Ajouter index `idx_pivot_configs_property_id` sur `pivot_configs(property_id)`
+- [ ] **NOTE IMPORTANTE** : Actuellement, il n'y a pas de contrainte UNIQUE sur `name`, mais le code du endpoint POST vérifie l'unicité du nom globalement. Cette vérification doit être modifiée pour être par propriété dans le endpoint POST/PUT.
 - [ ] Vérifier que les modèles se chargent correctement (pas d'erreur d'import)
 
 **2.5 Modèles Pydantic** :
@@ -2341,12 +2364,14 @@ Cette phase implique :
   - Ajouter `property_id` dans `PivotConfigCreate` model
   - Ajouter log : `[Pivot] POST /api/pivot-configs - property_id={property_id}`
   - Valider property_id avant création
+  - **CRITIQUE** : Modifier la vérification d'unicité du nom pour filtrer par property_id : `filter(PivotConfig.name == config_data.name, PivotConfig.property_id == property_id)`
   - Ajouter log : `[Pivot] PivotConfig créé: id={id}, property_id={property_id}`
 - [ ] Modifier `PUT /api/pivot-configs/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
   - Ajouter log : `[Pivot] PUT /api/pivot-configs/{id} - property_id={property_id}`
   - Filtrer : `pivot_config = db.query(PivotConfig).filter(PivotConfig.id == id, PivotConfig.property_id == property_id).first()`
   - Retourner 404 si pivot_config n'appartient pas à property_id
+  - **CRITIQUE** : Modifier la vérification d'unicité du nom (si le nom change) pour filtrer par property_id : `filter(PivotConfig.name == new_name, PivotConfig.property_id == property_id, PivotConfig.id != id)`
   - Ajouter log : `[Pivot] PivotConfig {id} mis à jour pour property_id={property_id}`
 - [ ] Modifier `DELETE /api/pivot-configs/{id}` :
   - Ajouter `property_id: int = Query(..., description="ID de la propriété (obligatoire)")`
@@ -2378,15 +2403,11 @@ Cette phase implique :
   - Ajouter paramètre `property_id: int`
   - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
   - **Ajouter log backend** : `logger.info(f"[PivotService] apply_filters - property_id={property_id}")`
-- [ ] Modifier `get_pivot_data` dans `backend/api/routes/analytics.py` :
-  - Ajouter paramètre `property_id: int`
-  - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
-  - Passer `property_id` à `apply_filters`
-  - **Ajouter log backend** : `logger.info(f"[PivotService] get_pivot_data - property_id={property_id}")`
+  - **NOTE** : Cette fonction est appelée par les 2 endpoints analytics (pivot et pivot/details)
 - [ ] **CRITIQUE** : Vérifier que le logger est importé dans `analytics.py` :
   - `import logging` ou `from backend.api.utils.logger_config import get_logger`
   - `logger = logging.getLogger(__name__)` ou `logger = get_logger(__name__)`
-- [ ] Vérifier tous les appels à ces fonctions et passer `property_id`
+- [ ] Vérifier tous les appels à `apply_filters` dans les endpoints pour passer `property_id`
 
 **7. Validation et gestion d'erreurs** :
 - [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id, "Pivot")` au début
@@ -2418,13 +2439,13 @@ Cette phase implique :
 
 **Tasks**:
 - [ ] Modifier `frontend/src/api/client.ts` :
-  - `pivotConfigsAPI.getAll` : Ajouter paramètre `propertyId: number`, passer dans query params
-  - `pivotConfigsAPI.getById` : Ajouter paramètre `propertyId: number`, passer dans query params
-  - `pivotConfigsAPI.create` : Ajouter `property_id` dans le body
-  - `pivotConfigsAPI.update` : Ajouter paramètre `propertyId: number`, passer dans query params
-  - `pivotConfigsAPI.delete` : Ajouter paramètre `propertyId: number`, passer dans query params
-  - `analyticsAPI.getPivot` : Ajouter paramètre `propertyId: number`, passer dans query params
-  - `analyticsAPI.getPivotDetails` : Ajouter paramètre `propertyId: number`, passer dans query params (déjà listé, OK)
+  - `pivotConfigsAPI.getAll(propertyId, skip?, limit?)` : Ajouter `propertyId: number` comme **premier paramètre**, passer dans query params
+  - `pivotConfigsAPI.getById(propertyId, id)` : Ajouter `propertyId: number` comme **premier paramètre**, passer dans query params
+  - `pivotConfigsAPI.create(propertyId, data)` : Ajouter `propertyId: number` comme **premier paramètre**, ajouter `property_id: propertyId` dans le body
+  - `pivotConfigsAPI.update(propertyId, id, data)` : Ajouter `propertyId: number` comme **premier paramètre**, passer dans query params
+  - `pivotConfigsAPI.delete(propertyId, id)` : Ajouter `propertyId: number` comme **premier paramètre**, passer dans query params
+  - `analyticsAPI.getPivot(propertyId, rows?, columns?, dataField?, dataOperation?, filters?)` : Ajouter `propertyId: number` comme **premier paramètre**, passer dans query params
+  - `analyticsAPI.getPivotDetails(propertyId, params, skip?, limit?)` : Ajouter `propertyId: number` comme **premier paramètre**, passer dans query params
 - [ ] Modifier `PivotTable.tsx` :
   - Importer `useProperty` depuis `@/contexts/PropertyContext`
   - Passer `activeProperty.id` à tous les appels :
@@ -2446,22 +2467,26 @@ Cette phase implique :
   - **Ajouter logs frontend** : `console.log('[PivotDetailsTable] propertyId:', activeProperty?.id)` au début du composant
   - **Ajouter logs erreur frontend** : `console.error('[PivotDetailsTable] Erreur:', err)` dans tous les catch
 - [ ] Modifier `PivotFieldSelector.tsx` :
+  - **NOTE** : Ce composant utilise `transactionsAPI.getUniqueValues()` qui est déjà isolé par property_id (modifié dans l'onglet 1)
   - Importer `useProperty` depuis `@/contexts/PropertyContext`
-  - Passer `activeProperty.id` à tous les appels :
-    - `transactionsAPI.getUniqueValues(activeProperty.id, column)` (pour les champs disponibles)
+  - Passer `activeProperty.id` à l'appel `transactionsAPI.getUniqueValues(activeProperty.id, column)`
   - **CRITIQUE** : Mettre à jour les `useEffect` dependencies pour inclure `activeProperty?.id`
   - **Ajouter logs frontend** : `console.log('[PivotFieldSelector] propertyId:', activeProperty?.id)` au début du composant
   - **Ajouter logs erreur frontend** : `console.error('[PivotFieldSelector] Erreur:', err)` dans tous les catch
 - [ ] Modifier `PivotTabs.tsx` :
+  - **NOTE** : Ce composant est UI pur, il ne fait AUCUN appel API directement
+  - Aucune modification nécessaire pour ce composant
+- [ ] Modifier `app/dashboard/pivot/page.tsx` :
   - Importer `useProperty` depuis `@/contexts/PropertyContext`
-  - Passer `activeProperty.id` à tous les appels :
-    - `pivotConfigsAPI.getAll(activeProperty.id)`
-    - `pivotConfigsAPI.getById(activeProperty.id, id)`
-  - **CRITIQUE** : Mettre à jour les `useEffect` dependencies pour inclure `activeProperty?.id`
-  - **Ajouter logs frontend** : `console.log('[PivotTabs] propertyId:', activeProperty?.id)` au début du composant
-  - **Ajouter logs erreur frontend** : `console.error('[PivotTabs] Erreur:', err)` dans tous les catch
-- [ ] Modifier `app/dashboard/pivot/page.tsx` (si nécessaire) :
-  - Vérifier que `activeProperty` est disponible et passé aux composants enfants
+  - Passer `activeProperty.id` à tous les appels API (4 méthodes utilisées) :
+    - `pivotConfigsAPI.getAll(activeProperty.id)` (ligne 28)
+    - `pivotConfigsAPI.create(activeProperty.id, data)` (ligne 161)
+    - `pivotConfigsAPI.update(activeProperty.id, configId, data)` (ligne 98 et 154)
+    - `pivotConfigsAPI.delete(activeProperty.id, configId)` (ligne 212)
+  - **CRITIQUE** : Mettre à jour le `useEffect` de chargement pour inclure `activeProperty?.id` dans les dependencies
+  - **Ajouter logs frontend** : `console.log('[PivotPage] propertyId:', activeProperty?.id)` au début du loadSavedConfigs
+  - **Ajouter logs frontend** : `console.log('[PivotPage] Loaded X configs for propertyId:', activeProperty?.id)` après chargement
+  - **Ajouter logs erreur frontend** : `console.error('[PivotPage] Erreur:', err)` dans tous les catch
 - [ ] **Ajouter logs dans `frontend/src/api/client.ts`** :
   - `pivotConfigsAPI.*` : Ajouter `console.log('[API] pivotConfigsAPI.{method} - propertyId={propertyId}')` avant chaque appel
   - `analyticsAPI.getPivot` : Ajouter `console.log('[API] analyticsAPI.getPivot - propertyId={propertyId}')` avant chaque appel
