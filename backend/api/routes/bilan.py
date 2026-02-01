@@ -4,6 +4,7 @@ API routes for bilan.
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 """
 
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -38,8 +39,10 @@ from backend.api.services.bilan_service import (
     invalidate_all_bilan,
     invalidate_bilan_for_year
 )
+from backend.api.utils.validation import validate_property_id
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def build_hierarchical_structure(
@@ -146,17 +149,22 @@ def build_hierarchical_structure(
 
 @router.get("/bilan/mappings", response_model=BilanMappingListResponse)
 async def get_bilan_mappings(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     skip: int = Query(0, ge=0, description="Nombre d'éléments à sauter"),
     limit: int = Query(100, ge=1, le=1000, description="Nombre d'éléments à retourner"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer la liste des mappings pour le bilan.
+    Récupérer la liste des mappings pour le bilan d'une propriété.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **skip**: Nombre d'éléments à sauter (pagination)
     - **limit**: Nombre d'éléments à retourner (max 1000)
     """
-    query = db.query(BilanMapping)
+    logger.info(f"[Bilan] GET /api/bilan/mappings - property_id={property_id}")
+    validate_property_id(db, property_id, "Bilan")
+    
+    query = db.query(BilanMapping).filter(BilanMapping.property_id == property_id)
     total = query.count()
     
     mappings = query.offset(skip).limit(limit).all()
@@ -177,6 +185,7 @@ async def get_bilan_mappings(
         for m in mappings
     ]
     
+    logger.info(f"[Bilan] Retourné {len(mapping_responses)} mappings pour property_id={property_id}")
     return BilanMappingListResponse(
         items=mapping_responses,
         total=total
@@ -186,17 +195,26 @@ async def get_bilan_mappings(
 @router.get("/bilan/mappings/{mapping_id}", response_model=BilanMappingResponse)
 async def get_bilan_mapping(
     mapping_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Récupérer les détails d'un mapping.
     
     - **mapping_id**: ID du mapping
+    - **property_id**: ID de la propriété (obligatoire)
     """
-    mapping = db.query(BilanMapping).filter(BilanMapping.id == mapping_id).first()
+    logger.info(f"[Bilan] GET /api/bilan/mappings/{mapping_id} - property_id={property_id}")
+    validate_property_id(db, property_id, "Bilan")
+    
+    mapping = db.query(BilanMapping).filter(
+        BilanMapping.id == mapping_id,
+        BilanMapping.property_id == property_id
+    ).first()
     
     if not mapping:
-        raise HTTPException(status_code=404, detail=f"Mapping avec l'ID {mapping_id} introuvable")
+        logger.error(f"[Bilan] Mapping {mapping_id} introuvable pour property_id={property_id}")
+        raise HTTPException(status_code=404, detail=f"Mapping avec l'ID {mapping_id} introuvable pour cette propriété")
     
     return BilanMappingResponse(
         id=mapping.id,
@@ -220,18 +238,23 @@ async def create_bilan_mapping(
     """
     Créer un nouveau mapping pour le bilan.
     """
-    # Vérifier si un mapping avec le même category_name existe déjà
+    logger.info(f"[Bilan] POST /api/bilan/mappings - property_id={mapping.property_id}")
+    validate_property_id(db, mapping.property_id, "Bilan")
+    
+    # Vérifier si un mapping avec le même category_name existe déjà pour cette propriété
     existing = db.query(BilanMapping).filter(
-        BilanMapping.category_name == mapping.category_name
+        BilanMapping.category_name == mapping.category_name,
+        BilanMapping.property_id == mapping.property_id
     ).first()
     
     if existing:
         raise HTTPException(
             status_code=400,
-            detail=f"Un mapping avec la catégorie '{mapping.category_name}' existe déjà"
+            detail=f"Un mapping avec la catégorie '{mapping.category_name}' existe déjà pour cette propriété"
         )
     
     new_mapping = BilanMapping(
+        property_id=mapping.property_id,
         category_name=mapping.category_name,
         type=mapping.type,
         sub_category=mapping.sub_category,
@@ -245,14 +268,13 @@ async def create_bilan_mapping(
     db.commit()
     db.refresh(new_mapping)
     
-    # Invalider tous les bilans (les mappings ont changé)
+    # Invalider tous les bilans pour cette propriété (les mappings ont changé)
     try:
-        invalidate_all_bilan(db)
+        invalidate_all_bilan(db, mapping.property_id)
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [create_bilan_mapping] Erreur lors de l'invalidation des bilans: {error_details}")
+        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
     
+    logger.info(f"[Bilan] Mapping créé: id={new_mapping.id}, property_id={mapping.property_id}")
     return BilanMappingResponse(
         id=new_mapping.id,
         category_name=new_mapping.category_name,
@@ -271,17 +293,26 @@ async def create_bilan_mapping(
 async def update_bilan_mapping(
     mapping_id: int,
     mapping_update: BilanMappingUpdate,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Mettre à jour un mapping.
     
     - **mapping_id**: ID du mapping à mettre à jour
+    - **property_id**: ID de la propriété (obligatoire)
     """
-    mapping = db.query(BilanMapping).filter(BilanMapping.id == mapping_id).first()
+    logger.info(f"[Bilan] PUT /api/bilan/mappings/{mapping_id} - property_id={property_id}")
+    validate_property_id(db, property_id, "Bilan")
+    
+    mapping = db.query(BilanMapping).filter(
+        BilanMapping.id == mapping_id,
+        BilanMapping.property_id == property_id
+    ).first()
     
     if not mapping:
-        raise HTTPException(status_code=404, detail=f"Mapping avec l'ID {mapping_id} introuvable")
+        logger.error(f"[Bilan] Mapping {mapping_id} introuvable pour property_id={property_id}")
+        raise HTTPException(status_code=404, detail=f"Mapping avec l'ID {mapping_id} introuvable pour cette propriété")
     
     # Mettre à jour les champs fournis
     if mapping_update.category_name is not None:
@@ -302,14 +333,13 @@ async def update_bilan_mapping(
     db.commit()
     db.refresh(mapping)
     
-    # Invalider tous les bilans (les mappings ont changé)
+    # Invalider tous les bilans pour cette propriété (les mappings ont changé)
     try:
-        invalidate_all_bilan(db)
+        invalidate_all_bilan(db, property_id)
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [update_bilan_mapping] Erreur lors de l'invalidation des bilans: {error_details}")
+        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
     
+    logger.info(f"[Bilan] Mapping {mapping_id} mis à jour pour property_id={property_id}")
     return BilanMappingResponse(
         id=mapping.id,
         category_name=mapping.category_name,
@@ -327,29 +357,37 @@ async def update_bilan_mapping(
 @router.delete("/bilan/mappings/{mapping_id}", status_code=204)
 async def delete_bilan_mapping(
     mapping_id: int,
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
     Supprimer un mapping.
     
     - **mapping_id**: ID du mapping à supprimer
+    - **property_id**: ID de la propriété (obligatoire)
     """
-    mapping = db.query(BilanMapping).filter(BilanMapping.id == mapping_id).first()
+    logger.info(f"[Bilan] DELETE /api/bilan/mappings/{mapping_id} - property_id={property_id}")
+    validate_property_id(db, property_id, "Bilan")
+    
+    mapping = db.query(BilanMapping).filter(
+        BilanMapping.id == mapping_id,
+        BilanMapping.property_id == property_id
+    ).first()
     
     if not mapping:
-        raise HTTPException(status_code=404, detail=f"Mapping avec l'ID {mapping_id} introuvable")
+        logger.error(f"[Bilan] Mapping {mapping_id} introuvable pour property_id={property_id}")
+        raise HTTPException(status_code=404, detail=f"Mapping avec l'ID {mapping_id} introuvable pour cette propriété")
     
     db.delete(mapping)
     db.commit()
     
-    # Invalider tous les bilans (les mappings ont changé)
+    # Invalider tous les bilans pour cette propriété (les mappings ont changé)
     try:
-        invalidate_all_bilan(db)
+        invalidate_all_bilan(db, property_id)
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [delete_bilan_mapping] Erreur lors de l'invalidation des bilans: {error_details}")
+        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
     
+    logger.info(f"[Bilan] Mapping {mapping_id} supprimé pour property_id={property_id}")
     return None
 
 
@@ -357,12 +395,14 @@ async def delete_bilan_mapping(
 
 @router.get("/bilan/calculate")
 async def calculate_bilan_multiple_years_endpoint(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     years: str = Query(..., description="Années à calculer (séparées par des virgules, ex: '2021,2022,2023')"),
     db: Session = Depends(get_db)
 ):
     """
     Calculer le bilan pour plusieurs années en une fois (comme compte de résultat).
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **years**: Années à calculer (séparées par des virgules, ex: '2021,2022,2023')
     
     Returns:
@@ -371,28 +411,31 @@ async def calculate_bilan_multiple_years_endpoint(
     import time
     start_time = time.time()
     
+    logger.info(f"[Bilan] GET /api/bilan/calculate - property_id={property_id}, years={years}")
+    validate_property_id(db, property_id, "Bilan")
+    
     try:
         year_list = [int(y.strip()) for y in years.split(",")]
     except ValueError:
         raise HTTPException(status_code=400, detail="Format d'années invalide. Utilisez des nombres séparés par des virgules.")
     
-    # Récupérer les level_3_values depuis la config
-    level_3_values = get_level_3_values(db)
+    # Récupérer les level_3_values depuis la config pour cette propriété
+    level_3_values = get_level_3_values(db, property_id)
     
-    # Récupérer les mappings une seule fois
-    mappings = get_mappings(db)
+    # Récupérer les mappings une seule fois pour cette propriété
+    mappings = get_mappings(db, property_id)
     
     # OPTIMISATION: Pré-calculer tous les résultats de compte de résultat en une fois
     from backend.api.services.compte_resultat_service import calculate_compte_resultat
     compte_resultat_cache = {}
     for year in year_list:
-        compte_resultat_cache[year] = calculate_compte_resultat(db, year)
+        compte_resultat_cache[year] = calculate_compte_resultat(db, year, property_id=property_id)
     
     # Calculer le bilan pour chaque année (en utilisant le cache pour report_a_nouveau)
     results = {}
     for year in year_list:
         # Calculer le bilan
-        result = calculate_bilan(db, year, mappings, level_3_values)
+        result = calculate_bilan(db, year, property_id, mappings, level_3_values)
         
         # Construire la structure hiérarchique
         bilan_response = build_hierarchical_structure(
@@ -403,7 +446,7 @@ async def calculate_bilan_multiple_years_endpoint(
         results[year] = bilan_response
     
     elapsed = time.time() - start_time
-    print(f"⏱️ [Bilan] Calcul pour {len(year_list)} années: {elapsed:.2f}s")
+    logger.info(f"[Bilan] Calcul pour {len(year_list)} années terminé en {elapsed:.2f}s - property_id={property_id}")
     
     return {
         "years": year_list,
@@ -419,19 +462,23 @@ async def calculate_bilan_endpoint(
     """
     Générer le bilan pour une année avec structure hiérarchique.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **year**: Année à calculer
     - **selected_level_3_values**: Liste des valeurs level_3 à considérer (optionnel)
     """
+    logger.info(f"[Bilan] POST /api/bilan/calculate - property_id={request.property_id}, year={request.year}")
+    validate_property_id(db, request.property_id, "Bilan")
+    
     # Utiliser les level_3_values fournis ou ceux de la config
     level_3_values = request.selected_level_3_values
     if level_3_values is None:
-        level_3_values = get_level_3_values(db)
+        level_3_values = get_level_3_values(db, request.property_id)
     
     # Calculer le bilan
-    result = calculate_bilan(db, request.year, None, level_3_values)
+    result = calculate_bilan(db, request.year, request.property_id, None, level_3_values)
     
     # Récupérer les mappings pour construire la structure hiérarchique
-    mappings = get_mappings(db)
+    mappings = get_mappings(db, request.property_id)
     
     # Construire la structure hiérarchique
     bilan_response = build_hierarchical_structure(
@@ -440,6 +487,7 @@ async def calculate_bilan_endpoint(
         mappings
     )
     
+    logger.info(f"[Bilan] Calcul terminé pour year={request.year}, property_id={request.property_id}")
     return bilan_response
 
 
@@ -447,6 +495,7 @@ async def calculate_bilan_endpoint(
 
 @router.get("/bilan", response_model=BilanDataListResponse)
 async def get_bilan(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     year: Optional[int] = Query(None, description="Année spécifique"),
     start_year: Optional[int] = Query(None, description="Année de début (pour plusieurs années)"),
     end_year: Optional[int] = Query(None, description="Année de fin (pour plusieurs années)"),
@@ -457,14 +506,18 @@ async def get_bilan(
     """
     Récupérer les données du bilan stockées.
     
+    - **property_id**: ID de la propriété (obligatoire)
     - **year**: Année spécifique (optionnel)
     - **start_year**: Année de début (pour plusieurs années, optionnel)
     - **end_year**: Année de fin (pour plusieurs années, optionnel)
     - **skip**: Nombre d'éléments à sauter (pagination)
     - **limit**: Nombre d'éléments à retourner (max 1000)
     """
+    logger.info(f"[Bilan] GET /api/bilan - property_id={property_id}")
+    validate_property_id(db, property_id, "Bilan")
+    
     # Récupérer les données avec filtres
-    data_list = get_bilan_data(db, year, start_year, end_year)
+    data_list = get_bilan_data(db, property_id, year, start_year, end_year)
     
     total = len(data_list)
     
@@ -483,6 +536,7 @@ async def get_bilan(
         for d in paginated_data
     ]
     
+    logger.info(f"[Bilan] Retourné {len(data_responses)} data pour property_id={property_id}")
     return BilanDataListResponse(
         items=data_responses,
         total=total
@@ -493,16 +547,22 @@ async def get_bilan(
 
 @router.get("/bilan/config", response_model=BilanConfigResponse)
 async def get_bilan_config(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer la configuration du bilan (level_3_values).
+    Récupérer la configuration du bilan (level_3_values) pour une propriété.
+    
+    - **property_id**: ID de la propriété (obligatoire)
     """
-    config = db.query(BilanConfig).first()
+    logger.info(f"[Bilan] GET /api/bilan/config - property_id={property_id}")
+    validate_property_id(db, property_id, "Bilan")
+    
+    config = db.query(BilanConfig).filter(BilanConfig.property_id == property_id).first()
     
     if not config:
-        # Créer une config par défaut si elle n'existe pas
-        config = BilanConfig(level_3_values="[]")
+        # Créer une config par défaut si elle n'existe pas pour cette propriété
+        config = BilanConfig(property_id=property_id, level_3_values="[]")
         db.add(config)
         db.commit()
         db.refresh(config)
@@ -522,12 +582,23 @@ async def update_bilan_config(
 ):
     """
     Mettre à jour la configuration du bilan (level_3_values).
+    
+    Le property_id doit être fourni dans le body.
     """
-    config = db.query(BilanConfig).first()
+    if not config_update.property_id:
+        raise HTTPException(status_code=422, detail="property_id est obligatoire")
+    
+    logger.info(f"[Bilan] PUT /api/bilan/config - property_id={config_update.property_id}")
+    validate_property_id(db, config_update.property_id, "Bilan")
+    
+    config = db.query(BilanConfig).filter(BilanConfig.property_id == config_update.property_id).first()
     
     if not config:
         # Créer une config si elle n'existe pas
-        config = BilanConfig(level_3_values=config_update.level_3_values or "[]")
+        config = BilanConfig(
+            property_id=config_update.property_id,
+            level_3_values=config_update.level_3_values or "[]"
+        )
         db.add(config)
     else:
         # Mettre à jour
@@ -537,14 +608,13 @@ async def update_bilan_config(
     db.commit()
     db.refresh(config)
     
-    # Invalider tous les bilans (la config a changé)
+    # Invalider tous les bilans pour cette propriété (la config a changé)
     try:
-        invalidate_all_bilan(db)
+        invalidate_all_bilan(db, config_update.property_id)
     except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [update_bilan_config] Erreur lors de l'invalidation des bilans: {error_details}")
+        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
     
+    logger.info(f"[Bilan] Config mise à jour pour property_id={config_update.property_id}")
     return BilanConfigResponse(
         id=config.id,
         level_3_values=config.level_3_values,

@@ -2276,63 +2276,99 @@ export const propertiesAPI = {
 
 export const bilanAPI = {
   /**
-   * Récupère tous les mappings
+   * Récupère tous les mappings pour une propriété
    */
-  getMappings: async (): Promise<BilanMappingListResponse> => {
-    return fetchAPI<BilanMappingListResponse>('/api/bilan/mappings');
+  getMappings: async (propertyId: number): Promise<BilanMappingListResponse> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.getMappings - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.getMappings - propertyId=${propertyId}`);
+    return fetchAPI<BilanMappingListResponse>(`/api/bilan/mappings?property_id=${propertyId}`);
   },
 
   /**
-   * Récupère un mapping par son ID
+   * Récupère un mapping par son ID pour une propriété
    */
-  getMapping: async (id: number): Promise<BilanMapping> => {
-    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}`);
+  getMapping: async (propertyId: number, id: number): Promise<BilanMapping> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.getMapping - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.getMapping - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}?property_id=${propertyId}`);
   },
 
   /**
-   * Crée un nouveau mapping
+   * Crée un nouveau mapping (property_id dans le body)
    */
-  createMapping: async (mapping: BilanMappingCreate): Promise<BilanMapping> => {
+  createMapping: async (propertyId: number, mapping: Omit<BilanMappingCreate, 'property_id'>): Promise<BilanMapping> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.createMapping - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.createMapping - propertyId=${propertyId}`);
     return fetchAPI<BilanMapping>('/api/bilan/mappings', {
       method: 'POST',
-      body: JSON.stringify(mapping),
+      body: JSON.stringify({ ...mapping, property_id: propertyId }),
     });
   },
 
   /**
-   * Met à jour un mapping
+   * Met à jour un mapping pour une propriété
    */
-  updateMapping: async (id: number, mapping: BilanMappingUpdate): Promise<BilanMapping> => {
-    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}`, {
+  updateMapping: async (propertyId: number, id: number, mapping: BilanMappingUpdate): Promise<BilanMapping> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.updateMapping - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.updateMapping - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<BilanMapping>(`/api/bilan/mappings/${id}?property_id=${propertyId}`, {
       method: 'PUT',
       body: JSON.stringify(mapping),
     });
   },
 
   /**
-   * Supprime un mapping
+   * Supprime un mapping pour une propriété
    */
-  deleteMapping: async (id: number): Promise<void> => {
-    return fetchAPI<void>(`/api/bilan/mappings/${id}`, {
+  deleteMapping: async (propertyId: number, id: number): Promise<void> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.deleteMapping - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.deleteMapping - propertyId=${propertyId}, id=${id}`);
+    return fetchAPI<void>(`/api/bilan/mappings/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },
 
   /**
-   * Calcule le bilan pour plusieurs années en une fois (comme compte de résultat)
+   * Calcule le bilan pour plusieurs années en une fois pour une propriété
    */
-  calculateMultiple: async (years: number[]): Promise<{ years: number[], results: Record<number, BilanResponse> }> => {
+  calculateMultiple: async (propertyId: number, years: number[]): Promise<{ years: number[], results: Record<number, BilanResponse> }> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.calculateMultiple - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.calculateMultiple - propertyId=${propertyId}, years=${years.join(',')}`);
     const yearsParam = years.join(',');
-    return fetchAPI<{ years: number[], results: Record<number, BilanResponse> }>(`/api/bilan/calculate?years=${yearsParam}`);
+    return fetchAPI<{ years: number[], results: Record<number, BilanResponse> }>(`/api/bilan/calculate?property_id=${propertyId}&years=${yearsParam}`);
   },
 
   /**
-   * Calcule le bilan pour une année
+   * Calcule le bilan pour une année (property_id dans le body)
    */
-  calculate: async (year: number, selected_level_3_values?: string[]): Promise<BilanResponse> => {
+  calculate: async (propertyId: number, year: number, selected_level_3_values?: string[]): Promise<BilanResponse> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.calculate - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.calculate - propertyId=${propertyId}, year=${year}`);
     return fetchAPI<BilanResponse>('/api/bilan/calculate', {
       method: 'POST',
       body: JSON.stringify({
+        property_id: propertyId,
         year,
         selected_level_3_values: selected_level_3_values || null,
       }),
@@ -2340,34 +2376,47 @@ export const bilanAPI = {
   },
 
   /**
-   * Récupère les données du bilan
+   * Récupère les données du bilan pour une propriété
    */
-  getBilan: async (year?: number, start_year?: number, end_year?: number): Promise<BilanDataListResponse> => {
+  getBilan: async (propertyId: number, year?: number, start_year?: number, end_year?: number): Promise<BilanDataListResponse> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.getBilan - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.getBilan - propertyId=${propertyId}`);
     const params = new URLSearchParams();
+    params.append('property_id', propertyId.toString());
     if (year !== undefined) params.append('year', year.toString());
     if (start_year !== undefined) params.append('start_year', start_year.toString());
     if (end_year !== undefined) params.append('end_year', end_year.toString());
     
-    const queryString = params.toString();
-    const endpoint = queryString ? `/api/bilan?${queryString}` : '/api/bilan';
-    
-    return fetchAPI<BilanDataListResponse>(endpoint);
+    return fetchAPI<BilanDataListResponse>(`/api/bilan?${params.toString()}`);
   },
 
   /**
-   * Récupère la configuration (level_3_values)
+   * Récupère la configuration (level_3_values) pour une propriété
    */
-  getConfig: async (): Promise<BilanConfig> => {
-    return fetchAPI<BilanConfig>('/api/bilan/config');
+  getConfig: async (propertyId: number): Promise<BilanConfig> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.getConfig - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.getConfig - propertyId=${propertyId}`);
+    return fetchAPI<BilanConfig>(`/api/bilan/config?property_id=${propertyId}`);
   },
 
   /**
-   * Met à jour la configuration (level_3_values)
+   * Met à jour la configuration (level_3_values) pour une propriété (property_id dans le body)
    */
-  updateConfig: async (config: BilanConfigUpdate): Promise<BilanConfig> => {
+  updateConfig: async (propertyId: number, config: Omit<BilanConfigUpdate, 'property_id'>): Promise<BilanConfig> => {
+    if (!propertyId) {
+      console.error('[API] bilanAPI.updateConfig - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] bilanAPI.updateConfig - propertyId=${propertyId}`);
     return fetchAPI<BilanConfig>('/api/bilan/config', {
       method: 'PUT',
-      body: JSON.stringify(config),
+      body: JSON.stringify({ ...config, property_id: propertyId }),
     });
   },
 };

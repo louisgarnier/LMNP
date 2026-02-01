@@ -40,6 +40,10 @@ class Property(Base):
     compte_resultat_data = relationship("CompteResultatData", back_populates="property", cascade="all, delete-orphan")
     compte_resultat_config = relationship("CompteResultatConfig", back_populates="property", cascade="all, delete-orphan")
     compte_resultat_overrides = relationship("CompteResultatOverride", back_populates="property", cascade="all, delete-orphan")
+    # Bilan
+    bilan_mappings = relationship("BilanMapping", back_populates="property", cascade="all, delete-orphan")
+    bilan_data = relationship("BilanData", back_populates="property", cascade="all, delete-orphan")
+    bilan_config = relationship("BilanConfig", back_populates="property", cascade="all, delete-orphan")
     
     # Index pour recherches fréquentes
     __table_args__ = (
@@ -478,6 +482,7 @@ class BilanMapping(Base):
     __tablename__ = "bilan_mappings"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (niveau C)
     type = Column(String(50), nullable=False, index=True)  # Type: "ACTIF" ou "PASSIF"
     sub_category = Column(String(100), nullable=False, index=True)  # Sous-catégorie (niveau B)
@@ -488,12 +493,16 @@ class BilanMapping(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relation avec Property
+    property = relationship("Property", back_populates="bilan_mappings")
+    
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_bilan_mapping_category', 'category_name'),
         Index('idx_bilan_mapping_type', 'type'),
         Index('idx_bilan_mapping_sub_category', 'sub_category'),
         Index('idx_bilan_mapping_type_sub_category', 'type', 'sub_category'),
+        Index('idx_bilan_mapping_property_id', 'property_id'),
     )
 
 
@@ -502,17 +511,22 @@ class BilanData(Base):
     __tablename__ = "bilan_data"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     annee = Column(Integer, nullable=False, index=True)  # Année du bilan
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable
     amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relation avec Property
+    property = relationship("Property", back_populates="bilan_data")
+    
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_bilan_data_year_category', 'annee', 'category_name'),
         Index('idx_bilan_data_year', 'annee'),
         Index('idx_bilan_data_category', 'category_name'),
+        Index('idx_bilan_data_property_id', 'property_id'),
     )
 
 
@@ -521,7 +535,16 @@ class BilanConfig(Base):
     __tablename__ = "bilan_config"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     level_3_values = Column(Text, nullable=False, default="[]")  # JSON array des level_3 sélectionnés (ex: '["VALEUR1", "VALEUR2"]')
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relation avec Property
+    property = relationship("Property", back_populates="bilan_config")
+    
+    # Index pour recherches fréquentes
+    __table_args__ = (
+        Index('idx_bilan_config_property_id', 'property_id'),
+    )
 

@@ -110,9 +110,14 @@ export default function BilanConfigCard({
   // Charger la configuration (selected_level_3_values)
   const loadConfig = async () => {
     if (!isActive) return; // Ne pas charger si l'onglet n'est pas actif
+    if (!activeProperty?.id) {
+      console.error('[BilanConfigCard] Property ID invalide pour loadConfig');
+      return;
+    }
     
     try {
-      const config = await bilanAPI.getConfig();
+      console.log('[BilanConfigCard] API call: getConfig, propertyId:', activeProperty.id);
+      const config = await bilanAPI.getConfig(activeProperty.id);
       if (config.level_3_values) {
         try {
           const values = JSON.parse(config.level_3_values);
@@ -123,25 +128,30 @@ export default function BilanConfigCard({
             }
           }
         } catch (e) {
-          console.error('Erreur lors du parsing des level_3_values:', e);
+          console.error('[BilanConfigCard] Erreur lors du parsing des level_3_values:', e);
         }
       }
     } catch (err: any) {
-      console.error('Erreur lors du chargement de la configuration:', err);
+      console.error('[BilanConfigCard] Erreur lors du chargement de la configuration:', err);
     }
   };
 
   // Charger les mappings
   const loadMappings = async () => {
     if (!isActive) return; // Ne pas charger si l'onglet n'est pas actif
+    if (!activeProperty?.id) {
+      console.error('[BilanConfigCard] Property ID invalide pour loadMappings');
+      return;
+    }
     
     try {
       setLoadingMappings(true);
-      const response = await bilanAPI.getMappings();
+      console.log('[BilanConfigCard] API call: getMappings, propertyId:', activeProperty.id);
+      const response = await bilanAPI.getMappings(activeProperty.id);
       const loadedMappings = response.items || [];
       setMappings(loadedMappings);
     } catch (err: any) {
-      console.error('Erreur lors du chargement des mappings:', err);
+      console.error('[BilanConfigCard] Erreur lors du chargement des mappings:', err);
     } finally {
       setLoadingMappings(false);
     }
@@ -208,6 +218,11 @@ export default function BilanConfigCard({
 
   // Gérer le changement de checkbox Level 3
   const handleLevel3CheckboxChange = async (value: string, checked: boolean) => {
+    if (!activeProperty?.id) {
+      console.error('[BilanConfigCard] Property ID invalide');
+      return;
+    }
+    
     let newValues: string[];
     if (checked) {
       newValues = [...selectedLevel3Values, value];
@@ -219,7 +234,8 @@ export default function BilanConfigCard({
     
     // Sauvegarder via API
     try {
-      await bilanAPI.updateConfig({
+      console.log('[BilanConfigCard] API call: updateConfig, propertyId:', activeProperty.id);
+      await bilanAPI.updateConfig(activeProperty.id, {
         level_3_values: JSON.stringify(newValues),
       });
       
@@ -231,7 +247,7 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la sauvegarde de la configuration:', err);
+      console.error('[BilanConfigCard] Erreur lors de la sauvegarde de la configuration:', err);
       // Revenir à l'état précédent en cas d'erreur
       setSelectedLevel3Values(selectedLevel3Values);
     }
@@ -260,6 +276,11 @@ export default function BilanConfigCard({
 
   // Gérer l'ajout/suppression d'une valeur Level 1
   const handleLevel1Toggle = async (categoryName: string, level1Value: string, mappingId?: number) => {
+    if (!activeProperty?.id) {
+      console.error('[BilanConfigCard] Property ID invalide');
+      return;
+    }
+    
     // Si pas de mappingId, créer le mapping d'abord
     if (!mappingId) {
       try {
@@ -267,7 +288,8 @@ export default function BilanConfigCard({
         const defaultType = 'ACTIF';
         const defaultSubCategory = 'Actif immobilisé';
         
-        const newMapping = await bilanAPI.createMapping({
+        console.log('[BilanConfigCard] API call: createMapping, propertyId:', activeProperty.id);
+        const newMapping = await bilanAPI.createMapping(activeProperty.id, {
           category_name: categoryName,
           type: defaultType,
           sub_category: defaultSubCategory,
@@ -315,7 +337,8 @@ export default function BilanConfigCard({
     }
 
     try {
-      await bilanAPI.updateMapping(mappingId, {
+      console.log('[BilanConfigCard] API call: updateMapping, propertyId:', activeProperty.id, 'id:', mappingId);
+      await bilanAPI.updateMapping(activeProperty.id, mappingId, {
         level_1_values: JSON.stringify(newValues),
       });
       
@@ -326,7 +349,7 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la mise à jour des valeurs level_1:', err);
+      console.error('[BilanConfigCard] Erreur lors de la mise à jour des valeurs level_1:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -357,7 +380,7 @@ export default function BilanConfigCard({
 
   // Gérer la création d'une nouvelle catégorie
   const handleCreateNewCategory = async () => {
-    if (selectedLevel3Values.length === 0 || isCreatingCategory) {
+    if (selectedLevel3Values.length === 0 || isCreatingCategory || !activeProperty?.id) {
       return;
     }
 
@@ -365,7 +388,8 @@ export default function BilanConfigCard({
       setIsCreatingCategory(true);
       
       // Créer toujours un nouveau mapping avec "nouvelle categorie" par défaut
-      const newMapping = await bilanAPI.createMapping({
+      console.log('[BilanConfigCard] API call: createMapping, propertyId:', activeProperty.id);
+      const newMapping = await bilanAPI.createMapping(activeProperty.id, {
         category_name: 'nouvelle categorie',
         type: 'ACTIF', // Type par défaut
         sub_category: 'Actif immobilisé', // Sous-catégorie par défaut
@@ -381,7 +405,7 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la création de la catégorie:', err);
+      console.error('[BilanConfigCard] Erreur lors de la création de la catégorie:', err);
       alert(`Erreur lors de la création: ${err.message || 'Erreur inconnue'}`);
     } finally {
       setIsCreatingCategory(false);
@@ -396,6 +420,8 @@ export default function BilanConfigCard({
 
   // Sauvegarder la catégorie comptable édité
   const handleCategoryNameEditSave = async (mappingId: number) => {
+    if (!activeProperty?.id) return;
+    
     const trimmedValue = editingCategoryNameValue.trim();
     if (!trimmedValue) {
       // Si vide, garder "nouvelle categorie"
@@ -405,7 +431,8 @@ export default function BilanConfigCard({
     }
     
     try {
-      await bilanAPI.updateMapping(mappingId, {
+      console.log('[BilanConfigCard] API call: updateMapping, propertyId:', activeProperty.id, 'id:', mappingId);
+      await bilanAPI.updateMapping(activeProperty.id, mappingId, {
         category_name: trimmedValue,
       });
       
@@ -419,7 +446,7 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la sauvegarde de la catégorie:', err);
+      console.error('[BilanConfigCard] Erreur lors de la sauvegarde de la catégorie:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -441,6 +468,8 @@ export default function BilanConfigCard({
 
   // Gérer le changement de Type
   const handleTypeChange = async (mappingId: number, newType: string) => {
+    if (!activeProperty?.id) return;
+    
     try {
       const mapping = mappings.find(m => m.id === mappingId);
       if (!mapping) return;
@@ -448,7 +477,8 @@ export default function BilanConfigCard({
       // Si le type change, réinitialiser la sous-catégorie à la première de la liste
       const newSubCategory = SUB_CATEGORIES_BY_TYPE[newType]?.[0] || mapping.sub_category;
       
-      await bilanAPI.updateMapping(mappingId, {
+      console.log('[BilanConfigCard] API call: updateMapping (type), propertyId:', activeProperty.id, 'id:', mappingId);
+      await bilanAPI.updateMapping(activeProperty.id, mappingId, {
         type: newType,
         sub_category: newSubCategory,
       });
@@ -460,15 +490,18 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la mise à jour du Type:', err);
+      console.error('[BilanConfigCard] Erreur lors de la mise à jour du Type:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
 
   // Gérer le changement de Sous-catégorie
   const handleSubCategoryChange = async (mappingId: number, newSubCategory: string) => {
+    if (!activeProperty?.id) return;
+    
     try {
-      await bilanAPI.updateMapping(mappingId, {
+      console.log('[BilanConfigCard] API call: updateMapping (subCategory), propertyId:', activeProperty.id, 'id:', mappingId);
+      await bilanAPI.updateMapping(activeProperty.id, mappingId, {
         sub_category: newSubCategory,
       });
       
@@ -479,15 +512,18 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la mise à jour de la Sous-catégorie:', err);
+      console.error('[BilanConfigCard] Erreur lors de la mise à jour de la Sous-catégorie:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
 
   // Gérer le changement de catégorie spéciale (is_special)
   const handleSpecialCategoryToggle = async (mappingId: number, isSpecial: boolean, specialSource?: string) => {
+    if (!activeProperty?.id) return;
+    
     try {
-      await bilanAPI.updateMapping(mappingId, {
+      console.log('[BilanConfigCard] API call: updateMapping (special), propertyId:', activeProperty.id, 'id:', mappingId);
+      await bilanAPI.updateMapping(activeProperty.id, mappingId, {
         is_special: isSpecial,
         special_source: isSpecial ? specialSource || null : null,
         level_1_values: isSpecial ? null : undefined, // Réinitialiser level_1_values si spécial
@@ -500,7 +536,7 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la mise à jour de la catégorie spéciale:', err);
+      console.error('[BilanConfigCard] Erreur lors de la mise à jour de la catégorie spéciale:', err);
       alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
     }
   };
@@ -522,6 +558,8 @@ export default function BilanConfigCard({
 
   // Fonction pour supprimer un mapping
   const handleDeleteMapping = async (mappingId: number) => {
+    if (!activeProperty?.id) return;
+    
     const mapping = mappings.find(m => m.id === mappingId);
     if (!mapping) return;
 
@@ -533,7 +571,8 @@ export default function BilanConfigCard({
       setIsDeletingMapping(mappingId);
       closeContextMenu();
 
-      await bilanAPI.deleteMapping(mappingId);
+      console.log('[BilanConfigCard] API call: deleteMapping, propertyId:', activeProperty.id, 'id:', mappingId);
+      await bilanAPI.deleteMapping(activeProperty.id, mappingId);
 
       console.log('[BilanConfigCard] Mapping supprimé:', mappingId);
       
@@ -544,7 +583,7 @@ export default function BilanConfigCard({
         onConfigUpdated();
       }
     } catch (err: any) {
-      console.error('Erreur lors de la suppression:', err);
+      console.error('[BilanConfigCard] Erreur lors de la suppression:', err);
       alert(`Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
     } finally {
       setIsDeletingMapping(null);
@@ -569,6 +608,8 @@ export default function BilanConfigCard({
 
   // Fonction pour réinitialiser tous les mappings
   const handleResetMappings = async () => {
+    if (!activeProperty?.id) return;
+    
     if (mappings.length === 0) {
       alert('Aucun mapping à réinitialiser.');
       return;
@@ -584,10 +625,10 @@ export default function BilanConfigCard({
 
     try {
       setIsResetting(true);
-      console.log(`[BilanConfigCard] Réinitialisation de ${mappings.length} mapping(s)...`);
+      console.log(`[BilanConfigCard] Réinitialisation de ${mappings.length} mapping(s)... propertyId:`, activeProperty.id);
       
       // Supprimer tous les mappings un par un
-      const deletePromises = mappings.map(mapping => bilanAPI.deleteMapping(mapping.id));
+      const deletePromises = mappings.map(mapping => bilanAPI.deleteMapping(activeProperty.id, mapping.id));
       await Promise.all(deletePromises);
       
       console.log(`[BilanConfigCard] ✓ ${mappings.length} mapping(s) supprimé(s)`);
@@ -672,7 +713,7 @@ export default function BilanConfigCard({
         },
       ];
       
-      const createPromises = defaultMappings.map(mapping => bilanAPI.createMapping(mapping));
+      const createPromises = defaultMappings.map(mapping => bilanAPI.createMapping(activeProperty.id, mapping));
       await Promise.all(createPromises);
       
       console.log(`[BilanConfigCard] ✓ ${defaultMappings.length} mapping(s) par défaut créé(s)`);

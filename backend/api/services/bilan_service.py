@@ -13,6 +13,7 @@ Ce service implémente la logique de calcul du bilan :
 """
 
 import json
+import logging
 from datetime import date
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
@@ -32,35 +33,43 @@ from backend.database.models import (
 )
 from backend.api.services.compte_resultat_service import calculate_compte_resultat
 
+logger = logging.getLogger(__name__)
 
-def get_mappings(db: Session) -> List[BilanMapping]:
+
+def get_mappings(db: Session, property_id: int) -> List[BilanMapping]:
     """
-    Charger tous les mappings depuis la table.
+    Charger tous les mappings depuis la table pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     
     Returns:
         Liste des mappings configurés
     """
-    return db.query(BilanMapping).order_by(
+    logger.info(f"[BilanService] get_mappings - property_id={property_id}")
+    return db.query(BilanMapping).filter(
+        BilanMapping.property_id == property_id
+    ).order_by(
         BilanMapping.type,
         BilanMapping.sub_category,
         BilanMapping.category_name
     ).all()
 
 
-def get_level_3_values(db: Session) -> List[str]:
+def get_level_3_values(db: Session, property_id: int) -> List[str]:
     """
-    Récupérer les valeurs level_3 sélectionnées depuis la configuration.
+    Récupérer les valeurs level_3 sélectionnées depuis la configuration pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     
     Returns:
         Liste des valeurs level_3 sélectionnées (vide si aucune config)
     """
-    config = db.query(BilanConfig).first()
+    logger.info(f"[BilanService] get_level_3_values - property_id={property_id}")
+    config = db.query(BilanConfig).filter(BilanConfig.property_id == property_id).first()
     if not config or not config.level_3_values:
         return []
     
@@ -74,7 +83,8 @@ def calculate_normal_category(
     db: Session,
     year: int,
     mapping: BilanMapping,
-    level_3_values: List[str]
+    level_3_values: List[str],
+    property_id: int
 ) -> float:
     """
     Calculer le montant cumulé d'une catégorie normale depuis les transactions enrichies.
@@ -83,7 +93,8 @@ def calculate_normal_category(
     1. Filtrer par level_3 (seules les transactions avec level_3 dans level_3_values)
     2. Filtrer par date (toutes les transactions jusqu'à la fin de l'année - CUMUL)
     3. Filtrer par level_1 (selon level_1_values du mapping)
-    4. Sommer les montants (cumul depuis le début jusqu'à l'année)
+    4. Filtrer par property_id
+    5. Sommer les montants (cumul depuis le début jusqu'à l'année)
     
     Pour les immobilisations et autres catégories normales, on calcule le cumul :
     - Année 2021 : somme de toutes les transactions jusqu'au 31/12/2021
@@ -95,10 +106,13 @@ def calculate_normal_category(
         year: Année jusqu'à laquelle cumuler
         mapping: Mapping de la catégorie
         level_3_values: Liste des valeurs level_3 à considérer
+        property_id: ID de la propriété
     
     Returns:
         Montant cumulé pour cette catégorie jusqu'à l'année
     """
+    logger.info(f"[BilanService] calculate_normal_category - year={year}, property_id={property_id}")
+    
     if not level_3_values:
         return 0.0
     
@@ -116,13 +130,14 @@ def calculate_normal_category(
     # Date de fin de l'année (cumul jusqu'à cette date)
     end_date = date(year, 12, 31)
     
-    # Filtrer les transactions par level_3, level_1 et cumul jusqu'à la fin de l'année
+    # Filtrer les transactions par level_3, level_1, property_id et cumul jusqu'à la fin de l'année
     query = db.query(
         func.sum(Transaction.quantite)
     ).join(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
+            Transaction.property_id == property_id,
             EnrichedTransaction.level_3.in_(level_3_values),
             EnrichedTransaction.level_1.in_(level_1_values),
             Transaction.date <= end_date  # Cumul jusqu'à la fin de l'année
@@ -155,27 +170,38 @@ def calculate_normal_category(
 
 def calculate_amortizations_cumul(
     db: Session,
-    year: int
+    year: int,
+    property_id: int
 ) -> float:
     """
-    Calculer le cumul des amortissements jusqu'à l'année en cours.
+    Calculer le cumul des amortissements jusqu'à l'année en cours pour une propriété.
     
     Logique :
     - Récupérer tous les amortissements de toutes les années <= year
+    - Filtrer par property_id via la transaction associée
     - Sommer les montants (qui sont déjà négatifs)
     - Retourner la valeur négative (diminution de l'actif)
     
     Args:
         db: Session de base de données
         year: Année jusqu'à laquelle cumuler
+        property_id: ID de la propriété
     
     Returns:
         Cumul des amortissements (négatif, car diminution de l'actif)
     """
+    logger.info(f"[BilanService] calculate_amortizations_cumul - year={year}, property_id={property_id}")
+    
+    # JOIN avec Transaction pour filtrer par property_id
     result = db.query(
         func.sum(AmortizationResult.amount)
+    ).join(
+        Transaction, AmortizationResult.transaction_id == Transaction.id
     ).filter(
-        AmortizationResult.year <= year
+        and_(
+            AmortizationResult.year <= year,
+            Transaction.property_id == property_id
+        )
     ).scalar()
     
     return result if result is not None else 0.0
@@ -183,28 +209,36 @@ def calculate_amortizations_cumul(
 
 def calculate_compte_bancaire(
     db: Session,
-    year: int
+    year: int,
+    property_id: int
 ) -> float:
     """
-    Calculer le solde bancaire au 31/12 de l'année.
+    Calculer le solde bancaire au 31/12 de l'année pour une propriété.
     
     Logique :
     - Récupérer la dernière transaction de l'année (ou avant si aucune transaction en décembre)
+    - Filtrer par property_id
     - Utiliser le solde de cette transaction
     
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
     
     Returns:
         Solde bancaire au 31/12 (positif)
     """
+    logger.info(f"[BilanService] calculate_compte_bancaire - year={year}, property_id={property_id}")
+    
     # Date de fin de l'année
     end_date = date(year, 12, 31)
     
-    # Récupérer la dernière transaction jusqu'à la fin de l'année
+    # Récupérer la dernière transaction jusqu'à la fin de l'année pour cette propriété
     last_transaction = db.query(Transaction).filter(
-        Transaction.date <= end_date
+        and_(
+            Transaction.property_id == property_id,
+            Transaction.date <= end_date
+        )
     ).order_by(
         Transaction.date.desc(),
         Transaction.id.desc()
@@ -219,42 +253,50 @@ def calculate_compte_bancaire(
 def calculate_resultat_exercice(
     db: Session,
     year: int,
+    property_id: int,
     compte_resultat_view_id: Optional[int] = None
 ) -> float:
     """
-    Calculer le résultat de l'exercice pour une année.
+    Calculer le résultat de l'exercice pour une année et une propriété.
     
     Logique :
-    - Chercher un override pour l'année (si existe, l'utiliser)
+    - Chercher un override pour l'année et la propriété (si existe, l'utiliser)
     - Sinon : utiliser le résultat net du compte de résultat
     
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
         compte_resultat_view_id: ID de la vue compte de résultat (optionnel, non utilisé pour l'instant)
     
     Returns:
         Résultat de l'exercice (bénéfice positif, perte négative)
     """
-    # Chercher un override pour l'année
+    logger.info(f"[BilanService] calculate_resultat_exercice - year={year}, property_id={property_id}")
+    
+    # Chercher un override pour l'année et la propriété
     override = db.query(CompteResultatOverride).filter(
-        CompteResultatOverride.year == year
+        and_(
+            CompteResultatOverride.year == year,
+            CompteResultatOverride.property_id == property_id
+        )
     ).first()
     
     if override:
         return override.override_value
     
     # Sinon, calculer depuis le compte de résultat
-    compte_resultat = calculate_compte_resultat(db, year)
+    compte_resultat = calculate_compte_resultat(db, year, property_id=property_id)
     return compte_resultat.get("resultat_net", 0.0)
 
 
 def calculate_report_a_nouveau(
     db: Session,
-    year: int
+    year: int,
+    property_id: int
 ) -> float:
     """
-    Calculer le report à nouveau (cumul des résultats des années précédentes).
+    Calculer le report à nouveau (cumul des résultats des années précédentes) pour une propriété.
     
     Logique :
     - Cumuler les résultats de toutes les années < year qui ont des transactions
@@ -263,12 +305,17 @@ def calculate_report_a_nouveau(
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
     
     Returns:
         Report à nouveau (cumul des résultats précédents)
     """
-    # Trouver la première année avec des transactions
-    first_transaction = db.query(func.min(Transaction.date)).scalar()
+    logger.info(f"[BilanService] calculate_report_a_nouveau - year={year}, property_id={property_id}")
+    
+    # Trouver la première année avec des transactions pour cette propriété
+    first_transaction = db.query(func.min(Transaction.date)).filter(
+        Transaction.property_id == property_id
+    ).scalar()
     if not first_transaction:
         return 0.0
     
@@ -278,10 +325,13 @@ def calculate_report_a_nouveau(
         return 0.0
     
     # OPTIMISATION: Calculer tous les résultats en une seule fois au lieu de boucler
-    # Récupérer tous les overrides d'un coup
+    # Récupérer tous les overrides d'un coup pour cette propriété
     overrides = db.query(CompteResultatOverride).filter(
-        CompteResultatOverride.year >= first_year,
-        CompteResultatOverride.year < year
+        and_(
+            CompteResultatOverride.property_id == property_id,
+            CompteResultatOverride.year >= first_year,
+            CompteResultatOverride.year < year
+        )
     ).all()
     override_dict = {o.year: o.override_value for o in overrides}
     
@@ -300,7 +350,7 @@ def calculate_report_a_nouveau(
         # Note: On pourrait optimiser davantage en calculant toutes les années en une fois
         # mais pour l'instant, on garde la logique simple
         for prev_year in years_to_calculate:
-            compte_resultat = calculate_compte_resultat(db, prev_year)
+            compte_resultat = calculate_compte_resultat(db, prev_year, property_id=property_id)
             total += compte_resultat.get("resultat_net", 0.0)
     
     return total
@@ -308,10 +358,11 @@ def calculate_report_a_nouveau(
 
 def calculate_capital_restant_du(
     db: Session,
-    year: int
+    year: int,
+    property_id: int
 ) -> float:
     """
-    Calculer le capital restant dû au 31/12 de l'année.
+    Calculer le capital restant dû au 31/12 de l'année pour une propriété.
     
     LOGIQUE :
     - Le montant du crédit accordé = somme des transactions avec level_1 = "Dettes financières (emprunt bancaire)" (cumul jusqu'au 31/12)
@@ -326,19 +377,25 @@ def calculate_capital_restant_du(
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
     
     Returns:
         Capital restant dû au 31/12 (positif, car dette)
     """
+    logger.info(f"[BilanService] calculate_capital_restant_du - year={year}, property_id={property_id}")
+    
     # Date de fin de l'année
     end_date = date(year, 12, 31)
     
-    # Récupérer tous les crédits actifs (qui ont commencé avant ou pendant l'année)
+    # Récupérer tous les crédits actifs pour cette propriété (qui ont commencé avant ou pendant l'année)
     # On a besoin de cette liste pour filtrer les paiements
     active_loans = db.query(LoanConfig).filter(
-        or_(
-            LoanConfig.loan_start_date.is_(None),
-            LoanConfig.loan_start_date <= end_date
+        and_(
+            LoanConfig.property_id == property_id,
+            or_(
+                LoanConfig.loan_start_date.is_(None),
+                LoanConfig.loan_start_date <= end_date
+            )
         )
     ).all()
     
@@ -352,6 +409,7 @@ def calculate_capital_restant_du(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     ).filter(
         and_(
+            Transaction.property_id == property_id,
             EnrichedTransaction.level_1 == level_1_value,
             Transaction.date <= end_date
         )
@@ -362,19 +420,20 @@ def calculate_capital_restant_du(
     
     # Si aucune transaction, retourner 0
     if credit_amount == 0.0:
-        print(f"ℹ️ [calculate_capital_restant_du] Aucune transaction trouvée pour {year}. Retour de 0.00 €")
+        logger.info(f"[BilanService] calculate_capital_restant_du - Aucune transaction trouvée pour {year}, property_id={property_id}. Retour de 0.00 €")
         return 0.0
     
     # Calculer le capital remboursé depuis les pages crédits (LoanPayment)
-    # Filtrer par les crédits actifs uniquement
+    # Filtrer par les crédits actifs et la propriété
     if active_loans:
         active_loan_names = [loan.name for loan in active_loans]
         
-        # Capital remboursé total de tous les crédits actifs
+        # Capital remboursé total de tous les crédits actifs de cette propriété
         capital_paid = db.query(
             func.sum(LoanPayment.capital)
         ).filter(
             and_(
+                LoanPayment.property_id == property_id,
                 LoanPayment.date <= end_date,
                 LoanPayment.loan_name.in_(active_loan_names)
             )
@@ -389,10 +448,10 @@ def calculate_capital_restant_du(
     remaining = credit_amount - capital_paid
     
     # Debug: Afficher le calcul
-    print(f"📊 [calculate_capital_restant_du] Calcul pour {year}:")
-    print(f"  - Montant transactions (level_1 = \"Dettes financières (emprunt bancaire)\"): {credit_amount:.2f} €")
-    print(f"  - Capital remboursé (tous crédits actifs): {capital_paid:.2f} €")
-    print(f"  - Capital restant dû: {remaining:.2f} €")
+    logger.info(f"[BilanService] calculate_capital_restant_du - Calcul pour {year}, property_id={property_id}:")
+    logger.info(f"  - Montant transactions (level_1 = 'Dettes financières (emprunt bancaire)'): {credit_amount:.2f} €")
+    logger.info(f"  - Capital remboursé (tous crédits actifs): {capital_paid:.2f} €")
+    logger.info(f"  - Capital restant dû: {remaining:.2f} €")
     
     # S'assurer que le résultat est positif (on ne peut pas avoir un capital restant négatif)
     return max(0.0, remaining)
@@ -401,15 +460,17 @@ def calculate_capital_restant_du(
 def calculate_bilan(
     db: Session,
     year: int,
+    property_id: int,
     mappings: Optional[List[BilanMapping]] = None,
     level_3_values: Optional[List[str]] = None
 ) -> Dict[str, any]:
     """
-    Calculer le bilan complet pour une année.
+    Calculer le bilan complet pour une année et une propriété.
     
     Args:
         db: Session de base de données
         year: Année à calculer
+        property_id: ID de la propriété
         mappings: Liste des mappings (optionnel, sera chargée depuis DB si non fournie)
         level_3_values: Liste des valeurs level_3 (optionnel, sera chargée depuis config si non fournie)
     
@@ -423,13 +484,15 @@ def calculate_bilan(
         - difference: float - Différence ACTIF - PASSIF
         - difference_percent: float - Pourcentage de différence
     """
+    logger.info(f"[BilanService] calculate_bilan - year={year}, property_id={property_id}")
+    
     # Charger les mappings si non fournis
     if mappings is None:
-        mappings = get_mappings(db)
+        mappings = get_mappings(db, property_id)
     
     # Charger les level_3_values si non fournis
     if level_3_values is None:
-        level_3_values = get_level_3_values(db)
+        level_3_values = get_level_3_values(db, property_id)
     
     # Dictionnaire pour stocker les montants par catégorie
     categories = {}
@@ -447,14 +510,14 @@ def calculate_bilan(
             if not mapping.level_1_values:
                 continue
             try:
-                level_1_values = json.loads(mapping.level_1_values)
-                category_to_level_1[mapping.category_name] = set(level_1_values)
-                all_level_1_values.update(level_1_values)
+                level_1_values_list = json.loads(mapping.level_1_values)
+                category_to_level_1[mapping.category_name] = set(level_1_values_list)
+                all_level_1_values.update(level_1_values_list)
             except (json.JSONDecodeError, TypeError):
                 continue
         
         if all_level_1_values:
-            # Une seule requête pour toutes les catégories normales
+            # Une seule requête pour toutes les catégories normales, filtrée par property_id
             query = db.query(
                 EnrichedTransaction.level_1,
                 func.sum(Transaction.quantite).label('total')
@@ -462,6 +525,7 @@ def calculate_bilan(
                 Transaction, Transaction.id == EnrichedTransaction.transaction_id
             ).filter(
                 and_(
+                    Transaction.property_id == property_id,
                     EnrichedTransaction.level_3.in_(level_3_values),
                     EnrichedTransaction.level_1.in_(list(all_level_1_values)),
                     Transaction.date <= end_date
@@ -513,17 +577,17 @@ def calculate_bilan(
         if mapping.is_special:
             category_name = mapping.category_name
             if mapping.special_source == "amortization_result" or mapping.special_source == "amortizations":
-                amount = calculate_amortizations_cumul(db, year)
+                amount = calculate_amortizations_cumul(db, year, property_id)
             elif mapping.special_source == "transactions":
-                amount = calculate_compte_bancaire(db, year)
+                amount = calculate_compte_bancaire(db, year, property_id)
             elif mapping.special_source == "compte_resultat":
                 amount = calculate_resultat_exercice(
-                    db, year, mapping.compte_resultat_view_id
+                    db, year, property_id, mapping.compte_resultat_view_id
                 )
             elif mapping.special_source == "compte_resultat_cumul":
-                amount = calculate_report_a_nouveau(db, year)
+                amount = calculate_report_a_nouveau(db, year, property_id)
             elif mapping.special_source == "loan_payments":
-                amount = calculate_capital_restant_du(db, year)
+                amount = calculate_capital_restant_du(db, year, property_id)
             else:
                 amount = 0.0
             categories[category_name] = amount
@@ -570,15 +634,17 @@ def calculate_bilan(
 
 def get_bilan_data(
     db: Session,
+    property_id: int,
     year: Optional[int] = None,
     start_year: Optional[int] = None,
     end_year: Optional[int] = None
 ) -> List[BilanData]:
     """
-    Récupérer les données du bilan depuis la table bilan_data.
+    Récupérer les données du bilan depuis la table bilan_data pour une propriété.
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
         year: Année spécifique (optionnel)
         start_year: Année de début (optionnel, pour plage)
         end_year: Année de fin (optionnel, pour plage)
@@ -586,7 +652,9 @@ def get_bilan_data(
     Returns:
         Liste des données du bilan
     """
-    query = db.query(BilanData)
+    logger.info(f"[BilanService] get_bilan_data - property_id={property_id}, year={year}")
+    
+    query = db.query(BilanData).filter(BilanData.property_id == property_id)
     
     if year is not None:
         query = query.filter(BilanData.annee == year)
@@ -601,24 +669,33 @@ def get_bilan_data(
     return query.order_by(BilanData.annee, BilanData.category_name).all()
 
 
-def invalidate_all_bilan(db: Session) -> None:
+def invalidate_all_bilan(db: Session, property_id: int) -> None:
     """
-    Marquer toutes les données du bilan comme invalides (supprimer toutes les données).
+    Marquer toutes les données du bilan comme invalides pour une propriété (supprimer toutes les données).
     
     Args:
         db: Session de base de données
+        property_id: ID de la propriété
     """
-    db.query(BilanData).delete()
+    logger.info(f"[BilanService] invalidate_all_bilan - property_id={property_id}")
+    db.query(BilanData).filter(BilanData.property_id == property_id).delete()
     db.commit()
 
 
-def invalidate_bilan_for_year(year: int, db: Session) -> None:
+def invalidate_bilan_for_year(year: int, db: Session, property_id: int) -> None:
     """
-    Invalider une année spécifique (supprimer les données de cette année).
+    Invalider une année spécifique pour une propriété (supprimer les données de cette année).
     
     Args:
         year: Année à invalider
         db: Session de base de données
+        property_id: ID de la propriété
     """
-    db.query(BilanData).filter(BilanData.annee == year).delete()
+    logger.info(f"[BilanService] invalidate_bilan_for_year - year={year}, property_id={property_id}")
+    db.query(BilanData).filter(
+        and_(
+            BilanData.annee == year,
+            BilanData.property_id == property_id
+        )
+    ).delete()
     db.commit()

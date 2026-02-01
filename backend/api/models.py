@@ -660,7 +660,7 @@ class BilanMappingBase(BaseModel):
 
 class BilanMappingCreate(BilanMappingBase):
     """Model for creating a bilan mapping."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class BilanMappingUpdate(BaseModel):
@@ -699,7 +699,7 @@ class BilanDataBase(BaseModel):
 
 class BilanDataCreate(BilanDataBase):
     """Model for creating bilan data."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class BilanDataUpdate(BaseModel):
@@ -734,11 +734,12 @@ class BilanConfigBase(BaseModel):
 
 class BilanConfigCreate(BilanConfigBase):
     """Model for creating bilan config."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class BilanConfigUpdate(BaseModel):
     """Model for updating bilan config."""
+    property_id: Optional[int] = Field(None, description="ID de la propriété")
     level_3_values: Optional[str] = None
 
 
@@ -756,6 +757,7 @@ class BilanConfigResponse(BilanConfigBase):
 
 class BilanCalculateRequest(BaseModel):
     """Model for bilan calculation request."""
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
     year: int = Field(..., description="Année à calculer")
     selected_level_3_values: Optional[List[str]] = Field(None, description="Liste des valeurs level_3 à considérer (optionnel, utilise la config si non fourni)")
 

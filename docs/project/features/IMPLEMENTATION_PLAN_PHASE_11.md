@@ -1890,6 +1890,7 @@ Cette phase implique :
 ---
 
 ## ONGLET 6 : BILAN
+**Status**: ✅ COMPLÉTÉ (01/02/2026)
 
 ### Fonctionnalités existantes à préserver
 
@@ -1921,26 +1922,32 @@ Cette phase implique :
   - 1 endpoint data : GET /bilan (list)
   - 2 endpoints config : GET /bilan/config, PUT /bilan/config
   - **TOTAL : 10 endpoints**
-- [ ] Identifier toutes les fonctions du service `backend/api/services/bilan_service.py` :
+- [ ] Identifier toutes les fonctions du service `backend/api/services/bilan_service.py` (**12 fonctions au total**) :
   - `get_mappings(db)` → doit accepter `property_id` et filtrer
   - `get_level_3_values(db)` → doit accepter `property_id` et filtrer
-  - `calculate_bilan(db, year, mappings, level_3_values)` → doit accepter `property_id` et filtrer toutes les données
+  - `calculate_normal_category(db, year, mappings, level_3_values)` → **MANQUANT** doit accepter `property_id` et filtrer `Transaction.property_id`
+  - `calculate_amortizations_cumul(db, year)` → **MANQUANT** doit accepter `property_id` et faire JOIN avec `Transaction` pour filtrer
+  - `calculate_compte_bancaire(db, year)` → doit accepter `property_id` et filtrer les transactions via `Transaction.property_id`
+  - `calculate_resultat_exercice(db, year)` → **MANQUANT** doit accepter `property_id` et passer à `calculate_compte_resultat(db, year, ..., property_id)`
+  - `calculate_report_a_nouveau(db, year)` → **MANQUANT** doit accepter `property_id` et passer à `calculate_compte_resultat(db, year, ..., property_id)`
+  - `calculate_capital_restant_du(db, year)` → doit accepter `property_id` et filtrer via `LoanPayment.property_id`
+  - `calculate_bilan(db, year, mappings, level_3_values)` → doit accepter `property_id` et filtrer toutes les données + passer aux sous-fonctions
   - `get_bilan_data(db, year, start_year, end_year)` → doit accepter `property_id` et filtrer
   - `invalidate_all_bilan(db)` → doit accepter `property_id` et filtrer
   - `invalidate_bilan_for_year(year, db)` → doit accepter `property_id` et filtrer
-  - `calculate_compte_bancaire(db, year)` → doit accepter `property_id` et filtrer les transactions via `Transaction.property_id`
-  - `calculate_capital_restant_du(db, year)` → doit accepter `property_id` et filtrer via `LoanPayment.property_id`
-  - `calculate_amortissements_cumules(db, year)` → doit accepter `property_id` et filtrer via JOIN `Transaction.property_id` (AmortizationResult n'a pas property_id directement)
-- [ ] Identifier tous les appels API frontend dans `client.ts` :
-  - `bilanAPI` : getMappings, getMapping, createMapping, updateMapping, deleteMapping, getConfig, updateConfig, calculateMultipleYears, calculateSingleYear, getBilanData (10 méthodes)
+- [ ] Identifier tous les appels API frontend dans `client.ts` (**10 méthodes**) :
+  - `bilanAPI` : getMappings, getMapping, createMapping, updateMapping, deleteMapping, calculateMultiple, calculate, getBilan, getConfig, updateConfig
 - [ ] Identifier tous les composants frontend :
-  - `BilanTable.tsx` : utilise `bilanAPI.calculateSingleYear()`, `bilanAPI.getBilanData()`
+  - `BilanTable.tsx` : utilise `bilanAPI.calculateMultiple()`, `bilanAPI.getMappings()`, `bilanAPI.getConfig()`
   - `BilanConfigCard.tsx` : utilise `bilanAPI.getMappings()`, `bilanAPI.createMapping()`, `bilanAPI.updateMapping()`, `bilanAPI.deleteMapping()`, `bilanAPI.getConfig()`, `bilanAPI.updateConfig()`, `transactionsAPI.getUniqueValues()` (pour level_1, level_3)
 - [ ] Identifier toutes les fonctions qui utilisent `Transaction`, `LoanPayment`, `AmortizationResult` pour le calcul :
   - Toutes les requêtes dans `calculate_bilan` doivent filtrer par `property_id`
+  - `calculate_normal_category` : filtrer `Transaction` par `property_id`
   - `calculate_compte_bancaire` : filtrer `Transaction` par `property_id`
   - `calculate_capital_restant_du` : filtrer `LoanPayment` par `property_id`
-  - `calculate_amortissements_cumules` : filtrer `AmortizationResult` via `Transaction.property_id`
+  - `calculate_amortizations_cumul` : filtrer `AmortizationResult` via `Transaction.property_id`
+  - `calculate_resultat_exercice` : appelle `calculate_compte_resultat` → doit passer `property_id`
+  - `calculate_report_a_nouveau` : appelle `calculate_compte_resultat` → doit passer `property_id`
 - [ ] Vérifier les imports et dépendances
 
 **2. Modèles SQLAlchemy** :
@@ -1979,6 +1986,9 @@ Cette phase implique :
   - `bilan_mappings` avec contrainte FK et ON DELETE CASCADE
   - `bilan_config` avec contrainte FK et ON DELETE CASCADE
   - `bilan_data` avec contrainte FK et ON DELETE CASCADE
+- [ ] **ATTENTION** : Vérifier s'il y a des contraintes UNIQUE existantes qui doivent inclure `property_id` :
+  - Si `category_name` a une contrainte UNIQUE → changer en UNIQUE(`category_name`, `property_id`)
+  - Si `annee` + `category_name` a une contrainte UNIQUE → changer en UNIQUE(`annee`, `category_name`, `property_id`)
 - [ ] Tester les migrations (vérifier que les colonnes sont créées avec les bonnes contraintes)
 - [ ] Vérifier que les index sont créés
 
@@ -2046,7 +2056,7 @@ Cette phase implique :
   - Passer `property_id` au service de calcul
   - Ajouter log : `[Bilan] Bilan retourné pour property_id={property_id}`
 
-**6. Fonctions utilitaires** :
+**6. Fonctions utilitaires (12 fonctions à modifier)** :
 - [ ] Modifier `get_mappings` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
   - Filtrer : `query = query.filter(BilanMapping.property_id == property_id)`
@@ -2055,47 +2065,57 @@ Cette phase implique :
   - Ajouter paramètre `property_id: int`
   - Filtrer : `config = db.query(BilanConfig).filter(BilanConfig.property_id == property_id).first()`
   - **Ajouter log backend** : `logger.info(f"[BilanService] get_level_3_values - property_id={property_id}")`
-- [ ] Modifier `calculate_bilan` dans `backend/api/services/bilan_service.py` :
+- [ ] **NOUVEAU** Modifier `calculate_normal_category` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
-  - Filtrer toutes les requêtes `Transaction` : `query = query.filter(Transaction.property_id == property_id)`
-  - Filtrer toutes les requêtes `LoanPayment` : `query = query.filter(LoanPayment.property_id == property_id)`
-  - Filtrer toutes les requêtes `AmortizationResult` via `Transaction.property_id`
-  - Passer `property_id` à `calculate_compte_bancaire`, `calculate_capital_restant_du`, `calculate_amortissements_cumules`
-  - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_bilan - year={year}, property_id={property_id}")`
+  - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
+  - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_normal_category - property_id={property_id}")`
+- [ ] **NOUVEAU** Modifier `calculate_amortizations_cumul` dans `backend/api/services/bilan_service.py` :
+  - Ajouter paramètre `property_id: int`
+  - Filtrer les amortizations via `Transaction.property_id` : `query = query.join(Transaction).filter(Transaction.property_id == property_id)`
+  - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_amortizations_cumul - year={year}, property_id={property_id}")`
 - [ ] Modifier `calculate_compte_bancaire` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
   - Filtrer les transactions : `query = query.filter(Transaction.property_id == property_id)`
   - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_compte_bancaire - year={year}, property_id={property_id}")`
+- [ ] **NOUVEAU** Modifier `calculate_resultat_exercice` dans `backend/api/services/bilan_service.py` :
+  - Ajouter paramètre `property_id: int`
+  - Passer `property_id` à `calculate_compte_resultat(db, year, mappings, level_3_values, property_id)`
+  - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_resultat_exercice - year={year}, property_id={property_id}")`
+- [ ] **NOUVEAU** Modifier `calculate_report_a_nouveau` dans `backend/api/services/bilan_service.py` :
+  - Ajouter paramètre `property_id: int`
+  - Passer `property_id` à `calculate_compte_resultat(db, year, mappings, level_3_values, property_id)` pour chaque année précédente
+  - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_report_a_nouveau - year={year}, property_id={property_id}")`
 - [ ] Modifier `calculate_capital_restant_du` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
   - Filtrer les loan_payments : `query = query.filter(LoanPayment.property_id == property_id)`
   - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_capital_restant_du - year={year}, property_id={property_id}")`
-- [ ] Modifier `calculate_amortissements_cumules` dans `backend/api/services/bilan_service.py` :
+- [ ] Modifier `calculate_bilan` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
-  - Filtrer les amortizations via `Transaction.property_id` : `query = query.join(Transaction).filter(Transaction.property_id == property_id)`
-  - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_amortissements_cumules - year={year}, property_id={property_id}")`
+  - Passer `property_id` à TOUTES les sous-fonctions :
+    - `calculate_normal_category(db, year, mappings, level_3_values, property_id)`
+    - `calculate_amortizations_cumul(db, year, property_id)`
+    - `calculate_compte_bancaire(db, year, property_id)`
+    - `calculate_resultat_exercice(db, year, property_id)`
+    - `calculate_report_a_nouveau(db, year, property_id)`
+    - `calculate_capital_restant_du(db, year, property_id)`
+  - **Ajouter log backend** : `logger.info(f"[BilanService] calculate_bilan - year={year}, property_id={property_id}")`
 - [ ] Modifier `get_bilan_data` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
-  - Filtrer : `query = query.filter(BilanData.property_id == property_id)` (si BilanData a property_id)
+  - Filtrer : `query = query.filter(BilanData.property_id == property_id)`
   - **Ajouter log backend** : `logger.info(f"[BilanService] get_bilan_data - property_id={property_id}")`
 - [ ] Modifier `invalidate_all_bilan` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
-  - Filtrer : `query = query.filter(BilanData.property_id == property_id)` (si BilanData a property_id)
+  - Filtrer : `query = query.filter(BilanData.property_id == property_id)`
   - **Ajouter log backend** : `logger.info(f"[BilanService] invalidate_all_bilan - property_id={property_id}")`
 - [ ] Modifier `invalidate_bilan_for_year` dans `backend/api/services/bilan_service.py` :
   - Ajouter paramètre `property_id: int`
   - Filtrer : `query = query.filter(BilanData.annee == year, BilanData.property_id == property_id)`
   - **Ajouter log backend** : `logger.info(f"[BilanService] invalidate_bilan_for_year - year={year}, property_id={property_id}")`
 - [ ] **CRITIQUE** : Mettre à jour tous les appels à ces fonctions dans :
-  - `backend/api/routes/bilan.py` : passer `property_id` depuis le paramètre de l'endpoint
-  - `backend/api/routes/loan_payments.py` : passer `property_id` depuis le `LoanPayment.property_id`
-  - `backend/api/routes/transactions.py` : passer `property_id` depuis le `Transaction.property_id`
-  - `backend/api/routes/compte_resultat.py` : passer `property_id` depuis le paramètre de l'endpoint
-- [ ] **CRITIQUE** : Mettre à jour les appels croisés entre services :
-  - Dans `bilan_service.py`, ligne 248 et 303 : `calculate_compte_resultat(db, year)` → `calculate_compte_resultat(db, year, mappings, level_3_values, property_id)`
-  - Dans `bilan_service.py`, ligne 389 : `calculate_compte_resultat(db, year)` → `calculate_compte_resultat(db, year, mappings, level_3_values, property_id)`
-  - Dans `bilan_service.py`, ligne 520 : `calculate_resultat_exercice` appelle `calculate_compte_resultat` → passer `property_id`
-  - Dans `bilan_service.py`, ligne 524 : `calculate_report_a_nouveau` appelle `calculate_compte_resultat` → passer `property_id`
+  - `backend/api/routes/bilan.py` : passer `property_id` depuis le paramètre de l'endpoint (10 endpoints)
+  - `backend/api/routes/loan_payments.py` : passer `property_id` aux appels `invalidate_bilan_for_year`
+  - `backend/api/routes/transactions.py` : passer `property_id` aux appels `invalidate_bilan_for_year`
+  - `backend/api/routes/compte_resultat.py` : passer `property_id` aux appels `invalidate_bilan_for_year`
 
 **7. Validation et gestion d'erreurs** :
 - [ ] Ajouter validation dans chaque endpoint : `validate_property_id(db, property_id, "Bilan")` au début
@@ -2126,7 +2146,7 @@ Cette phase implique :
 **Status**: ⏳ À FAIRE
 
 **Tasks**:
-- [ ] Modifier `frontend/src/api/client.ts` :
+- [ ] Modifier `frontend/src/api/client.ts` (**10 méthodes**) :
   - `bilanAPI.getMappings` : Ajouter paramètre `propertyId: number`, passer dans query params
   - `bilanAPI.getMapping` : Ajouter paramètre `propertyId: number`, passer dans query params
   - `bilanAPI.createMapping` : Ajouter `property_id` dans le body
@@ -2134,36 +2154,35 @@ Cette phase implique :
   - `bilanAPI.deleteMapping` : Ajouter paramètre `propertyId: number`, passer dans query params
   - `bilanAPI.getConfig` : Ajouter paramètre `propertyId: number`, passer dans query params
   - `bilanAPI.updateConfig` : Ajouter `property_id` dans le body
-  - `bilanAPI.calculateMultipleYears` : Ajouter paramètre `propertyId: number`, passer dans query params
-  - `bilanAPI.calculateSingleYear` : Ajouter `property_id` dans le body
-  - `bilanAPI.getBilanData` : Ajouter paramètre `propertyId: number`, passer dans query params
-- [ ] Modifier `BilanTable.tsx` :
+  - `bilanAPI.calculateMultiple` : Ajouter paramètre `propertyId: number`, passer dans query params (**NOM CORRECT**)
+  - `bilanAPI.calculate` : Ajouter `property_id` dans le body (**NOM CORRECT**)
+  - `bilanAPI.getBilan` : Ajouter paramètre `propertyId: number`, passer dans query params (**NOM CORRECT**)
+- [ ] Modifier `BilanTable.tsx` (**3 appels API actuels : getMappings, getConfig, calculateMultiple**) :
   - Importer `useProperty` depuis `@/contexts/PropertyContext`
   - Passer `activeProperty.id` à tous les appels `bilanAPI.*` :
-    - `bilanAPI.calculateSingleYear(activeProperty.id, year)`
-    - `bilanAPI.getBilanData(activeProperty.id, year, startYear, endYear)`
-    - `bilanAPI.calculateMultipleYears(activeProperty.id, startYear, endYear)`
+    - `bilanAPI.getMappings(activeProperty.id)` (ligne 152)
+    - `bilanAPI.getConfig(activeProperty.id)` (ligne 156)
+    - `bilanAPI.calculateMultiple(activeProperty.id, years)` (ligne 160)
   - **CRITIQUE** : Mettre à jour les `useEffect` dependencies pour inclure `activeProperty?.id`
   - **Ajouter logs frontend** : `console.log('[BilanTable] propertyId:', activeProperty?.id)` au début du composant
   - **Ajouter logs frontend** : `console.log('[BilanTable] API call:', methodName, 'propertyId:', activeProperty?.id)` avant chaque appel API
   - **Ajouter logs erreur frontend** : `console.error('[BilanTable] Erreur:', err)` dans tous les catch
-- [ ] Modifier `BilanConfigCard.tsx` :
+- [ ] Modifier `BilanConfigCard.tsx` (**14 appels API actuels**) :
   - Importer `useProperty` depuis `@/contexts/PropertyContext`
   - Passer `activeProperty.id` à tous les appels `bilanAPI.*` :
-    - `bilanAPI.getMappings(activeProperty.id)`
-    - `bilanAPI.getMapping(activeProperty.id, id)`
-    - `bilanAPI.createMapping(activeProperty.id, data)`
-    - `bilanAPI.updateMapping(activeProperty.id, id, data)`
-    - `bilanAPI.deleteMapping(activeProperty.id, id)`
-    - `bilanAPI.getConfig(activeProperty.id)`
-    - `bilanAPI.updateConfig(activeProperty.id, data)`
+    - `bilanAPI.getConfig(activeProperty.id)` (ligne 115)
+    - `bilanAPI.getMappings(activeProperty.id)` (ligne 140)
+    - `bilanAPI.updateConfig(activeProperty.id, data)` (ligne 222)
+    - `bilanAPI.createMapping(activeProperty.id, data)` (lignes 270, 368)
+    - `bilanAPI.updateMapping(activeProperty.id, id, data)` (lignes 318, 408, 451, 471, 490)
+    - `bilanAPI.deleteMapping(activeProperty.id, id)` (lignes 536, 590, 675)
   - Passer `activeProperty.id` à tous les appels `transactionsAPI.getUniqueValues(activeProperty.id, column)` (pour level_1 et level_3)
   - **CRITIQUE** : Mettre à jour les `useEffect` dependencies pour inclure `activeProperty?.id`
   - **Ajouter logs frontend** : `console.log('[BilanConfigCard] propertyId:', activeProperty?.id)` au début du composant
   - **Ajouter logs frontend** : `console.log('[BilanConfigCard] API call:', methodName, 'propertyId:', activeProperty?.id)` avant chaque appel API
   - **Ajouter logs erreur frontend** : `console.error('[BilanConfigCard] Erreur:', err)` dans tous les catch
 - [ ] **Ajouter logs dans `frontend/src/api/client.ts`** :
-  - `bilanAPI.*` : Ajouter `console.log('[API] bilanAPI.{method} - propertyId={propertyId}')` avant chaque appel
+  - `bilanAPI.*` : Ajouter `console.log('[API] bilanAPI.{method} - propertyId=${propertyId}')` avant chaque appel
 - [ ] Créer script de test frontend : `frontend/scripts/test_bilan_isolation_phase_11_bis_6_2.js`
 
 **Tests d'isolation (script frontend)**:
@@ -2181,7 +2200,20 @@ Cette phase implique :
 - [ ] Vérifier que le compte bancaire est isolé par propriété
 - [ ] Vérifier que le capital restant dû est isolé par propriété
 
-**Tests de non-régression (manuel)**:
+**Tests de non-régression (script Python)** - `backend/scripts/test_bilan_non_regression_phase_11_bis_6_2.py`:
+- [ ] GET /api/bilan/mappings retourne les mappings pour property_id ✅
+- [ ] GET /api/bilan/mappings/{id} retourne un mapping spécifique ✅
+- [ ] POST /api/bilan/mappings crée un mapping avec property_id ✅
+- [ ] PUT /api/bilan/mappings/{id} modifie un mapping existant ✅
+- [ ] DELETE /api/bilan/mappings/{id} supprime un mapping ✅
+- [ ] GET /api/bilan/config retourne la config pour property_id ✅
+- [ ] PUT /api/bilan/config modifie la config ✅
+- [ ] GET /api/bilan/calculate?years=... retourne le bilan calculé ✅
+- [ ] POST /api/bilan/calculate calcule le bilan pour une année ✅
+- [ ] GET /api/bilan retourne les données du bilan ✅
+- [ ] Les logs backend contiennent property_id pour chaque appel ✅
+
+**Tests de non-régression (manuel frontend)**:
 - [ ] Affichage du bilan fonctionne ✅
 - [ ] Calcul automatique fonctionne ✅
 - [ ] Affichage par année fonctionne ✅
@@ -2194,6 +2226,9 @@ Cette phase implique :
 - [ ] Suppression d'un mapping fonctionne ✅
 - [ ] Réinitialisation des mappings fonctionne ✅
 - [ ] Configuration des catégories spéciales fonctionne ✅
+- [ ] Changement de propriété recharge les données correctement ✅
+- [ ] Les logs frontend console.log montrent les appels API avec propertyId ✅
+- [ ] Aucune erreur console.error dans le navigateur ✅
 
 **Validation avant Step 6.3** :
 - [ ] Tous les tests d'isolation passent ✅

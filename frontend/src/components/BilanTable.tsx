@@ -10,18 +10,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { bilanAPI, BilanMapping, BilanResponse, transactionsAPI, BilanConfig } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface BilanTableProps {
   refreshKey?: number; // Pour forcer le rechargement
 }
 
 // Fonction pour récupérer les années à afficher depuis les transactions
-const getYearsToDisplay = async (): Promise<number[]> => {
+const getYearsToDisplay = async (propertyId: number): Promise<number[]> => {
   const currentYear = new Date().getFullYear();
   
   try {
-    // Récupérer la première transaction (triée par date croissante)
+    // Récupérer la première transaction (triée par date croissante) pour cette propriété
     const firstTransactionResponse = await transactionsAPI.getAll(
+      propertyId, // propertyId
       0, // skip
       1, // limit
       undefined, // startDate
@@ -46,7 +48,7 @@ const getYearsToDisplay = async (): Promise<number[]> => {
     }
     return years;
   } catch (error) {
-    console.error('Erreur lors de la récupération de la première transaction:', error);
+    console.error('[BilanTable] Erreur lors de la récupération de la première transaction:', error);
     // En cas d'erreur, utiliser 2020 comme valeur par défaut
     const years: number[] = [];
     for (let year = 2020; year <= currentYear; year++) {
@@ -75,6 +77,7 @@ const NEGATIVE_CATEGORIES = [
 ];
 
 export default function BilanTable({ refreshKey }: BilanTableProps) {
+  const { activeProperty } = useProperty();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [years, setYears] = useState<number[]>([]);
@@ -82,30 +85,36 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
   const [config, setConfig] = useState<BilanConfig | null>(null);
   const [bilanData, setBilanData] = useState<Record<number, BilanResponse>>({});
 
+  console.log('[BilanTable] propertyId:', activeProperty?.id);
+
   // Calculer les années à afficher depuis les transactions
   useEffect(() => {
     const loadYears = async () => {
-      const yearsToDisplay = await getYearsToDisplay();
+      if (!activeProperty?.id) return;
+      console.log('[BilanTable] Chargement des années pour propertyId:', activeProperty.id);
+      const yearsToDisplay = await getYearsToDisplay(activeProperty.id);
       setYears(yearsToDisplay);
     };
     loadYears();
-  }, []);
+  }, [activeProperty?.id]);
 
   // Charger les mappings et les données depuis l'API
   useEffect(() => {
-    if (years.length > 0) {
+    if (years.length > 0 && activeProperty?.id) {
       loadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, years.length]);
+  }, [refreshKey, years.length, activeProperty?.id]);
 
   // Écouter les événements de modification de crédits pour rafraîchir automatiquement
   useEffect(() => {
+    if (!activeProperty?.id) return;
+    
     const handleLoanConfigUpdated = async () => {
       console.log('🔄 [BilanTable] Événement loanConfigUpdated reçu, rafraîchissement du bilan...');
       // Si les années ne sont pas encore chargées, les charger d'abord
       if (years.length === 0) {
-        const yearsToDisplay = await getYearsToDisplay();
+        const yearsToDisplay = await getYearsToDisplay(activeProperty.id);
         setYears(yearsToDisplay);
         // Attendre un peu pour que le state soit mis à jour
         setTimeout(() => {
@@ -120,7 +129,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
       console.log('🔄 [BilanTable] Événement loanPaymentUpdated reçu, rafraîchissement du bilan...');
       // Si les années ne sont pas encore chargées, les charger d'abord
       if (years.length === 0) {
-        const yearsToDisplay = await getYearsToDisplay();
+        const yearsToDisplay = await getYearsToDisplay(activeProperty.id);
         setYears(yearsToDisplay);
         // Attendre un peu pour que le state soit mis à jour
         setTimeout(() => {
@@ -139,28 +148,32 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
       window.removeEventListener('loanPaymentUpdated', handleLoanPaymentUpdated);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [years.length]);
+  }, [years.length, activeProperty?.id]);
 
   const loadData = async () => {
-    if (years.length === 0) return;
+    if (years.length === 0 || !activeProperty?.id) return;
     
     try {
       setLoading(true);
       setError(null);
       
+      console.log('[BilanTable] API call: getMappings, propertyId:', activeProperty.id);
       // Charger les mappings
-      const mappingsResponse = await bilanAPI.getMappings();
+      const mappingsResponse = await bilanAPI.getMappings(activeProperty.id);
       setMappings(mappingsResponse.items || []);
       
+      console.log('[BilanTable] API call: getConfig, propertyId:', activeProperty.id);
       // Charger la configuration (pour obtenir les level_3_values sélectionnés)
-      const configResponse = await bilanAPI.getConfig();
+      const configResponse = await bilanAPI.getConfig(activeProperty.id);
       setConfig(configResponse);
       
+      console.log('[BilanTable] API call: calculateMultiple, propertyId:', activeProperty.id);
       // Charger les données du bilan pour toutes les années en une fois (comme compte de résultat)
-      const calculateResponse = await bilanAPI.calculateMultiple(years);
+      const calculateResponse = await bilanAPI.calculateMultiple(activeProperty.id, years);
       
       // Debug: Vérifier les données reçues
       console.log('📊 [BilanTable] Données reçues:', {
+        propertyId: activeProperty.id,
         years: calculateResponse.years,
         resultsKeys: Object.keys(calculateResponse.results)
       });
@@ -187,7 +200,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
       // Construire le map des données
       setBilanData(calculateResponse.results);
     } catch (err: any) {
-      console.error('Erreur lors du chargement des données:', err);
+      console.error('[BilanTable] Erreur lors du chargement des données:', err);
       setError(err.message || 'Erreur lors du chargement des données');
     } finally {
       setLoading(false);
