@@ -469,9 +469,11 @@ def calculate_compte_resultat(
     total_produits = sum(produits.values())
     
     # Total des charges d'exploitation (exclut les charges d'intérêt)
+    # Note: Les charges sont négatives (sorties d'argent), les crédits/remboursements sont positifs
+    # On prend abs(sum()) pour que les crédits réduisent correctement le total des charges
     charges_exploitation = {k: v for k, v in charges.items() 
                             if k != "Coût du financement (hors remboursement du capital)"}
-    total_charges_exploitation = sum(abs(v) for v in charges_exploitation.values() if v)
+    total_charges_exploitation = abs(sum(v for v in charges_exploitation.values() if v))
     
     # Résultat d'exploitation = Produits - Charges d'exploitation (sans charges d'intérêt)
     resultat_exploitation = total_produits - total_charges_exploitation
