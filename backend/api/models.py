@@ -273,13 +273,14 @@ class PivotConfigBase(BaseModel):
 
 class PivotConfigCreate(PivotConfigBase):
     """Model for creating a pivot config."""
-    pass
+    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
 class PivotConfigUpdate(BaseModel):
     """Model for updating a pivot config."""
     name: Optional[str] = Field(None, max_length=255, description="Nom du tableau croisé")
     config: Optional[Dict[str, Any]] = Field(None, description="Configuration JSON (rows, columns, data, filters)")
+    property_id: Optional[int] = Field(None, description="ID de la propriété")
 
 
 class PivotConfigResponse(PivotConfigBase):

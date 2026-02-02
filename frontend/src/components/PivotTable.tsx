@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from 'react';
 import React from 'react';
 import { analyticsAPI, PivotData } from '@/api/client';
 import { PivotFieldConfig } from './PivotFieldSelector';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface PivotTableProps {
   config: PivotFieldConfig;
@@ -27,15 +28,25 @@ interface PivotRow {
 }
 
 export default function PivotTable({ config, onCellClick }: PivotTableProps) {
+  const { activeProperty } = useProperty();
   const [pivotData, setPivotData] = useState<PivotData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; rowKey: string | number | (string | number)[]; rowLevel: number } | null>(null);
 
-  // Appeler l'API quand la config change
+  console.log('[PivotTable] propertyId:', activeProperty?.id);
+
+  // Appeler l'API quand la config ou la propriété change
   useEffect(() => {
     const loadPivotData = async () => {
+      // Ne pas charger si pas de propriété
+      if (!activeProperty?.id) {
+        console.log('[PivotTable] Pas de propriété active, skip le chargement');
+        setPivotData(null);
+        return;
+      }
+
       // Ne pas charger si pas de lignes ou colonnes
       if (config.rows.length === 0 && config.columns.length === 0) {
         setPivotData(null);
@@ -46,19 +57,16 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
       setError(null);
 
       try {
+        console.log('[PivotTable] Chargement pivot data pour propertyId:', activeProperty.id);
         const data = await analyticsAPI.getPivot(
+          activeProperty.id,
           config.rows.length > 0 ? config.rows : undefined,
           config.columns.length > 0 ? config.columns : undefined,
           'quantite',
           'sum',
           config.filters
         );
-        console.log('Pivot data reçue:', data);
-        console.log('Pivot data reçue:', data);
-        console.log('Rows:', data.rows);
-        console.log('Columns:', data.columns);
-        console.log('Data:', data.data);
-        console.log('Row totals:', data.row_totals);
+        console.log('[PivotTable] Pivot data reçue pour propertyId:', activeProperty.id, data);
         setPivotData(data);
         // Expand tout par défaut
         if (data.rows) {
@@ -72,14 +80,14 @@ export default function PivotTable({ config, onCellClick }: PivotTableProps) {
         }
       } catch (err: any) {
         setError(err.message || 'Erreur lors du chargement des données');
-        console.error('Erreur pivot:', err);
+        console.error('[PivotTable] Erreur:', err);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadPivotData();
-  }, [config]);
+  }, [config, activeProperty?.id]);
 
   // Convertir les clés en strings pour l'affichage
   const formatKey = (key: string | number | (string | number)[]): string => {

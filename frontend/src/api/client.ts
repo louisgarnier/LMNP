@@ -1145,16 +1145,24 @@ export interface PivotDetailsParams {
 
 export const analyticsAPI = {
   /**
-   * Récupère les données du tableau croisé dynamique
+   * Récupère les données du tableau croisé dynamique pour une propriété
    */
   getPivot: async (
+    propertyId: number,
     rows?: string[],
     columns?: string[],
     dataField: string = 'quantite',
     dataOperation: string = 'sum',
     filters?: Record<string, any>
   ): Promise<PivotData> => {
+    if (!propertyId) {
+      console.error('[API] analyticsAPI.getPivot - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log('[API] analyticsAPI.getPivot - propertyId:', propertyId);
+    
     const params = new URLSearchParams();
+    params.append('property_id', propertyId.toString());
     
     if (rows && rows.length > 0) {
       params.append('rows', rows.join(','));
@@ -1173,14 +1181,22 @@ export const analyticsAPI = {
   },
 
   /**
-   * Récupère les transactions détaillées d'une cellule du tableau croisé
+   * Récupère les transactions détaillées d'une cellule du tableau croisé pour une propriété
    */
   getPivotDetails: async (
+    propertyId: number,
     params: PivotDetailsParams,
     skip: number = 0,
     limit: number = 100
   ): Promise<TransactionListResponse> => {
+    if (!propertyId) {
+      console.error('[API] analyticsAPI.getPivotDetails - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log('[API] analyticsAPI.getPivotDetails - propertyId:', propertyId);
+    
     const queryParams = new URLSearchParams();
+    queryParams.append('property_id', propertyId.toString());
     
     if (params.rows) {
       queryParams.append('rows', params.rows);
@@ -1248,35 +1264,55 @@ export interface PivotConfigUpdate {
 
 export const pivotConfigsAPI = {
   /**
-   * Liste tous les tableaux croisés sauvegardés
+   * Liste tous les tableaux croisés sauvegardés pour une propriété
    */
-  getAll: async (skip: number = 0, limit: number = 100): Promise<PivotConfigListResponse> => {
-    return fetchAPI<PivotConfigListResponse>(`/api/pivot-configs?skip=${skip}&limit=${limit}`);
+  getAll: async (propertyId: number, skip: number = 0, limit: number = 100): Promise<PivotConfigListResponse> => {
+    if (!propertyId) {
+      console.error('[API] pivotConfigsAPI.getAll - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log('[API] pivotConfigsAPI.getAll - propertyId:', propertyId);
+    return fetchAPI<PivotConfigListResponse>(`/api/pivot-configs?property_id=${propertyId}&skip=${skip}&limit=${limit}`);
   },
 
   /**
    * Récupère un tableau croisé par ID
    */
-  getById: async (id: number): Promise<PivotConfigResponse> => {
-    return fetchAPI<PivotConfigResponse>(`/api/pivot-configs/${id}`);
+  getById: async (propertyId: number, id: number): Promise<PivotConfigResponse> => {
+    if (!propertyId) {
+      console.error('[API] pivotConfigsAPI.getById - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log('[API] pivotConfigsAPI.getById - propertyId:', propertyId, 'id:', id);
+    return fetchAPI<PivotConfigResponse>(`/api/pivot-configs/${id}?property_id=${propertyId}`);
   },
 
   /**
    * Crée un nouveau tableau croisé
    */
-  create: async (data: PivotConfigCreate): Promise<PivotConfigResponse> => {
+  create: async (propertyId: number, data: PivotConfigCreate): Promise<PivotConfigResponse> => {
+    if (!propertyId) {
+      console.error('[API] pivotConfigsAPI.create - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log('[API] pivotConfigsAPI.create - propertyId:', propertyId);
     return fetchAPI<PivotConfigResponse>('/api/pivot-configs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
+      body: JSON.stringify({ ...data, property_id: propertyId }),
     });
   },
 
   /**
    * Met à jour un tableau croisé
    */
-  update: async (id: number, data: PivotConfigUpdate): Promise<PivotConfigResponse> => {
-    return fetchAPI<PivotConfigResponse>(`/api/pivot-configs/${id}`, {
+  update: async (propertyId: number, id: number, data: PivotConfigUpdate): Promise<PivotConfigResponse> => {
+    if (!propertyId) {
+      console.error('[API] pivotConfigsAPI.update - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log('[API] pivotConfigsAPI.update - propertyId:', propertyId, 'id:', id);
+    return fetchAPI<PivotConfigResponse>(`/api/pivot-configs/${id}?property_id=${propertyId}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
@@ -1286,8 +1322,13 @@ export const pivotConfigsAPI = {
   /**
    * Supprime un tableau croisé
    */
-  delete: async (id: number): Promise<void> => {
-    return fetchAPI<void>(`/api/pivot-configs/${id}`, {
+  delete: async (propertyId: number, id: number): Promise<void> => {
+    if (!propertyId) {
+      console.error('[API] pivotConfigsAPI.delete - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log('[API] pivotConfigsAPI.delete - propertyId:', propertyId, 'id:', id);
+    return fetchAPI<void>(`/api/pivot-configs/${id}?property_id=${propertyId}`, {
       method: 'DELETE',
     });
   },

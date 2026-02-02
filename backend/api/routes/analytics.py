@@ -9,10 +9,15 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, and_, or_
 from typing import List, Optional, Dict, Any
 from datetime import date
+import logging
 
 from backend.database import get_db
 from backend.database.models import Transaction, EnrichedTransaction
 from backend.api.models import TransactionResponse, TransactionListResponse
+from backend.api.utils.validation import validate_property_id
+
+# Configure logger
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -50,26 +55,32 @@ def get_field_column(field: str, transaction_alias=None, enriched_alias=None):
     return field_mapping[field]
 
 
-def apply_filters(query, filters: Dict[str, Any], transaction_alias=None, enriched_alias=None):
+def apply_filters(query, filters: Dict[str, Any], property_id: int, transaction_alias=None, enriched_alias=None):
     """
     Applique les filtres à la requête.
     
     Args:
         query: Requête SQLAlchemy
         filters: Dictionnaire de filtres {field: value}
+        property_id: ID de la propriété pour filtrer les transactions
         transaction_alias: Alias SQLAlchemy pour Transaction
         enriched_alias: Alias SQLAlchemy pour EnrichedTransaction
     
     Returns:
         Requête filtrée
     """
-    if not filters:
-        return query
+    logger.info(f"[PivotService] apply_filters - property_id={property_id}")
     
     if transaction_alias is None:
         transaction_alias = Transaction
     if enriched_alias is None:
         enriched_alias = EnrichedTransaction
+    
+    # Always filter by property_id first
+    query = query.filter(transaction_alias.property_id == property_id)
+    
+    if not filters:
+        return query
     
     for field, value in filters.items():
         if value is None:
@@ -112,6 +123,7 @@ def apply_filters(query, filters: Dict[str, Any], transaction_alias=None, enrich
 
 @router.get("/analytics/pivot")
 async def get_pivot_data(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     rows: Optional[str] = Query(None, description="Champs pour les lignes (séparés par virgule, ex: 'level_1,level_2')"),
     columns: Optional[str] = Query(None, description="Champs pour les colonnes (séparés par virgule, ex: 'mois')"),
     data_field: str = Query("quantite", description="Champ pour les données (quantite uniquement pour l'instant)"),
@@ -123,6 +135,7 @@ async def get_pivot_data(
     Calcule les données pour un tableau croisé dynamique.
     
     Paramètres:
+    - property_id: ID de la propriété (obligatoire)
     - rows: Champs pour les lignes (séparés par virgule)
     - columns: Champs pour les colonnes (séparés par virgule)
     - data_field: Champ pour les données (quantite uniquement)
@@ -133,6 +146,11 @@ async def get_pivot_data(
     - Structure de données pour tableau croisé (lignes, colonnes, valeurs, totaux)
     """
     import json
+    
+    logger.info(f"[Pivot] GET /api/analytics/pivot - property_id={property_id}")
+    
+    # Validate property_id
+    validate_property_id(db, property_id, "Pivot")
     
     # Parser les paramètres
     row_fields = [f.strip() for f in rows.split(',')] if rows else []
@@ -167,8 +185,8 @@ async def get_pivot_data(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     )
     
-    # Appliquer les filtres
-    query = apply_filters(query, filter_dict)
+    # Appliquer les filtres (includes property_id filtering)
+    query = apply_filters(query, filter_dict, property_id)
     
     # Construire le groupby
     group_by_columns = []
@@ -180,6 +198,7 @@ async def get_pivot_data(
     # Si pas de groupby, on retourne juste le total
     if not group_by_columns:
         total = query.with_entities(func.sum(Transaction.quantite)).scalar() or 0.0
+        logger.info(f"[Pivot] Pivot data calculé pour property_id={property_id} - total={total}")
         return {
             "rows": [],
             "columns": [],
@@ -296,6 +315,8 @@ async def get_pivot_data(
     unique_rows = make_serializable_list(unique_rows)
     unique_columns = make_serializable_list(unique_columns)
     
+    logger.info(f"[Pivot] Pivot data calculé pour property_id={property_id} - {len(unique_rows)} lignes, {len(unique_columns)} colonnes")
+    
     return {
         "rows": unique_rows,
         "columns": unique_columns,
@@ -310,6 +331,7 @@ async def get_pivot_data(
 
 @router.get("/analytics/pivot/details", response_model=TransactionListResponse)
 async def get_pivot_details(
+    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     rows: Optional[str] = Query(None, description="Champs pour les lignes (séparés par virgule, ex: 'level_1,level_2')"),
     columns: Optional[str] = Query(None, description="Champs pour les colonnes (séparés par virgule, ex: 'mois')"),
     row_values: Optional[str] = Query(None, description="Valeurs spécifiques de la ligne (JSON array, ex: '[\"CHARGES\", \"Énergie\"]')"),
@@ -323,6 +345,7 @@ async def get_pivot_details(
     Récupère les transactions détaillées correspondant à une cellule du tableau croisé.
     
     Paramètres:
+    - property_id: ID de la propriété (obligatoire)
     - rows: Champs pour les lignes (séparés par virgule)
     - columns: Champs pour les colonnes (séparés par virgule)
     - row_values: Valeurs spécifiques de la ligne (JSON array)
@@ -335,6 +358,11 @@ async def get_pivot_details(
     - Liste des transactions correspondantes avec pagination
     """
     import json
+    
+    logger.info(f"[Pivot] GET /api/analytics/pivot/details - property_id={property_id}")
+    
+    # Validate property_id
+    validate_property_id(db, property_id, "Pivot")
     
     # Parser les paramètres
     row_fields = [f.strip() for f in rows.split(',')] if rows else []
@@ -385,8 +413,8 @@ async def get_pivot_details(
         EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
     )
     
-    # Appliquer les filtres globaux
-    query = apply_filters(query, filter_dict)
+    # Appliquer les filtres globaux (includes property_id filtering)
+    query = apply_filters(query, filter_dict, property_id)
     
     # Appliquer les filtres pour les valeurs de ligne
     for i, field in enumerate(row_fields):
@@ -442,10 +470,11 @@ async def get_pivot_details(
         }
         transaction_responses.append(TransactionResponse(**transaction_dict))
     
+    logger.info(f"[Pivot] Pivot details retournés pour property_id={property_id} - {len(transaction_responses)} transactions")
+    
     return TransactionListResponse(
         transactions=transaction_responses,
         total=total,
         page=(skip // limit) + 1 if limit > 0 else 1,
         page_size=limit
     )
-

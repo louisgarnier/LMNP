@@ -1,9 +1,9 @@
 
 # Phase 11 : Multi-propriétés (Appartements) - Approche par Onglet
 
-**Status**: ⏳ À FAIRE  
+**Status**: ✅ COMPLÉTÉ (02/02/2026)
 **Environnement**: Local uniquement  
-**Durée estimée**: 3-4 semaines
+**Durée**: 3 semaines (complété)
 
 ## ⚠️ RAPPELS CRITIQUES
 
@@ -2279,7 +2279,7 @@ Cette phase implique :
 ---
 
 ### Step 7.1 : Backend - Endpoints Pivot avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ (02/02/2026)
 
 **RÉCAPITULATIF COMPLET DES FICHIERS À MODIFIER** :
 
@@ -2435,7 +2435,7 @@ Cette phase implique :
 ---
 
 ### Step 7.2 : Frontend - Page Pivot avec property_id
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ (02/02/2026)
 
 **Tasks**:
 - [ ] Modifier `frontend/src/api/client.ts` :
@@ -2541,7 +2541,7 @@ Cette phase implique :
 ---
 
 ### Step 7.3 : Migration des données Pivot existantes
-**Status**: ⏳ À FAIRE
+**Status**: ✅ COMPLÉTÉ (02/02/2026)
 
 **Tasks**:
 - [ ] Créer un script de migration : `backend/scripts/migrate_pivot_phase_11_bis_7_3.py`

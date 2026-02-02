@@ -8,6 +8,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { transactionsAPI } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 // Types
 export type FieldType = 'date' | 'mois' | 'annee' | 'level_1' | 'level_2' | 'level_3' | 'nom' | 'quantite';
@@ -43,6 +44,7 @@ const AVAILABLE_FIELDS: FieldType[] = ['date', 'mois', 'annee', 'level_1', 'leve
 const FILTER_FIELDS: FieldType[] = ['date', 'mois', 'annee', 'level_1', 'level_2', 'level_3', 'nom'];
 
 export default function PivotFieldSelector({ config, onChange }: PivotFieldSelectorProps) {
+  const { activeProperty } = useProperty();
   const [isOpen, setIsOpen] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -51,6 +53,8 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
   const [loadingValues, setLoadingValues] = useState<Record<string, boolean>>({});
   const [newFilterField, setNewFilterField] = useState<FieldType | ''>('');
   const [newFilterValue, setNewFilterValue] = useState<string>('');
+  
+  console.log('[PivotFieldSelector] propertyId:', activeProperty?.id);
 
   // Fermer le panneau si on clique en dehors
   useEffect(() => {
@@ -101,16 +105,22 @@ export default function PivotFieldSelector({ config, onChange }: PivotFieldSelec
 
   // Charger les valeurs uniques pour un champ
   const loadUniqueValues = async (field: FieldType) => {
+    if (!activeProperty?.id) {
+      console.log('[PivotFieldSelector] Pas de propriété active, skip le chargement des valeurs');
+      return;
+    }
+    
     if (uniqueValues[field] || loadingValues[field]) {
       return;
     }
 
     setLoadingValues((prev) => ({ ...prev, [field]: true }));
     try {
-      const response = await transactionsAPI.getUniqueValues(field);
+      console.log('[PivotFieldSelector] Chargement valeurs pour', field, 'propertyId:', activeProperty.id);
+      const response = await transactionsAPI.getUniqueValues(activeProperty.id, field);
       setUniqueValues((prev) => ({ ...prev, [field]: response.values }));
     } catch (error) {
-      console.error(`Erreur lors du chargement des valeurs pour ${field}:`, error);
+      console.error(`[PivotFieldSelector] Erreur lors du chargement des valeurs pour ${field}:`, error);
       setUniqueValues((prev) => ({ ...prev, [field]: [] }));
     } finally {
       setLoadingValues((prev) => ({ ...prev, [field]: false }));

@@ -44,6 +44,8 @@ class Property(Base):
     bilan_mappings = relationship("BilanMapping", back_populates="property", cascade="all, delete-orphan")
     bilan_data = relationship("BilanData", back_populates="property", cascade="all, delete-orphan")
     bilan_config = relationship("BilanConfig", back_populates="property", cascade="all, delete-orphan")
+    # Pivot
+    pivot_configs = relationship("PivotConfig", back_populates="property", cascade="all, delete-orphan")
     
     # Index pour recherches fréquentes
     __table_args__ = (
@@ -250,14 +252,19 @@ class PivotConfig(Base):
     __tablename__ = "pivot_configs"
     
     id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False, index=True)  # Nom du tableau
     config = Column(Text, nullable=False)  # Configuration JSON (rows, columns, data, filters)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relation avec Property
+    property = relationship("Property", back_populates="pivot_configs")
+    
     # Index pour recherches
     __table_args__ = (
         Index('idx_pivot_configs_name', 'name'),
+        Index('idx_pivot_configs_property_id', 'property_id'),
     )
 
 

@@ -12,20 +12,33 @@ import PivotTable from '@/components/PivotTable';
 import PivotTabs, { PivotTab } from '@/components/PivotTabs';
 import PivotDetailsTable from '@/components/PivotDetailsTable';
 import { pivotConfigsAPI, PivotConfigResponse } from '@/api/client';
+import { useProperty } from '@/contexts/PropertyContext';
 
 export default function PivotPage() {
+  const { activeProperty } = useProperty();
   const [tabs, setTabs] = useState<PivotTab[]>([]);
   const [activeTabId, setActiveTabId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [selectedRowValues, setSelectedRowValues] = useState<(string | number)[]>([]);
   const [selectedColumnValues, setSelectedColumnValues] = useState<(string | number)[]>([]);
 
-  // Charger les tableaux sauvegardés au montage
+  console.log('[PivotPage] propertyId:', activeProperty?.id);
+
+  // Charger les tableaux sauvegardés au montage et quand la propriété change
   useEffect(() => {
     const loadSavedConfigs = async () => {
+      if (!activeProperty?.id) {
+        console.log('[PivotPage] Pas de propriété active, skip le chargement');
+        setIsLoading(false);
+        return;
+      }
+
+      console.log('[PivotPage] Chargement des configs pour propertyId:', activeProperty.id);
       setIsLoading(true);
       try {
-        const response = await pivotConfigsAPI.getAll(0, 100);
+        const response = await pivotConfigsAPI.getAll(activeProperty.id, 0, 100);
+        console.log('[PivotPage] Loaded', response.items.length, 'configs pour propertyId:', activeProperty.id);
+        
         const savedTabs: PivotTab[] = response.items.map((item) => ({
           id: `saved-${item.id}`,
           name: item.name,
@@ -72,18 +85,23 @@ export default function PivotPage() {
           setActiveTabId(uniqueSavedTabs[0].id);
         }
       } catch (error) {
-        console.error('Erreur lors du chargement des configs sauvegardés:', error);
+        console.error('[PivotPage] Erreur lors du chargement des configs sauvegardés:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
     loadSavedConfigs();
-  }, []);
+  }, [activeProperty?.id]);
 
   const activeTab = tabs.find(t => t.id === activeTabId) || tabs[0];
 
   const handleConfigChange = useCallback(async (newConfig: PivotFieldConfig) => {
+    if (!activeProperty?.id) {
+      console.error('[PivotPage] Pas de propertyId pour sauvegarder');
+      return;
+    }
+
     setTabs((prev) =>
       prev.map((tab) =>
         tab.id === activeTabId ? { ...tab, config: newConfig } : tab
@@ -95,7 +113,8 @@ export default function PivotPage() {
     if (activeTab?.isSaved) {
       const configId = parseInt(activeTabId.replace('saved-', ''));
       try {
-        await pivotConfigsAPI.update(configId, {
+        console.log('[PivotPage] Auto-save config', configId, 'pour propertyId:', activeProperty.id);
+        await pivotConfigsAPI.update(activeProperty.id, configId, {
           config: {
             rows: newConfig.rows,
             columns: newConfig.columns,
@@ -104,10 +123,10 @@ export default function PivotPage() {
           },
         });
       } catch (error) {
-        console.error('Erreur lors de la sauvegarde automatique:', error);
+        console.error('[PivotPage] Erreur lors de la sauvegarde automatique:', error);
       }
     }
-  }, [activeTabId, tabs]);
+  }, [activeTabId, tabs, activeProperty?.id]);
 
   const handleTabChange = (tabId: string) => {
     setActiveTabId(tabId);
@@ -140,6 +159,11 @@ export default function PivotPage() {
   };
 
   const handleTabRename = async (tabId: string, newName: string) => {
+    if (!activeProperty?.id) {
+      console.error('[PivotPage] Pas de propertyId pour renommer');
+      return;
+    }
+
     const tab = tabs.find(t => t.id === tabId);
     if (!tab) return;
 
@@ -151,14 +175,16 @@ export default function PivotPage() {
     if (tab.isSaved) {
       const configId = parseInt(tabId.replace('saved-', ''));
       try {
-        await pivotConfigsAPI.update(configId, { name: newName });
+        console.log('[PivotPage] Renommer config', configId, 'pour propertyId:', activeProperty.id);
+        await pivotConfigsAPI.update(activeProperty.id, configId, { name: newName });
       } catch (error) {
-        console.error('Erreur lors de la sauvegarde du nom:', error);
+        console.error('[PivotPage] Erreur lors de la sauvegarde du nom:', error);
       }
     } else {
       // Si c'est un nouvel onglet, créer la sauvegarde
       try {
-        const response = await pivotConfigsAPI.create({
+        console.log('[PivotPage] Créer config pour propertyId:', activeProperty.id);
+        const response = await pivotConfigsAPI.create(activeProperty.id, {
           name: newName,
           config: {
             rows: tab.config.rows,
@@ -196,12 +222,17 @@ export default function PivotPage() {
         });
         setActiveTabId(newSavedId);
       } catch (error) {
-        console.error('Erreur lors de la création de la sauvegarde:', error);
+        console.error('[PivotPage] Erreur lors de la création de la sauvegarde:', error);
       }
     }
   };
 
   const handleTabDelete = async (tabId: string) => {
+    if (!activeProperty?.id) {
+      console.error('[PivotPage] Pas de propertyId pour supprimer');
+      return;
+    }
+
     const tab = tabs.find(t => t.id === tabId);
     if (!tab) return;
 
@@ -209,9 +240,10 @@ export default function PivotPage() {
     if (tab.isSaved) {
       const configId = parseInt(tabId.replace('saved-', ''));
       try {
-        await pivotConfigsAPI.delete(configId);
+        console.log('[PivotPage] Supprimer config', configId, 'pour propertyId:', activeProperty.id);
+        await pivotConfigsAPI.delete(activeProperty.id, configId);
       } catch (error) {
-        console.error('Erreur lors de la suppression:', error);
+        console.error('[PivotPage] Erreur lors de la suppression:', error);
       }
     }
 
@@ -250,7 +282,7 @@ export default function PivotPage() {
   };
 
   const handleCellClick = (rowValues: (string | number)[], columnValues: (string | number)[]) => {
-    console.log('Cellule cliquée:', { rowValues, columnValues });
+    console.log('[PivotPage] Cellule cliquée:', { rowValues, columnValues });
     setSelectedRowValues(rowValues);
     setSelectedColumnValues(columnValues);
   };
@@ -259,6 +291,14 @@ export default function PivotPage() {
     setSelectedRowValues([]);
     setSelectedColumnValues([]);
   };
+
+  if (!activeProperty?.id) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ fontSize: '14px', color: '#6b7280' }}>Veuillez sélectionner une propriété</div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

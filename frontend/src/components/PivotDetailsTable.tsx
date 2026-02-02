@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import { analyticsAPI, Transaction, TransactionListResponse } from '@/api/client';
 import { PivotFieldConfig } from './PivotFieldSelector';
+import { useProperty } from '@/contexts/PropertyContext';
 
 interface PivotDetailsTableProps {
   config: PivotFieldConfig;
@@ -23,6 +24,7 @@ export default function PivotDetailsTable({
   columnValues, 
   onClose 
 }: PivotDetailsTableProps) {
+  const { activeProperty } = useProperty();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,9 +32,19 @@ export default function PivotDetailsTable({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
 
+  console.log('[PivotDetailsTable] propertyId:', activeProperty?.id);
+
   // Charger les transactions quand les paramètres changent
   useEffect(() => {
     const loadTransactions = async () => {
+      // Ne pas charger si pas de propriété
+      if (!activeProperty?.id) {
+        console.log('[PivotDetailsTable] Pas de propriété active, skip le chargement');
+        setTransactions([]);
+        setTotal(0);
+        return;
+      }
+
       // Ne pas charger si pas de valeurs
       if (rowValues.length === 0 && columnValues.length === 0) {
         setTransactions([]);
@@ -74,7 +86,9 @@ export default function PivotDetailsTable({
             : undefined,
         };
 
+        console.log('[PivotDetailsTable] Chargement pour propertyId:', activeProperty.id);
         const response: TransactionListResponse = await analyticsAPI.getPivotDetails(
+          activeProperty.id,
           params,
           skip,
           pageSize
@@ -82,9 +96,10 @@ export default function PivotDetailsTable({
 
         setTransactions(response.transactions);
         setTotal(response.total);
+        console.log('[PivotDetailsTable] Chargé', response.transactions.length, 'transactions pour propertyId:', activeProperty.id);
       } catch (err: any) {
         setError(err.message || 'Erreur lors du chargement des transactions');
-        console.error('Erreur chargement transactions:', err);
+        console.error('[PivotDetailsTable] Erreur:', err);
         setTransactions([]);
         setTotal(0);
       } finally {
@@ -93,7 +108,7 @@ export default function PivotDetailsTable({
     };
 
     loadTransactions();
-  }, [config, rowValues, columnValues, page, pageSize]);
+  }, [config, rowValues, columnValues, page, pageSize, activeProperty?.id]);
 
   // Réinitialiser la page quand les valeurs changent
   useEffect(() => {
