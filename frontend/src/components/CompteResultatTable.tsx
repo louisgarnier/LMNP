@@ -347,8 +347,13 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
     const yearsAhead = year - currentYear;
     if (yearsAhead <= 0) return null;
     
-    const rate = config.annual_growth_rate / 100; // Convertir pourcentage
-    return config.base_annual_amount * Math.pow(1 + rate, yearsAhead);
+    // Le taux est stocké en décimal dans la DB (ex: 0.02 pour 2%)
+    const rate = config.annual_growth_rate;
+    const projectedAmount = config.base_annual_amount * Math.pow(1 + rate, yearsAhead);
+    
+    console.log(`[CR Table] Projection ${category} ${year}: base=${config.base_annual_amount}, rate=${rate}, years=${yearsAhead} => ${projectedAmount}`);
+    
+    return projectedAmount;
   };
 
   // Fonction pour obtenir le montant d'une catégorie pour une année donnée
