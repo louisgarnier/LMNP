@@ -199,46 +199,61 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
       marginTop: '24px',
       padding: '20px'
     }}>
-      {/* Header avec bouton pin/unpin */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: isPinned ? '16px' : '0' 
-      }}>
-        <h3 
-          style={{ 
-            fontSize: '16px', 
-            fontWeight: '600', 
-            color: '#1e3a5f',
-            margin: 0,
-            cursor: 'pointer',
+      {/* En-tête de la card */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: isPinned ? '16px' : 0,
+        }}
+      >
+        <div
+          style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-          }}
-          onClick={() => setIsPinned(!isPinned)}
-        >
-          {getTitle()}
-          <span style={{ fontSize: '12px', color: '#6b7280' }}>
-            {isPinned ? '▼' : '▶'}
-          </span>
-        </h3>
-        <button
-          onClick={() => setIsPinned(!isPinned)}
-          style={{
-            padding: '6px 12px',
-            backgroundColor: isPinned ? '#dbeafe' : '#f3f4f6',
-            color: isPinned ? '#1e40af' : '#6b7280',
-            border: '1px solid ' + (isPinned ? '#3b82f6' : '#d1d5db'),
-            borderRadius: '6px',
+            gap: '12px',
+            flex: 1,
             cursor: 'pointer',
-            fontSize: '14px',
           }}
-          title={isPinned ? 'Réduire' : 'Épingler'}
+          onClick={() => setIsPinned(!isPinned)}
         >
-          {isPinned ? '📌' : '📍'}
-        </button>
+          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#1e3a5f' }}>
+            {getTitle()}
+          </h3>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsPinned(!isPinned);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '32px',
+              height: '32px',
+              padding: '0',
+              border: '1px solid #d1d5db',
+              borderRadius: '6px',
+              backgroundColor: '#ffffff',
+              cursor: 'pointer',
+              fontSize: '16px',
+              transition: 'all 0.2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = '#f9fafb';
+              e.currentTarget.style.borderColor = '#9ca3af';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = '#ffffff';
+              e.currentTarget.style.borderColor = '#d1d5db';
+            }}
+            title={isPinned ? 'Replier la card' : 'Déplier la card'}
+          >
+            {isPinned ? '📌' : '📍'}
+          </button>
+        </div>
       </div>
       
       {/* Contenu (visible seulement si épinglé) */}
