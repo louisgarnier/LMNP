@@ -233,14 +233,11 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
             border: '1px solid ' + (isPinned ? '#3b82f6' : '#d1d5db'),
             borderRadius: '6px',
             cursor: 'pointer',
-            fontSize: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
+            fontSize: '14px',
           }}
           title={isPinned ? 'Réduire' : 'Épingler'}
         >
-          {isPinned ? '📌 Épinglé' : '📍 Épingler'}
+          {isPinned ? '📌' : '📍'}
         </button>
       </div>
       
