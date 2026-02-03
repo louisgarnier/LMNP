@@ -344,6 +344,28 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
     return year === currentYear;
   };
 
+  // Obtenir le montant prévu pour une catégorie (année en cours)
+  const getPlannedAmount = (category: string): number | null => {
+    const config = forecastConfigs.find(c => c.level_1 === category);
+    return config?.base_annual_amount || null;
+  };
+
+  // Calculer le pourcentage réalisé (réel / prévu)
+  const getPercentageRealized = (category: string, realAmount: number | null): number | null => {
+    if (realAmount === null || realAmount === 0) return null;
+    const planned = getPlannedAmount(category);
+    if (!planned || planned === 0) return null;
+    return (realAmount / planned) * 100;
+  };
+
+  // Obtenir la couleur selon le pourcentage
+  const getPercentageColor = (percentage: number | null): string => {
+    if (percentage === null) return 'transparent';
+    if (percentage >= 100) return 'rgba(34, 197, 94, 0.3)'; // Vert
+    if (percentage >= 50) return 'rgba(251, 146, 60, 0.3)'; // Orange
+    return 'rgba(239, 68, 68, 0.3)'; // Rouge
+  };
+
   // Obtenir le style de bordure pour une colonne d'année
   const getYearColumnStyle = (year: number, baseStyle: React.CSSProperties): React.CSSProperties => {
     if (isCurrentYearColumn(year)) {
@@ -351,7 +373,6 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
         ...baseStyle,
         borderLeft: '2px solid #3b82f6',
         borderRight: '2px solid #3b82f6',
-        backgroundColor: isFutureYear(year) ? '#dbeafe' : '#eff6ff',
       };
     }
     if (isFutureYear(year)) {
@@ -361,6 +382,26 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
       };
     }
     return baseStyle;
+  };
+
+  // Obtenir le style avec jauge pour l'année en cours
+  const getCurrentYearCellStyle = (
+    category: string, 
+    realAmount: number | null, 
+    baseStyle: React.CSSProperties
+  ): React.CSSProperties => {
+    const percentage = getPercentageRealized(category, realAmount);
+    const color = getPercentageColor(percentage);
+    const fillPercent = percentage !== null ? Math.min(percentage, 100) : 0;
+    
+    return {
+      ...baseStyle,
+      borderLeft: '2px solid #3b82f6',
+      borderRight: '2px solid #3b82f6',
+      background: percentage !== null 
+        ? `linear-gradient(to right, ${color} ${fillPercent}%, transparent ${fillPercent}%)`
+        : 'transparent',
+    };
   };
 
   // Obtenir le montant projeté pour une catégorie configurable
@@ -776,14 +817,14 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                   {displayYears.map((year) => (
                     <td
                       key={year}
-                      style={{
+                      style={getYearColumnStyle(year, {
                         padding: '12px',
                         textAlign: 'right',
                         backgroundColor: '#e5e7eb',
                         border: '1px solid #d1d5db',
                         fontWeight: '700',
                         color: '#111827',
-                      }}
+                      })}
                     >
                       {formatAmount(getTotalProduits(year))}
                     </td>
@@ -804,18 +845,36 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                     </td>
                     {displayYears.map((year) => {
                       const amount = getAmount(category, year, 'Produits d\'exploitation');
-                      return (
-                        <td
-                          key={year}
-                          style={{
+                      const isCurrentYear = isCurrentYearColumn(year);
+                      const percentage = isCurrentYear ? getPercentageRealized(category, amount) : null;
+                      
+                      const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
+                        ? getCurrentYearCellStyle(category, amount, {
+                            padding: '12px',
+                            textAlign: 'right',
+                            border: '1px solid #e5e7eb',
+                            color: '#111827',
+                          })
+                        : getYearColumnStyle(year, {
                             padding: '12px',
                             textAlign: 'right',
                             backgroundColor: '#ffffff',
                             border: '1px solid #e5e7eb',
                             color: '#111827',
-                          }}
-                        >
-                          {formatAmount(amount)}
+                          });
+                      
+                      return (
+                        <td key={year} style={cellStyle}>
+                          <div>{formatAmount(amount)}</div>
+                          {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
+                            <div style={{ 
+                              fontSize: '10px', 
+                              color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
+                              fontWeight: '500'
+                            }}>
+                              {percentage.toFixed(0)}%
+                            </div>
+                          )}
                         </td>
                       );
                     })}
@@ -841,14 +900,14 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                   {displayYears.map((year) => (
                     <td
                       key={year}
-                      style={{
+                      style={getYearColumnStyle(year, {
                         padding: '12px',
                         textAlign: 'right',
                         backgroundColor: '#e5e7eb',
                         border: '1px solid #d1d5db',
                         fontWeight: '700',
                         color: '#111827',
-                      }}
+                      })}
                     >
                       {formatAmount(getTotalCharges(year))}
                     </td>
@@ -892,14 +951,14 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                           return (
                             <td
                               key={year}
-                              style={{
+                              style={getYearColumnStyle(year, {
                                 padding: '12px',
                                 textAlign: 'right',
                                 backgroundColor: '#f9fafb',
                                 border: '1px solid #e5e7eb',
                                 fontWeight: '600',
                                 color: '#111827',
-                              }}
+                              })}
                             >
                               {formatAmount(total !== 0 ? total : null)}
                             </td>
@@ -920,18 +979,36 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                           </td>
                           {displayYears.map((year) => {
                             const amount = getAmount(category, year, 'Charges d\'exploitation');
-                            return (
-                              <td
-                                key={year}
-                                style={{
+                            const isCurrentYear = isCurrentYearColumn(year);
+                            const percentage = isCurrentYear ? getPercentageRealized(category, amount) : null;
+                            
+                            const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
+                              ? getCurrentYearCellStyle(category, amount, {
+                                  padding: '12px',
+                                  textAlign: 'right',
+                                  border: '1px solid #e5e7eb',
+                                  color: '#111827',
+                                })
+                              : getYearColumnStyle(year, {
                                   padding: '12px',
                                   textAlign: 'right',
                                   backgroundColor: '#ffffff',
                                   border: '1px solid #e5e7eb',
                                   color: '#111827',
-                                }}
-                              >
-                                {formatAmount(amount)}
+                                });
+                            
+                            return (
+                              <td key={year} style={cellStyle}>
+                                <div>{formatAmount(amount)}</div>
+                                {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
+                                  <div style={{ 
+                                    fontSize: '10px', 
+                                    color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
+                                    fontWeight: '500'
+                                  }}>
+                                    {percentage.toFixed(0)}%
+                                  </div>
+                                )}
                               </td>
                             );
                           })}
@@ -970,19 +1047,40 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                             total += Math.abs(amount);
                           }
                         });
-                        return (
-                          <td
-                            key={year}
-                            style={{
+                        const isCurrentYear = isCurrentYearColumn(year);
+                        // Pour Impôts et taxes, calculer le % sur le total de la section
+                        const categoryName = 'Impôts et taxes';
+                        const percentage = isCurrentYear ? getPercentageRealized(categoryName, total !== 0 ? total : null) : null;
+                        
+                        const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
+                          ? getCurrentYearCellStyle(categoryName, total !== 0 ? total : null, {
+                              padding: '12px',
+                              textAlign: 'right',
+                              border: '1px solid #e5e7eb',
+                              fontWeight: '600',
+                              color: '#111827',
+                            })
+                          : getYearColumnStyle(year, {
                               padding: '12px',
                               textAlign: 'right',
                               backgroundColor: '#f9fafb',
                               border: '1px solid #e5e7eb',
                               fontWeight: '600',
                               color: '#111827',
-                            }}
-                          >
-                            {formatAmount(total !== 0 ? total : null)}
+                            });
+                        
+                        return (
+                          <td key={year} style={cellStyle}>
+                            <div>{formatAmount(total !== 0 ? total : null)}</div>
+                            {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
+                              <div style={{ 
+                                fontSize: '10px', 
+                                color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
+                                fontWeight: '500'
+                              }}>
+                                {percentage.toFixed(0)}%
+                              </div>
+                            )}
                           </td>
                         );
                       })}
@@ -1028,7 +1126,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                           return (
                             <td
                               key={year}
-                              style={{
+                              style={getYearColumnStyle(year, {
                                 padding: '12px',
                                 textAlign: 'right',
                                 backgroundColor: '#f9fafb',
@@ -1037,7 +1135,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                                 color: '#9ca3af',
                                 fontSize: '11px',
                                 fontStyle: 'italic',
-                              }}
+                              })}
                             >
                               Aucune donnée d'amortissement
                             </td>
@@ -1047,14 +1145,14 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                         return (
                           <td
                             key={year}
-                            style={{
+                            style={getYearColumnStyle(year, {
                               padding: '12px',
                               textAlign: 'right',
                               backgroundColor: '#f9fafb',
                               border: '1px solid #e5e7eb',
                               fontWeight: '600',
                               color: '#111827',
-                            }}
+                            })}
                           >
                             {formatAmount(total !== 0 ? total : null)}
                           </td>
@@ -1081,14 +1179,14 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
               {displayYears.map((year) => (
                 <td
                   key={year}
-                  style={{
+                  style={getYearColumnStyle(year, {
                     padding: '12px',
                     textAlign: 'right',
                     backgroundColor: '#e5e7eb',
                     border: '1px solid #d1d5db',
                     fontWeight: '700',
                     color: '#111827',
-                  }}
+                  })}
                 >
                   {formatAmount(getResultatExploitation(year))}
                 </td>
@@ -1128,7 +1226,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                       return (
                         <td
                           key={year}
-                          style={{
+                          style={getYearColumnStyle(year, {
                             padding: '12px',
                             textAlign: 'right',
                             backgroundColor: '#f9fafb',
@@ -1137,7 +1235,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                             color: '#9ca3af',
                             fontSize: '11px',
                             fontStyle: 'italic',
-                          }}
+                          })}
                         >
                           Aucun crédit configuré
                         </td>
@@ -1147,14 +1245,14 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                     return (
                       <td
                         key={year}
-                        style={{
+                        style={getYearColumnStyle(year, {
                           padding: '12px',
                           textAlign: 'right',
                           backgroundColor: '#f9fafb',
                           border: '1px solid #e5e7eb',
                           fontWeight: '600',
                           color: '#111827',
-                        }}
+                        })}
                       >
                         {formatAmount(total)}
                       </td>
@@ -1187,14 +1285,14 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                 return (
                   <td
                     key={year}
-                    style={{
+                    style={getYearColumnStyle(year, {
                       padding: '12px',
                       textAlign: 'right',
                       backgroundColor: '#e5e7eb',
                       border: '1px solid #d1d5db',
                       fontWeight: '700',
                       color: '#d946ef', // Magenta
-                    }}
+                    })}
                   >
                     {isOverrideEnabled && isEditing ? (
                       <input
@@ -1288,14 +1386,15 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                 return (
                   <td
                     key={year}
-                    style={{
+                    style={getYearColumnStyle(year, {
                       padding: '12px',
                       textAlign: 'right',
                       backgroundColor: '#e5e7eb',
                       border: '1px solid #d1d5db',
                       fontWeight: '700',
                       color: '#111827',
-                    }}
+                      borderBottom: isCurrentYearColumn(year) ? '2px solid #3b82f6' : '1px solid #d1d5db',
+                    })}
                   >
                     {formatAmount(cumule)}
                   </td>
