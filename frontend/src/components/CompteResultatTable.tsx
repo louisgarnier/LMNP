@@ -84,6 +84,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   const [forecastSettings, setForecastSettings] = useState<ProRataSettings | null>(null);
   const [forecastConfigs, setForecastConfigs] = useState<AnnualForecastConfig[]>([]);
   const [futureYearsData, setFutureYearsData] = useState<CompteResultatCalculateResponse | null>(null);
+  const [referenceData, setReferenceData] = useState<Record<string, { real: number; planned: number }>>({});
 
   // Fonction pour récupérer les années à afficher depuis les transactions
   const getYearsToDisplay = async (): Promise<number[]> => {
@@ -182,14 +183,34 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
         setForecastSettings(settings);
         console.log('[CompteResultatTable] Forecast settings:', settings);
         
-        // Si forecast est activé, charger les configs et calculer les années futures
-        if (settings.forecast_enabled && settings.forecast_years > 0) {
-          const currentYear = new Date().getFullYear();
+        // Si prorata ou forecast est activé, charger les données de référence
+        const currentYear = new Date().getFullYear();
+        
+        if (settings.prorata_enabled || settings.forecast_enabled) {
+          // Charger les configs
           const configs = await prorataAPI.getConfigs(activeProperty.id, currentYear, 'compte_resultat');
           setForecastConfigs(configs);
           console.log('[CompteResultatTable] Forecast configs:', configs);
           
-          // Calculer les années futures (pour les catégories calculées)
+          // Charger les données de référence (réel vs prévu) pour le calcul du %
+          const refData = await prorataAPI.getReferenceData(activeProperty.id, currentYear, 'compte_resultat');
+          const refMap: Record<string, { real: number; planned: number }> = {};
+          refData.categories.forEach(cat => {
+            const config = configs.find(c => c.level_1 === cat.level_1);
+            refMap[cat.level_1] = {
+              real: cat.real_current_year,
+              planned: config?.base_annual_amount || 0
+            };
+          });
+          setReferenceData(refMap);
+          console.log('[CompteResultatTable] Reference data for %:', refMap);
+        } else {
+          setForecastConfigs([]);
+          setReferenceData({});
+        }
+        
+        // Si forecast multi-années est activé, calculer les années futures
+        if (settings.forecast_enabled && settings.forecast_years > 0) {
           const futureYears = Array.from({ length: settings.forecast_years }, (_, i) => currentYear + i + 1);
           console.log('[CompteResultatTable] Calculating future years:', futureYears);
           
@@ -197,7 +218,6 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
           setFutureYearsData(futureResponse);
           console.log('[CompteResultatTable] Future years data:', futureResponse);
         } else {
-          setForecastConfigs([]);
           setFutureYearsData(null);
         }
       } catch (err: any) {
@@ -344,24 +364,12 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
     return year === currentYear;
   };
 
-  // Obtenir le montant prévu pour une catégorie (année en cours)
-  const getPlannedAmount = (category: string): number | null => {
-    const config = forecastConfigs.find(c => c.level_1 === category);
-    if (config) {
-      console.log(`[CR Table] getPlannedAmount('${category}'): found config with base_annual_amount=${config.base_annual_amount}`);
-    } else {
-      console.log(`[CR Table] getPlannedAmount('${category}'): NO CONFIG FOUND. Available configs:`, forecastConfigs.map(c => c.level_1));
-    }
-    return config?.base_annual_amount ?? null;
-  };
-
-  // Calculer le pourcentage réalisé (réel / prévu)
-  const getPercentageRealized = (category: string, realAmount: number | null): number | null => {
-    if (realAmount === null) return null;
-    const planned = getPlannedAmount(category);
-    if (planned === null || planned === 0) return null;
-    const percentage = (Math.abs(realAmount) / Math.abs(planned)) * 100;
-    console.log(`[CR Table] getPercentageRealized('${category}'): real=${realAmount}, planned=${planned}, %=${percentage.toFixed(1)}`);
+  // Calculer le pourcentage réalisé (réel / prévu) en utilisant les données de référence
+  const getPercentageRealized = (category: string): number | null => {
+    const ref = referenceData[category];
+    if (!ref) return null;
+    if (ref.planned === 0) return null;
+    const percentage = (Math.abs(ref.real) / Math.abs(ref.planned)) * 100;
     return percentage;
   };
 
@@ -394,10 +402,9 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   // Obtenir le style avec jauge pour l'année en cours
   const getCurrentYearCellStyle = (
     category: string, 
-    realAmount: number | null, 
     baseStyle: React.CSSProperties
   ): React.CSSProperties => {
-    const percentage = getPercentageRealized(category, realAmount);
+    const percentage = getPercentageRealized(category);
     const color = getPercentageColor(percentage);
     const fillPercent = percentage !== null ? Math.min(percentage, 100) : 0;
     
@@ -853,10 +860,10 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                     {displayYears.map((year) => {
                       const amount = getAmount(category, year, 'Produits d\'exploitation');
                       const isCurrentYear = isCurrentYearColumn(year);
-                      const percentage = isCurrentYear ? getPercentageRealized(category, amount) : null;
+                      const percentage = isCurrentYear ? getPercentageRealized(category) : null;
                       
                       const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
-                        ? getCurrentYearCellStyle(category, amount, {
+                        ? getCurrentYearCellStyle(category, {
                             padding: '12px',
                             textAlign: 'right',
                             border: '1px solid #e5e7eb',
@@ -987,7 +994,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                           {displayYears.map((year) => {
                             const amount = getAmount(category, year, 'Charges d\'exploitation');
                             const isCurrentYear = isCurrentYearColumn(year);
-                            const percentage = isCurrentYear ? getPercentageRealized(category, amount) : null;
+                            const percentage = isCurrentYear ? getPercentageRealized(category) : null;
                             
                             const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
                               ? getCurrentYearCellStyle(category, amount, {
@@ -1057,10 +1064,10 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                         const isCurrentYear = isCurrentYearColumn(year);
                         // Pour Impôts et taxes, calculer le % sur le total de la section
                         const categoryName = 'Impôts et taxes';
-                        const percentage = isCurrentYear ? getPercentageRealized(categoryName, total !== 0 ? total : null) : null;
+                        const percentage = isCurrentYear ? getPercentageRealized(categoryName) : null;
                         
                         const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
-                          ? getCurrentYearCellStyle(categoryName, total !== 0 ? total : null, {
+                          ? getCurrentYearCellStyle(categoryName, {
                               padding: '12px',
                               textAlign: 'right',
                               border: '1px solid #e5e7eb',
