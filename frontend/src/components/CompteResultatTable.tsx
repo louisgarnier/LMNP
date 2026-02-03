@@ -564,12 +564,20 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   };
 
   const getResultatNet = (year: number): number | null => {
-    // Résultat de l'exercice = Résultat d'exploitation - Charges d'intérêt
-    const resultatExploitation = getResultatExploitation(year);
-    const chargesInteret = getTotalChargesInteret(year);
-    if (resultatExploitation === null && chargesInteret === null) return null;
-    const resultat = (resultatExploitation ?? 0) - (chargesInteret ?? 0);
-    return resultat !== 0 ? resultat : null;
+    // Utiliser la valeur resultat_net du backend (cohérent avec le Bilan)
+    // Pour les années futures, recalculer côté frontend
+    if (isFutureYear(year)) {
+      const resultatExploitation = getResultatExploitation(year);
+      const chargesInteret = getTotalChargesInteret(year);
+      if (resultatExploitation === null && chargesInteret === null) return null;
+      const resultat = (resultatExploitation ?? 0) - (chargesInteret ?? 0);
+      return resultat !== 0 ? resultat : null;
+    }
+    
+    // Pour les années passées/courantes, utiliser la valeur du backend
+    if (!data || !data.results[year]) return null;
+    const resultatNet = data.results[year].resultat_net;
+    return resultatNet !== 0 ? resultatNet : null;
   };
 
   // Calculer le résultat cumulé (somme année après année)
