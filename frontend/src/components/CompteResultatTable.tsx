@@ -62,6 +62,12 @@ const SPECIAL_CATEGORIES = [
   'Coût du financement (hors remboursement du capital)',
 ];
 
+// Catégories calculées (valeurs réelles utilisées, pas de projection manuelle)
+const CALCULATED_CATEGORIES = [
+  "Charges d'amortissements",
+  "Coût du financement (hors remboursement du capital)",
+];
+
 export default function CompteResultatTable({ refreshKey, isOverrideEnabled = false }: CompteResultatTableProps) {
   const { activeProperty } = useProperty();
   const [loading, setLoading] = useState(true);
@@ -73,6 +79,11 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   const [editingOverrideYear, setEditingOverrideYear] = useState<number | null>(null);
   const [editingOverrideValue, setEditingOverrideValue] = useState<string>('');
   const [savingOverride, setSavingOverride] = useState<number | null>(null);
+  
+  // Forecast state
+  const [forecastSettings, setForecastSettings] = useState<ProRataSettings | null>(null);
+  const [forecastConfigs, setForecastConfigs] = useState<AnnualForecastConfig[]>([]);
+  const [futureYearsData, setFutureYearsData] = useState<CompteResultatCalculateResponse | null>(null);
 
   // Fonction pour récupérer les années à afficher depuis les transactions
   const getYearsToDisplay = async (): Promise<number[]> => {
@@ -164,6 +175,37 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
       // Charger les données calculées
       const calculateResponse = await compteResultatAPI.calculate(activeProperty.id, years);
       setData(calculateResponse);
+      
+      // Charger les forecast settings
+      try {
+        const settings = await prorataAPI.getSettings(activeProperty.id);
+        setForecastSettings(settings);
+        console.log('[CompteResultatTable] Forecast settings:', settings);
+        
+        // Si forecast est activé, charger les configs et calculer les années futures
+        if (settings.forecast_enabled && settings.forecast_years > 0) {
+          const currentYear = new Date().getFullYear();
+          const configs = await prorataAPI.getConfigs(activeProperty.id, currentYear, 'compte_resultat');
+          setForecastConfigs(configs);
+          console.log('[CompteResultatTable] Forecast configs:', configs);
+          
+          // Calculer les années futures (pour les catégories calculées)
+          const futureYears = Array.from({ length: settings.forecast_years }, (_, i) => currentYear + i + 1);
+          console.log('[CompteResultatTable] Calculating future years:', futureYears);
+          
+          const futureResponse = await compteResultatAPI.calculate(activeProperty.id, futureYears);
+          setFutureYearsData(futureResponse);
+          console.log('[CompteResultatTable] Future years data:', futureResponse);
+        } else {
+          setForecastConfigs([]);
+          setFutureYearsData(null);
+        }
+      } catch (err: any) {
+        console.error('[CompteResultatTable] Erreur forecast settings:', err);
+        setForecastSettings(null);
+        setForecastConfigs([]);
+        setFutureYearsData(null);
+      }
       
       // Charger les overrides si la fonctionnalité est activée
       if (isOverrideEnabled) {
@@ -280,8 +322,63 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   const produitsCategories = categoriesToDisplay.filter(c => c.type === 'Produits d\'exploitation');
   const chargesCategories = categoriesToDisplay.filter(c => c.type === 'Charges d\'exploitation');
 
+  // Calculer les années à afficher (années réelles + années futures si forecast activé)
+  const currentYear = new Date().getFullYear();
+  const displayYears = [...years];
+  if (forecastSettings?.forecast_enabled && forecastSettings.forecast_years > 0) {
+    for (let i = 1; i <= forecastSettings.forecast_years; i++) {
+      const futureYear = currentYear + i;
+      if (!displayYears.includes(futureYear)) {
+        displayYears.push(futureYear);
+      }
+    }
+  }
+  
+  // Vérifier si une année est une année future (projetée)
+  const isFutureYear = (year: number): boolean => {
+    return year > currentYear;
+  };
+
+  // Obtenir le montant projeté pour une catégorie configurable
+  const getProjectedAmount = (category: string, year: number): number | null => {
+    const config = forecastConfigs.find(c => c.level_1 === category);
+    if (!config) return null;
+    
+    const yearsAhead = year - currentYear;
+    if (yearsAhead <= 0) return null;
+    
+    const rate = config.annual_growth_rate / 100; // Convertir pourcentage
+    return config.base_annual_amount * Math.pow(1 + rate, yearsAhead);
+  };
+
   // Fonction pour obtenir le montant d'une catégorie pour une année donnée
   const getAmount = (category: string, year: number, type: 'Produits d\'exploitation' | 'Charges d\'exploitation'): number | null => {
+    const isCalculated = CALCULATED_CATEGORIES.includes(category);
+    const isFuture = isFutureYear(year);
+    
+    // Pour les années futures
+    if (isFuture) {
+      // Catégories calculées (amortissements, intérêts) → utiliser les vraies valeurs du backend
+      if (isCalculated && futureYearsData?.results[year]) {
+        const yearData = futureYearsData.results[year];
+        if (category === "Charges d'amortissements") {
+          return yearData.amortissements !== 0 ? Math.abs(yearData.amortissements) : null;
+        }
+        if (category === "Coût du financement (hors remboursement du capital)") {
+          const cout = yearData.cout_financement;
+          return cout !== null && cout !== undefined && cout !== 0 ? Math.abs(cout) : null;
+        }
+      }
+      
+      // Catégories configurables → utiliser la projection
+      if (!isCalculated) {
+        return getProjectedAmount(category, year);
+      }
+      
+      return null;
+    }
+    
+    // Pour les années passées/courantes, utiliser les données réelles
     if (!data || !data.results[year]) {
       return null;
     }
@@ -293,13 +390,10 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
       return yearData.amortissements !== 0 ? Math.abs(yearData.amortissements) : null;
     }
     if (category === "Coût du financement (hors remboursement du capital)") {
-      // Utiliser DIRECTEMENT la valeur du backend (cout_financement)
-      // Le backend retourne déjà la bonne valeur, on l'affiche telle quelle
       const cout = yearData.cout_financement;
       if (cout === null || cout === undefined || cout === 0) {
         return null;
       }
-      // Le backend retourne une valeur positive, on l'affiche telle quelle
       return Math.abs(cout);
     }
     
@@ -307,7 +401,6 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
     if (type === 'Produits d\'exploitation') {
       return yearData.produits[category] ?? null;
     } else {
-      // Les charges peuvent être stockées en négatif, prendre la valeur absolue pour l'affichage
       const amount = yearData.charges[category];
       return amount !== undefined && amount !== null ? Math.abs(amount) : null;
     }
@@ -326,20 +419,23 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
 
   // Calculer les totaux en sommant les valeurs affichées dans le tableau
   const getTotalProduits = (year: number): number | null => {
-    if (!data || !data.results[year]) return null;
+    // Pour années futures, vérifier qu'on a les données
+    if (!isFutureYear(year) && (!data || !data.results[year])) return null;
     let total = 0;
+    let hasAnyValue = false;
     produitsCategories.forEach(({ category }) => {
       const amount = getAmount(category, year, 'Produits d\'exploitation');
       if (amount !== null) {
         total += amount;
+        hasAnyValue = true;
       }
     });
-    return total !== 0 ? total : null;
+    return hasAnyValue ? total : null;
   };
 
   // Total des charges d'exploitation (A + B + C uniquement, sans charges d'intérêt)
   const getTotalCharges = (year: number): number | null => {
-    if (!data || !data.results[year]) return null;
+    if (!isFutureYear(year) && (!data || !data.results[year])) return null;
     let total = 0;
     chargesCategories.forEach(({ category }) => {
       // Exclure le coût du financement (charges d'intérêt)
@@ -357,17 +453,20 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
 
   // Total des charges d'intérêt
   const getTotalChargesInteret = (year: number): number | null => {
-    if (!data || !data.results[year]) return null;
+    // Les charges d'intérêt sont calculées par le backend (même pour années futures)
+    if (!isFutureYear(year) && (!data || !data.results[year])) return null;
     let total = 0;
+    let hasAnyValue = false;
     chargesCategories.forEach(({ category }) => {
       if (CHARGES_INTERET.includes(category)) {
         const amount = getAmount(category, year, 'Charges d\'exploitation');
         if (amount !== null) {
           total += Math.abs(amount);
+          hasAnyValue = true;
         }
       }
     });
-    return total !== 0 ? total : null;
+    return hasAnyValue ? total : null;
   };
 
   const getResultatExploitation = (year: number): number | null => {
@@ -394,13 +493,13 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
     let cumul = 0;
     let hasAnyValue = false;
     
-    // Parcourir toutes les années jusqu'à l'année courante
-    for (const y of years) {
-      if (y > year) break; // Arrêter à l'année courante
+    // Parcourir toutes les années jusqu'à l'année demandée
+    for (const y of displayYears) {
+      if (y > year) break; // Arrêter à l'année demandée
       
-      // Utiliser override si disponible, sinon valeur calculée
+      // Utiliser override si disponible (années passées), sinon valeur calculée
       let valeurAnnee = 0;
-      if (isOverrideEnabled) {
+      if (isOverrideEnabled && !isFutureYear(y)) {
         const override = getOverrideValue(y);
         if (override !== null) {
           valeurAnnee = override;
@@ -601,19 +700,24 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
               >
                 Compte de résultat
               </th>
-              {years.map((year) => (
+              {displayYears.map((year) => (
                 <th
                   key={year}
                   style={{
                     padding: '12px',
                     textAlign: 'right',
-                    backgroundColor: '#f3f4f6',
+                    backgroundColor: isFutureYear(year) ? '#dbeafe' : '#f3f4f6',
                     border: '1px solid #e5e7eb',
                     fontWeight: '600',
-                    color: '#111827',
+                    color: isFutureYear(year) ? '#1e40af' : '#111827',
                   }}
                 >
                   {year}
+                  {isFutureYear(year) && (
+                    <div style={{ fontSize: '10px', fontWeight: '400', color: '#3b82f6' }}>
+                      (prévision)
+                    </div>
+                  )}
                 </th>
               ))}
             </tr>
@@ -634,7 +738,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                   >
                     Total des produits d'exploitation
                   </td>
-                  {years.map((year) => (
+                  {displayYears.map((year) => (
                     <td
                       key={year}
                       style={{
@@ -663,7 +767,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                     >
                       {category}
                     </td>
-                    {years.map((year) => {
+                    {displayYears.map((year) => {
                       const amount = getAmount(category, year, 'Produits d\'exploitation');
                       return (
                         <td
@@ -699,7 +803,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                   >
                     Total des charges d'exploitation
                   </td>
-                  {years.map((year) => (
+                  {displayYears.map((year) => (
                     <td
                       key={year}
                       style={{
@@ -742,7 +846,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                         >
                           Achats et charges externes
                         </td>
-                        {years.map((year) => {
+                        {displayYears.map((year) => {
                           let total = 0;
                           sectionACategories.forEach(({ category }) => {
                             const amount = getAmount(category, year, 'Charges d\'exploitation');
@@ -779,7 +883,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                           >
                             {category}
                           </td>
-                          {years.map((year) => {
+                          {displayYears.map((year) => {
                             const amount = getAmount(category, year, 'Charges d\'exploitation');
                             return (
                               <td
@@ -823,7 +927,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                       >
                         Impôts et taxes
                       </td>
-                      {years.map((year) => {
+                      {displayYears.map((year) => {
                         let total = 0;
                         sectionBCategories.forEach(({ category }) => {
                           const amount = getAmount(category, year, 'Charges d\'exploitation');
@@ -872,7 +976,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                       >
                         Charges d'amortissements
                       </td>
-                      {years.map((year) => {
+                      {displayYears.map((year) => {
                         let total = 0;
                         let hasNull = false;
                         sectionCCategories.forEach(({ category }) => {
@@ -939,7 +1043,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
               >
                 Résultat d'exploitation
               </td>
-              {years.map((year) => (
+              {displayYears.map((year) => (
                 <td
                   key={year}
                   style={{
@@ -977,7 +1081,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                   >
                     Charges d'intérêt (Coût du financement)
                   </td>
-                  {years.map((year) => {
+                  {displayYears.map((year) => {
                     const total = getTotalChargesInteret(year);
                     const hasNull = chargesInteretCategories.some(({ category }) => {
                       const amount = getAmount(category, year, 'Charges d\'exploitation');
@@ -1038,7 +1142,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
               >
                 {isOverrideEnabled ? 'Résultat exercice (Override)' : 'Résultat de l\'exercice'}
               </td>
-              {years.map((year) => {
+              {displayYears.map((year) => {
                 const isEditing = isOverrideEnabled && editingOverrideYear === year;
                 const overrideValue = isOverrideEnabled ? getOverrideValue(year) : null;
                 const displayValue = isOverrideEnabled ? getOverrideDisplayValue(year) : getResultatNet(year);
@@ -1144,7 +1248,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
               >
                 Résultat cumulé
               </td>
-              {years.map((year) => {
+              {displayYears.map((year) => {
                 const cumule = getResultatCumule(year);
                 return (
                   <td
