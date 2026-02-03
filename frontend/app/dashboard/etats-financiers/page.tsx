@@ -765,21 +765,8 @@ export default function EtatsFinanciersPage() {
             />
             <BilanTable refreshKey={bilanRefreshKey} />
             
-            {/* Cards Pro Rata & Forecast pour le Bilan (ACTIF et PASSIF) */}
-            <ProRataForecastCard
-              targetType="bilan_actif"
-              year={new Date().getFullYear()}
-              sectionTitle="ACTIF"
-              onConfigChange={() => setBilanRefreshKey(prev => prev + 1)}
-              refreshKey={bilanRefreshKey}
-            />
-            <ProRataForecastCard
-              targetType="bilan_passif"
-              year={new Date().getFullYear()}
-              sectionTitle="PASSIF"
-              onConfigChange={() => setBilanRefreshKey(prev => prev + 1)}
-              refreshKey={bilanRefreshKey}
-            />
+            {/* Note: Les prévisions du Bilan sont héritées du Compte de Résultat */}
+            {/* Les valeurs Compte bancaire et CCA seront calculées automatiquement */}
           </div>
         )}
 
