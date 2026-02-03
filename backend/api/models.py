@@ -829,3 +829,89 @@ class PropertyListResponse(BaseModel):
     """Model for list of properties response."""
     items: List[PropertyResponse]
     total: int
+
+
+# ========================================
+# Pro Rata & Forecast models
+# ========================================
+
+class ProRataSettingsBase(BaseModel):
+    """Base model for Pro Rata settings."""
+    prorata_enabled: bool = Field(False, description="Activer prévisions année en cours")
+    forecast_enabled: bool = Field(False, description="Activer projection multi-années")
+    forecast_years: int = Field(3, ge=1, le=10, description="Nombre d'années à projeter (1-10)")
+
+
+class ProRataSettingsCreate(ProRataSettingsBase):
+    """Model for creating Pro Rata settings."""
+    property_id: int = Field(..., description="ID de la propriété")
+
+
+class ProRataSettingsUpdate(BaseModel):
+    """Model for updating Pro Rata settings."""
+    prorata_enabled: Optional[bool] = None
+    forecast_enabled: Optional[bool] = None
+    forecast_years: Optional[int] = Field(None, ge=1, le=10)
+
+
+class ProRataSettingsResponse(ProRataSettingsBase):
+    """Model for Pro Rata settings response."""
+    id: int
+    property_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AnnualForecastConfigBase(BaseModel):
+    """Base model for annual forecast config."""
+    year: int = Field(..., description="Année de base (ex: 2026)")
+    level_1: str = Field(..., max_length=100, description="Catégorie comptable")
+    target_type: str = Field(..., description="Type: compte_resultat, bilan_actif, bilan_passif")
+    base_annual_amount: float = Field(..., description="Montant prévu annuel")
+    annual_growth_rate: float = Field(0.0, description="Taux d'évolution annuel (ex: 0.02 = +2%)")
+
+
+class AnnualForecastConfigCreate(AnnualForecastConfigBase):
+    """Model for creating annual forecast config."""
+    property_id: int = Field(..., description="ID de la propriété")
+
+
+class AnnualForecastConfigUpdate(BaseModel):
+    """Model for updating annual forecast config."""
+    base_annual_amount: Optional[float] = None
+    annual_growth_rate: Optional[float] = None
+
+
+class AnnualForecastConfigResponse(AnnualForecastConfigBase):
+    """Model for annual forecast config response."""
+    id: int
+    property_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AnnualForecastConfigListResponse(BaseModel):
+    """Model for list of annual forecast configs response."""
+    items: List[AnnualForecastConfigResponse]
+    total: int
+
+
+class CategoryReferenceData(BaseModel):
+    """Model for category reference data (real amounts for current and previous year)."""
+    level_1: str = Field(..., description="Catégorie comptable")
+    real_current_year: float = Field(..., description="Montant réel année en cours")
+    real_previous_year: float = Field(..., description="Montant réel année précédente")
+    is_calculated: bool = Field(False, description="True si catégorie calculée automatiquement (lecture seule)")
+
+
+class ReferenceDataResponse(BaseModel):
+    """Model for reference data response."""
+    categories: List[CategoryReferenceData]
+    year: int
+    target_type: str

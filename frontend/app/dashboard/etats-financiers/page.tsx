@@ -17,6 +17,7 @@ import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 import CompteResultatTable from '@/components/CompteResultatTable';
 import BilanConfigCard from '@/components/BilanConfigCard';
 import BilanTable from '@/components/BilanTable';
+import ProRataForecastCard from '@/components/ProRataForecastCard';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI, transactionsAPI } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
 
@@ -742,6 +743,14 @@ export default function EtatsFinanciersPage() {
               }}
             />
             <CompteResultatTable refreshKey={compteResultatRefreshKey} isOverrideEnabled={isOverrideEnabled} />
+            
+            {/* Card Pro Rata & Forecast pour le Compte de Résultat */}
+            <ProRataForecastCard
+              targetType="compte_resultat"
+              year={new Date().getFullYear()}
+              onConfigChange={() => setCompteResultatRefreshKey(prev => prev + 1)}
+              refreshKey={compteResultatRefreshKey}
+            />
           </div>
         )}
 
@@ -755,6 +764,22 @@ export default function EtatsFinanciersPage() {
               }}
             />
             <BilanTable refreshKey={bilanRefreshKey} />
+            
+            {/* Cards Pro Rata & Forecast pour le Bilan (ACTIF et PASSIF) */}
+            <ProRataForecastCard
+              targetType="bilan_actif"
+              year={new Date().getFullYear()}
+              sectionTitle="ACTIF"
+              onConfigChange={() => setBilanRefreshKey(prev => prev + 1)}
+              refreshKey={bilanRefreshKey}
+            />
+            <ProRataForecastCard
+              targetType="bilan_passif"
+              year={new Date().getFullYear()}
+              sectionTitle="PASSIF"
+              onConfigChange={() => setBilanRefreshKey(prev => prev + 1)}
+              refreshKey={bilanRefreshKey}
+            />
           </div>
         )}
 

@@ -2461,3 +2461,120 @@ export const bilanAPI = {
     });
   },
 };
+
+
+// ========================================
+// Pro Rata & Forecast API
+// ========================================
+
+export interface ProRataSettings {
+  id: number;
+  property_id: number;
+  prorata_enabled: boolean;
+  forecast_enabled: boolean;
+  forecast_years: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnualForecastConfig {
+  id: number;
+  property_id: number;
+  year: number;
+  level_1: string;
+  target_type: 'compte_resultat' | 'bilan_actif' | 'bilan_passif';
+  base_annual_amount: number;
+  annual_growth_rate: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AnnualForecastConfigCreate {
+  property_id: number;
+  year: number;
+  level_1: string;
+  target_type: 'compte_resultat' | 'bilan_actif' | 'bilan_passif';
+  base_annual_amount: number;
+  annual_growth_rate: number;
+}
+
+export interface CategoryReferenceData {
+  level_1: string;
+  real_current_year: number;
+  real_previous_year: number;
+  is_calculated: boolean;
+}
+
+export interface ReferenceDataResponse {
+  categories: CategoryReferenceData[];
+  year: number;
+  target_type: string;
+}
+
+export const prorataAPI = {
+  /**
+   * Récupère les paramètres Pro Rata d'une propriété
+   */
+  getSettings: async (propertyId: number): Promise<ProRataSettings> => {
+    if (!propertyId) {
+      console.error('[API] prorataAPI.getSettings - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] prorataAPI.getSettings - propertyId=${propertyId}`);
+    return fetchAPI<ProRataSettings>(`/api/prorata-settings?property_id=${propertyId}`);
+  },
+
+  /**
+   * Met à jour les paramètres Pro Rata d'une propriété
+   */
+  updateSettings: async (propertyId: number, settings: Partial<ProRataSettings>): Promise<ProRataSettings> => {
+    if (!propertyId) {
+      console.error('[API] prorataAPI.updateSettings - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] prorataAPI.updateSettings - propertyId=${propertyId}`);
+    return fetchAPI<ProRataSettings>(`/api/prorata-settings?property_id=${propertyId}`, {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  },
+
+  /**
+   * Récupère les configurations forecast d'une propriété
+   */
+  getConfigs: async (propertyId: number, year: number, targetType: string): Promise<AnnualForecastConfig[]> => {
+    if (!propertyId) {
+      console.error('[API] prorataAPI.getConfigs - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] prorataAPI.getConfigs - propertyId=${propertyId}, year=${year}, targetType=${targetType}`);
+    return fetchAPI<AnnualForecastConfig[]>(`/api/forecast-configs?property_id=${propertyId}&year=${year}&target_type=${targetType}`);
+  },
+
+  /**
+   * Crée ou met à jour plusieurs configurations en une fois
+   */
+  bulkUpsertConfigs: async (propertyId: number, configs: AnnualForecastConfigCreate[]): Promise<AnnualForecastConfig[]> => {
+    if (!propertyId) {
+      console.error('[API] prorataAPI.bulkUpsertConfigs - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] prorataAPI.bulkUpsertConfigs - propertyId=${propertyId}, count=${configs.length}`);
+    return fetchAPI<AnnualForecastConfig[]>(`/api/forecast-configs/bulk?property_id=${propertyId}`, {
+      method: 'POST',
+      body: JSON.stringify(configs),
+    });
+  },
+
+  /**
+   * Récupère les données de référence pour aide à la saisie
+   */
+  getReferenceData: async (propertyId: number, year: number, targetType: string): Promise<ReferenceDataResponse> => {
+    if (!propertyId) {
+      console.error('[API] prorataAPI.getReferenceData - propertyId manquant');
+      throw new Error('propertyId est obligatoire');
+    }
+    console.log(`[API] prorataAPI.getReferenceData - propertyId=${propertyId}, year=${year}, targetType=${targetType}`);
+    return fetchAPI<ReferenceDataResponse>(`/api/forecast-configs/reference-data?property_id=${propertyId}&year=${year}&target_type=${targetType}`);
+  },
+};

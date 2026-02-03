@@ -9,8 +9,10 @@ Ce service implémente la logique de calcul du compte de résultat :
 - Calcul des produits et charges d'exploitation
 - Récupération des amortissements depuis amortization_result
 - Calcul du coût du financement depuis loan_payments
+- Application du Pro Rata (MAX réel/prévu) si activé (Phase 11bis)
 
 Phase 11 : Toutes les fonctions acceptent property_id pour l'isolation multi-propriétés.
+Phase 11bis : Support Pro Rata & Forecast pour les prévisions annuelles.
 """
 
 import json
@@ -30,6 +32,7 @@ from backend.database.models import (
     LoanPayment,
     LoanConfig
 )
+from backend.api.services.prorata_service import apply_prorata, get_prorata_settings, get_forecast_configs
 
 # Logger configuration
 logger = logging.getLogger(__name__)
@@ -417,10 +420,14 @@ def calculate_compte_resultat(
     year: int,
     property_id: int,
     mappings: Optional[List[CompteResultatMapping]] = None,
-    level_3_values: Optional[List[str]] = None
+    level_3_values: Optional[List[str]] = None,
+    skip_prorata: bool = False
 ) -> Dict[str, any]:
     """
     Calculer le compte de résultat complet pour une année et une propriété.
+    
+    Si Pro Rata est activé (et skip_prorata=False), applique MAX(réel, prévu) pour les catégories configurables.
+    Les catégories calculées (amortissements, charges financières) gardent leurs valeurs réelles.
     
     Args:
         db: Session de base de données
@@ -428,6 +435,7 @@ def calculate_compte_resultat(
         property_id: ID de la propriété
         mappings: Liste des mappings (optionnel, sera chargée depuis DB si non fournie)
         level_3_values: Liste des valeurs level_3 (optionnel, sera chargée depuis config si non fournie)
+        skip_prorata: Si True, ne pas appliquer le prorata même s'il est activé (pour référence data)
     
     Returns:
         Dictionnaire avec :
@@ -438,8 +446,9 @@ def calculate_compte_resultat(
         - resultat_exploitation: float - Résultat d'exploitation (produits - charges)
         - total_charges_exploitation: float - Total des charges d'exploitation (sans charges d'intérêt)
         - resultat_net: float - Résultat net (résultat d'exploitation - charges d'intérêt)
+        - prorata_applied: bool - Indique si le prorata a été appliqué
     """
-    logger.info(f"[CompteResultatService] calculate_compte_resultat - year={year}, property_id={property_id}")
+    logger.info(f"[CompteResultatService] calculate_compte_resultat - year={year}, property_id={property_id}, skip_prorata={skip_prorata}")
     
     # Charger les mappings si non fournis
     if mappings is None:
@@ -449,13 +458,13 @@ def calculate_compte_resultat(
     if level_3_values is None:
         level_3_values = get_level_3_values(db, property_id)
     
-    # Calculer les produits d'exploitation
+    # Calculer les produits d'exploitation (valeurs réelles)
     produits = calculate_produits_exploitation(db, year, mappings, level_3_values, property_id)
     
-    # Calculer les charges d'exploitation
+    # Calculer les charges d'exploitation (valeurs réelles)
     charges = calculate_charges_exploitation(db, year, mappings, level_3_values, property_id)
     
-    # Ajouter les catégories spéciales
+    # Ajouter les catégories spéciales (calculées automatiquement)
     amortissements = get_amortissements(db, year, property_id)
     if amortissements != 0.0:
         charges["Charges d'amortissements"] = amortissements
@@ -464,7 +473,52 @@ def calculate_compte_resultat(
     if cout_financement != 0.0:
         charges["Coût du financement (hors remboursement du capital)"] = cout_financement
     
-    # Calculer les totaux
+    # ========== Pro Rata (Phase 11bis) ==========
+    # Vérifier si prorata est activé pour cette propriété
+    prorata_applied = False
+    prorata_settings = get_prorata_settings(db, property_id)
+    
+    if prorata_settings and prorata_settings.prorata_enabled and not skip_prorata:
+        logger.info(f"[CompteResultatService] Pro Rata activé pour property_id={property_id}")
+        prorata_applied = True
+        
+        # Récupérer les forecast configs pour ajouter les catégories sans transactions
+        forecast_configs = get_forecast_configs(db, property_id, year, "compte_resultat")
+        
+        # Ajouter les catégories forecast qui n'ont pas de transactions (valeur réelle = 0)
+        # Déterminer si c'est un produit ou une charge basé sur le mapping
+        mapping_types = {m.category_name: m.type for m in mappings}
+        
+        for cat_name, planned_amount in forecast_configs.items():
+            if planned_amount != 0:
+                if cat_name not in produits and cat_name not in charges:
+                    # Catégorie avec prévision mais sans transaction
+                    mapping_type = mapping_types.get(cat_name)
+                    if mapping_type == "Produits d'exploitation":
+                        produits[cat_name] = 0.0
+                        logger.debug(f"[CompteResultatService] Ajout catégorie forecast (produit): {cat_name}")
+                    elif mapping_type == "Charges d'exploitation":
+                        charges[cat_name] = 0.0
+                        logger.debug(f"[CompteResultatService] Ajout catégorie forecast (charge): {cat_name}")
+                    else:
+                        # Par défaut, si pas de mapping, c'est probablement un produit si positif
+                        if planned_amount > 0:
+                            produits[cat_name] = 0.0
+                        else:
+                            charges[cat_name] = 0.0
+                        logger.debug(f"[CompteResultatService] Ajout catégorie forecast (auto): {cat_name}")
+        
+        # Appliquer prorata aux produits
+        produits_prorata = apply_prorata(db, property_id, year, "compte_resultat", produits)
+        produits = {cat: data['amount'] for cat, data in produits_prorata.items()}
+        
+        # Appliquer prorata aux charges
+        charges_prorata = apply_prorata(db, property_id, year, "compte_resultat", charges)
+        charges = {cat: data['amount'] for cat, data in charges_prorata.items()}
+        
+        logger.info(f"[CompteResultatService] Pro Rata appliqué - produits: {len(produits)}, charges: {len(charges)}")
+    
+    # ========== Calcul des totaux ==========
     # IMPORTANT : Le frontend exclut les charges d'intérêt du total des charges d'exploitation
     total_produits = sum(produits.values())
     
@@ -493,7 +547,8 @@ def calculate_compte_resultat(
         "total_charges": total_charges,  # Pour compatibilité (inclut tout)
         "total_charges_exploitation": total_charges_exploitation,  # Sans charges d'intérêt
         "resultat_exploitation": resultat_exploitation,
-        "resultat_net": resultat_net
+        "resultat_net": resultat_net,
+        "prorata_applied": prorata_applied  # Indique si prorata a été appliqué
     }
 
 

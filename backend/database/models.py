@@ -46,6 +46,9 @@ class Property(Base):
     bilan_config = relationship("BilanConfig", back_populates="property", cascade="all, delete-orphan")
     # Pivot
     pivot_configs = relationship("PivotConfig", back_populates="property", cascade="all, delete-orphan")
+    # Pro Rata & Forecast
+    prorata_settings = relationship("ProRataSettings", back_populates="property", uselist=False, cascade="all, delete-orphan")
+    annual_forecast_configs = relationship("AnnualForecastConfig", back_populates="property", cascade="all, delete-orphan")
     
     # Index pour recherches fréquentes
     __table_args__ = (
@@ -553,5 +556,46 @@ class BilanConfig(Base):
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_bilan_config_property_id', 'property_id'),
+    )
+
+
+class ProRataSettings(Base):
+    """Paramètres globaux Pro Rata & Forecast par propriété."""
+    __tablename__ = "prorata_settings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
+    prorata_enabled = Column(Boolean, default=False, nullable=False)  # Activer prévisions année en cours
+    forecast_enabled = Column(Boolean, default=False, nullable=False)  # Activer projection multi-années
+    forecast_years = Column(Integer, default=3, nullable=False)  # Nombre d'années à projeter (1-10)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relations
+    property = relationship("Property", back_populates="prorata_settings")
+
+
+class AnnualForecastConfig(Base):
+    """Configuration des prévisions annuelles par propriété et catégorie comptable."""
+    __tablename__ = "annual_forecast_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)  # Année de base (ex: 2026)
+    level_1 = Column(String(100), nullable=False, index=True)  # Catégorie comptable
+    target_type = Column(String(50), nullable=False, index=True)  # "compte_resultat", "bilan_actif", "bilan_passif"
+    base_annual_amount = Column(Float, nullable=False)  # Montant prévu annuel
+    annual_growth_rate = Column(Float, default=0.0, nullable=False)  # Taux d'évolution (ex: 0.02 = +2%)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relations
+    property = relationship("Property", back_populates="annual_forecast_configs")
+    
+    # Index et contraintes
+    __table_args__ = (
+        Index('idx_forecast_config_property_year', 'property_id', 'year'),
+        Index('idx_forecast_config_property_level1', 'property_id', 'level_1'),
+        Index('idx_forecast_config_property_year_level1_type', 'property_id', 'year', 'level_1', 'target_type', unique=True),
     )
 

@@ -7,7 +7,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { compteResultatAPI, CompteResultatMapping, CompteResultatCalculateResponse, transactionsAPI, CompteResultatOverride } from '@/api/client';
+import { compteResultatAPI, CompteResultatMapping, CompteResultatCalculateResponse, transactionsAPI, CompteResultatOverride, prorataAPI, ProRataSettings, AnnualForecastConfig } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
 
 interface CompteResultatTableProps {
