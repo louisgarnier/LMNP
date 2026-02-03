@@ -144,6 +144,9 @@ def apply_prorata(
     """
     Applique la logique MAX(réel, prévu) sur les montants réels
     
+    IMPORTANT: N'applique le prorata QUE pour l'année en cours ou les années futures.
+    Les années passées retournent toujours les valeurs réelles.
+    
     Pour chaque catégorie :
     - Si calculée → retourne le montant réel tel quel
     - Si prévu est configuré et prorata_enabled → retourne MAX(abs(réel), abs(prévu)) avec le signe approprié
@@ -174,7 +177,16 @@ def apply_prorata(
     settings = get_prorata_settings(db, property_id)
     prorata_enabled = settings.prorata_enabled if settings else False
     
-    logger.debug(f"[PRORATA] prorata_enabled={prorata_enabled}")
+    # IMPORTANT: Le prorata ne s'applique QUE pour l'année en cours et les années futures
+    current_year = datetime.now().year
+    is_past_year = year < current_year
+    
+    if is_past_year:
+        # Année passée → JAMAIS appliquer le prorata
+        prorata_enabled = False
+        logger.info(f"[PRORATA] Année passée ({year} < {current_year}) → prorata désactivé automatiquement")
+    
+    logger.debug(f"[PRORATA] prorata_enabled={prorata_enabled} (current_year={current_year})")
     
     # Récupérer les prévisions configurées
     forecast_configs = {}
