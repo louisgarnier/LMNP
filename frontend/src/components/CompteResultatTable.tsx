@@ -347,15 +347,22 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   // Obtenir le montant prévu pour une catégorie (année en cours)
   const getPlannedAmount = (category: string): number | null => {
     const config = forecastConfigs.find(c => c.level_1 === category);
-    return config?.base_annual_amount || null;
+    if (config) {
+      console.log(`[CR Table] getPlannedAmount('${category}'): found config with base_annual_amount=${config.base_annual_amount}`);
+    } else {
+      console.log(`[CR Table] getPlannedAmount('${category}'): NO CONFIG FOUND. Available configs:`, forecastConfigs.map(c => c.level_1));
+    }
+    return config?.base_annual_amount ?? null;
   };
 
   // Calculer le pourcentage réalisé (réel / prévu)
   const getPercentageRealized = (category: string, realAmount: number | null): number | null => {
-    if (realAmount === null || realAmount === 0) return null;
+    if (realAmount === null) return null;
     const planned = getPlannedAmount(category);
-    if (!planned || planned === 0) return null;
-    return (realAmount / planned) * 100;
+    if (planned === null || planned === 0) return null;
+    const percentage = (Math.abs(realAmount) / Math.abs(planned)) * 100;
+    console.log(`[CR Table] getPercentageRealized('${category}'): real=${realAmount}, planned=${planned}, %=${percentage.toFixed(1)}`);
+    return percentage;
   };
 
   // Obtenir la couleur selon le pourcentage
