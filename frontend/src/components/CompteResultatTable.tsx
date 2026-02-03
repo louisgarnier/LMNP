@@ -997,7 +997,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                             const percentage = isCurrentYear ? getPercentageRealized(category) : null;
                             
                             const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
-                              ? getCurrentYearCellStyle(category, amount, {
+                              ? getCurrentYearCellStyle(category, {
                                   padding: '12px',
                                   textAlign: 'right',
                                   border: '1px solid #e5e7eb',
