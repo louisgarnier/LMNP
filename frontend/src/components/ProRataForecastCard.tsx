@@ -37,6 +37,7 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isPinned, setIsPinned] = useState(false); // Carte réduite par défaut
   
   // Charger les données
   useEffect(() => {
@@ -198,10 +199,54 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
       marginTop: '24px',
       padding: '20px'
     }}>
-      <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '16px', color: '#1e3a5f' }}>
-        {getTitle()}
-      </h3>
+      {/* Header avec bouton pin/unpin */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: isPinned ? '16px' : '0' 
+      }}>
+        <h3 
+          style={{ 
+            fontSize: '16px', 
+            fontWeight: '600', 
+            color: '#1e3a5f',
+            margin: 0,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}
+          onClick={() => setIsPinned(!isPinned)}
+        >
+          {getTitle()}
+          <span style={{ fontSize: '12px', color: '#6b7280' }}>
+            {isPinned ? '▼' : '▶'}
+          </span>
+        </h3>
+        <button
+          onClick={() => setIsPinned(!isPinned)}
+          style={{
+            padding: '6px 12px',
+            backgroundColor: isPinned ? '#dbeafe' : '#f3f4f6',
+            color: isPinned ? '#1e40af' : '#6b7280',
+            border: '1px solid ' + (isPinned ? '#3b82f6' : '#d1d5db'),
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+          }}
+          title={isPinned ? 'Réduire' : 'Épingler'}
+        >
+          {isPinned ? '📌 Épinglé' : '📍 Épingler'}
+        </button>
+      </div>
       
+      {/* Contenu (visible seulement si épinglé) */}
+      {isPinned && (
+        <>
       {error && (
         <div style={{ 
           padding: '10px', 
@@ -647,6 +692,8 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
         }}>
           Activez les prévisions pour configurer les montants annuels prévisionnels.
         </div>
+      )}
+        </>
       )}
     </div>
   );
