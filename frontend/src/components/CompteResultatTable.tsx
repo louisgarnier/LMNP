@@ -879,12 +879,13 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                       
                       return (
                         <td key={year} style={cellStyle}>
-                          <div>{formatAmount(amount)}</div>
+                          <div style={{ textAlign: 'right' }}>{formatAmount(amount)}</div>
                           {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
                             <div style={{ 
                               fontSize: '10px', 
                               color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
-                              fontWeight: '500'
+                              fontWeight: '500',
+                              textAlign: 'right'
                             }}>
                               {percentage.toFixed(0)}%
                             </div>
@@ -1085,12 +1086,13 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                         
                         return (
                           <td key={year} style={cellStyle}>
-                            <div>{formatAmount(total !== 0 ? total : null)}</div>
+                            <div style={{ textAlign: 'right' }}>{formatAmount(total !== 0 ? total : null)}</div>
                             {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
                               <div style={{ 
                                 fontSize: '10px', 
                                 color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
-                                fontWeight: '500'
+                                fontWeight: '500',
+                                textAlign: 'right'
                               }}>
                                 {percentage.toFixed(0)}%
                               </div>
