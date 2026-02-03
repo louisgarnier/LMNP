@@ -612,7 +612,6 @@ export default function EtatsFinanciersPage() {
   const baseTabs = [
     { name: 'Compte de résultat', tab: 'compte-resultat' },
     { name: 'Bilan', tab: 'bilan' },
-    { name: 'Liasse fiscale', tab: 'liasse-fiscale' },
   ];
 
   // Onglet Crédit (conditionnel)
@@ -756,17 +755,6 @@ export default function EtatsFinanciersPage() {
               }}
             />
             <BilanTable refreshKey={bilanRefreshKey} />
-          </div>
-        )}
-
-        {activeTab === 'liasse-fiscale' && (
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: '600', color: '#1a1a1a', marginBottom: '16px' }}>
-              Liasse fiscale
-            </h2>
-            <p style={{ color: '#6b7280' }}>
-              Cette section sera implémentée dans les prochaines phases.
-            </p>
           </div>
         )}
 

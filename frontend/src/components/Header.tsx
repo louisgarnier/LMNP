@@ -16,7 +16,6 @@ const navItems = [
   { name: 'Tableau croisé dynamique', href: '/dashboard/pivot' },
   { name: 'États financiers', href: '/dashboard/etats-financiers' },
   { name: 'Amortissements', href: '/dashboard/amortissements' },
-  { name: 'Cashflow', href: '/dashboard/cashflow' },
 ];
 
 export default function Header() {
