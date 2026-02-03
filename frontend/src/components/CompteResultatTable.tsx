@@ -393,7 +393,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
     if (isFutureYear(year)) {
       return {
         ...baseStyle,
-        backgroundColor: '#dbeafe',
+        backgroundColor: '#f0f9ff',
       };
     }
     return baseStyle;
