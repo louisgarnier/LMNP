@@ -339,6 +339,30 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
     return year > currentYear;
   };
 
+  // Vérifier si une année est l'année en cours
+  const isCurrentYearColumn = (year: number): boolean => {
+    return year === currentYear;
+  };
+
+  // Obtenir le style de bordure pour une colonne d'année
+  const getYearColumnStyle = (year: number, baseStyle: React.CSSProperties): React.CSSProperties => {
+    if (isCurrentYearColumn(year)) {
+      return {
+        ...baseStyle,
+        borderLeft: '2px solid #3b82f6',
+        borderRight: '2px solid #3b82f6',
+        backgroundColor: isFutureYear(year) ? '#dbeafe' : '#eff6ff',
+      };
+    }
+    if (isFutureYear(year)) {
+      return {
+        ...baseStyle,
+        backgroundColor: '#dbeafe',
+      };
+    }
+    return baseStyle;
+  };
+
   // Obtenir le montant projeté pour une catégorie configurable
   const getProjectedAmount = (category: string, year: number): number | null => {
     const config = forecastConfigs.find(c => c.level_1 === category);
@@ -708,16 +732,22 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
               {displayYears.map((year) => (
                 <th
                   key={year}
-                  style={{
+                  style={getYearColumnStyle(year, {
                     padding: '12px',
                     textAlign: 'right',
-                    backgroundColor: isFutureYear(year) ? '#dbeafe' : '#f3f4f6',
+                    backgroundColor: '#f3f4f6',
                     border: '1px solid #e5e7eb',
                     fontWeight: '600',
                     color: isFutureYear(year) ? '#1e40af' : '#111827',
-                  }}
+                    borderTop: isCurrentYearColumn(year) ? '2px solid #3b82f6' : '1px solid #e5e7eb',
+                  })}
                 >
                   {year}
+                  {isCurrentYearColumn(year) && (
+                    <div style={{ fontSize: '10px', fontWeight: '400', color: '#3b82f6' }}>
+                      (en cours)
+                    </div>
+                  )}
                   {isFutureYear(year) && (
                     <div style={{ fontSize: '10px', fontWeight: '400', color: '#3b82f6' }}>
                       (prévision)
