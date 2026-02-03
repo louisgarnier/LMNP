@@ -56,6 +56,25 @@ export default function TransactionsPage() {
   const [mappingSubTab, setMappingSubTab] = useState<'existing' | 'allowed'>('existing');
   const [isExportingMappings, setIsExportingMappings] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
+
+  const checkBackendConnection = async () => {
+    setBackendStatus('checking');
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/health`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000), // 5 secondes timeout
+      });
+      if (response.ok) {
+        setBackendStatus('connected');
+      } else {
+        setBackendStatus('disconnected');
+      }
+    } catch (error) {
+      console.error('Error checking backend connection:', error);
+      setBackendStatus('disconnected');
+    }
+  };
 
   const loadTransactionCount = async () => {
     console.log('[TransactionsPage] loadTransactionCount - activeProperty:', activeProperty);
@@ -122,6 +141,20 @@ export default function TransactionsPage() {
       setIsLoadingMappingCount(false);
     }
   }, [tab, activeProperty?.id]);
+
+  // Vérifier la connexion au backend au montage et périodiquement
+  useEffect(() => {
+    if (tab === 'load_trades') {
+      checkBackendConnection();
+      
+      // Vérifier la connexion toutes les 30 secondes
+      const interval = setInterval(() => {
+        checkBackendConnection();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [tab]);
 
   const handleFileSelect = (file: File) => {
     console.log('📁 [TransactionsPage] Fichier sélectionné:', file.name);
@@ -217,6 +250,50 @@ export default function TransactionsPage() {
                 gap: '12px',
                 alignItems: 'flex-start'
               }}>
+                {/* Card API Backend Status */}
+                <div style={{ 
+                  padding: '12px 20px', 
+                  backgroundColor: backendStatus === 'connected' ? '#f0fdf4' : backendStatus === 'disconnected' ? '#fef2f2' : '#f5f5f5',
+                  borderRadius: '8px',
+                  border: `1px solid ${backendStatus === 'connected' ? '#86efac' : backendStatus === 'disconnected' ? '#fca5a5' : '#e5e5e5'}`,
+                  minWidth: '200px',
+                  textAlign: 'center',
+                  flexShrink: 0
+                }}>
+                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
+                    API Backend
+                  </div>
+                  {backendStatus === 'checking' ? (
+                    <div style={{ fontSize: '20px', fontWeight: '600', color: '#666' }}>
+                      ⏳ Vérification...
+                    </div>
+                  ) : backendStatus === 'connected' ? (
+                    <div style={{ fontSize: '20px', fontWeight: '600', color: '#16a34a' }}>
+                      ✅ Connecté
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '20px', fontWeight: '600', color: '#dc2626' }}>
+                      ❌ Déconnecté
+                    </div>
+                  )}
+                  <button
+                    onClick={checkBackendConnection}
+                    style={{
+                      marginTop: '8px',
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      backgroundColor: '#1e3a5f',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    🔄 Actualiser
+                  </button>
+                </div>
+
+                {/* Card Transactions en BDD */}
                 <div style={{ 
                   padding: '12px 20px', 
                   backgroundColor: '#f5f5f5', 
