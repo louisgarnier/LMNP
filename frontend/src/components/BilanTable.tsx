@@ -9,7 +9,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { bilanAPI, BilanMapping, BilanResponse, transactionsAPI, BilanConfig, prorataAPI, ProRataSettings } from '@/api/client';
+import { bilanAPI, BilanMapping, BilanResponse, transactionsAPI, BilanConfig } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
 
 interface BilanTableProps {
@@ -84,51 +84,19 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
   const [mappings, setMappings] = useState<BilanMapping[]>([]);
   const [config, setConfig] = useState<BilanConfig | null>(null);
   const [bilanData, setBilanData] = useState<Record<number, BilanResponse>>({});
-  const [forecastSettings, setForecastSettings] = useState<ProRataSettings | null>(null);
 
   console.log('[BilanTable] propertyId:', activeProperty?.id);
 
-  // Charger les settings forecast (hérités du CR)
-  useEffect(() => {
-    const loadForecastSettings = async () => {
-      if (!activeProperty?.id) return;
-      try {
-        const settings = await prorataAPI.getSettings(activeProperty.id);
-        setForecastSettings(settings);
-        console.log('[BilanTable] Forecast settings (from CR):', settings);
-      } catch (err) {
-        console.error('[BilanTable] Erreur chargement forecast settings:', err);
-        setForecastSettings(null);
-      }
-    };
-    loadForecastSettings();
-  }, [activeProperty?.id, refreshKey]);
-
-  // Calculer les années à afficher depuis les transactions + années futures
+  // Calculer les années à afficher depuis les transactions
   useEffect(() => {
     const loadYears = async () => {
       if (!activeProperty?.id) return;
       console.log('[BilanTable] Chargement des années pour propertyId:', activeProperty.id);
-      const baseYears = await getYearsToDisplay(activeProperty.id);
-      
-      // Ajouter les années futures si forecast est activé (hérité du CR)
-      const currentYear = new Date().getFullYear();
-      const displayYears = [...baseYears];
-      
-      if (forecastSettings?.forecast_enabled && forecastSettings.forecast_years > 0) {
-        for (let i = 1; i <= forecastSettings.forecast_years; i++) {
-          const futureYear = currentYear + i;
-          if (!displayYears.includes(futureYear)) {
-            displayYears.push(futureYear);
-          }
-        }
-        console.log('[BilanTable] Années futures ajoutées:', displayYears);
-      }
-      
-      setYears(displayYears);
+      const yearsToDisplay = await getYearsToDisplay(activeProperty.id);
+      setYears(yearsToDisplay);
     };
     loadYears();
-  }, [activeProperty?.id, forecastSettings]);
+  }, [activeProperty?.id]);
 
   // Charger les mappings et les données depuis l'API
   useEffect(() => {
@@ -541,62 +509,6 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     }
   };
 
-  // Helpers pour année courante et future
-  const currentYear = new Date().getFullYear();
-  
-  const isCurrentYearColumn = (year: number): boolean => {
-    return year === currentYear;
-  };
-  
-  const isFutureYear = (year: number): boolean => {
-    return year > currentYear;
-  };
-  
-  // Style pour les colonnes années
-  const getYearColumnHeaderStyle = (year: number): React.CSSProperties => {
-    const baseStyle: React.CSSProperties = {
-      padding: '12px', 
-      textAlign: 'right', 
-      fontWeight: '600', 
-      color: '#374151',
-      minWidth: '120px'
-    };
-    
-    if (isCurrentYearColumn(year)) {
-      return {
-        ...baseStyle,
-        borderLeft: '2px solid #3b82f6',
-        borderRight: '2px solid #3b82f6',
-        backgroundColor: '#eff6ff',
-        color: '#1e40af',
-      };
-    }
-    if (isFutureYear(year)) {
-      return {
-        ...baseStyle,
-        backgroundColor: '#f0f9ff',
-        color: '#1e40af',
-      };
-    }
-    return baseStyle;
-  };
-  
-  const getYearColumnCellStyle = (year: number, baseStyle: React.CSSProperties = {}): React.CSSProperties => {
-    if (isCurrentYearColumn(year)) {
-      return {
-        ...baseStyle,
-        borderLeft: '2px solid #3b82f6',
-        borderRight: '2px solid #3b82f6',
-      };
-    }
-    if (isFutureYear(year)) {
-      return {
-        ...baseStyle,
-        backgroundColor: '#f0f9ff',
-      };
-    }
-    return baseStyle;
-  };
 
   return (
     <div style={{ overflowX: 'auto' }}>
@@ -617,10 +529,14 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
               Catégorie
             </th>
             {years.map(year => (
-              <th key={year} style={getYearColumnHeaderStyle(year)}>
+              <th key={year} style={{ 
+                padding: '12px', 
+                textAlign: 'right', 
+                fontWeight: '600', 
+                color: '#374151',
+                minWidth: '120px'
+              }}>
                 {year}
-                {isCurrentYearColumn(year) && <span style={{ fontSize: '11px', marginLeft: '4px' }}>(en cours)</span>}
-                {isFutureYear(year) && <span style={{ fontSize: '11px', marginLeft: '4px' }}>(prévision)</span>}
               </th>
             ))}
           </tr>
@@ -648,14 +564,12 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
                   </td>
                   {years.map(year => {
                     const balanceStyle = getBalanceRowStyle(year);
-                    const yearStyle = getYearColumnCellStyle(year, {});
                     return (
                       <td key={year} style={{ 
                         padding: '12px', 
                         textAlign: 'right',
                         fontWeight: '700',
-                        ...balanceStyle,
-                        ...yearStyle
+                        ...balanceStyle
                       }}>
                         {formatBalanceText(year)}
                       </td>
@@ -700,14 +614,12 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
                   const style = row.categoryName 
                     ? getAmountStyle(amount, row.categoryName)
                     : { color: textColor, fontWeight: isBold ? '600' : '400' };
-                  const yearStyle = getYearColumnCellStyle(year, {});
 
                   return (
                     <td key={year} style={{ 
                       padding: '12px', 
                       textAlign: 'right',
-                      ...style,
-                      ...yearStyle
+                      ...style
                     }}>
                       {formatAmount(displayAmount)}
                     </td>
