@@ -62,15 +62,28 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
         setSettings(settingsData);
         setReferenceData(refData.categories);
         
-        // Initialiser localConfigs avec les valeurs existantes
+        // Initialiser localConfigs avec les valeurs existantes OU auto-remplir avec N-1
         const local: Record<string, { amount: number; rate: number }> = {};
+        const prorataEnabled = settingsData?.prorata_enabled || false;
+        
         refData.categories.forEach((cat: CategoryReferenceData) => {
           if (!cat.is_calculated) {
             const existing = configsData.find((c: AnnualForecastConfig) => c.level_1 === cat.level_1);
-            local[cat.level_1] = {
-              amount: existing?.base_annual_amount || 0,
-              rate: (existing?.annual_growth_rate || 0) * 100,
-            };
+            
+            // Si prorata activé ET pas de config existante → auto-remplir avec N-1
+            if (prorataEnabled && !existing && cat.real_previous_year !== null && cat.real_previous_year !== undefined) {
+              local[cat.level_1] = {
+                amount: cat.real_previous_year,
+                rate: 0, // Taux par défaut à 0%
+              };
+              console.log(`[ProRataCard] Auto-remplissage ${cat.level_1} avec N-1: ${cat.real_previous_year}`);
+            } else {
+              // Utiliser la config existante ou 0
+              local[cat.level_1] = {
+                amount: existing?.base_annual_amount || 0,
+                rate: (existing?.annual_growth_rate || 0) * 100,
+              };
+            }
           }
         });
         
@@ -96,8 +109,8 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
     loadData();
   }, [activeProperty?.id, year, targetType, refreshKey]);
   
-  // Pré-remplir avec les valeurs de l'année précédente
-  const handlePrefillFromPreviousYear = useCallback(() => {
+  // Réinitialiser les projections avec les valeurs de l'année précédente
+  const handleResetFromPreviousYear = useCallback(() => {
     const newConfigs = { ...localConfigs };
     referenceData.forEach(cat => {
       if (!cat.is_calculated) {
@@ -311,7 +324,7 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
           {referenceData.length > 0 && (
             <div style={{ marginBottom: '12px' }}>
               <button
-                onClick={handlePrefillFromPreviousYear}
+                onClick={handleResetFromPreviousYear}
                 style={{
                   padding: '8px 16px',
                   backgroundColor: '#f0f9ff',
@@ -322,7 +335,7 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
                   fontSize: '13px',
                 }}
               >
-                📋 Pré-remplir avec {year - 1}
+                🔄 Réinitialiser projections {year - 1}
               </button>
             </div>
           )}
