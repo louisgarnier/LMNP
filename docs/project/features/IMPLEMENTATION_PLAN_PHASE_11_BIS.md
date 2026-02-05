@@ -230,6 +230,112 @@ Note : les checkboxes (activer prévisions) ne s'affichent que sur la première 
 
 ---
 
+## Step 11bis.4.bis : Projection Bilan - Année en cours (par étapes)
+
+⚠️ **Important (ordre strict)** :  
+- On commence par **l’interface et les explications** (aucun changement de calcul backend).  
+- Ensuite seulement, si les chiffres sont compris et validés, on pourra éventuellement faire évoluer le calcul du **Compte bancaire**.
+
+### 11bis.4.bis.1 – Frontend : encadré de l’année en cours + card d’explication (sans changer les chiffres)
+
+#### 11bis.4.bis.1.a – Remettre l’encadré bleu sur la colonne de l’année en cours (BilanTable)
+
+**Objectif**: avoir le même repère visuel que pour le Compte de Résultat.
+
+- Dans `BilanTable` :
+  - Re-mettre un **encadré bleu léger** sur toute la colonne de l’année en cours (par ex. 2026) :
+    - Bordure gauche et droite bleues sur cette colonne,
+    - Optionnel : mention `(en cours)` dans l’en-tête de colonne.
+- Ne **rien changer** d’autre :
+  - Pas de nouvelles colonnes,
+  - Pas de changements de valeurs.
+
+**Tests 11bis.4.bis.1.a** :
+- [ ] Sur l’onglet Bilan, la colonne de l’année en cours est clairement encadrée en bleu sur toute la hauteur.  
+- [ ] Les montants du Bilan (toutes lignes, toutes années) sont **strictement identiques** à l’état actuel (avant encadré).
+
+#### 11bis.4.bis.1.b – Ajouter une card "📊 Prévisions Bilan - Année en cours (explication)"
+
+**Objectif**: expliquer ce qui se passe aujourd’hui, **sans modifier aucun calcul**.
+
+- Ajouter sous le tableau Bilan une card, par exemple :
+  - Titre : **📊 Prévisions Bilan - Année en cours (2026)**.
+  - Deux blocs explicatifs :
+
+**Bloc 1 – Compte courant d’associé (CCA)**  
+- Rappeler que le CCA garde **exactement** son comportement actuel :
+  - Le CCA est déterminé uniquement par les **transactions taguées CCA**.
+  - Pour l’année en cours N (ex. 2026) :  
+    \( \text{CCA}_N = \text{CCA}_{N-1} + \sum \text{transactions CCA de l'année N} \)
+- Afficher dans la card :
+  - La valeur CCA N-1 (lue dans le Bilan),
+  - La **somme des transactions CCA de l’année N** (calculée à partir des transactions),
+  - La valeur CCA N (lue dans le Bilan).
+
+**Bloc 2 – Compte bancaire (état actuel, sans forecast)**  
+- Expliquer simplement le comportement actuel :
+  - Le Compte bancaire affiché dans le Bilan pour l’année N est **100% réel**, basé sur les transactions bancaires jusqu’à la fin de l’année.
+- Afficher dans la card :
+  - Compte bancaire N-1 (valeur Bilan),
+  - Compte bancaire N (valeur Bilan),
+  - Variation simple N – N-1 (optionnelle, à titre informatif).
+
+**⚠️ À ce stade :**
+- Aucun "cash forecasté" n’est calculé ni utilisé.
+- Le but est uniquement de **documenter** et **rendre lisible** ce que fait déjà le système.
+
+**Tests 11bis.4.bis.1.b** :
+- [ ] La card s’affiche bien sous le tableau Bilan.  
+- [ ] Les valeurs CCA N-1, CCA N et somme des transactions CCA N sont cohérentes entre la card, les transactions et le Bilan.  
+- [ ] Les valeurs Compte bancaire N-1 et N affichées dans la card sont strictement égales à celles du Bilan.
+
+> Tant que cette étape n’est pas validée visuellement et fonctionnellement, **on ne touche pas au calcul du Compte bancaire dans le backend.**
+
+---
+
+### 11bis.4.bis.2 – (Optionnel, après validation) Introduire le cash forecasté dans la card uniquement
+
+**Objectif**: commencer à présenter la logique "cash réel + cash forecasté" dans la card, sans modifier encore la valeur utilisée par le Bilan.
+
+1. **Définir dans le backend (bilan_service)**, pour l’année en cours N :
+   - `cash_reel_N_1` = solde bancaire réel au 31/12/N-1 (réutiliser la logique existante),
+   - `cash_forecast_N` = delta de cash projeté pour N basé sur :
+     - les montants "Prévu N" du Compte de Résultat (catégories de produits encaissés + charges cash hors amortissements),
+     - les remboursements de crédit (capital + intérêts + assurance) de l’onglet Crédit,
+     - en neutralisant les montants prévus qui alimentent le CCA.
+   - `compte_bancaire_simule_N = cash_reel_N_1 + cash_forecast_N`.
+
+2. **Exposer ces 3 valeurs uniquement pour l’année en cours** dans la réponse Bilan (sans casser le schéma actuel).
+
+3. **Mettre à jour la card** pour afficher :
+   - "Cash réel 31/12/N-1 : X €",
+   - "Cash forecasté N : Y €",
+   - "Compte bancaire simulé N : Z € = X + Y".
+
+**Tests 11bis.4.bis.2** :
+- [ ] Vérifier par script de debug que X, Y et Z sont cohérents et stables pour au moins une propriété (Evry).  
+- [ ] Vérifier que le Bilan continue d’utiliser la **même valeur Compte bancaire N qu’avant** (pas encore branchée sur Z).  
+- [ ] Vérifier que X + Y = Z dans la card.
+
+---
+
+### 11bis.4.bis.3 – (Optionnel, après validation 11bis.4.bis.2) Brancher la simulation sur le Compte bancaire du Bilan
+
+**Objectif**: si et seulement si les chiffres de la card sont jugés corrects et utiles, utiliser `compte_bancaire_simule_N` dans la cellule Bilan "Compte bancaire" de l’année en cours.
+
+1. **Remplacer**, pour la seule année en cours N, la valeur du Compte bancaire dans la structure Bilan par `compte_bancaire_simule_N` (Z).
+2. Ajouter un **tooltip** sur la cellule "Compte bancaire / année N" qui affiche :
+   - `Cash réel (31/12/N-1) : X €`,
+   - `+ Cash forecasté N : Y €`,
+   - `= Compte bancaire N : Z €`.
+
+**Tests 11bis.4.bis.3** :
+- [ ] Vérifier que pour l’année N, la valeur "Compte bancaire" du Bilan est bien Z (et que la card et le tooltip racontent la même histoire).  
+- [ ] Vérifier que l’équilibre Actif = Passif est toujours respecté (ou différence < tolérance d’arrondis).  
+- [ ] Vérifier qu’aucune autre année (N-1, N-2, etc.) n’a été impactée par cette modification.
+
+---
+
 ## Step 11bis.5 : Projection multi-années (Forecast)
 
 **Objectif**: Projeter les montants sur plusieurs années futures
