@@ -93,8 +93,11 @@ export default function AmortizationConfigCard({
   // État pour le repli/dépli de la card
   const [isCollapsed, setIsCollapsed] = useState<boolean>(false);
 
-  // Charger les valeurs Level 2 depuis l'API
-  const loadLevel2Values = async () => {
+  // Charger les valeurs Level 2 depuis l'API.
+  // `isCancelled` : garde anti-course — si la propriété active change pendant que
+  // les appels sont en vol, le cleanup du useEffect annule ce chargement et les
+  // réponses tardives de l'ancienne propriété ne doivent plus toucher l'état.
+  const loadLevel2Values = async (isCancelled: () => boolean = () => false) => {
     if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
       console.error('[AmortizationConfigCard] Property ID invalide pour loadLevel2Values');
       return;
@@ -102,6 +105,7 @@ export default function AmortizationConfigCard({
     try {
       setLoadingValues(true);
       const response = await transactionsAPI.getUniqueValues(activeProperty.id, 'level_2');
+      if (isCancelled()) return; // Réponse périmée : une autre propriété est devenue active
       const values = response.values || [];
       setLevel2Values(values);
       setLevel2ValuesLoaded(true);
@@ -126,6 +130,7 @@ export default function AmortizationConfigCard({
       } catch (typesErr: any) {
         console.error('[AmortizationConfigCard] Erreur lors de la vérification des types existants:', typesErr);
       }
+      if (isCancelled()) return; // Réponse périmée : ne pas écraser l'état de la nouvelle propriété
 
       // Repli sur le localStorage (préférence UI) uniquement si aucune config n'existe déjà en base
       if (!resolvedLevel2) {
@@ -162,18 +167,29 @@ export default function AmortizationConfigCard({
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_2:', err);
+      if (isCancelled()) return; // Erreur d'un chargement périmé : ignorer
       setLevel2ValuesLoaded(true);
       if (onLevel2ValuesLoaded) {
         onLevel2ValuesLoaded(0);
       }
     } finally {
-      setLoadingValues(false);
+      // Ne pas éteindre le loader d'un chargement plus récent encore en cours
+      if (!isCancelled()) {
+        setLoadingValues(false);
+      }
     }
   };
 
-  // Charger les valeurs au montage et quand activeProperty change
+  // Charger les valeurs au montage et quand activeProperty change.
+  // Le cleanup marque le chargement en cours comme annulé pour que ses réponses
+  // tardives ne clobbent pas l'état de la propriété nouvellement active.
   useEffect(() => {
-    loadLevel2Values();
+    let cancelled = false;
+    loadLevel2Values(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeProperty?.id]);
 
   // Les 7 types initiaux (template par défaut)

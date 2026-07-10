@@ -9,7 +9,7 @@
  * localStorage, jamais depuis GET /api/amortization/types?property_id=).
  */
 
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
 import AmortizationConfigCard from '../src/components/AmortizationConfigCard';
 import type { AmortizationType } from '../src/api/client';
 
@@ -63,14 +63,26 @@ const EXISTING_TYPES: AmortizationType[] = [
   },
 ];
 
+const PROPERTY_EVRY = {
+  id: EVRY_PROPERTY_ID,
+  name: 'Evry',
+  created_at: '2025-01-01T00:00:00Z',
+  updated_at: '2025-01-01T00:00:00Z',
+};
+
+const PROPERTY_B = {
+  id: 26,
+  name: 'Melun',
+  created_at: '2025-01-01T00:00:00Z',
+  updated_at: '2025-01-01T00:00:00Z',
+};
+
+// Propriété active mutable pour simuler un changement de propriété entre deux renders
+let mockActiveProperty: typeof PROPERTY_EVRY = PROPERTY_EVRY;
+
 jest.mock('../src/contexts/PropertyContext', () => ({
   useProperty: () => ({
-    activeProperty: {
-      id: EVRY_PROPERTY_ID,
-      name: 'Evry',
-      created_at: '2025-01-01T00:00:00Z',
-      updated_at: '2025-01-01T00:00:00Z',
-    },
+    activeProperty: mockActiveProperty,
   }),
 }));
 
@@ -85,6 +97,7 @@ jest.mock('../src/api/client', () => {
     amortizationTypesAPI: {
       ...actual.amortizationTypesAPI,
       getAll: jest.fn(),
+      create: jest.fn(),
       getTransactionCount: jest.fn(),
       getAmount: jest.fn(),
       getCumulated: jest.fn(),
@@ -102,6 +115,7 @@ describe('AmortizationConfigCard - rechargement de la config existante', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     window.localStorage.clear();
+    mockActiveProperty = PROPERTY_EVRY;
 
     (transactionsAPI.getUniqueValues as jest.Mock).mockImplementation(
       (_propertyId: number, column: string) => {
@@ -153,6 +167,73 @@ describe('AmortizationConfigCard - rechargement de la config existante', () => {
     // Le tableau doit lister les types existants pour ce Level 2
     for (const type of EXISTING_TYPES) {
       expect(await screen.findByText(type.name)).toBeInTheDocument();
+    }
+  });
+
+  it("ignore la réponse tardive de l'ancienne propriété après un changement de propriété", async () => {
+    // Type existant pour la propriété B (Melun)
+    const TYPE_B: AmortizationType = {
+      id: 10,
+      name: 'Machine outil',
+      level_2_value: 'Machines',
+      level_1_values: [],
+      start_date: null,
+      duration: 5,
+      annual_amount: null,
+      created_at: '2025-01-01T00:00:00Z',
+      updated_at: '2025-01-01T00:00:00Z',
+    };
+
+    // Deferred contrôlé manuellement : l'appel level_2 de la propriété A (Evry)
+    // reste en vol jusqu'à ce qu'on le résolve explicitement, APRÈS le switch vers B.
+    let resolveEvryLevel2!: (value: { column: string; values: string[] }) => void;
+    const evryLevel2Deferred = new Promise<{ column: string; values: string[] }>((resolve) => {
+      resolveEvryLevel2 = resolve;
+    });
+
+    (transactionsAPI.getUniqueValues as jest.Mock).mockImplementation(
+      (propertyId: number, column: string) => {
+        if (column !== 'level_2') {
+          return Promise.resolve({ column, values: [] });
+        }
+        if (propertyId === EVRY_PROPERTY_ID) {
+          return evryLevel2Deferred; // lent : résolu manuellement plus tard
+        }
+        return Promise.resolve({ column: 'level_2', values: ['Machines'] }); // B : rapide
+      }
+    );
+
+    (amortizationTypesAPI.getAll as jest.Mock).mockImplementation(
+      (propertyId: number, level2Value?: string) => {
+        const all = propertyId === EVRY_PROPERTY_ID ? EXISTING_TYPES : [TYPE_B];
+        const items = level2Value ? all.filter((t) => t.level_2_value === level2Value) : all;
+        return Promise.resolve({ items, total: items.length });
+      }
+    );
+
+    // Monte avec la propriété A (Evry) : son appel level_2 reste en vol
+    mockActiveProperty = PROPERTY_EVRY;
+    const { rerender } = render(<AmortizationConfigCard />);
+
+    // L'utilisateur change de propriété pendant que l'appel de A est en vol
+    mockActiveProperty = PROPERTY_B;
+    rerender(<AmortizationConfigCard />);
+
+    // B se charge normalement : select "Machines" + son type dans le tableau
+    expect(await screen.findByText('Machines')).toBeInTheDocument();
+    expect(await screen.findByText('Machine outil')).toBeInTheDocument();
+
+    // La réponse de A arrive EN RETARD, après que B est affiché
+    await act(async () => {
+      resolveEvryLevel2({ column: 'level_2', values: ['Immobilisations', 'Autre'] });
+    });
+
+    // L'état doit rester celui de B : la réponse périmée de A ne doit rien écraser
+    expect(screen.getByText('Machines')).toBeInTheDocument();
+    expect(screen.getByText('Machine outil')).toBeInTheDocument();
+    expect(screen.queryByText('Immobilisations')).not.toBeInTheDocument();
+    for (const type of EXISTING_TYPES) {
+      expect(screen.queryByText(type.name)).not.toBeInTheDocument();
     }
   });
 });
