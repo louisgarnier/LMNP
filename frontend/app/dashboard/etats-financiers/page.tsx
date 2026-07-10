@@ -17,6 +17,7 @@ import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 import CompteResultatTable from '@/components/CompteResultatTable';
 import BilanConfigCard from '@/components/BilanConfigCard';
 import BilanTable from '@/components/BilanTable';
+import BilanForecastCard from '@/components/BilanForecastCard';
 import ProRataForecastCard from '@/components/ProRataForecastCard';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI, transactionsAPI } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
@@ -765,8 +766,12 @@ export default function EtatsFinanciersPage() {
             />
             <BilanTable refreshKey={bilanRefreshKey} />
             
-            {/* Note: Les prévisions du Bilan sont héritées du Compte de Résultat */}
-            {/* Les valeurs Compte bancaire et CCA seront calculées automatiquement */}
+            {/* Card Prévisions annuelles - Bilan */}
+            <BilanForecastCard
+              year={new Date().getFullYear()}
+              onConfigChange={() => setBilanRefreshKey(prev => prev + 1)}
+              refreshKey={bilanRefreshKey}
+            />
           </div>
         )}
 

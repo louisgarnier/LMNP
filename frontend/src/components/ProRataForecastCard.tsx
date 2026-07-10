@@ -22,9 +22,9 @@ import {
 } from '@/api/client';
 
 interface Props {
-  targetType: 'compte_resultat' | 'bilan_actif' | 'bilan_passif';
+  targetType: 'compte_resultat';
   year: number;
-  sectionTitle?: string;  // Optionnel: "ACTIF" ou "PASSIF" pour le bilan
+  sectionTitle?: string;  // Optionnel: titre personnalisé pour la card
   onConfigChange?: () => void;  // Callback pour rafraîchir le tableau parent
   refreshKey?: number;  // Clé pour forcer le rechargement (quand config card change)
 }
@@ -183,10 +183,7 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
   // Titre dynamique
   const getTitle = () => {
     if (sectionTitle) return `⚙️ Prévisions annuelles - ${sectionTitle}`;
-    if (targetType === 'compte_resultat') return '⚙️ Prévisions annuelles - Compte de Résultat';
-    if (targetType === 'bilan_actif') return '⚙️ Prévisions annuelles - ACTIF';
-    if (targetType === 'bilan_passif') return '⚙️ Prévisions annuelles - PASSIF';
-    return '⚙️ Prévisions annuelles';
+    return '⚙️ Prévisions annuelles - Compte de Résultat';
   };
   
   if (isLoading) {
@@ -284,8 +281,8 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
         </div>
       )}
       
-      {/* Checkboxes - Afficher seulement pour compte_resultat ou bilan_actif (pas pour bilan_passif) */}
-      {targetType !== 'bilan_passif' && (
+      {/* Checkboxes - Afficher seulement pour compte_resultat */}
+      {targetType === 'compte_resultat' && (
         <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
             <input
@@ -320,8 +317,8 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
       {/* Tableau de configuration - toujours visible pour permettre la saisie */}
       {(settings?.prorata_enabled || settings?.forecast_enabled || referenceData.length === 0) && (
         <>
-          {/* Bouton pré-remplir */}
-          {referenceData.length > 0 && (
+          {/* Bouton pré-remplir - seulement pour compte_resultat */}
+          {referenceData.length > 0 && targetType === 'compte_resultat' && (
             <div style={{ marginBottom: '12px' }}>
               <button
                 onClick={handleResetFromPreviousYear}
@@ -463,18 +460,19 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
                         color: cat.real_current_year >= 0 ? '#059669' : '#dc2626',
                         fontWeight: '500',
                       }}>
-                        {formatEuro(cat.real_current_year)}
+                        {/* Valeur absolue affichée, comme l'historique : le signe (charge/produit) est porté par la catégorie */}
+                        {formatEuro(Math.abs(cat.real_current_year))}
                       </td>
-                      
+
                       {/* Année précédente OU "donnée calculée" */}
-                      <td style={{ 
-                        padding: '10px', 
-                        textAlign: 'right', 
+                      <td style={{
+                        padding: '10px',
+                        textAlign: 'right',
                         borderBottom: '1px solid #e5e7eb',
                         color: cat.is_calculated ? '#94a3b8' : '#6b7280',
                         fontStyle: cat.is_calculated ? 'italic' : 'normal',
                       }}>
-                        {cat.is_calculated ? 'donnée calculée' : formatEuro(cat.real_previous_year)}
+                        {cat.is_calculated ? 'donnée calculée' : formatEuro(Math.abs(cat.real_previous_year))}
                       </td>
                       
                       {/* Prévu année en cours */}
@@ -594,7 +592,8 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
                               fontStyle: cat.is_calculated ? 'italic' : 'normal',
                             }}
                           >
-                            {cat.is_calculated ? '—' : formatEuro(projectedAmount)}
+                            {/* Affichage en valeur absolue, comme l'historique : le signe (charge/produit) est porté par la catégorie, pas par l'affichage */}
+                            {cat.is_calculated ? '—' : formatEuro(Math.abs(projectedAmount))}
                           </td>
                         );
                       })}
@@ -677,6 +676,95 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
                   ))
                 )}
               </tbody>
+              
+              {/* Ligne de total */}
+              {referenceData.length > 0 && (
+                <tfoot>
+                  <tr style={{ backgroundColor: '#f1f5f9', fontWeight: '600' }}>
+                    <td style={{ 
+                      padding: '10px', 
+                      borderTop: '2px solid #e5e7eb',
+                      color: '#1e3a5f',
+                    }}>
+                      TOTAL
+                    </td>
+                    
+                    {/* Total Réel année en cours */}
+                    <td style={{ 
+                      padding: '10px', 
+                      textAlign: 'right', 
+                      borderTop: '2px solid #e5e7eb',
+                      color: '#1e3a5f',
+                    }}>
+                      {formatEuro(referenceData.reduce((sum, cat) => sum + cat.real_current_year, 0))}
+                    </td>
+                    
+                    {/* Total Année précédente */}
+                    <td style={{ 
+                      padding: '10px', 
+                      textAlign: 'right', 
+                      borderTop: '2px solid #e5e7eb',
+                      color: '#6b7280',
+                    }}>
+                      {formatEuro(referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => sum + (cat.real_previous_year || 0), 0))}
+                    </td>
+                    
+                    {/* Total Prévu année en cours */}
+                    <td style={{ 
+                      padding: '10px', 
+                      textAlign: 'right', 
+                      borderTop: '2px solid #e5e7eb',
+                      color: '#1e3a5f',
+                    }}>
+                      {formatEuro(referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => sum + (localConfigs[cat.level_1]?.amount || 0), 0))}
+                    </td>
+                    
+                    {/* % Réalisé global */}
+                    <td style={{ 
+                      padding: '10px', 
+                      textAlign: 'right', 
+                      borderTop: '2px solid #e5e7eb',
+                    }}>
+                      {(() => {
+                        const totalPlanned = referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => sum + (localConfigs[cat.level_1]?.amount || 0), 0);
+                        const totalReal = referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => sum + Math.abs(cat.real_current_year), 0);
+                        if (totalPlanned === 0) return '—';
+                        const pct = (totalReal / Math.abs(totalPlanned)) * 100;
+                        return <span style={{ color: pct >= 100 ? '#059669' : pct >= 50 ? '#d97706' : '#dc2626' }}>{pct.toFixed(0)}%</span>;
+                      })()}
+                    </td>
+                    
+                    {/* Évol. %/an - cellule vide */}
+                    {settings?.forecast_enabled && (
+                      <td style={{ padding: '10px', borderTop: '2px solid #e5e7eb' }}>—</td>
+                    )}
+                    
+                    {/* Totaux des années futures */}
+                    {settings?.forecast_enabled && Array.from({ length: settings.forecast_years }, (_, i) => {
+                      const yearsAhead = i + 1;
+                      const total = referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => {
+                        const baseAmount = localConfigs[cat.level_1]?.amount || 0;
+                        const growthRate = (localConfigs[cat.level_1]?.rate || 0) / 100;
+                        return sum + baseAmount * Math.pow(1 + growthRate, yearsAhead);
+                      }, 0);
+                      return (
+                        <td 
+                          key={`total-${year + i + 1}`}
+                          style={{ 
+                            padding: '10px', 
+                            textAlign: 'right', 
+                            borderTop: '2px solid #e5e7eb',
+                            backgroundColor: '#e0f2fe',
+                            color: '#1e3a5f',
+                          }}
+                        >
+                          {formatEuro(total)}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
           
