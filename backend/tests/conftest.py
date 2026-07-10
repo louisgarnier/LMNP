@@ -19,8 +19,17 @@ production). Les 46 fichiers de tests existants qui importent directement
 `SessionLocal` / `init_database` continuent de fonctionner tels quels : ces
 fixtures sont opt-in (il faut déclarer `db_session` ou `client` en argument
 du test) et n'activent aucun patch global (pas d'autouse).
+
+⚠️ QUARANTAINE : les modules de tests hérités qui utilisent la base de
+production directement (`SessionLocal` / `next(get_db())`) sont SKIPPÉS à la
+collecte — le 2026-07-10, `test_database_complete.py` a effacé la table
+`transactions` de production (880 → 4 lignes, restaurée depuis backup, voir
+docs/workflow/ERROR_INVESTIGATION.md). Pour les exécuter malgré tout (après
+backup !) : LMNP_ALLOW_PROD_DB_TESTS=1 pytest ...
 """
 
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -36,6 +45,41 @@ from sqlalchemy.pool import StaticPool
 from backend.database.models import Base
 from backend.database.connection import get_db
 from backend.api.main import app
+
+# Motif des accès directs à la base de production dans un module de test :
+# import/usage de SessionLocal ou consommation manuelle du générateur get_db.
+_PROD_DB_PATTERN = re.compile(r"\bSessionLocal\b|next\(get_db\(\)\)")
+
+
+def pytest_collection_modifyitems(config, items):
+    """
+    Skippe à la collecte tout module de test qui accède directement à la base
+    de production (voir quarantaine dans le docstring du module). Le contenu
+    de chaque fichier n'est lu qu'une fois par session pytest.
+    """
+    if os.environ.get("LMNP_ALLOW_PROD_DB_TESTS") == "1":
+        return
+
+    verdict_by_file = {}
+    for item in items:
+        path = str(item.fspath)
+        if path not in verdict_by_file:
+            try:
+                source = Path(path).read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                source = ""
+            verdict_by_file[path] = bool(_PROD_DB_PATTERN.search(source))
+        if verdict_by_file[path]:
+            item.add_marker(
+                pytest.mark.skip(
+                    reason=(
+                        "Test hérité utilisant la base de PRODUCTION "
+                        "(SessionLocal/get_db direct) — quarantaine du "
+                        "2026-07-10, voir docs/workflow/ERROR_INVESTIGATION.md. "
+                        "Forcer avec LMNP_ALLOW_PROD_DB_TESTS=1 (backup d'abord !)."
+                    )
+                )
+            )
 
 
 @pytest.fixture
