@@ -31,7 +31,11 @@ export default function AmortizationConfigCard({
   onLevel2ValuesLoaded,
   onRefreshRequested,
 }: AmortizationConfigCardProps) {
-  const { activeProperty } = useProperty();
+  const { activeProperty: activePropertyOrNull } = useProperty();
+  // Narrowed non-null property: chaque appelant garde ses propres garde-fous runtime
+  // (activeProperty?.id, activeProperty.id <= 0, etc.) — cette assertion ne fait
+  // que satisfaire TypeScript sans changer le comportement à l'exécution.
+  const activeProperty = activePropertyOrNull as NonNullable<typeof activePropertyOrNull>;
   const [selectedLevel2Value, setSelectedLevel2Value] = useState<string>('');
   const [level2Values, setLevel2Values] = useState<string[]>([]);
   const [loadingValues, setLoadingValues] = useState<boolean>(false);
@@ -107,30 +111,50 @@ export default function AmortizationConfigCard({
         onLevel2ValuesLoaded(values.length);
       }
       
-      // Restaurer la valeur depuis localStorage si disponible
-      const savedLevel2 = localStorage.getItem(STORAGE_KEY_LEVEL2);
-      if (savedLevel2) {
-        try {
-          // Essayer de parser comme JSON (ancien format array)
-          const savedValues: string[] = JSON.parse(savedLevel2);
-          const validValue = savedValues.find(v => values.includes(v));
-          if (validValue) {
-            setSelectedLevel2Value(validValue);
-      if (onLevel2Change) {
-              onLevel2Change(validValue);
+      // Déterminer le Level 2 à sélectionner. Priorité à la configuration déjà
+      // persistée en base (des types d'amortissement existants) : c'est la source
+      // de vérité, contrairement au localStorage qui peut être vide (nouveau
+      // navigateur, cache effacé...) alors qu'une config existe déjà côté serveur.
+      let resolvedLevel2: string | null = null;
+
+      try {
+        const existingTypesResponse = await amortizationTypesAPI.getAll(activeProperty.id);
+        const existingLevel2 = existingTypesResponse?.items?.[0]?.level_2_value;
+        if (existingLevel2 && values.includes(existingLevel2)) {
+          resolvedLevel2 = existingLevel2;
+        }
+      } catch (typesErr: any) {
+        console.error('[AmortizationConfigCard] Erreur lors de la vérification des types existants:', typesErr);
+      }
+
+      // Repli sur le localStorage (préférence UI) uniquement si aucune config n'existe déjà en base
+      if (!resolvedLevel2) {
+        const savedLevel2 = localStorage.getItem(STORAGE_KEY_LEVEL2);
+        if (savedLevel2) {
+          try {
+            // Essayer de parser comme JSON (ancien format array)
+            const savedValues: string[] = JSON.parse(savedLevel2);
+            const validValue = savedValues.find(v => values.includes(v));
+            if (validValue) {
+              resolvedLevel2 = validValue;
             }
-          }
           } catch (e) {
-          // Si ce n'est pas du JSON, utiliser comme string simple
-          if (values.includes(savedLevel2)) {
-            setSelectedLevel2Value(savedLevel2);
-            if (onLevel2Change) {
-              onLevel2Change(savedLevel2);
+            // Si ce n'est pas du JSON, utiliser comme string simple
+            if (values.includes(savedLevel2)) {
+              resolvedLevel2 = savedLevel2;
             }
           }
         }
       }
-      
+
+      if (resolvedLevel2) {
+        setSelectedLevel2Value(resolvedLevel2);
+        localStorage.setItem(STORAGE_KEY_LEVEL2, resolvedLevel2);
+        if (onLevel2Change) {
+          onLevel2Change(resolvedLevel2);
+        }
+      }
+
       // Restaurer l'état collapsed depuis localStorage
       const savedCollapsed = localStorage.getItem(STORAGE_KEY_COLLAPSED);
       if (savedCollapsed !== null) {

@@ -28,8 +28,12 @@ export default function CompteResultatConfigCard({
   onLevel3ValuesLoaded,
   onOverrideEnabledChange,
 }: CompteResultatConfigCardProps) {
-  const { activeProperty } = useProperty();
-  
+  const { activeProperty: activePropertyOrNull } = useProperty();
+  // Narrowed non-null property: chaque appelant garde ses propres garde-fous runtime
+  // (activeProperty?.id, activeProperty.id <= 0, etc.) — cette assertion ne fait
+  // que satisfaire TypeScript sans changer le comportement à l'exécution.
+  const activeProperty = activePropertyOrNull as NonNullable<typeof activePropertyOrNull>;
+
   const [selectedLevel3Values, setSelectedLevel3Values] = useState<string[]>([]);
   const [level3Values, setLevel3Values] = useState<string[]>([]);
   const [loadingValues, setLoadingValues] = useState<boolean>(false);
@@ -771,9 +775,9 @@ export default function CompteResultatConfigCard({
                     
                     try {
                       // Récupérer tous les overrides et les supprimer
-                      const allOverrides = await compteResultatAPI.getOverrides();
-                      const deletePromises = allOverrides.map(override => 
-                        compteResultatAPI.deleteOverride(override.year)
+                      const allOverrides = await compteResultatAPI.getOverrides(activeProperty.id);
+                      const deletePromises = allOverrides.map(override =>
+                        compteResultatAPI.deleteOverride(activeProperty.id, override.year)
                       );
                       await Promise.all(deletePromises);
                       console.log(`✅ ${allOverrides.length} override(s) supprimé(s)`);
