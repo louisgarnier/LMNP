@@ -26,6 +26,20 @@ collecte — le 2026-07-10, `test_database_complete.py` a effacé la table
 `transactions` de production (880 → 4 lignes, restaurée depuis backup, voir
 docs/workflow/ERROR_INVESTIGATION.md). Pour les exécuter malgré tout (après
 backup !) : LMNP_ALLOW_PROD_DB_TESTS=1 pytest ...
+
+⚠️ QUARANTAINE (bis) : même skip, même variable d'override, pour les scripts
+« manuels » hérités qui appellent un serveur en clair sur
+`http://localhost:8000` (souvent la même base de production, via l'API HTTP
+plutôt que via `SessionLocal`, ex. `test_loan_configs_endpoints_manual.py` qui
+peut créer/modifier/supprimer de vrais `loan_configs`). Leur propre docstring
+dit explicitement qu'il faut les lancer à la main (« Le serveur backend doit
+être démarré / Usage: python backend/tests/xxx.py »), pas via `pytest`. Bloc A
+Task 8 (2026-07-10) a aussi constaté que leur signal est trompeur sous pytest :
+la plupart de leurs fonctions attrapent leurs propres erreurs et font
+`return False` au lieu de `assert`/`raise`, donc pytest les compte PASSED même
+quand l'appel réel échoue (ex. `test_generate_compte_resultat` reste "PASSED"
+alors que l'endpoint `/compte-resultat/generate` a été supprimé en Task 7).
+Voir docs/workflow/ERROR_INVESTIGATION.md pour le détail.
 """
 
 import os
@@ -50,12 +64,19 @@ from backend.api.main import app
 # import/usage de SessionLocal ou consommation manuelle du générateur get_db.
 _PROD_DB_PATTERN = re.compile(r"\bSessionLocal\b|next\(get_db\(\)\)")
 
+# Motif des scripts « manuels » hérités qui tapent en dur sur un serveur local
+# (généralement adossé à la base de production, hors harnais isolé), écrits
+# pour être lancés à la main (`python backend/tests/xxx.py`) et non via pytest.
+_MANUAL_LIVE_SERVER_PATTERN = re.compile(r'BASE_URL\s*=\s*[\'"]http://localhost:8000')
+
 
 def pytest_collection_modifyitems(config, items):
     """
     Skippe à la collecte tout module de test qui accède directement à la base
-    de production (voir quarantaine dans le docstring du module). Le contenu
-    de chaque fichier n'est lu qu'une fois par session pytest.
+    de production, soit via SQLAlchemy (`SessionLocal`/`get_db()`), soit via
+    un appel HTTP en dur sur un serveur local (scripts "manuels" hérités) —
+    voir quarantaine dans le docstring du module. Le contenu de chaque
+    fichier n'est lu qu'une fois par session pytest.
     """
     if os.environ.get("LMNP_ALLOW_PROD_DB_TESTS") == "1":
         return
@@ -68,18 +89,26 @@ def pytest_collection_modifyitems(config, items):
                 source = Path(path).read_text(encoding="utf-8", errors="ignore")
             except OSError:
                 source = ""
-            verdict_by_file[path] = bool(_PROD_DB_PATTERN.search(source))
-        if verdict_by_file[path]:
-            item.add_marker(
-                pytest.mark.skip(
-                    reason=(
-                        "Test hérité utilisant la base de PRODUCTION "
-                        "(SessionLocal/get_db direct) — quarantaine du "
-                        "2026-07-10, voir docs/workflow/ERROR_INVESTIGATION.md. "
-                        "Forcer avec LMNP_ALLOW_PROD_DB_TESTS=1 (backup d'abord !)."
-                    )
+            if _PROD_DB_PATTERN.search(source):
+                verdict_by_file[path] = (
+                    "Test hérité utilisant la base de PRODUCTION "
+                    "(SessionLocal/get_db direct) — quarantaine du "
+                    "2026-07-10, voir docs/workflow/ERROR_INVESTIGATION.md. "
+                    "Forcer avec LMNP_ALLOW_PROD_DB_TESTS=1 (backup d'abord !)."
                 )
-            )
+            elif _MANUAL_LIVE_SERVER_PATTERN.search(source):
+                verdict_by_file[path] = (
+                    "Script manuel hérité appelant un serveur local en dur "
+                    "(http://localhost:8000, souvent la base de PRODUCTION) — "
+                    "prévu pour être lancé à la main, pas via pytest ; "
+                    "quarantaine du 2026-07-10 (Bloc A Task 8), voir "
+                    "docs/workflow/ERROR_INVESTIGATION.md. Forcer avec "
+                    "LMNP_ALLOW_PROD_DB_TESTS=1 (backup d'abord !)."
+                )
+            else:
+                verdict_by_file[path] = None
+        if verdict_by_file[path]:
+            item.add_marker(pytest.mark.skip(reason=verdict_by_file[path]))
 
 
 @pytest.fixture

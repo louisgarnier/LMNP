@@ -351,12 +351,170 @@ l'ancre attendue).
 
 ---
 
+## ⚠️ BUG (Task 4, 2026-07-10) : capital restant dû basé sur une date de config au lieu de l'échéancier réel
+
+**Symptôme :** bilan Evry déséquilibré (ACTIF ≠ PASSIF) pour 2022-2025,
+écarts de -2 814,69 € (2022) à -37 201,47 € (2025) sur le PASSIF.
+
+**Cause :** `calculate_capital_restant_du`
+(`backend/api/services/bilan_service.py`) décidait qu'un prêt était
+« actif » pour l'année N via `LoanConfig.loan_start_date`, un champ de
+config saisi séparément de l'échéancier réel des paiements
+(`LoanPayment`). Pour Evry, `loan_start_date = 2026-05-08` alors que le
+premier `LoanPayment` réel est daté de 2021 — le filtre excluait donc le
+prêt de `active_loans` pour toutes les années 2021-2025, et le capital
+remboursé n'était jamais déduit du `credit_amount` affiché.
+
+**Fix :** remplacer le filtre sur `LoanConfig.loan_start_date` par une
+sous-requête corrélée `exists()` vérifiant au moins un `LoanPayment` daté
+`<= 31/12/N`. Puis recaler la donnée elle-même
+(`backend/scripts/fix_loan_start_dates.py`, idempotent) :
+`loan_start_date = MIN(LoanPayment.date)` par prêt, pour que la config
+cesse de diverger de la réalité.
+
+**Règle de prévention :** ne jamais dériver un état métier (« ce prêt
+est-il actif à telle date ? ») d'un champ de configuration saisi à la
+main quand une source de vérité transactionnelle existe déjà (ici,
+l'échéancier `LoanPayment`). Si un nouveau `LoanConfig` est créé, vérifier
+immédiatement qu'il a au moins un `LoanPayment` cohérent, ou s'attendre à
+ce que le prêt soit traité comme inactif dans tous les calculs bilan.
+Voir ADR-002 (`docs/workflow/ADR.md`).
+
+---
+
+## ⚠️ BUG (Task 5, 2026-07-10) : mappings d'amortissement Evry copiés d'un autre gabarit (catégories croisées)
+
+**Symptôme :** aucun symptôme visible côté CR/bilan (les montants
+agrégés — annuité totale, base amortissable — étaient déjà corrects), mais
+les libellés de catégorie (`amortization_types.name`) d'Evry ne
+correspondaient pas à leur `level_1_values` mappé, et 3 types
+« orphelins » (`level_1_values == []`) polluaient la table.
+
+**Cause :** `amortization_types` pour Evry (property_id=25) était une
+copie défectueuse du gabarit Marseille : les NOMS de composant
+(`Immobilisation agencements`, `Immobilisation mobilier`,
+`Immobilisation Facade/Toiture`, ...) ne correspondaient plus à la valeur
+`level_1` réellement mappée pour ce composant (ex. le type nommé
+« agencements » était en réalité mappé sur `level_1 = "Immeuble (hors
+terrain)"`, c.-à-d. la construction). Cause racine probable : copie
+manuelle du gabarit d'une propriété à l'autre sans réaligner les libellés
+sur les catégories `level_1` propres à chaque propriété.
+
+**Fix :** `backend/scripts/fix_amortization_evry.py` recrée 4 types
+propres pour Evry, un par catégorie `level_1` réellement documentée
+(Terrain 0 an, Immeuble 30 ans, Travaux 10 ans, Mobilier 10 ans, sourcés
+depuis `docs/files/appartements/Evry/Immobilisations_Evry.pdf`), avec
+`name == level_1_values[0]`, supprime les 3 types orphelins, et régénère
+les 108 `amortization_results` avec les bons libellés. **48 diffs golden,
+toutes des renommages de catégorie, montant préservé** (voir `ECARTS.md`).
+
+**Règle de prévention :** quand un gabarit `amortization_types` est copié
+d'une propriété à une autre (nouvelle propriété, ou correctif), vérifier
+systématiquement que `name == level_1_values[0]` (ou au moins qu'ils
+désignent le même composant) pour CHAQUE type, et qu'aucun type n'a
+`level_1_values == []` (orphelin, jamais mappé à rien). Croiser au moins
+un test contre un document source (PDF/Excel d'immobilisations) avant de
+considérer la configuration fiable — ne pas se fier au seul fait que les
+totaux agrégés (CR, bilan) semblent corrects, car un mauvais libellé de
+catégorie peut coexister avec des montants totaux justes (comme ici).
+
+---
+
+## ⚠️ BUG (Task 7, 2026-07-10) : caches CR/Bilan morts (jamais peuplés/jamais invalidés)
+
+**Symptôme :** aucun symptôme utilisateur direct observé (les valeurs
+lues restaient justes car un autre chemin de calcul les produisait déjà),
+mais un risque latent de désynchronisation : deux tables de cache
+(`compte_resultat_data`, `bilan_data`) et un mécanisme d'invalidation
+existaient dans le code sans jamais fonctionner.
+
+**Cause :** `bilan_data` n'avait aucun writer dans tout le code (0 ligne
+en base). `compte_resultat_data` n'était peuplée que par
+`POST /compte-resultat/generate`, jamais appelé par le frontend (aucune
+référence à `generate` côté client). Tous les appels d'invalidation
+(après création/modification de transaction, mapping, config
+d'amortissement, échéance de prêt...) passaient de mauvais arguments
+(ex. `invalidate_all_compte_resultat(db)` sans le `property_id`
+obligatoire de sa signature) → `TypeError` systématiquement avalée par un
+`try/except` loggé (jamais un `except: pass` silencieux, mais un log
+noyé parmi d'autres, jamais remonté ni testé).
+
+**Fix :** suppression complète des caches (`CompteResultatData`,
+`BilanData`, modèles ORM + tables SQL via
+`backend/scripts/drop_cache_tables.py`), des fonctions d'invalidation, et
+de tous leurs call sites. Les `GET` plats calculent désormais en direct
+(calcul à la lecture, voir ADR-001), avec mémoïsation de requête (pas de
+persistance) pour la performance. Golden re-comparé après bascule : zéro
+écart.
+
+**Règle de prévention :** un `try/except` autour d'un appel de fonction
+métier (ici, l'invalidation de cache) doit soit re-lancer l'exception,
+soit être accompagné d'un test qui vérifie explicitement que l'appel
+réussit avec les VRAIS arguments de signature — un `except Exception as e:
+logger.error(...)` qui avale silencieusement une erreur de signature
+(`TypeError` sur un argument manquant) peut masquer un mécanisme
+entièrement mort pendant des mois. Avant d'ajouter un cache/une
+invalidation, écrire un test qui prouve que l'invalidation est
+effectivement déclenchée (pas seulement que l'écriture initiale réussit).
+
+---
+
+## ⚠️ QUASI-INCIDENT (Task 8, 2026-07-10) : `dependency_overrides[get_db]` partagé entre fichiers de test → risque d'écriture en base de PRODUCTION
+
+**Contexte :** clôture Bloc A. En corrigeant `test_pivot_configs.py`
+(échouait avec 422 car il n'envoyait pas le `property_id` désormais
+obligatoire — ajouté après l'écriture initiale du test, support
+multi-propriété), le test est repassé au vert **isolément**, mais
+échouait encore dans le run complet `pytest backend/tests/` avec une
+erreur différente : `400 "Property ID 1 n'existe pas"`.
+
+**Cause :** `test_pivot_configs.py` faisait
+`app.dependency_overrides[get_db] = override_get_db` **une seule fois, à
+l'import du module** (niveau module, pas dans une fixture). `app` est un
+singleton FastAPI partagé par TOUT le process pytest. Un autre fichier
+(`test_realtime_states.py`, via la fixture `client` de `conftest.py`)
+fait légitimement `app.dependency_overrides.pop(get_db, None)` dans son
+propre teardown après ses propres tests — ce qui efface aussi
+l'override posé par `test_pivot_configs.py`, puisque FastAPI résout les
+overrides au moment de la requête HTTP, pas à la construction du
+`TestClient`. Résultat : les requêtes de `test_pivot_configs.py`, exécutées
+après coup, retombaient sur le VRAI `get_db()` — la base de
+PRODUCTION (`backend/database/lmnp.db`) — au lieu de la base de test
+SQLite isolée du fichier.
+
+**Ce qui a été vérifié (aucune corruption) :** le `property_id` créé par
+le test (id=1, premier row d'une table fraîchement créée) ne correspond à
+aucune propriété réelle (Evry=25, mars=15, colloc=26) → l'appel a échoué
+en 400 (validation), sans écrire aucune ligne. Vérifié directement en
+base : `pivot_configs` contient toujours exactement les 3 lignes
+pré-existantes (ids 5/6/7, dates de février 2026, aucune trace d'une
+exécution de test). **Mais si un test avait par coïncidence utilisé un
+`property_id` réel (15/25/26), il aurait pu créer/modifier/supprimer une
+vraie ligne `pivot_configs` en production.**
+
+**Fix :** l'override est maintenant posé/retiré dans la fixture
+`setup_test_db` (autouse), scopée à chaque test (sauvegarde et restaure
+l'override précédent au lieu de le poser une fois pour tout le module).
+
+**Règle de prévention :** ne JAMAIS faire
+`app.dependency_overrides[get_db] = ...` au niveau module dans un fichier
+de test FastAPI — toujours le faire dans une fixture avec
+`try/finally` (setup au début du test, restauration de l'état précédent à
+la fin), exactement comme le fait déjà `conftest.py::client`. Un override
+posé au niveau module reste actif jusqu'à ce qu'un AUTRE fichier de test
+le retire, ce qui dépend de l'ordre de collection/exécution — un
+comportement fragile et invisible tant qu'aucun test ne coïncide
+accidentellement avec un vrai `property_id` de production.
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet
 - [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) - Workflow Git
+- [ADR.md](./ADR.md) - Décisions d'architecture (Bloc A)
 
 ---
 
-**Dernière mise à jour :** 2026-01-11  
+**Dernière mise à jour :** 2026-07-10 (Bloc A, Task 8 — clôture)
 **Cas d'étude :** Récursion Pydantic avec modèles LoanPayment

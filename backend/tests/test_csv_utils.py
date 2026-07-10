@@ -64,12 +64,16 @@ def test_detect_column_mapping():
     })
     
     mapping = detect_column_mapping(df)
-    
+
     assert 'date' in mapping.values(), "❌ Mapping date manquant"
     assert 'quantite' in mapping.values(), "❌ Mapping quantite manquant"
     assert 'nom' in mapping.values(), "❌ Mapping nom manquant"
-    assert 'solde' in mapping.values(), "❌ Mapping solde manquant"
-    
+    # Le solde n'est plus mappé depuis les fichiers CSV, il est calculé
+    # automatiquement (voir docstring de detect_column_mapping) — assertion
+    # 'solde' retirée car ce comportement est un changement de produit
+    # antérieur à ce test, pas une régression (Bloc A Task 8).
+    assert 'solde' not in mapping.values(), "❌ 'solde' ne devrait plus être mappé depuis le CSV"
+
     # Vérifier les mappings spécifiques
     date_col = [k for k, v in mapping.items() if v == 'date'][0]
     assert date_col == 'Date', f"❌ Colonne date attendue: Date, obtenue: {date_col}"
