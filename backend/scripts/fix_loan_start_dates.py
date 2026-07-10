@@ -159,7 +159,8 @@ def main() -> int:
     except Exception as e:
         db.rollback()
         print(f"❌ Erreur: {e}")
-        return 1
+        # Pas d'avalage silencieux : on relance pour exposer la trace complète.
+        raise
     finally:
         db.close()
 

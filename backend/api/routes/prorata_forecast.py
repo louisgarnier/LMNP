@@ -430,11 +430,12 @@ async def get_reference_data(
             logger.warning(f"[ProRata] Unknown target_type: {target_type}")
             raise HTTPException(status_code=400, detail=f"Type inconnu: {target_type}")
             
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"[ProRata] Error getting reference data: {str(e)}")
-        # En cas d'erreur, retourner une liste vide plutôt que faire échouer
-        categories_result = []
-    
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des données de référence: {str(e)}")
+
     logger.info(f"[ProRata] Returning {len(categories_result)} reference data categories")
     return ReferenceDataResponse(
         categories=categories_result,

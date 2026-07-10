@@ -66,7 +66,8 @@ MARSEILLE_FULL_YEAR = 2025
 @pytest.fixture(scope="module")
 def ro_session():
     """Session SQLAlchemy en LECTURE SEULE sur la base de prod."""
-    assert PROD_DB_PATH.exists(), f"Base de prod introuvable: {PROD_DB_PATH}"
+    if not PROD_DB_PATH.exists():
+        pytest.skip(f"Base de prod introuvable: {PROD_DB_PATH}")
     url = f"sqlite:///file:{PROD_DB_PATH}?mode=ro&uri=true"
     engine = create_engine(url, connect_args={"uri": True})
     ReadOnlySession = sessionmaker(bind=engine)

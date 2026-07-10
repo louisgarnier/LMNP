@@ -289,6 +289,8 @@ def calculate_resultat_exercice(
         compte_resultat = cr_cache[year]
     else:
         compte_resultat = calculate_compte_resultat(db, year, property_id=property_id)
+        if cr_cache is not None:
+            cr_cache[year] = compte_resultat
     return compte_resultat.get("resultat_net", 0.0)
 
 
@@ -357,6 +359,8 @@ def calculate_report_a_nouveau(
                 compte_resultat = cr_cache[prev_year]
             else:
                 compte_resultat = calculate_compte_resultat(db, prev_year, property_id=property_id)
+                if cr_cache is not None:
+                    cr_cache[prev_year] = compte_resultat
             total += compte_resultat.get("resultat_net", 0.0)
     
     return total
