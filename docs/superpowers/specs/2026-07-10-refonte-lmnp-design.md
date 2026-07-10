@@ -141,6 +141,10 @@ Décision de Louis : les écrans ne restent pas identiques — l'app gagne un **
 
 ## 10. Validation par les chiffres (golden master)
 
+**Périmètre de confiance (précisé par Louis le 2026-07-10)** : les chiffres actuels de l'app sont **corrects pour 2023, 2024 et 2025** — c'est la référence à reproduire au centime. Pour **2021/2022**, un petit écart connu existe avec le comptable (au niveau du report de résultat) : il est **toléré et ne sera PAS réconcilié** dans cette refonte (non-objectif). La refonte doit reproduire les chiffres 2021/2022 actuels de l'app tels quels (hors bugs documentés), sans chercher à coller au comptable sur ces deux années.
+
+**Backups obligatoires** : copie horodatée de la base avant toute modification — fait le 2026-07-10 : `backups/lmnp_backend_2026-07-10_pre-refonte.db` (880 transactions, 3 propriétés). Nouvelle copie avant chaque étape de migration (§12). Le dossier `backups/` est hors git (iCloud le synchronise), il ne doit jamais être purgé pendant la refonte.
+
 1. **Avant toute modification** : script d'extraction qui fige dans `docs/project/reference/golden/` les sorties actuelles — CR par année × propriété, bilan par année × propriété, dotations par composant × année, soldes — au centime.
 2. **Écarts attendus et documentés** (les seuls tolérés) :
    - Capital restant dû 2022-2025 d'Evry : diminue désormais chaque année (bug de la date de prêt corrigé) → le bilan s'équilibre.
