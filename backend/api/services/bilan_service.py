@@ -17,7 +17,7 @@ import logging
 from datetime import date
 from typing import List, Dict, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
+from sqlalchemy import and_, func, exists
 
 from backend.database.models import (
     Transaction,
@@ -387,14 +387,22 @@ def calculate_capital_restant_du(
     # Date de fin de l'année
     end_date = date(year, 12, 31)
     
-    # Récupérer tous les crédits actifs pour cette propriété (qui ont commencé avant ou pendant l'année)
+    # Récupérer tous les crédits actifs pour cette propriété : un crédit est
+    # considéré actif pour l'année N s'il a au moins un LoanPayment daté au
+    # plus tard le 31/12/N. `LoanConfig.loan_start_date` n'est PAS fiable
+    # (voir Tâche 4 : il peut être postérieur à l'échéancier réel, ex. Evry
+    # où loan_start_date=2026-05-08 alors que les paiements démarrent en
+    # 2021), donc on ne s'appuie plus dessus pour ce filtre.
     # On a besoin de cette liste pour filtrer les paiements
     active_loans = db.query(LoanConfig).filter(
         and_(
             LoanConfig.property_id == property_id,
-            or_(
-                LoanConfig.loan_start_date.is_(None),
-                LoanConfig.loan_start_date <= end_date
+            exists().where(
+                and_(
+                    LoanPayment.property_id == property_id,
+                    LoanPayment.loan_name == LoanConfig.name,
+                    LoanPayment.date <= end_date
+                )
             )
         )
     ).all()

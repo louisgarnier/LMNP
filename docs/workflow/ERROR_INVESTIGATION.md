@@ -284,6 +284,73 @@ node scripts/verify_exports.js
 
 ---
 
+## ⚠️ INCIDENT (2026-07-10) : `test_database_complete.py` vide la base de PRODUCTION
+
+**Contexte :** Tâche 4 (fix `loan_start_date` Evry). Après avoir corrigé
+`calculate_capital_restant_du` et écrit un nouveau test isolé
+(`backend/tests/test_capital_restant_du.py`, harnais Tâche 3 —
+`db_session`/`client`, base SQLite en mémoire), j'ai lancé par précaution
+d'autres fichiers de tests "liés" pour détecter des régressions :
+
+```bash
+python3 -m pytest backend/tests/test_capital_restant_du.py \
+    backend/tests/test_database_complete.py \
+    backend/tests/test_conftest_isolation.py -v
+```
+
+**Ce qui s'est passé :** `test_database_complete.py::test_complete_workflow`
+n'utilise PAS les fixtures isolées de la Tâche 3. Il appelle
+`next(get_db())` (donc `SessionLocal`/le moteur de PRODUCTION,
+`backend/database/lmnp.db`) et exécute en tout début de test :
+
+```python
+db.query(ConsolidatedFinancialStatement).delete()
+db.query(FinancialStatement).delete()
+db.query(Amortization).delete()
+db.query(EnrichedTransaction).delete()
+db.query(Transaction).delete()
+db.query(Mapping).delete()
+db.query(Parameter).delete()
+```
+
+Résultat : les 880 lignes de `transactions`/`enriched_transactions` de la
+base de PRODUCTION (604 Evry + 216 mars + 60 mars colloc) ont été
+supprimées et remplacées par les 4 lignes du scénario de test. Détecté
+immédiatement car le bilan Evry est passé de valeurs réelles à
+`actif_total = 0`.
+
+**Pourquoi ce n'était pas totalement imprévisible :** le docstring de
+`backend/tests/conftest.py` (Tâche 3, lignes 17-19) prévient explicitement
+que *"les 46 fichiers de tests existants qui importent directement
+`SessionLocal` / `init_database` continuent de fonctionner tels quels"* —
+c.-à-d. qu'ils touchent la vraie base. Je ne l'ai pas vérifié avant de
+lancer ce fichier précis.
+
+**Récupération :** restauration complète de `backend/database/lmnp.db`
+depuis le backup pris en Step 1 de la Tâche 4
+(`backups/lmnp_2026-07-10_1651_avant-fix-pret.db`, antérieur à
+l'incident), puis ré-application du script `fix_loan_start_dates.py`
+(idempotent) pour ré-obtenir l'état corrigé de `loan_configs`. Vérifié :
+604/216/60 transactions restaurées, bilan Evry 2022-2025 équilibré
+(écart ≤ 0,01 €), capital restant dû 2025 = 194 613,53 € (conforme à
+l'ancre attendue).
+
+**Règle de prévention :**
+- ⚠️ **NE JAMAIS** exécuter `backend/tests/test_database_complete.py` (ni
+  aucun autre fichier de tests qui appelle `get_db()`/`SessionLocal`
+  directement sans passer par les fixtures `db_session`/`client` de
+  `conftest.py`) tant qu'il n'a pas été migré vers le harnais isolé de la
+  Tâche 3. Avant de lancer un fichier de test "pour vérifier les
+  régressions", **grep d'abord** ce fichier pour `SessionLocal|get_db()`
+  sans `db_session`/`client` en paramètre de fixture — si trouvé, ne pas
+  l'exécuter sans isolation supplémentaire (ou l'exécuter uniquement après
+  un backup frais de `lmnp.db`).
+- Toujours reprendre un backup **juste avant** toute commande qui touche la
+  base de production, même une commande "de vérification" a priori
+  read-only (ex: lancer une suite de tests).
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet
