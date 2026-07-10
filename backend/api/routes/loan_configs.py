@@ -19,7 +19,6 @@ from backend.api.models import (
     LoanConfigResponse,
     LoanConfigListResponse
 )
-from backend.api.services.bilan_service import invalidate_all_bilan
 from backend.api.utils.validation import validate_property_id
 
 router = APIRouter()
@@ -139,14 +138,7 @@ async def create_loan_config(
     db.refresh(db_config)
     
     logger.info(f"[Credits] LoanConfig créé: id={db_config.id}, property_id={db_config.property_id}")
-    
-    # Invalider le bilan car un nouveau crédit affecte le calcul du capital restant dû
-    # TODO: invalidate_all_bilan sera modifié pour accepter property_id dans l'onglet Bilan
-    try:
-        invalidate_all_bilan(db)
-    except Exception as e:
-        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {e}")
-    
+
     return LoanConfigResponse(
         id=db_config.id,
         name=db_config.name,
@@ -251,14 +243,7 @@ async def update_loan_config(
     db.refresh(config)
     
     logger.info(f"[Credits] LoanConfig {config_id} mis à jour pour property_id={property_id}")
-    
-    # Invalider le bilan car une modification de crédit (credit_amount, dates, etc.) affecte le calcul du capital restant dû
-    # TODO: invalidate_all_bilan sera modifié pour accepter property_id dans l'onglet Bilan
-    try:
-        invalidate_all_bilan(db)
-    except Exception as e:
-        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {e}")
-    
+
     return LoanConfigResponse(
         id=config.id,
         name=config.name,
@@ -303,12 +288,5 @@ async def delete_loan_config(
     db.commit()
     
     logger.info(f"[Credits] LoanConfig {config_id} supprimé pour property_id={property_id}")
-    
-    # Invalider le bilan car la suppression d'un crédit affecte le calcul du capital restant dû
-    # TODO: invalidate_all_bilan sera modifié pour accepter property_id dans l'onglet Bilan
-    try:
-        invalidate_all_bilan(db)
-    except Exception as e:
-        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {e}")
-    
+
     return None

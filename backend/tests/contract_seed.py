@@ -1,0 +1,172 @@
+"""
+Seed minimal et déterministe pour les tests de contrat des états financiers
+(compte de résultat & bilan) — Tâche 7.
+
+Ce module ne touche JAMAIS la base de production : il attend une `Session`
+SQLAlchemy déjà connectée à une base isolée (typiquement la fixture
+`db_session` en mémoire de conftest.py) et y insère un jeu de données
+minimal mais complet :
+
+- 1 propriété
+- 1 config Level 3 (CR + bilan)
+- 2 mappings compte de résultat (1 produit, 1 charge)
+- des mappings bilan (1 normal + toutes les catégories spéciales)
+- 6 transactions classées réparties sur 2 années (2023, 2024)
+- 1 crédit + ses paiements (intérêts/assurance/capital)
+- 1 type d'amortissement + ses résultats annuels
+
+Le but est d'exercer produits, charges, amortissements, coût du financement
+et toutes les catégories spéciales du bilan, afin que la comparaison
+« cache vs calcul live » soit significative.
+"""
+
+from datetime import date
+
+from backend.database.models import (
+    Property,
+    Transaction,
+    EnrichedTransaction,
+    CompteResultatMapping,
+    CompteResultatConfig,
+    BilanMapping,
+    BilanConfig,
+    LoanConfig,
+    LoanPayment,
+    AmortizationType,
+    AmortizationResult,
+)
+
+LEVEL_3 = "LOC"
+YEARS = (2023, 2024)
+
+
+def _add_transaction(db, property_id, d, quantite, nom, solde, level_1):
+    """Ajoute une transaction + sa ligne enrichie (level_3 = LOC)."""
+    tx = Transaction(
+        property_id=property_id,
+        date=d,
+        quantite=quantite,
+        nom=nom,
+        solde=solde,
+        source_file="contract_seed",
+    )
+    db.add(tx)
+    db.flush()  # pour obtenir tx.id
+    enriched = EnrichedTransaction(
+        transaction_id=tx.id,
+        property_id=property_id,
+        mois=d.month,
+        annee=d.year,
+        level_1=level_1,
+        level_2="detail",
+        level_3=LEVEL_3,
+    )
+    db.add(enriched)
+    db.flush()
+    return tx
+
+
+def seed_contract_data(db) -> int:
+    """Insère le jeu de données de contrat et retourne le property_id."""
+    prop = Property(name="TEST_CONTRACT_T7", address="1 rue du Test")
+    db.add(prop)
+    db.flush()
+    pid = prop.id
+
+    # --- Configs Level 3 ---
+    db.add(CompteResultatConfig(property_id=pid, level_3_values=f'["{LEVEL_3}"]'))
+    db.add(BilanConfig(property_id=pid, level_3_values=f'["{LEVEL_3}"]'))
+
+    # --- Mappings compte de résultat ---
+    db.add(CompteResultatMapping(
+        property_id=pid,
+        category_name="Loyers hors charge encaissés",
+        type="Produits d'exploitation",
+        level_1_values='["LOYERS"]',
+    ))
+    db.add(CompteResultatMapping(
+        property_id=pid,
+        category_name="Charges d'entretien et de réparation",
+        type="Charges d'exploitation",
+        level_1_values='["ENTRETIEN"]',
+    ))
+
+    # --- Mappings bilan ---
+    db.add(BilanMapping(
+        property_id=pid, category_name="Immobilisations corporelles",
+        type="ACTIF", sub_category="Actif immobilisé",
+        level_1_values='["IMMO"]', is_special=False,
+    ))
+    db.add(BilanMapping(
+        property_id=pid, category_name="Amortissements cumulés",
+        type="ACTIF", sub_category="Actif immobilisé",
+        is_special=True, special_source="amortization_result",
+    ))
+    db.add(BilanMapping(
+        property_id=pid, category_name="Compte bancaire",
+        type="ACTIF", sub_category="Actif circulant",
+        is_special=True, special_source="transactions",
+    ))
+    db.add(BilanMapping(
+        property_id=pid, category_name="Résultat de l'exercice",
+        type="PASSIF", sub_category="Capitaux propres",
+        is_special=True, special_source="compte_resultat",
+    ))
+    db.add(BilanMapping(
+        property_id=pid, category_name="Report à nouveau",
+        type="PASSIF", sub_category="Capitaux propres",
+        is_special=True, special_source="compte_resultat_cumul",
+    ))
+    db.add(BilanMapping(
+        property_id=pid, category_name="Capital restant dû",
+        type="PASSIF", sub_category="Dettes financières",
+        is_special=True, special_source="loan_payments",
+    ))
+
+    # --- Transactions 2023 (immobilisation, emprunt, loyer, entretien) ---
+    _add_transaction(db, pid, date(2023, 1, 5), -100000.0, "Achat immobilisation",
+                     -100000.0, "IMMO")
+    _add_transaction(db, pid, date(2023, 1, 6), -80000.0, "Deblocage emprunt",
+                     -20000.0, "Dettes financières (emprunt bancaire)")
+    _add_transaction(db, pid, date(2023, 6, 15), 6000.0, "Loyers 2023",
+                     -14000.0, "LOYERS")
+    _add_transaction(db, pid, date(2023, 7, 10), -800.0, "Entretien 2023",
+                     -14800.0, "ENTRETIEN")
+
+    # --- Transactions 2024 (loyer, entretien) ---
+    _add_transaction(db, pid, date(2024, 6, 15), 7200.0, "Loyers 2024",
+                     -7600.0, "LOYERS")
+    _add_transaction(db, pid, date(2024, 7, 10), -500.0, "Entretien 2024",
+                     -8100.0, "ENTRETIEN")
+
+    # --- Crédit + paiements ---
+    loan = LoanConfig(
+        property_id=pid, name="Prêt Test", credit_amount=80000.0,
+        interest_rate=1.5, duration_years=20, initial_deferral_months=0,
+        loan_start_date=date(2023, 1, 6), monthly_insurance=25.0,
+    )
+    db.add(loan)
+    for y in YEARS:
+        db.add(LoanPayment(
+            property_id=pid, date=date(y, 1, 1), capital=2000.0,
+            interest=1500.0, insurance=300.0, total=3800.0, loan_name="Prêt Test",
+        ))
+
+    # --- Type d'amortissement + résultats ---
+    db.add(AmortizationType(
+        property_id=pid, name="Immobilisation", level_2_value="ammortissements",
+        level_1_values='["IMMO"]', duration=25.0,
+    ))
+    # Le résultat d'amortissement est rattaché à la transaction d'immobilisation
+    immo_tx = db.query(Transaction).filter(
+        Transaction.property_id == pid,
+        Transaction.nom == "Achat immobilisation",
+    ).first()
+    for y in YEARS:
+        db.add(AmortizationResult(
+            transaction_id=immo_tx.id, year=y,
+            category="Immobilisation", amount=-4000.0,
+        ))
+
+    db.commit()
+    return pid

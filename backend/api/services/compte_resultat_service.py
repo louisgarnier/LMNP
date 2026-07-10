@@ -26,7 +26,6 @@ from backend.database.models import (
     Transaction,
     EnrichedTransaction,
     CompteResultatMapping,
-    CompteResultatData,
     CompteResultatConfig,
     AmortizationResult,
     LoanPayment,
@@ -550,93 +549,3 @@ def calculate_compte_resultat(
         "resultat_net": resultat_net,
         "prorata_applied": prorata_applied  # Indique si prorata a été appliqué
     }
-
-
-# ========== Invalidation Functions ==========
-
-def invalidate_compte_resultat_for_year(db: Session, year: int, property_id: int) -> int:
-    """
-    Supprimer les comptes de résultat pour une année et une propriété donnée.
-    
-    Args:
-        db: Session de base de données
-        year: Année pour laquelle invalider les comptes de résultat
-        property_id: ID de la propriété
-    
-    Returns:
-        Nombre de données supprimées
-    """
-    logger.info(f"[CompteResultatService] invalidate_compte_resultat_for_year - year={year}, property_id={property_id}")
-    deleted_count = db.query(CompteResultatData).filter(
-        CompteResultatData.annee == year,
-        CompteResultatData.property_id == property_id
-    ).delete()
-    db.commit()
-    return deleted_count
-
-
-def invalidate_compte_resultat_for_date_range(
-    db: Session,
-    start_date: date,
-    end_date: date,
-    property_id: int
-) -> int:
-    """
-    Supprimer les comptes de résultat pour une plage de dates et une propriété.
-    
-    Args:
-        db: Session de base de données
-        start_date: Date de début
-        end_date: Date de fin
-        property_id: ID de la propriété
-    
-    Returns:
-        Nombre de données supprimées
-    """
-    logger.info(f"[CompteResultatService] invalidate_compte_resultat_for_date_range - property_id={property_id}")
-    start_year = start_date.year
-    end_year = end_date.year
-    
-    deleted_count = db.query(CompteResultatData).filter(
-        CompteResultatData.annee >= start_year,
-        CompteResultatData.annee <= end_year,
-        CompteResultatData.property_id == property_id
-    ).delete()
-    db.commit()
-    return deleted_count
-
-
-def invalidate_all_compte_resultat(db: Session, property_id: int) -> int:
-    """
-    Supprimer tous les comptes de résultat pour une propriété.
-    
-    Args:
-        db: Session de base de données
-        property_id: ID de la propriété
-    
-    Returns:
-        Nombre de données supprimées
-    """
-    logger.info(f"[CompteResultatService] invalidate_all_compte_resultat - property_id={property_id}")
-    deleted_count = db.query(CompteResultatData).filter(
-        CompteResultatData.property_id == property_id
-    ).delete()
-    db.commit()
-    return deleted_count
-
-
-def invalidate_compte_resultat_for_transaction_date(db: Session, transaction_date: date, property_id: int) -> int:
-    """
-    Invalider les comptes de résultat pour l'année d'une transaction.
-    
-    Args:
-        db: Session de base de données
-        transaction_date: Date de la transaction
-        property_id: ID de la propriété
-    
-    Returns:
-        Nombre de données supprimées
-    """
-    logger.info(f"[CompteResultatService] invalidate_compte_resultat_for_transaction_date - property_id={property_id}")
-    year = transaction_date.year
-    return invalidate_compte_resultat_for_year(db, year, property_id)

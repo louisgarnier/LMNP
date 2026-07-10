@@ -721,25 +721,7 @@ async def create_transaction(
         import traceback
         error_details = traceback.format_exc()
         print(f"⚠️ [create_transaction] Erreur lors du recalcul des soldes: {error_details}")
-    
-    # Invalider les comptes de résultat pour l'année de la transaction
-    try:
-        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_transaction_date
-        invalidate_compte_resultat_for_transaction_date(db, db_transaction.date)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [create_transaction] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-    
-    # Invalider le bilan pour l'année de la transaction
-    try:
-        from backend.api.services.bilan_service import invalidate_bilan_for_year
-        invalidate_bilan_for_year(db_transaction.date.year, db)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [create_transaction] Erreur lors de l'invalidation du bilan: {error_details}")
-    
+
     return TransactionResponse.from_orm(db_transaction)
 
 
@@ -815,29 +797,7 @@ async def update_transaction(
         print(f"❌ Erreur lors du recalcul des soldes: {error_details}")
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Erreur lors du recalcul des soldes: {str(e)}")
-    
-    # Invalider les comptes de résultat pour l'ancienne et la nouvelle année si la date a changé
-    try:
-        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
-        invalidate_compte_resultat_for_year(db, old_date.year)
-        if new_date != old_date:
-            invalidate_compte_resultat_for_year(db, new_date.year)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [update_transaction] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-    
-    # Invalider le bilan pour l'ancienne et la nouvelle année si la date a changé
-    try:
-        from backend.api.services.bilan_service import invalidate_bilan_for_year
-        invalidate_bilan_for_year(old_date.year, db)
-        if new_date != old_date:
-            invalidate_bilan_for_year(new_date.year, db)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [update_transaction] Erreur lors de l'invalidation du bilan: {error_details}")
-    
+
     # Recalculer les amortissements si les champs impactants ont été modifiés
     # (gestion silencieuse des erreurs pour ne pas bloquer la modification)
     if should_recalculate_amortization:
@@ -906,16 +866,7 @@ async def delete_transaction(
     
     # Recalculer les soldes des transactions suivantes
     recalculate_balances_from_date(db, transaction_date, property_id)
-    
-    # Invalider le bilan pour l'année de la transaction supprimée
-    try:
-        from backend.api.services.bilan_service import invalidate_bilan_for_year
-        invalidate_bilan_for_year(transaction_date.year, db)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        print(f"⚠️ [delete_transaction] Erreur lors de l'invalidation du bilan: {error_details}")
-    
+
     return None
 
 
@@ -1365,17 +1316,7 @@ async def import_file(
             message = f"{warning_message} {message}"
         
         logger.info(f"[Transactions] Import terminé: {imported_count} transactions créées pour property_id={property_id}")
-        
-        # Invalider les comptes de résultat pour toutes les années des transactions importées
-        if period_start and period_end:
-            try:
-                from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_date_range
-                invalidate_compte_resultat_for_date_range(db, period_start, period_end)
-            except Exception as e:
-                import traceback
-                error_details = traceback.format_exc()
-                print(f"⚠️ [import_file] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-        
+
         return FileImportResponse(
             filename=filename,
             imported_count=imported_count,

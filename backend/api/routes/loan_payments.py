@@ -190,27 +190,7 @@ async def create_loan_payment(
     
     # Mettre à jour automatiquement credit_amount avec le Total Capital
     update_loan_config_credit_amount(db, db_payment.loan_name, db_payment.property_id)
-    
-    # Invalider les comptes de résultat pour l'année du payment
-    # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
-    try:
-        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
-        invalidate_compte_resultat_for_year(db, db_payment.date.year)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-    
-    # Invalider le bilan pour l'année du payment
-    # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
-    try:
-        from backend.api.services.bilan_service import invalidate_bilan_for_year
-        invalidate_bilan_for_year(db_payment.date.year, db)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
-    
+
     return LoanPaymentResponse(
         id=db_payment.id,
         date=db_payment.date,
@@ -308,26 +288,6 @@ async def update_loan_payment(
     # Mettre à jour automatiquement credit_amount avec le Total Capital
     update_loan_config_credit_amount(db, payment.loan_name, payment.property_id)
     
-    # Invalider les comptes de résultat pour l'année du payment
-    # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
-    try:
-        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
-        invalidate_compte_resultat_for_year(db, payment.date.year)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-    
-    # Invalider le bilan pour l'année du payment
-    # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
-    try:
-        from backend.api.services.bilan_service import invalidate_bilan_for_year
-        invalidate_bilan_for_year(payment.date.year, db)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
-    
     return LoanPaymentResponse(
         id=payment.id,
         date=payment.date,
@@ -365,8 +325,7 @@ async def delete_loan_payment(
         logger.error(f"[Credits] ERREUR: {error_msg}")
         raise HTTPException(status_code=404, detail=error_msg)
     
-    # Sauvegarder l'année et le nom du crédit avant suppression
-    payment_year = payment.date.year
+    # Sauvegarder le nom du crédit et la propriété avant suppression
     loan_name = payment.loan_name
     payment_property_id = payment.property_id
     
@@ -377,26 +336,6 @@ async def delete_loan_payment(
     
     # Mettre à jour automatiquement credit_amount avec le Total Capital
     update_loan_config_credit_amount(db, loan_name, payment_property_id)
-    
-    # Invalider les comptes de résultat pour l'année du payment
-    # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
-    try:
-        from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
-        invalidate_compte_resultat_for_year(db, payment_year)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-    
-    # Invalider le bilan pour l'année du payment
-    # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
-    try:
-        from backend.api.services.bilan_service import invalidate_bilan_for_year
-        invalidate_bilan_for_year(payment_year, db)
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
     
     return None
 
@@ -807,29 +746,7 @@ async def import_loan_payment_file(
         
         # Mettre à jour automatiquement credit_amount avec le Total Capital
         update_loan_config_credit_amount(db, loan_name, property_id)
-        
-        # Invalider les comptes de résultat pour toutes les années des payments importés
-        # TODO: invalidate_compte_resultat_for_year sera modifié pour accepter property_id dans l'onglet Compte de Résultat
-        try:
-            from backend.api.services.compte_resultat_service import invalidate_compte_resultat_for_year
-            for year in year_columns:
-                invalidate_compte_resultat_for_year(db, year)
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            logger.warning(f"[Credits] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-        
-        # Invalider le bilan pour toutes les années des payments importés
-        # TODO: invalidate_bilan_for_year sera modifié pour accepter property_id dans l'onglet Bilan
-        try:
-            from backend.api.services.bilan_service import invalidate_bilan_for_year
-            for year in year_columns:
-                invalidate_bilan_for_year(year, db)
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            logger.warning(f"[Credits] Erreur lors de l'invalidation du bilan: {error_details}")
-        
+
         return {
             "message": "Import réussi",
             "deleted_count": deleted_count,

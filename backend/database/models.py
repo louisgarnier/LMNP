@@ -37,12 +37,10 @@ class Property(Base):
     loan_payments = relationship("LoanPayment", back_populates="property", cascade="all, delete-orphan")
     # Compte de résultat
     compte_resultat_mappings = relationship("CompteResultatMapping", back_populates="property", cascade="all, delete-orphan")
-    compte_resultat_data = relationship("CompteResultatData", back_populates="property", cascade="all, delete-orphan")
     compte_resultat_config = relationship("CompteResultatConfig", back_populates="property", cascade="all, delete-orphan")
     compte_resultat_overrides = relationship("CompteResultatOverride", back_populates="property", cascade="all, delete-orphan")
     # Bilan
     bilan_mappings = relationship("BilanMapping", back_populates="property", cascade="all, delete-orphan")
-    bilan_data = relationship("BilanData", back_populates="property", cascade="all, delete-orphan")
     bilan_config = relationship("BilanConfig", back_populates="property", cascade="all, delete-orphan")
     # Pivot
     pivot_configs = relationship("PivotConfig", back_populates="property", cascade="all, delete-orphan")
@@ -422,30 +420,6 @@ class CompteResultatMapping(Base):
     )
 
 
-class CompteResultatData(Base):
-    """Données du compte de résultat par année et catégorie."""
-    __tablename__ = "compte_resultat_data"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
-    annee = Column(Integer, nullable=False, index=True)  # Année du compte de résultat
-    category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable
-    amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relations
-    property = relationship("Property", back_populates="compte_resultat_data")
-    
-    # Index pour recherches fréquentes
-    __table_args__ = (
-        Index('idx_compte_resultat_data_year_category', 'annee', 'category_name'),
-        Index('idx_compte_resultat_data_year', 'annee'),
-        Index('idx_compte_resultat_data_category', 'category_name'),
-        Index('idx_compte_resultat_data_property_id', 'property_id'),
-    )
-
-
 class CompteResultatConfig(Base):
     """Configuration globale pour le compte de résultat (filtre Level 3)."""
     __tablename__ = "compte_resultat_config"
@@ -513,30 +487,6 @@ class BilanMapping(Base):
         Index('idx_bilan_mapping_sub_category', 'sub_category'),
         Index('idx_bilan_mapping_type_sub_category', 'type', 'sub_category'),
         Index('idx_bilan_mapping_property_id', 'property_id'),
-    )
-
-
-class BilanData(Base):
-    """Données du bilan par année et catégorie."""
-    __tablename__ = "bilan_data"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
-    annee = Column(Integer, nullable=False, index=True)  # Année du bilan
-    category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable
-    amount = Column(Float, nullable=False)  # Montant pour cette catégorie et cette année
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relation avec Property
-    property = relationship("Property", back_populates="bilan_data")
-    
-    # Index pour recherches fréquentes
-    __table_args__ = (
-        Index('idx_bilan_data_year_category', 'annee', 'category_name'),
-        Index('idx_bilan_data_year', 'annee'),
-        Index('idx_bilan_data_category', 'category_name'),
-        Index('idx_bilan_data_property_id', 'property_id'),
     )
 
 

@@ -1,0 +1,112 @@
+{
+  "bilan": {
+    "items": [
+      {
+        "amount": -4000.0,
+        "annee": 2023,
+        "category_name": "Amortissements cumulés"
+      },
+      {
+        "amount": 78000.0,
+        "annee": 2023,
+        "category_name": "Capital restant dû"
+      },
+      {
+        "amount": -14800.0,
+        "annee": 2023,
+        "category_name": "Compte bancaire"
+      },
+      {
+        "amount": 100000.0,
+        "annee": 2023,
+        "category_name": "Immobilisations corporelles"
+      },
+      {
+        "amount": 0.0,
+        "annee": 2023,
+        "category_name": "Report à nouveau"
+      },
+      {
+        "amount": -600.0,
+        "annee": 2023,
+        "category_name": "Résultat de l'exercice"
+      },
+      {
+        "amount": -8000.0,
+        "annee": 2024,
+        "category_name": "Amortissements cumulés"
+      },
+      {
+        "amount": 76000.0,
+        "annee": 2024,
+        "category_name": "Capital restant dû"
+      },
+      {
+        "amount": -8100.0,
+        "annee": 2024,
+        "category_name": "Compte bancaire"
+      },
+      {
+        "amount": 100000.0,
+        "annee": 2024,
+        "category_name": "Immobilisations corporelles"
+      },
+      {
+        "amount": -600.0,
+        "annee": 2024,
+        "category_name": "Report à nouveau"
+      },
+      {
+        "amount": 900.0,
+        "annee": 2024,
+        "category_name": "Résultat de l'exercice"
+      }
+    ],
+    "total": 12
+  },
+  "compte_resultat": {
+    "items": [
+      {
+        "amount": -4000.0,
+        "annee": 2023,
+        "category_name": "Charges d'amortissements"
+      },
+      {
+        "amount": -800.0,
+        "annee": 2023,
+        "category_name": "Charges d'entretien et de réparation"
+      },
+      {
+        "amount": 1800.0,
+        "annee": 2023,
+        "category_name": "Coût du financement (hors remboursement du capital)"
+      },
+      {
+        "amount": 6000.0,
+        "annee": 2023,
+        "category_name": "Loyers hors charge encaissés"
+      },
+      {
+        "amount": -4000.0,
+        "annee": 2024,
+        "category_name": "Charges d'amortissements"
+      },
+      {
+        "amount": -500.0,
+        "annee": 2024,
+        "category_name": "Charges d'entretien et de réparation"
+      },
+      {
+        "amount": 1800.0,
+        "annee": 2024,
+        "category_name": "Coût du financement (hors remboursement du capital)"
+      },
+      {
+        "amount": 7200.0,
+        "annee": 2024,
+        "category_name": "Loyers hors charge encaissés"
+      }
+    ],
+    "total": 8
+  }
+}

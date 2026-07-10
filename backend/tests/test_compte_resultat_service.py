@@ -20,7 +20,6 @@ from backend.database.models import (
     Transaction,
     EnrichedTransaction,
     CompteResultatMapping,
-    CompteResultatData,
     CompteResultatConfig,
     AmortizationResult,
     LoanPayment,

@@ -575,10 +575,15 @@ class CompteResultatDataUpdate(BaseModel):
 
 
 class CompteResultatDataResponse(CompteResultatDataBase):
-    """Model for compte de résultat data response."""
-    id: int
-    created_at: datetime
-    updated_at: datetime
+    """Model for compte de résultat data response.
+
+    Les états sont calculés en temps réel (plus de table de cache) : les
+    champs id/created_at/updated_at n'ont donc plus de ligne persistée et
+    valent None. Ils restent présents pour préserver le schéma HTTP.
+    """
+    id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -711,10 +716,15 @@ class BilanDataUpdate(BaseModel):
 
 
 class BilanDataResponse(BilanDataBase):
-    """Model for bilan data response."""
-    id: int
-    created_at: datetime
-    updated_at: datetime
+    """Model for bilan data response.
+
+    Les états sont calculés en temps réel (plus de table de cache) : les
+    champs id/created_at/updated_at n'ont donc plus de ligne persistée et
+    valent None. Ils restent présents pour préserver le schéma HTTP.
+    """
+    id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

@@ -13,8 +13,8 @@ import json
 from backend.database import get_db
 from backend.database.models import (
     BilanMapping,
-    BilanData,
-    BilanConfig
+    BilanConfig,
+    Transaction
 )
 from backend.api.models import (
     BilanMappingCreate,
@@ -34,10 +34,7 @@ from backend.api.models import (
 from backend.api.services.bilan_service import (
     get_mappings,
     get_level_3_values,
-    calculate_bilan,
-    get_bilan_data,
-    invalidate_all_bilan,
-    invalidate_bilan_for_year
+    calculate_bilan
 )
 from backend.api.utils.validation import validate_property_id
 
@@ -267,13 +264,7 @@ async def create_bilan_mapping(
     db.add(new_mapping)
     db.commit()
     db.refresh(new_mapping)
-    
-    # Invalider tous les bilans pour cette propriété (les mappings ont changé)
-    try:
-        invalidate_all_bilan(db, mapping.property_id)
-    except Exception as e:
-        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
-    
+
     logger.info(f"[Bilan] Mapping créé: id={new_mapping.id}, property_id={mapping.property_id}")
     return BilanMappingResponse(
         id=new_mapping.id,
@@ -332,13 +323,7 @@ async def update_bilan_mapping(
     
     db.commit()
     db.refresh(mapping)
-    
-    # Invalider tous les bilans pour cette propriété (les mappings ont changé)
-    try:
-        invalidate_all_bilan(db, property_id)
-    except Exception as e:
-        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
-    
+
     logger.info(f"[Bilan] Mapping {mapping_id} mis à jour pour property_id={property_id}")
     return BilanMappingResponse(
         id=mapping.id,
@@ -380,13 +365,7 @@ async def delete_bilan_mapping(
     
     db.delete(mapping)
     db.commit()
-    
-    # Invalider tous les bilans pour cette propriété (les mappings ont changé)
-    try:
-        invalidate_all_bilan(db, property_id)
-    except Exception as e:
-        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
-    
+
     logger.info(f"[Bilan] Mapping {mapping_id} supprimé pour property_id={property_id}")
     return None
 
@@ -425,17 +404,23 @@ async def calculate_bilan_multiple_years_endpoint(
     # Récupérer les mappings une seule fois pour cette propriété
     mappings = get_mappings(db, property_id)
     
-    # OPTIMISATION: Pré-calculer tous les résultats de compte de résultat en une fois
+    # OPTIMISATION: Pré-calculer tous les résultats de compte de résultat une
+    # seule fois par année, et les passer à calculate_bilan (mémoïsation de
+    # portée requête). Cela évite que le résultat de l'exercice et le report à
+    # nouveau ne recalculent le compte de résultat à chaque année.
     from backend.api.services.compte_resultat_service import calculate_compte_resultat
     compte_resultat_cache = {}
     for year in year_list:
         compte_resultat_cache[year] = calculate_compte_resultat(db, year, property_id=property_id)
-    
-    # Calculer le bilan pour chaque année (en utilisant le cache pour report_a_nouveau)
+
+    # Calculer le bilan pour chaque année (en réutilisant le cache CR)
     results = {}
     for year in year_list:
         # Calculer le bilan
-        result = calculate_bilan(db, year, property_id, mappings, level_3_values)
+        result = calculate_bilan(
+            db, year, property_id, mappings, level_3_values,
+            cr_cache=compte_resultat_cache
+        )
         
         # Construire la structure hiérarchique
         bilan_response = build_hierarchical_structure(
@@ -504,39 +489,58 @@ async def get_bilan(
     db: Session = Depends(get_db)
 ):
     """
-    Récupérer les données du bilan stockées.
-    
-    - **property_id**: ID de la propriété (obligatoire)
-    - **year**: Année spécifique (optionnel)
-    - **start_year**: Année de début (pour plusieurs années, optionnel)
-    - **end_year**: Année de fin (pour plusieurs années, optionnel)
-    - **skip**: Nombre d'éléments à sauter (pagination)
-    - **limit**: Nombre d'éléments à retourner (max 1000)
+    Récupérer le bilan d'une propriété, CALCULÉ EN TEMPS RÉEL (une ligne par
+    catégorie et par année). Plus aucun cache : le résultat reflète
+    immédiatement toute modification des données sources.
+
+    Les filtres year / start_year / end_year sélectionnent les années à
+    renvoyer parmi celles où la propriété possède des transactions.
     """
     logger.info(f"[Bilan] GET /api/bilan - property_id={property_id}")
     validate_property_id(db, property_id, "Bilan")
-    
-    # Récupérer les données avec filtres
-    data_list = get_bilan_data(db, property_id, year, start_year, end_year)
-    
-    total = len(data_list)
-    
-    # Pagination
-    paginated_data = data_list[skip:skip + limit]
-    
-    data_responses = [
-        BilanDataResponse(
-            id=d.id,
-            annee=d.annee,
-            category_name=d.category_name,
-            amount=d.amount,
-            created_at=d.created_at,
-            updated_at=d.updated_at
+
+    # Déterminer les années à calculer
+    if year is not None:
+        selected_years = [year]
+    else:
+        rows = db.query(Transaction.date).filter(
+            Transaction.property_id == property_id
+        ).all()
+        candidate_years = sorted({d[0].year for d in rows})
+        selected_years = [
+            y for y in candidate_years
+            if (start_year is None or y >= start_year)
+            and (end_year is None or y <= end_year)
+        ]
+
+    mappings = get_mappings(db, property_id)
+    level_3_values = get_level_3_values(db, property_id)
+
+    # Mémoïsation du compte de résultat (portée requête) partagée entre années
+    from backend.api.services.compte_resultat_service import calculate_compte_resultat
+    cr_cache = {y: calculate_compte_resultat(db, y, property_id=property_id) for y in selected_years}
+
+    # Construire les lignes (une par catégorie, comme l'ancienne table de cache)
+    data_rows = []
+    for y in selected_years:
+        result = calculate_bilan(
+            db, y, property_id, mappings, level_3_values, cr_cache=cr_cache
         )
-        for d in paginated_data
+        for category_name, amount in result["categories"].items():
+            data_rows.append((y, category_name, amount))
+
+    # Tri déterministe par (année, catégorie)
+    data_rows.sort(key=lambda r: (r[0], r[1]))
+
+    total = len(data_rows)
+    paginated = data_rows[skip:skip + limit]
+
+    data_responses = [
+        BilanDataResponse(annee=annee, category_name=category_name, amount=amount)
+        for annee, category_name, amount in paginated
     ]
-    
-    logger.info(f"[Bilan] Retourné {len(data_responses)} data pour property_id={property_id}")
+
+    logger.info(f"[Bilan] Calculé {total} lignes en temps réel pour property_id={property_id}")
     return BilanDataListResponse(
         items=data_responses,
         total=total
@@ -607,13 +611,7 @@ async def update_bilan_config(
     
     db.commit()
     db.refresh(config)
-    
-    # Invalider tous les bilans pour cette propriété (la config a changé)
-    try:
-        invalidate_all_bilan(db, config_update.property_id)
-    except Exception as e:
-        logger.error(f"[Bilan] Erreur lors de l'invalidation des bilans: {e}")
-    
+
     logger.info(f"[Bilan] Config mise à jour pour property_id={config_update.property_id}")
     return BilanConfigResponse(
         id=config.id,

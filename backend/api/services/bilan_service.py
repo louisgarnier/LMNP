@@ -23,12 +23,10 @@ from backend.database.models import (
     Transaction,
     EnrichedTransaction,
     BilanMapping,
-    BilanData,
     BilanConfig,
     AmortizationResult,
     LoanPayment,
     LoanConfig,
-    CompteResultatData,
     CompteResultatOverride
 )
 from backend.api.services.compte_resultat_service import calculate_compte_resultat
@@ -254,7 +252,8 @@ def calculate_resultat_exercice(
     db: Session,
     year: int,
     property_id: int,
-    compte_resultat_view_id: Optional[int] = None
+    compte_resultat_view_id: Optional[int] = None,
+    cr_cache: Optional[Dict[int, Dict]] = None
 ) -> float:
     """
     Calculer le résultat de l'exercice pour une année et une propriété.
@@ -284,16 +283,20 @@ def calculate_resultat_exercice(
     
     if override:
         return override.override_value
-    
-    # Sinon, calculer depuis le compte de résultat
-    compte_resultat = calculate_compte_resultat(db, year, property_id=property_id)
+
+    # Sinon, calculer depuis le compte de résultat (mémoïsé par année si dispo)
+    if cr_cache is not None and year in cr_cache:
+        compte_resultat = cr_cache[year]
+    else:
+        compte_resultat = calculate_compte_resultat(db, year, property_id=property_id)
     return compte_resultat.get("resultat_net", 0.0)
 
 
 def calculate_report_a_nouveau(
     db: Session,
     year: int,
-    property_id: int
+    property_id: int,
+    cr_cache: Optional[Dict[int, Dict]] = None
 ) -> float:
     """
     Calculer le report à nouveau (cumul des résultats des années précédentes) pour une propriété.
@@ -350,7 +353,10 @@ def calculate_report_a_nouveau(
         # Note: On pourrait optimiser davantage en calculant toutes les années en une fois
         # mais pour l'instant, on garde la logique simple
         for prev_year in years_to_calculate:
-            compte_resultat = calculate_compte_resultat(db, prev_year, property_id=property_id)
+            if cr_cache is not None and prev_year in cr_cache:
+                compte_resultat = cr_cache[prev_year]
+            else:
+                compte_resultat = calculate_compte_resultat(db, prev_year, property_id=property_id)
             total += compte_resultat.get("resultat_net", 0.0)
     
     return total
@@ -470,7 +476,8 @@ def calculate_bilan(
     year: int,
     property_id: int,
     mappings: Optional[List[BilanMapping]] = None,
-    level_3_values: Optional[List[str]] = None
+    level_3_values: Optional[List[str]] = None,
+    cr_cache: Optional[Dict[int, Dict]] = None
 ) -> Dict[str, any]:
     """
     Calculer le bilan complet pour une année et une propriété.
@@ -481,7 +488,11 @@ def calculate_bilan(
         property_id: ID de la propriété
         mappings: Liste des mappings (optionnel, sera chargée depuis DB si non fournie)
         level_3_values: Liste des valeurs level_3 (optionnel, sera chargée depuis config si non fournie)
-    
+        cr_cache: Mémoïsation optionnelle {année: résultat compte de résultat}
+            partagée sur une requête multi-années. Évite de recalculer le
+            compte de résultat pour le résultat de l'exercice et le report à
+            nouveau. Portée requête uniquement (ce n'est PAS un cache persistant).
+
     Returns:
         Dictionnaire avec :
         - categories: Dict[str, float] - Montants par catégorie
@@ -590,10 +601,10 @@ def calculate_bilan(
                 amount = calculate_compte_bancaire(db, year, property_id)
             elif mapping.special_source == "compte_resultat":
                 amount = calculate_resultat_exercice(
-                    db, year, property_id, mapping.compte_resultat_view_id
+                    db, year, property_id, mapping.compte_resultat_view_id, cr_cache=cr_cache
                 )
             elif mapping.special_source == "compte_resultat_cumul":
-                amount = calculate_report_a_nouveau(db, year, property_id)
+                amount = calculate_report_a_nouveau(db, year, property_id, cr_cache=cr_cache)
             elif mapping.special_source == "loan_payments":
                 amount = calculate_capital_restant_du(db, year, property_id)
             else:
@@ -640,70 +651,3 @@ def calculate_bilan(
     }
 
 
-def get_bilan_data(
-    db: Session,
-    property_id: int,
-    year: Optional[int] = None,
-    start_year: Optional[int] = None,
-    end_year: Optional[int] = None
-) -> List[BilanData]:
-    """
-    Récupérer les données du bilan depuis la table bilan_data pour une propriété.
-    
-    Args:
-        db: Session de base de données
-        property_id: ID de la propriété
-        year: Année spécifique (optionnel)
-        start_year: Année de début (optionnel, pour plage)
-        end_year: Année de fin (optionnel, pour plage)
-    
-    Returns:
-        Liste des données du bilan
-    """
-    logger.info(f"[BilanService] get_bilan_data - property_id={property_id}, year={year}")
-    
-    query = db.query(BilanData).filter(BilanData.property_id == property_id)
-    
-    if year is not None:
-        query = query.filter(BilanData.annee == year)
-    elif start_year is not None and end_year is not None:
-        query = query.filter(
-            and_(
-                BilanData.annee >= start_year,
-                BilanData.annee <= end_year
-            )
-        )
-    
-    return query.order_by(BilanData.annee, BilanData.category_name).all()
-
-
-def invalidate_all_bilan(db: Session, property_id: int) -> None:
-    """
-    Marquer toutes les données du bilan comme invalides pour une propriété (supprimer toutes les données).
-    
-    Args:
-        db: Session de base de données
-        property_id: ID de la propriété
-    """
-    logger.info(f"[BilanService] invalidate_all_bilan - property_id={property_id}")
-    db.query(BilanData).filter(BilanData.property_id == property_id).delete()
-    db.commit()
-
-
-def invalidate_bilan_for_year(year: int, db: Session, property_id: int) -> None:
-    """
-    Invalider une année spécifique pour une propriété (supprimer les données de cette année).
-    
-    Args:
-        year: Année à invalider
-        db: Session de base de données
-        property_id: ID de la propriété
-    """
-    logger.info(f"[BilanService] invalidate_bilan_for_year - year={year}, property_id={property_id}")
-    db.query(BilanData).filter(
-        and_(
-            BilanData.annee == year,
-            BilanData.property_id == property_id
-        )
-    ).delete()
-    db.commit()

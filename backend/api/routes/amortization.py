@@ -264,16 +264,7 @@ async def recalculate_amortizations(
         results_created = recalculate_all_amortizations(db, property_id=property_id)
         
         logger.info(f"[Amortizations] Recalcul terminé pour property_id={property_id}: {results_created} résultats créés")
-        
-        # Invalider tous les comptes de résultat (les amortissements ont changé)
-        try:
-            from backend.api.services.compte_resultat_service import invalidate_all_compte_resultat
-            invalidate_all_compte_resultat(db)
-        except Exception as e:
-            import traceback
-            error_details = traceback.format_exc()
-            print(f"⚠️ [recalculate_amortizations] Erreur lors de l'invalidation des comptes de résultat: {error_details}")
-        
+
         return AmortizationRecalculateResponse(
             message="Recalcul des amortissements terminé avec succès",
             results_created=results_created
