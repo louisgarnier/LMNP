@@ -456,7 +456,8 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
       
       // Catégories configurables → utiliser la projection
       if (!isCalculated) {
-        return getProjectedAmount(category, year);
+        const projected = getProjectedAmount(category, year);
+        return projected !== null ? Math.abs(projected) : null;
       }
       
       return null;

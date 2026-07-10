@@ -726,10 +726,10 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
                       borderTop: '2px solid #e5e7eb',
                     }}>
                       {(() => {
-                        const totalPlanned = referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => sum + (localConfigs[cat.level_1]?.amount || 0), 0);
+                        const totalPlanned = referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => sum + Math.abs(localConfigs[cat.level_1]?.amount || 0), 0);
                         const totalReal = referenceData.filter(cat => !cat.is_calculated).reduce((sum, cat) => sum + Math.abs(cat.real_current_year), 0);
                         if (totalPlanned === 0) return '—';
-                        const pct = (totalReal / Math.abs(totalPlanned)) * 100;
+                        const pct = (totalReal / totalPlanned) * 100;
                         return <span style={{ color: pct >= 100 ? '#059669' : pct >= 50 ? '#d97706' : '#dc2626' }}>{pct.toFixed(0)}%</span>;
                       })()}
                     </td>

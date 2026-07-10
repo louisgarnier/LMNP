@@ -87,6 +87,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
   const [bilanData, setBilanData] = useState<Record<number, BilanResponse>>({});
   const [prorataSettings, setProrataSettings] = useState<ProRataSettings | null>(null);
   const [compteBancairePrevu, setCompteBancairePrevu] = useState<number | null>(null);
+  const [projectionError, setProjectionError] = useState<string | null>(null);
 
   // Année en cours : utilisée pour savoir si une colonne doit afficher la projection
   const currentYear = new Date().getFullYear();
@@ -176,7 +177,8 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     try {
       setLoading(true);
       setError(null);
-      
+      setProjectionError(null);
+
       console.log('[BilanTable] API call: getMappings, propertyId:', activeProperty.id);
       // Charger les mappings
       const mappingsResponse = await bilanAPI.getMappings(activeProperty.id);
@@ -265,8 +267,9 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
           });
           setCompteBancairePrevu(compteBancairePrevuCalc);
         }
-      } catch (prevErr) {
+      } catch (prevErr: any) {
         console.error('[BilanTable] Erreur lors du calcul du compte bancaire prévu:', prevErr);
+        setProjectionError('Projection année en cours indisponible');
       }
     } catch (err: any) {
       console.error('[BilanTable] Erreur lors du chargement des données:', err);
@@ -595,6 +598,18 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
 
   return (
     <div style={{ overflowX: 'auto' }}>
+      {projectionError && (
+        <div style={{
+          padding: '10px 14px',
+          marginBottom: '12px',
+          borderRadius: '6px',
+          backgroundColor: '#fee2e2',
+          color: '#991b1b',
+          fontSize: '13px',
+        }}>
+          ⚠️ {projectionError}
+        </div>
+      )}
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
         <thead>
           <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>

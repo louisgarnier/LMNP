@@ -35,12 +35,14 @@ export default function BilanForecastCard({ year, onConfigChange, refreshKey }: 
   const [totalCreditAnnuel, setTotalCreditAnnuel] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isPinned, setIsPinned] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!activeProperty?.id) return;
 
     const loadData = async () => {
       setIsLoading(true);
+      setError(null);
       try {
         // Récupérer les settings
         const settingsData = await prorataAPI.getSettings(activeProperty.id);
@@ -108,8 +110,9 @@ export default function BilanForecastCard({ year, onConfigChange, refreshKey }: 
           setTotalCreditAnnuel(totalCredit);
         }
         
-      } catch (err) {
+      } catch (err: any) {
         console.error('[BilanForecastCard] Error loading data:', err);
+        setError(err?.message || 'Erreur lors du chargement des prévisions Bilan');
       } finally {
         setIsLoading(false);
       }
@@ -133,6 +136,28 @@ export default function BilanForecastCard({ year, onConfigChange, refreshKey }: 
         color: '#666' 
       }}>
         ⏳ Chargement des prévisions Bilan...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{
+        padding: '20px',
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        border: '1px solid #e5e7eb',
+        marginTop: '24px',
+      }}>
+        <div style={{
+          padding: '10px 14px',
+          borderRadius: '6px',
+          backgroundColor: '#fee2e2',
+          color: '#991b1b',
+          fontSize: '14px',
+        }}>
+          ❌ Erreur lors du chargement des prévisions Bilan : {error}
+        </div>
       </div>
     );
   }
