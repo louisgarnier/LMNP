@@ -32,9 +32,10 @@ L'app actuelle fonctionne (import CSV → classification 3 niveaux → TCD → C
 
 - Pas de changement de stack (FastAPI + SQLite + Next.js conservés).
 - Pas d'authentification / multi-utilisateurs.
-- Pas de refonte visuelle des écrans TCD, États financiers, Amortissements (identiques à l'existant, voulu).
-- Pas de génération du PDF de la liasse — on produit les **montants par case**, pas le formulaire.
+- Pas de génération du PDF Cerfa lui-même — mais les montants sont produits **case par case au format liasse** (voir §8), prêts à recopier dans Teledec.
 - Pas de TVA (LMNP non assujetti dans le cas de Louis).
+
+> Note : la refonte **inclut** une modernisation visuelle (dashboard widgets, voir §8bis) — décision de Louis du 2026-07-10, qui remplace l'ancien non-objectif « écrans identiques ».
 
 ## 4. Modèle de données cible
 
@@ -116,9 +117,21 @@ Par année, pour l'activité LMNP globale :
 - `dotation_deduite` = min(dotation_potentielle, plafond_39C) ; l'excédent alimente le **stock d'amortissements réputés différés**, reportable sans limite, imputé automatiquement les années bénéficiaires.
 - Le CR affiche les deux résultats : **comptable** (dotation complète, comme aujourd'hui) et **fiscal** (dotation plafonnée + suivi du stock différé). Tout calculé à la volée, rien de stocké.
 
-### Consolidation (nouvel écran)
+### Consolidation au format liasse (nouvel écran)
 
-Une seule activité LMNP en nom propre → un écran « Consolidation » : résultat fiscal par propriété + **total consolidé**, avec correspondance vers les cases de la déclaration (2042-C-PRO régime réel ; montants prêts à recopier). Les déficits LMNP non-professionnels (hors amortissements différés) suivis avec leur péremption à 10 ans.
+Une seule activité LMNP en nom propre → un écran « Consolidation » : résultat fiscal par propriété + **total consolidé, présenté dans la structure exacte de la liasse** avec les codes de cases Cerfa — 2031-SD (récapitulation, cadre I « BIC non professionnels »), 2033-A bilan simplifié (cases 010-199), 2033-B compte de résultat simplifié, 2033-C immobilisations/amortissements, 2033-D (dont suivi des déficits et amortissements différés). Montants prêts à recopier dans Teledec.
+
+**Référence de validation** : les liasses réelles 2024 et 2025 de Louis (`docs/files/liasse_fiscale_2024_*.pdf`, `liasse_fiscale_25.pdf`) et les bilans 2022/2023 — l'écran doit retomber sur ces chiffres pour les exercices passés. Les déficits LMNP non-professionnels (hors amortissements différés) suivis avec leur péremption à 10 ans.
+
+## 8bis. Dashboard & widgets (modernisation visuelle)
+
+Décision de Louis : les écrans ne restent pas identiques — l'app gagne un **dashboard moderne, épuré, par propriété**, avec les informations clés en widgets :
+
+- **Par propriété** : solde bancaire, loyers encaissés vs attendus (année en cours), charges payées, résultat comptable et fiscal en cours (temps réel), prochaine échéance de crédit + capital restant dû, compteur inbox (transactions à classer), alerte consentement bancaire.
+- **Vue globale (accueil)** : les 3 propriétés côte à côte + le consolidé (résultat fiscal total en cours, trésorerie totale), accès direct à l'inbox.
+- Design system unifié à cette occasion : palette et composants partagés (fin des styles inline hex répétés), formatage monétaire unique.
+- Les écrans de travail (TCD, tableaux CR/Bilan détaillés, Amortissements) sont **restylés** dans le même design system mais gardent leur structure fonctionnelle actuelle.
+- Chaque écran passe par une **maquette validée par Louis avant code** (process ui-mockup, comme refonte-v1.html).
 
 ## 9. Gestion d'erreurs, logging, hygiène
 
@@ -134,7 +147,7 @@ Une seule activité LMNP en nom propre → un écran « Consolidation » : résu
    - Dotations d'amortissement d'Evry : recalculées après remise à plat des mappings croisés et de la part terrain — validées contre **les tableaux d'amortissement fournis par Louis**, pas contre les chiffres bugués actuels.
    - Arrondis : écarts ≤ 1 centime par ligne dus au passage float → centimes, listés par le script de comparaison.
 3. **Après chaque étape** : script de comparaison golden vs actuel ; tout écart hors liste = bloquant.
-4. Les documents comptables réels de Louis (bilans précédents, tableaux d'amortissement, échéanciers) déposés dans `docs/project/reference/` priment sur le golden master en cas de divergence.
+4. Les documents comptables réels de Louis priment sur le golden master en cas de divergence. Ils sont déposés dans **`docs/files/`** : bilans 2022 et 2023, liasses fiscales 2024 et 2025 (format cible + chiffres de validation), et par appartement (`docs/files/appartements/{Evry, Marseille, Marseille colloc}/`) les tableaux d'amortissement des crédits (PDF + xlsx), les tableaux d'immobilisations, les trades CSV et les mappings.
 5. Tests : suite pytest isolée (conftest + SQLite en mémoire, plus jamais la base de prod), tests unitaires des services de calcul, E2E Playwright sur les parcours inbox/règles/états financiers.
 
 ## 11. Ordre d'exécution
@@ -142,10 +155,10 @@ Une seule activité LMNP en nom propre → un écran « Consolidation » : résu
 0. **Pré-travail** : finir et merger la branche `forecast` ; golden master figé ; corrections de données (date du prêt Evry, mappings d'amortissement — avec les documents de Louis).
 1. **Temps réel** : suppression caches + fix quadratique (§6).
 2. **Référentiel** : tables catégories/groupes, migration des classifications, configs par IDs, centimes (§4).
-3. **Règles + inbox** : moteur unifié, écrans ① ② (§5).
+3. **Règles + inbox + dashboard** : moteur unifié, écrans ① ②, dashboard widgets et design system (§5, §8bis) — maquettes validées avant code.
 4. **Ingestion + comptes** : service unique, `bank_accounts`, `external_id` (§7 partie 1).
 5. **Enable Banking** : client, connexion, synchro, écran Sources (§7 partie 2).
-6. **Fiscalité** : composants + 39C + consolidation 2042-C-PRO (§8).
+6. **Fiscalité** : composants + 39C + consolidation au format liasse (2031/2033, cases Cerfa) validée contre les liasses 2024/2025 (§8).
 
 Chaque étape : plan d'implémentation dédié (writing-plans), app fonctionnelle à la fin, comparaison golden master, commit. Rollback possible par étape.
 
