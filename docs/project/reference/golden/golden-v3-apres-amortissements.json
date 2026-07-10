@@ -1,0 +1,2195 @@
+{
+  "15": {
+    "2024": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -643.76,
+          "Immobilisation IGT": -858.34,
+          "Immobilisation agencements": -1287.51,
+          "Immobilisation mobilier": 0.0,
+          "Immobilisation structure/GO": -643.76,
+          "Immobilisation travaux": 0.0
+        },
+        "total": -3433.37
+      },
+      "bilan": {
+        "actif_total": 119297.64,
+        "difference": -0.0,
+        "difference_percent": -0.0,
+        "passif_total": 119297.64,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 1977.92,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 1977.92
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -3433.37,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 117319.72
+              }
+            ],
+            "total": 119297.64,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 24444.24,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -17272.48,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": 7171.76
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 112125.88,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 112125.88
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 119297.64,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2024
+      },
+      "cr": {
+        "amortissements": -3433.37,
+        "charges": {
+          "Charges d'amortissements": -3433.37,
+          "Charges de copropriété hors fonds travaux": -576.82,
+          "Coût du financement (hors remboursement du capital)": 3439.73,
+          "Fluides non refacturés": -446.41,
+          "Honoraires": -15551.98,
+          "Impôts et taxes": -492.16
+        },
+        "cout_financement": 3439.73,
+        "produits": {
+          "Loyers hors charge encaissés": 6667.99
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": -13832.75,
+        "resultat_net": -17272.48,
+        "total_charges": -17061.01,
+        "total_charges_exploitation": 20500.74,
+        "total_produits": 6667.99
+      },
+      "last_balance": 1977.92
+    },
+    "2025": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -807.5,
+          "Immobilisation IGT": -1076.67,
+          "Immobilisation agencements": -1615.0,
+          "Immobilisation mobilier": -750.62,
+          "Immobilisation structure/GO": -807.5,
+          "Immobilisation travaux": -1100.0
+        },
+        "total": -6157.28
+      },
+      "bilan": {
+        "actif_total": 110911.78,
+        "difference": 0.0,
+        "difference_percent": 0.0,
+        "passif_total": 110911.78,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": -250.65,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": -250.65
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -9590.66,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 111162.43
+              }
+            ],
+            "total": 110911.78,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 26649.28,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -17272.48,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -4348.58,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": 5028.21
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 105883.57,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 105883.57
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 110911.78,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2025
+      },
+      "cr": {
+        "amortissements": -6157.28,
+        "charges": {
+          "Charges d'amortissements": -6157.28,
+          "Charges de copropriété hors fonds travaux": -1104.99,
+          "Coût du financement (hors remboursement du capital)": 4933.8,
+          "Fluides non refacturés": -768.6,
+          "Honoraires": -5162.42,
+          "Impôts et taxes": -1637.0,
+          "Travaux et mobilier": -90.0
+        },
+        "cout_financement": 4933.8,
+        "produits": {
+          "Loyers hors charge encaissés": 15505.51
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": 585.22,
+        "resultat_net": -4348.58,
+        "total_charges": -9986.49,
+        "total_charges_exploitation": 14920.29,
+        "total_produits": 15505.51
+      },
+      "last_balance": -250.65
+    },
+    "2026": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -807.5,
+          "Immobilisation IGT": -1076.67,
+          "Immobilisation agencements": -1615.0,
+          "Immobilisation mobilier": -750.62,
+          "Immobilisation structure/GO": -807.5,
+          "Immobilisation travaux": -1100.0
+        },
+        "total": -6157.28
+      },
+      "bilan": {
+        "actif_total": 105843.97,
+        "difference": 3506.85,
+        "difference_percent": 3.43,
+        "passif_total": 102337.12,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 838.82,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 838.82
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -15747.94,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 105005.15
+              }
+            ],
+            "total": 105843.97,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 28662.24,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -21621.07,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -4068.29,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": 2972.88
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 99364.24,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 99364.24
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 102337.12,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2026
+      },
+      "cr": {
+        "amortissements": -6157.28,
+        "charges": {
+          "Charges d'amortissements": -6157.28,
+          "Charges de copropriété hors fonds travaux": -1104.99,
+          "Coût du financement (hors remboursement du capital)": 4653.51,
+          "Fluides non refacturés": -768.6,
+          "Honoraires": -5162.42,
+          "Impôts et taxes": -1637.0,
+          "Travaux et mobilier": -90.0
+        },
+        "cout_financement": 4653.51,
+        "produits": {
+          "Loyers hors charge encaissés": 15505.51
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": 585.22,
+        "resultat_net": -4068.29,
+        "total_charges": -10266.78,
+        "total_charges_exploitation": 14920.29,
+        "total_produits": 15505.51
+      },
+      "last_balance": 838.82
+    },
+    "2027": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -807.5,
+          "Immobilisation IGT": -1076.67,
+          "Immobilisation agencements": -1615.0,
+          "Immobilisation mobilier": -750.62,
+          "Immobilisation structure/GO": -807.5,
+          "Immobilisation travaux": -1100.0
+        },
+        "total": -6157.28
+      },
+      "bilan": {
+        "actif_total": 99686.69,
+        "difference": 14675.49,
+        "difference_percent": 17.26,
+        "passif_total": 85011.2,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 838.82,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 838.82
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -21905.22,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 98847.87
+              }
+            ],
+            "total": 99686.69,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 28662.24,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -25689.36,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -10517.28,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -7544.4
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 92555.6,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 92555.6
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 85011.2,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2027
+      },
+      "cr": {
+        "amortissements": -6157.28,
+        "charges": {
+          "Charges d'amortissements": -6157.28,
+          "Coût du financement (hors remboursement du capital)": 4360.0
+        },
+        "cout_financement": 4360.0,
+        "produits": {},
+        "prorata_applied": true,
+        "resultat_exploitation": -6157.28,
+        "resultat_net": -10517.28,
+        "total_charges": -1797.28,
+        "total_charges_exploitation": 6157.28,
+        "total_produits": 0
+      },
+      "last_balance": null
+    },
+    "2028": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -807.5,
+          "Immobilisation IGT": -1076.67,
+          "Immobilisation agencements": -1615.0,
+          "Immobilisation mobilier": -750.62,
+          "Immobilisation structure/GO": -807.5,
+          "Immobilisation travaux": -1100.0
+        },
+        "total": -6157.28
+      },
+      "bilan": {
+        "actif_total": 93529.4,
+        "difference": 25839.6,
+        "difference_percent": 38.17,
+        "passif_total": 67689.8,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 838.82,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 838.82
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -28062.51,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 92690.58
+              }
+            ],
+            "total": 93529.4,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 28662.24,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -36206.64,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -10210.59,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -17755.0
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 85444.8,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 85444.8
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 67689.8,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2028
+      },
+      "cr": {
+        "amortissements": -6157.28,
+        "charges": {
+          "Charges d'amortissements": -6157.28,
+          "Coût du financement (hors remboursement du capital)": 4053.31
+        },
+        "cout_financement": 4053.31,
+        "produits": {},
+        "prorata_applied": true,
+        "resultat_exploitation": -6157.28,
+        "resultat_net": -10210.59,
+        "total_charges": -2103.97,
+        "total_charges_exploitation": 6157.28,
+        "total_produits": 0
+      },
+      "last_balance": null
+    }
+  },
+  "25": {
+    "2021": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -331.53,
+          "Mobilier & électroménager": 0.0,
+          "Travaux de rénovation, gros œuvre": -300.97
+        },
+        "total": -632.49
+      },
+      "bilan": {
+        "actif_total": 200489.43,
+        "difference": -0.0,
+        "difference_percent": -0.0,
+        "passif_total": 200489.43,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 6.09,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 6.09
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -632.49,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 201115.83,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 200483.34
+              }
+            ],
+            "total": 200489.43,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 24102.77,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -24729.17,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -626.4
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 201115.83,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 201115.83
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 200489.43,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2021
+      },
+      "cr": {
+        "amortissements": -632.49,
+        "charges": {
+          "Assurances": -38.16,
+          "Autres charges diverses": -515.0,
+          "Charges d'amortissements": -632.49,
+          "Coût du financement (hors remboursement du capital)": 308.19,
+          "Honoraires": -22954.42,
+          "Impôts et taxes": -280.91
+        },
+        "cout_financement": 308.19,
+        "produits": {},
+        "prorata_applied": true,
+        "resultat_exploitation": -24420.98,
+        "resultat_net": -24729.17,
+        "total_charges": -24112.79,
+        "total_charges_exploitation": 24420.98,
+        "total_produits": 0
+      },
+      "last_balance": 6.09
+    },
+    "2022": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -3850.0,
+          "Mobilier & électroménager": -1347.96,
+          "Travaux de rénovation, gros œuvre": -5152.98
+        },
+        "total": -10350.94
+      },
+      "bilan": {
+        "actif_total": 242417.61,
+        "difference": -0.0,
+        "difference_percent": -0.0,
+        "passif_total": 242417.61,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 15709.56,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 15709.56
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -10983.43,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 226708.05
+              }
+            ],
+            "total": 242417.61,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 42557.05,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -24729.17,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -4410.58,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": 13417.3
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 229000.31,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 229000.31
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 242417.61,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2022
+      },
+      "cr": {
+        "amortissements": -10350.94,
+        "charges": {
+          "Assurances": -284.01,
+          "Autres charges diverses": -132.0,
+          "Charges d'amortissements": -10350.94,
+          "Charges de copropriété hors fonds travaux": -5346.97,
+          "Coût du financement (hors remboursement du capital)": 2758.98,
+          "Fluides non refacturés": -422.14,
+          "Impôts et taxes": -2010.0,
+          "Travaux et mobilier": -1196.45
+        },
+        "cout_financement": 2758.98,
+        "produits": {
+          "Autres revenus": 13327.92,
+          "Loyers hors charge encaissés": 4762.99
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": -1651.6,
+        "resultat_net": -4410.58,
+        "total_charges": -16983.53,
+        "total_charges_exploitation": 19742.51,
+        "total_produits": 18090.91
+      },
+      "last_balance": 15709.56
+    },
+    "2023": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -3850.0,
+          "Mobilier & électroménager": -1862.15,
+          "Travaux de rénovation, gros œuvre": -5406.99
+        },
+        "total": -11119.15
+      },
+      "bilan": {
+        "actif_total": 221142.74,
+        "difference": -0.0,
+        "difference_percent": -0.0,
+        "passif_total": 221142.74,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 5553.84,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 5553.84
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -22102.58,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 215588.9
+              }
+            ],
+            "total": 221142.74,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 28557.05,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -29139.75,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 4061.59,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": 3478.89
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 217663.85,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 217663.85
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
+              }
+            ],
+            "total": 221142.74,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2023
+      },
+      "cr": {
+        "amortissements": -11119.15,
+        "charges": {
+          "Assurances": -395.4,
+          "Autres charges diverses": -144.0,
+          "Charges d'amortissements": -11119.15,
+          "Charges de copropriété hors fonds travaux": -1979.37,
+          "Coût du financement (hors remboursement du capital)": 2765.0,
+          "Fluides non refacturés": -1730.91,
+          "Honoraires": -1029.0,
+          "Impôts et taxes": -1632.0,
+          "Travaux et mobilier": -3014.0
+        },
+        "cout_financement": 2765.0,
+        "produits": {
+          "Autres revenus": 2816.0,
+          "Loyers hors charge encaissés": 25054.42
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": 6826.59,
+        "resultat_net": 4061.59,
+        "total_charges": -18278.83,
+        "total_charges_exploitation": 21043.83,
+        "total_produits": 27870.42
+      },
+      "last_balance": 5553.84
+    },
+    "2024": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -3850.0,
+          "Mobilier & électroménager": -1862.15,
+          "Travaux de rénovation, gros œuvre": -5406.99
+        },
+        "total": -11119.15
+      },
+      "bilan": {
+        "actif_total": 208421.78,
+        "difference": -0.0,
+        "difference_percent": -0.0,
+        "passif_total": 208421.78,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 3952.03,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 3952.03
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -33221.73,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 204469.75
+              }
+            ],
+            "total": 208421.78,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 25557.05,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -25078.16,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -2159.16,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -1680.27
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 206202.05,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 206202.05
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3900.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3900.0
+              }
+            ],
+            "total": 208421.78,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2024
+      },
+      "cr": {
+        "amortissements": -11119.15,
+        "charges": {
+          "Assurances": -459.04,
+          "Autres charges diverses": -42.0,
+          "Charges d'amortissements": -11119.15,
+          "Charges de copropriété hors fonds travaux": -5591.32,
+          "Coût du financement (hors remboursement du capital)": 2626.5,
+          "Fluides non refacturés": -2360.53,
+          "Honoraires": -1335.0,
+          "Impôts et taxes": -2272.0,
+          "Travaux et mobilier": -68.0
+        },
+        "cout_financement": 2626.5,
+        "produits": {
+          "Autres revenus": 600.0,
+          "Loyers hors charge encaissés": 23114.38
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": 467.34,
+        "resultat_net": -2159.16,
+        "total_charges": -20620.54,
+        "total_charges_exploitation": 23247.04,
+        "total_produits": 23714.38
+      },
+      "last_balance": 3952.03
+    },
+    "2025": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -3850.0,
+          "Mobilier & électroménager": -1862.15,
+          "Travaux de rénovation, gros œuvre": -5406.99
+        },
+        "total": -11119.15
+      },
+      "bilan": {
+        "actif_total": 195891.32,
+        "difference": -0.0,
+        "difference_percent": -0.0,
+        "passif_total": 195891.32,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 2540.72,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 2540.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -44340.88,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 193350.6
+              }
+            ],
+            "total": 195891.32,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 28546.75,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -27237.32,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -3390.53,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -2081.1
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 194613.53,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 194613.53
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
+              }
+            ],
+            "total": 195891.32,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2025
+      },
+      "cr": {
+        "amortissements": -11119.15,
+        "charges": {
+          "Assurances": -482.28,
+          "Autres charges diverses": 18.0,
+          "Charges d'amortissements": -11119.15,
+          "Charges de copropriété hors fonds travaux": -6143.73,
+          "Coût du financement (hors remboursement du capital)": 2488.88,
+          "Fluides non refacturés": -2006.8,
+          "Honoraires": -2126.97,
+          "Impôts et taxes": -2323.0,
+          "Travaux et mobilier": -520.74
+        },
+        "cout_financement": 2488.88,
+        "produits": {
+          "Autres revenus": 1068.0,
+          "Loyers hors charge encaissés": 22735.02
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": -901.65,
+        "resultat_net": -3390.53,
+        "total_charges": -22215.79,
+        "total_charges_exploitation": 24704.67,
+        "total_produits": 23803.02
+      },
+      "last_balance": 2540.72
+    },
+    "2026": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -3850.0,
+          "Mobilier & électroménager": -1862.15,
+          "Travaux de rénovation, gros œuvre": -5406.99
+        },
+        "total": -11119.15
+      },
+      "bilan": {
+        "actif_total": 187095.17,
+        "difference": 3850.52,
+        "difference_percent": 2.1,
+        "passif_total": 183244.65,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 4863.72,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 4863.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -55460.03,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 182231.45
+              }
+            ],
+            "total": 187095.17,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 30869.75,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -30627.85,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -3253.02,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -3011.12
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 182896.88,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 182896.88
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
+              }
+            ],
+            "total": 183244.65,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2026
+      },
+      "cr": {
+        "amortissements": -11119.15,
+        "charges": {
+          "Assurances": -482.28,
+          "Charges d'amortissements": -11119.15,
+          "Charges de copropriété hors fonds travaux": -6143.73,
+          "Coût du financement (hors remboursement du capital)": 2351.37,
+          "Fluides non refacturés": -2006.8,
+          "Honoraires": -2126.97,
+          "Impôts et taxes": -2323.0,
+          "Travaux et mobilier": -520.74
+        },
+        "cout_financement": 2351.37,
+        "produits": {
+          "Autres charges diverses": 18.0,
+          "Autres revenus": 1068.0,
+          "Loyers hors charge encaissés": 22735.02
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": -901.65,
+        "resultat_net": -3253.02,
+        "total_charges": -22371.3,
+        "total_charges_exploitation": 24722.67,
+        "total_produits": 23821.02
+      },
+      "last_balance": 4863.72
+    },
+    "2027": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -3850.0,
+          "Mobilier & électroménager": -1862.15,
+          "Travaux de rénovation, gros œuvre": -5406.99
+        },
+        "total": -11119.15
+      },
+      "bilan": {
+        "actif_total": 175976.03,
+        "difference": 17910.36,
+        "difference_percent": 11.33,
+        "passif_total": 158065.67,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 4863.72,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 4863.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -66579.17,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 171112.31
+              }
+            ],
+            "total": 175976.03,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 30869.75,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -33880.87,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -13332.82,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -16343.93
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 171050.71,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 171050.71
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
+              }
+            ],
+            "total": 158065.67,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2027
+      },
+      "cr": {
+        "amortissements": -11119.15,
+        "charges": {
+          "Charges d'amortissements": -11119.15,
+          "Coût du financement (hors remboursement du capital)": 2213.67
+        },
+        "cout_financement": 2213.67,
+        "produits": {},
+        "prorata_applied": true,
+        "resultat_exploitation": -11119.15,
+        "resultat_net": -13332.82,
+        "total_charges": -8905.48,
+        "total_charges_exploitation": 11119.15,
+        "total_produits": 0
+      },
+      "last_balance": null
+    },
+    "2028": {
+      "amort": {
+        "categories": {
+          "Immeuble (hors terrain)": -3850.0,
+          "Mobilier & électroménager": -1862.15,
+          "Travaux de rénovation, gros œuvre": -5406.99
+        },
+        "total": -11119.15
+      },
+      "bilan": {
+        "actif_total": 164856.88,
+        "difference": 31962.16,
+        "difference_percent": 24.05,
+        "passif_total": 132894.72,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 4863.72,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 4863.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -77698.32,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 159993.16
+              }
+            ],
+            "total": 164856.88,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 30869.75,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -47213.68,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -13193.82,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -29537.75
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 159073.58,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 159073.58
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
+              }
+            ],
+            "total": 132894.72,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2028
+      },
+      "cr": {
+        "amortissements": -11119.15,
+        "charges": {
+          "Charges d'amortissements": -11119.15,
+          "Coût du financement (hors remboursement du capital)": 2074.67
+        },
+        "cout_financement": 2074.67,
+        "produits": {},
+        "prorata_applied": true,
+        "resultat_exploitation": -11119.15,
+        "resultat_net": -13193.82,
+        "total_charges": -9044.48,
+        "total_charges_exploitation": 11119.15,
+        "total_produits": 0
+      },
+      "last_balance": null
+    }
+  },
+  "26": {
+    "2025": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -278.85,
+          "Immobilisation IGT": -557.7,
+          "Immobilisation agencements": -1673.1,
+          "Immobilisation mobilier": -253.05,
+          "Immobilisation structure/GO": -613.47,
+          "Immobilisation travaux": -64.8
+        },
+        "total": -3440.97
+      },
+      "bilan": {
+        "actif_total": 205696.83,
+        "difference": 0.75,
+        "difference_percent": 0.0,
+        "passif_total": 205696.08,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 7415.51,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 7415.51
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -3440.97,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 201722.29,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 198281.32
+              }
+            ],
+            "total": 205696.83,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 41515.0,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -23203.47,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": 18311.53
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 184784.55,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 184784.55
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
+              }
+            ],
+            "total": 205696.08,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2025
+      },
+      "cr": {
+        "amortissements": -3440.97,
+        "charges": {
+          "Autres charges diverses": -4158.24,
+          "Charges d'amortissements": -3440.97,
+          "Charges de copropriété hors fonds travaux": -544.99,
+          "Coût du financement (hors remboursement du capital)": 1455.03,
+          "Fluides non refacturés": -33.24,
+          "Honoraires": -16441.13,
+          "Impôts et taxes": -529.87
+        },
+        "cout_financement": 1455.03,
+        "produits": {
+          "Loyers hors charge encaissés": 3400.0
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": -21748.44,
+        "resultat_net": -23203.47,
+        "total_charges": -23693.41,
+        "total_charges_exploitation": 25148.44,
+        "total_produits": 3400.0
+      },
+      "last_balance": 7415.51
+    },
+    "2026": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -858.0,
+          "Immobilisation IGT": -1716.0,
+          "Immobilisation agencements": -5148.0,
+          "Immobilisation mobilier": -1096.58,
+          "Immobilisation structure/GO": -1887.6,
+          "Immobilisation travaux": -262.8
+        },
+        "total": -10968.98
+      },
+      "bilan": {
+        "actif_total": 195570.85,
+        "difference": 643.95,
+        "difference_percent": 0.33,
+        "passif_total": 194926.9,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 7959.01,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 7959.01
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -14409.95,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 202021.79,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 187611.84
+              }
+            ],
+            "total": 195570.85,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 41515.0,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -23203.47,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -3625.48,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": 14686.05
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 177640.85,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 177640.85
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
+              }
+            ],
+            "total": 194926.9,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2026
+      },
+      "cr": {
+        "amortissements": -10968.98,
+        "charges": {
+          "Autres charges diverses": 26.26,
+          "Charges d'amortissements": -10968.98,
+          "Charges de copropriété hors fonds travaux": -1400.0,
+          "Coût du financement (hors remboursement du capital)": 5523.26,
+          "Impôts et taxes": -1700.0,
+          "Travaux et mobilier": -379.5
+        },
+        "cout_financement": 5523.26,
+        "produits": {
+          "Loyers hors charge encaissés": 16320.0
+        },
+        "prorata_applied": true,
+        "resultat_exploitation": 1897.78,
+        "resultat_net": -3625.48,
+        "total_charges": -8898.96,
+        "total_charges_exploitation": 14422.22,
+        "total_produits": 16320.0
+      },
+      "last_balance": 7959.01
+    },
+    "2027": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -858.0,
+          "Immobilisation IGT": -1716.0,
+          "Immobilisation agencements": -5148.0,
+          "Immobilisation mobilier": -1098.45,
+          "Immobilisation structure/GO": -1887.6,
+          "Immobilisation travaux": -262.8
+        },
+        "total": -10970.85
+      },
+      "bilan": {
+        "actif_total": 184600.0,
+        "difference": 13310.92,
+        "difference_percent": 7.77,
+        "passif_total": 171289.08,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 7959.01,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 7959.01
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -25380.8,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 202021.79,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 176640.99
+              }
+            ],
+            "total": 184600.0,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 41515.0,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -26828.95,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -16288.14,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -1602.09
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 170291.17,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 170291.17
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
+              }
+            ],
+            "total": 171289.08,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2027
+      },
+      "cr": {
+        "amortissements": -10970.85,
+        "charges": {
+          "Charges d'amortissements": -10970.85,
+          "Coût du financement (hors remboursement du capital)": 5317.29
+        },
+        "cout_financement": 5317.29,
+        "produits": {},
+        "prorata_applied": true,
+        "resultat_exploitation": -10970.85,
+        "resultat_net": -16288.14,
+        "total_charges": -5653.56,
+        "total_charges_exploitation": 10970.85,
+        "total_produits": 0
+      },
+      "last_balance": null
+    },
+    "2028": {
+      "amort": {
+        "categories": {
+          "Immobilisation Facade/Toiture": -858.0,
+          "Immobilisation IGT": -1716.0,
+          "Immobilisation agencements": -5148.0,
+          "Immobilisation mobilier": -1098.45,
+          "Immobilisation structure/GO": -1887.6,
+          "Immobilisation travaux": -262.8
+        },
+        "total": -10970.85
+      },
+      "bilan": {
+        "actif_total": 173629.16,
+        "difference": 25977.88,
+        "difference_percent": 17.59,
+        "passif_total": 147651.28,
+        "types": [
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 7959.01,
+                    "category_name": "Compte bancaire",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Actif circulant",
+                "total": 7959.01
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -36351.64,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 202021.79,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 165670.15
+              }
+            ],
+            "total": 173629.16,
+            "type": "ACTIF"
+          },
+          {
+            "sub_categories": [
+              {
+                "categories": [
+                  {
+                    "amount": 41515.0,
+                    "category_name": "Compte courant d'associé",
+                    "is_special": false
+                  },
+                  {
+                    "amount": -43117.09,
+                    "category_name": "Report à nouveau / report du déficit",
+                    "is_special": true
+                  },
+                  {
+                    "amount": -16076.23,
+                    "category_name": "Résultat de l'exercice",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Capitaux propres",
+                "total": -17678.31
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 162729.59,
+                    "category_name": "Emprunt bancaire (capital restant dû)",
+                    "is_special": true
+                  }
+                ],
+                "sub_category": "Dettes financières",
+                "total": 162729.59
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
+              }
+            ],
+            "total": 147651.28,
+            "type": "PASSIF"
+          }
+        ],
+        "year": 2028
+      },
+      "cr": {
+        "amortissements": -10970.85,
+        "charges": {
+          "Charges d'amortissements": -10970.85,
+          "Coût du financement (hors remboursement du capital)": 5105.38
+        },
+        "cout_financement": 5105.38,
+        "produits": {},
+        "prorata_applied": true,
+        "resultat_exploitation": -10970.85,
+        "resultat_net": -16076.23,
+        "total_charges": -5865.47,
+        "total_charges_exploitation": 10970.85,
+        "total_produits": 0
+      },
+      "last_balance": null
+    }
+  }
+}

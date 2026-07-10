@@ -1,3 +1,81 @@
+# Écarts golden master — v2-apres-pret → v3-apres-amortissements
+
+Contexte : Tâche 5 (Bloc A), remise à plat des amortissements Evry
+(`property_id=25`) via `backend/scripts/fix_amortization_evry.py`, validée
+contre `docs/files/appartements/Evry/Immobilisations_Evry.pdf` (page 1).
+
+**Nature du correctif : ré-étiquetage + nettoyage, PAS un changement de
+chiffres.** Les `amortization_types` d'Evry étaient une copie défectueuse du
+gabarit Marseille : les NOMS de composant (utilisés comme `category` dans
+`amortization_results`) ne correspondaient plus à la valeur `level_1` mappée,
+et 3 types « orphelins » (`level_1_values == []`) polluaient la table. Les
+DURÉES, DATES et MONTANTS étaient déjà corrects (annuité pleine totale
+11 119,148 €/an, base amortissable 188 191,48 € — conformes au document).
+Le script recrée 4 types propres (un par catégorie `level_1` réellement
+utilisée : Terrain 0 an, Immeuble 30 ans, Travaux 10 ans, Mobilier 10 ans),
+supprime les types orphelins et régénère les résultats avec les bons libellés.
+
+Commande utilisée pour produire la comparaison :
+
+```
+python3 backend/scripts/fix_amortization_evry.py --yes
+python3 backend/scripts/golden_master.py --extract --tag v3-apres-amortissements
+python3 backend/scripts/golden_master.py --compare --tag v2-apres-pret
+```
+
+Résultat : **48 différences détectées, TOUTES sur la propriété 25 (Evry),
+années 2021-2028, exclusivement dans le bloc `amort.categories`** (6 par
+année × 8 années). Ce sont des RENOMMAGES de catégorie : le montant est
+préservé, il migre simplement vers la clé au bon nom. Aucune autre ligne
+n'est impactée — en particulier `cr.charges["Charges d'amortissements"]`
+(CR Evry) et `bilan...["Amortissements cumulés"]` (bilan Evry) restent
+NUMÉRIQUEMENT IDENTIQUES (ils étaient déjà conformes au document ; c'est
+pourquoi ils n'apparaissent PAS dans le diff). Aucun écart sur les autres
+propriétés (mars=15, colloc=26), ni sur le capital restant dû, ni sur les
+totaux/résultats. Conforme à l'attendu de la Tâche 5 (aucune fuite).
+
+## Détail des écarts acceptés — renommage des catégories d'amortissement Evry
+
+Le même renommage s'applique à l'identique pour chaque année 2021→2028.
+Correspondance ancienne clé (nom gabarit erroné) → nouvelle clé (composant
+documentaire), montant inchangé :
+
+| Ancienne catégorie (v2) | Nouvelle catégorie (v3) | Composant documentaire | Durée | Justification |
+|---|---|---|---|---|
+| `Immobilisation agencements` | `Immeuble (hors terrain)` | Compte 21300000 CONSTRUCTIONS (ligne 07) | 30 ans | Le libellé « agencements » ne correspondait pas à la construction ; `level_1 = "Immeuble (hors terrain)"`. Montant inchangé (-3 850 €/an pleine). |
+| `Immobilisation mobilier` | `Travaux de rénovation, gros œuvre` | Compte 21810000 (lignes 01/02/04 TRAVAUX) | 10 ans | Le libellé « mobilier » masquait des travaux ; `level_1 = "Travaux…"`. Montant inchangé (-5 406,99 €/an pleine). |
+| `Immobilisation Facade/Toiture` | `Mobilier & électroménager` | Compte 21810000 (lignes 03/05 LAVE LINGE, SERRURE + mobilier) | 10 ans | Le libellé « Facade/Toiture » masquait du mobilier ; `level_1 = "Mobilier & électroménager"`. Montant inchangé (-1 862,15 €/an pleine). |
+
+Exemple (année pleine, ex. 2024) — 6 lignes de diff : les 3 anciennes clés
+disparaissent (`→ <absent>`) et les 3 nouvelles apparaissent avec le MÊME
+montant. Total `amort` inchangé (-11 119,148 €), donc CR et bilan stables.
+
+Les premières années (2021 : -331,53 construction + -300,97 travaux ;
+2022 : proratas) migrent de la même façon, montants préservés. Ces proratas
+2021/2022 diffèrent des « Amort. Prat. » cumulés du document (10 081,98 €
+fin 2022) car la base contient une transaction travaux datée 2021-12-01
+(-36 115,83 €) absente des lignes documentaires 2022 ; écart 2021/2022
+explicitement toléré par le plan (« chiffres 2023-2025 = référence au
+centime »). Les années pleines 2023-2025 sont, elles, au centime.
+
+## Vérification croisée Marseille / Marseille colloc (hors périmètre Evry)
+
+- **Marseille (15)** : dotations recalculées CONFORMES à son xlsx
+  `Tablea_Immo_Mars_abnb.xlsx` (année pleine 2025 = 6 157,28 €, chaque
+  catégorie au centime : structure/GO 807,50 · mobilier 750,62 · IGT
+  1 076,67 · agencements 1 615,00 · Facade/Toiture 807,50 · travaux
+  1 100,00). Verrouillé par `test_marseille_dotations_conformes_xlsx`. Aucun
+  correctif nécessaire.
+- **Marseille colloc (26)** : la source `Tablea_Immo_Mars_colloc.xlsx` est
+  AMBIGUË (deux scénarios « matera » divergents, dates exprimées en ratios
+  0,12 / 0,55 plutôt qu'en dates réelles) et les annuités DB ne correspondent
+  à NI l'un NI l'autre scénario (ex. DB structure/GO 613,47 vs xlsx 1 887,60
+  ou 1 657,50 ; agencements 1 673,10 vs 5 148 ou 3 315). **Écart documenté,
+  NON corrigé** (hors périmètre Task 5 Evry ; à arbitrer au checkpoint avec
+  une source documentaire non ambiguë). Non testé ici volontairement.
+
+---
+
 # Écarts golden master — v1-avant-corrections → v2-apres-pret
 
 Contexte : Tâche 4 (Bloc A), correction de `calculate_capital_restant_du`
