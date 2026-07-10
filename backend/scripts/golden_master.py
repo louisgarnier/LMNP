@@ -82,15 +82,45 @@ def http_get(path: str, params: dict) -> dict:
         raise GoldenMasterError(f"GET {url} a retourné un JSON invalide: {e}") from e
 
 
+# Clés candidates identifiant un élément au sein d'une liste de dicts dans
+# les payloads bilan/CR (ex: bilan.types[].type == "ACTIF"/"PASSIF",
+# bilan.types[].sub_categories[].sub_category, .categories[].category_name).
+# Utilisées à la fois pour canoniser l'ordre à l'extraction (ci-dessous) et
+# pour apparier les éléments par clé plutôt que par position lors du diff
+# (cf. diff_json).
+LIST_ITEM_ID_KEYS = ("type", "sub_category", "category_name", "name")
+
+
+def list_item_id_key(items: list):
+    """Retourne la première clé de LIST_ITEM_ID_KEYS présente sur TOUS les
+    éléments de `items` (qui doivent être des dicts), ou None si la liste
+    n'est pas une liste de dicts identifiables (ex: liste de nombres, ou
+    liste de dicts sans clé candidate commune) — dans ce cas on retombe sur
+    une comparaison/tri positionnel."""
+    if not items or not all(isinstance(item, dict) for item in items):
+        return None
+    for key in LIST_ITEM_ID_KEYS:
+        if all(key in item for item in items):
+            return key
+    return None
+
+
 def round_floats(obj):
-    """Arrondit récursivement tous les flottants à 2 décimales et trie les
-    clés des dictionnaires (pour des diffs/dumps stables)."""
+    """Arrondit récursivement tous les flottants à 2 décimales, trie les
+    clés des dictionnaires, et — pour les listes de dicts identifiables via
+    LIST_ITEM_ID_KEYS — trie les éléments par leur clé d'identification.
+    Objectif : un dump JSON déterministe/order-independent, y compris si
+    l'API renvoie un jour les mêmes éléments dans un ordre différent."""
     if isinstance(obj, float):
         return round(obj, 2)
     if isinstance(obj, dict):
         return {k: round_floats(obj[k]) for k in sorted(obj.keys())}
     if isinstance(obj, list):
-        return [round_floats(v) for v in obj]
+        items = [round_floats(v) for v in obj]
+        key = list_item_id_key(items)
+        if key is not None:
+            items = sorted(items, key=lambda item: str(item.get(key)))
+        return items
     return obj
 
 
@@ -131,7 +161,22 @@ def extract_amort_for_year(amort_aggregated: dict, year: int):
 
 def fetch_last_balance(property_id: int, year: int):
     """Dernier solde connu (transaction la plus récente) sur l'année
-    donnée. Retourne None si aucune transaction sur cette année."""
+    donnée. Retourne None si aucune transaction sur cette année.
+
+    RÈGLE DE DÉPARTAGE (déterminisme) : la route /api/transactions ne trie
+    que par `date` (aucune clé secondaire côté SQL, cf.
+    backend/api/routes/transactions.py), donc quand plusieurs transactions
+    partagent la date la plus récente, l'ordre entre elles dépend de
+    l'ordre physique des lignes en base — non garanti, et fragile à tout
+    refactor (ré-import, VACUUM, etc.). Des combos du golden ont déjà des
+    ex-aequo réels (ex: 2 transactions le même jour x2, jusqu'à 3). On
+    récupère donc une fenêtre large (limit=20, largement au-dessus des
+    ex-aequo observés) triée par date desc, on ne garde que les
+    transactions dont la date == date max renvoyée, puis on départage de
+    façon déterministe en gardant l'id le plus élevé parmi les ex-aequo
+    (id le plus élevé = transaction insérée en dernier) et on retourne son
+    solde.
+    """
     resp = http_get(
         "/api/transactions",
         {
@@ -140,13 +185,16 @@ def fetch_last_balance(property_id: int, year: int):
             "end_date": f"{year}-12-31",
             "sort_by": "date",
             "sort_direction": "desc",
-            "limit": 1,
+            "limit": 20,
         },
     )
     transactions = resp.get("transactions", [])
     if not transactions:
         return None
-    return transactions[0].get("solde")
+    max_date = transactions[0].get("date")
+    tied = [t for t in transactions if t.get("date") == max_date]
+    winner = max(tied, key=lambda t: t.get("id"))
+    return winner.get("solde")
 
 
 def extract_property(property_id: int) -> dict:
@@ -207,9 +255,18 @@ def diff_json(path: str, stored, current, diffs: list, tolerance: float = TOLERA
     """Compare récursivement deux structures JSON et accumule les écarts
     dans `diffs`, sous forme de chaînes 'chemin: stocké → actuel'.
 
-    - Les nombres sont comparés avec une tolérance de `tolerance`.
+    - Les nombres sont comparés avec une tolérance de `tolerance` (borne
+      stricte ">", donc dépendante du bruit flottant : un écart d'exactement
+      1 centime peut, selon les erreurs d'arrondi accumulées de part et
+      d'autre, tomber juste en-deça ou juste au-delà de la tolérance).
     - Les clés présentes d'un seul côté sont rapportées comme différences
       (valeur '<absent>' côté manquant).
+    - Les listes de dicts identifiables via LIST_ITEM_ID_KEYS (ex: `type`,
+      `sub_category`, `category_name`) sont appariées par clé plutôt que
+      par position, pour ne pas rapporter de faux positifs si l'API change
+      simplement l'ordre de renvoi (ex: ACTIF/PASSIF inversés). Les listes
+      sans clé d'identification commune retombent sur une comparaison
+      positionnelle (zip par index).
     """
     if isinstance(stored, dict) and isinstance(current, dict):
         all_keys = sorted(set(stored.keys()) | set(current.keys()))
@@ -222,7 +279,20 @@ def diff_json(path: str, stored, current, diffs: list, tolerance: float = TOLERA
             else:
                 diff_json(new_path, stored[key], current[key], diffs, tolerance)
     elif isinstance(stored, list) and isinstance(current, list):
-        if len(stored) != len(current):
+        id_key = list_item_id_key(stored) or list_item_id_key(current)
+        if id_key is not None:
+            stored_by_id = {item.get(id_key): item for item in stored if isinstance(item, dict)}
+            current_by_id = {item.get(id_key): item for item in current if isinstance(item, dict)}
+            all_ids = sorted(set(stored_by_id) | set(current_by_id), key=str)
+            for item_id in all_ids:
+                item_path = f"{path}[{id_key}={item_id!r}]"
+                if item_id not in stored_by_id:
+                    diffs.append(f"{item_path}: <absent> → {current_by_id[item_id]!r}")
+                elif item_id not in current_by_id:
+                    diffs.append(f"{item_path}: {stored_by_id[item_id]!r} → <absent>")
+                else:
+                    diff_json(item_path, stored_by_id[item_id], current_by_id[item_id], diffs, tolerance)
+        elif len(stored) != len(current):
             diffs.append(f"{path}: longueur liste {len(stored)} → {len(current)}")
         else:
             for i, (s_item, c_item) in enumerate(zip(stored, current)):

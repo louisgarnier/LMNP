@@ -23,22 +23,6 @@
               {
                 "categories": [
                   {
-                    "amount": 120753.09,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -3433.37,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 117319.72
-              },
-              {
-                "categories": [
-                  {
                     "amount": 1977.92,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -46,6 +30,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 1977.92
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -3433.37,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 117319.72
               }
             ],
             "total": 119297.64,
@@ -62,11 +62,6 @@
                   },
                   {
                     "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
-                    "amount": 0.0,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
                   },
@@ -74,21 +69,15 @@
                     "amount": -17272.48,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": 7171.76
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -100,6 +89,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 112125.88
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 119297.64,
@@ -154,22 +154,6 @@
               {
                 "categories": [
                   {
-                    "amount": 120753.09,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -9590.66,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 111162.43
-              },
-              {
-                "categories": [
-                  {
                     "amount": -250.65,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -177,6 +161,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": -250.65
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -9590.66,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 111162.43
               }
             ],
             "total": 110911.78,
@@ -192,11 +192,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -17272.48,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -205,21 +200,15 @@
                     "amount": -4348.58,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": 5028.21
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -231,6 +220,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 105883.57
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 110911.78,
@@ -261,7 +261,7 @@
         "total_charges_exploitation": 14920.29,
         "total_produits": 15505.51
       },
-      "last_balance": -403.99
+      "last_balance": -250.65
     },
     "2026": {
       "amort": {
@@ -286,22 +286,6 @@
               {
                 "categories": [
                   {
-                    "amount": 120753.09,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -15747.94,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 105005.15
-              },
-              {
-                "categories": [
-                  {
                     "amount": 838.82,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -309,6 +293,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 838.82
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -15747.94,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 105005.15
               }
             ],
             "total": 105843.97,
@@ -324,11 +324,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -21621.07,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -337,21 +332,15 @@
                     "amount": -4068.29,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": 2972.88
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -363,6 +352,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 99364.24
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 102337.12,
@@ -418,22 +418,6 @@
               {
                 "categories": [
                   {
-                    "amount": 120753.09,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -21905.22,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 98847.87
-              },
-              {
-                "categories": [
-                  {
                     "amount": 838.82,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -441,6 +425,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 838.82
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -21905.22,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 98847.87
               }
             ],
             "total": 99686.69,
@@ -456,11 +456,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -25689.36,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -469,21 +464,15 @@
                     "amount": -10517.28,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -7544.4
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -495,6 +484,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 92555.6
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 85011.2,
@@ -543,22 +543,6 @@
               {
                 "categories": [
                   {
-                    "amount": 120753.09,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -28062.51,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 92690.58
-              },
-              {
-                "categories": [
-                  {
                     "amount": 838.82,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -566,6 +550,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 838.82
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -28062.51,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 120753.09,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 92690.58
               }
             ],
             "total": 93529.4,
@@ -581,11 +581,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -36206.64,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -594,21 +589,15 @@
                     "amount": -10210.59,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -17755.0
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -620,6 +609,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 85444.8
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 67689.8,
@@ -667,22 +667,6 @@
               {
                 "categories": [
                   {
-                    "amount": 201115.83,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -632.49,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 200483.34
-              },
-              {
-                "categories": [
-                  {
                     "amount": 6.09,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -690,6 +674,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 6.09
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -632.49,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 201115.83,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 200483.34
               }
             ],
             "total": 200489.43,
@@ -706,11 +706,6 @@
                   },
                   {
                     "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
-                    "amount": 0.0,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
                   },
@@ -718,21 +713,15 @@
                     "amount": -24729.17,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -626.4
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -744,6 +733,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 201115.83
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 200489.43,
@@ -771,7 +771,7 @@
         "total_charges_exploitation": 24420.98,
         "total_produits": 0
       },
-      "last_balance": 198.26
+      "last_balance": 6.09
     },
     "2022": {
       "amort": {
@@ -793,22 +793,6 @@
               {
                 "categories": [
                   {
-                    "amount": 237691.48,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -10983.43,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 226708.05
-              },
-              {
-                "categories": [
-                  {
                     "amount": 15709.56,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -816,6 +800,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 15709.56
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -10983.43,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 226708.05
               }
             ],
             "total": 242417.61,
@@ -831,11 +831,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -24729.17,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -844,21 +839,15 @@
                     "amount": -4410.58,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": 13417.3
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -870,6 +859,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 231815.0
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 245232.3,
@@ -902,7 +902,7 @@
         "total_charges_exploitation": 19742.51,
         "total_produits": 18090.91
       },
-      "last_balance": 15724.74
+      "last_balance": 15709.56
     },
     "2023": {
       "amort": {
@@ -924,22 +924,6 @@
               {
                 "categories": [
                   {
-                    "amount": 237691.48,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -22102.58,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 215588.9
-              },
-              {
-                "categories": [
-                  {
                     "amount": 5553.84,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -947,6 +931,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 5553.84
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -22102.58,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 215588.9
               }
             ],
             "total": 221142.74,
@@ -962,11 +962,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -29139.75,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -975,21 +970,15 @@
                     "amount": 4061.59,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": 3478.89
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 0.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 0.0
               },
               {
                 "categories": [
@@ -1001,6 +990,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 231815.0
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 0.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 0.0
               }
             ],
             "total": 235293.89,
@@ -1056,22 +1056,6 @@
               {
                 "categories": [
                   {
-                    "amount": 237691.48,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -33221.73,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 204469.75
-              },
-              {
-                "categories": [
-                  {
                     "amount": 3952.03,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1079,6 +1063,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 3952.03
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -33221.73,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 204469.75
               }
             ],
             "total": 208421.78,
@@ -1094,11 +1094,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -25078.16,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -1107,21 +1102,15 @@
                     "amount": -2159.16,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -1680.27
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 3900.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 3900.0
               },
               {
                 "categories": [
@@ -1133,6 +1122,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 231815.0
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3900.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3900.0
               }
             ],
             "total": 234034.73,
@@ -1188,22 +1188,6 @@
               {
                 "categories": [
                   {
-                    "amount": 237691.48,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -44340.88,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 193350.6
-              },
-              {
-                "categories": [
-                  {
                     "amount": 2540.72,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1211,6 +1195,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 2540.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -44340.88,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 193350.6
               }
             ],
             "total": 195891.32,
@@ -1226,11 +1226,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -27237.32,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -1239,21 +1234,15 @@
                     "amount": -3390.53,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -2081.1
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 3358.89,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 3358.89
               },
               {
                 "categories": [
@@ -1265,6 +1254,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 231815.0
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
               }
             ],
             "total": 233092.79,
@@ -1320,22 +1320,6 @@
               {
                 "categories": [
                   {
-                    "amount": 237691.48,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -55460.03,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 182231.45
-              },
-              {
-                "categories": [
-                  {
                     "amount": 4863.72,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1343,6 +1327,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 4863.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -55460.03,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 182231.45
               }
             ],
             "total": 187095.17,
@@ -1358,11 +1358,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -30627.85,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -1371,21 +1366,15 @@
                     "amount": -3253.02,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -3011.12
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 3358.89,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 3358.89
               },
               {
                 "categories": [
@@ -1397,6 +1386,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 182896.88
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
               }
             ],
             "total": 183244.65,
@@ -1452,22 +1452,6 @@
               {
                 "categories": [
                   {
-                    "amount": 237691.48,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -66579.17,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 171112.31
-              },
-              {
-                "categories": [
-                  {
                     "amount": 4863.72,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1475,6 +1459,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 4863.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -66579.17,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 171112.31
               }
             ],
             "total": 175976.03,
@@ -1490,11 +1490,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -33880.87,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -1503,21 +1498,15 @@
                     "amount": -13332.82,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -16343.93
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 3358.89,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 3358.89
               },
               {
                 "categories": [
@@ -1529,6 +1518,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 171050.71
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
               }
             ],
             "total": 158065.67,
@@ -1574,22 +1574,6 @@
               {
                 "categories": [
                   {
-                    "amount": 237691.48,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -77698.32,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 159993.16
-              },
-              {
-                "categories": [
-                  {
                     "amount": 4863.72,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1597,6 +1581,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 4863.72
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -77698.32,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 237691.48,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 159993.16
               }
             ],
             "total": 164856.88,
@@ -1612,11 +1612,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -47213.68,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -1625,21 +1620,15 @@
                     "amount": -13193.82,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -29537.75
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 3358.89,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 3358.89
               },
               {
                 "categories": [
@@ -1651,6 +1640,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 159073.58
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 3358.89,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 3358.89
               }
             ],
             "total": 132894.72,
@@ -1701,22 +1701,6 @@
               {
                 "categories": [
                   {
-                    "amount": 201722.29,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -3440.97,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 198281.32
-              },
-              {
-                "categories": [
-                  {
                     "amount": 7415.51,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1724,6 +1708,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 7415.51
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -3440.97,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 201722.29,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 198281.32
               }
             ],
             "total": 205696.83,
@@ -1740,11 +1740,6 @@
                   },
                   {
                     "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
-                    "amount": 0.0,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
                   },
@@ -1752,21 +1747,15 @@
                     "amount": -23203.47,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": 18311.53
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 2600.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 2600.0
               },
               {
                 "categories": [
@@ -1778,6 +1767,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 184784.55
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
               }
             ],
             "total": 205696.08,
@@ -1808,7 +1808,7 @@
         "total_charges_exploitation": 25148.44,
         "total_produits": 3400.0
       },
-      "last_balance": 7425.36
+      "last_balance": 7415.51
     },
     "2026": {
       "amort": {
@@ -1833,22 +1833,6 @@
               {
                 "categories": [
                   {
-                    "amount": 202021.79,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -14409.95,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 187611.84
-              },
-              {
-                "categories": [
-                  {
                     "amount": 7959.01,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1856,6 +1840,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 7959.01
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -14409.95,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 202021.79,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 187611.84
               }
             ],
             "total": 195570.85,
@@ -1871,11 +1871,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -23203.47,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -1884,21 +1879,15 @@
                     "amount": -3625.48,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": 14686.05
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 2600.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 2600.0
               },
               {
                 "categories": [
@@ -1910,6 +1899,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 177640.85
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
               }
             ],
             "total": 194926.9,
@@ -1964,22 +1964,6 @@
               {
                 "categories": [
                   {
-                    "amount": 202021.79,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -25380.8,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 176640.99
-              },
-              {
-                "categories": [
-                  {
                     "amount": 7959.01,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -1987,6 +1971,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 7959.01
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -25380.8,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 202021.79,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 176640.99
               }
             ],
             "total": 184600.0,
@@ -2002,11 +2002,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -26828.95,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -2015,21 +2010,15 @@
                     "amount": -16288.14,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -1602.09
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 2600.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 2600.0
               },
               {
                 "categories": [
@@ -2041,6 +2030,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 170291.17
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
               }
             ],
             "total": 171289.08,
@@ -2089,22 +2089,6 @@
               {
                 "categories": [
                   {
-                    "amount": 202021.79,
-                    "category_name": "Immobilisations",
-                    "is_special": false
-                  },
-                  {
-                    "amount": -36351.64,
-                    "category_name": "Amortissements cumulés",
-                    "is_special": true
-                  }
-                ],
-                "sub_category": "Actif immobilisé",
-                "total": 165670.15
-              },
-              {
-                "categories": [
-                  {
                     "amount": 7959.01,
                     "category_name": "Compte bancaire",
                     "is_special": true
@@ -2112,6 +2096,22 @@
                 ],
                 "sub_category": "Actif circulant",
                 "total": 7959.01
+              },
+              {
+                "categories": [
+                  {
+                    "amount": -36351.64,
+                    "category_name": "Amortissements cumulés",
+                    "is_special": true
+                  },
+                  {
+                    "amount": 202021.79,
+                    "category_name": "Immobilisations",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Actif immobilisé",
+                "total": 165670.15
               }
             ],
             "total": 173629.16,
@@ -2127,11 +2127,6 @@
                     "is_special": false
                   },
                   {
-                    "amount": 0.0,
-                    "category_name": "Souscription de parts sociales",
-                    "is_special": false
-                  },
-                  {
                     "amount": -43117.09,
                     "category_name": "Report à nouveau / report du déficit",
                     "is_special": true
@@ -2140,21 +2135,15 @@
                     "amount": -16076.23,
                     "category_name": "Résultat de l'exercice",
                     "is_special": true
+                  },
+                  {
+                    "amount": 0.0,
+                    "category_name": "Souscription de parts sociales",
+                    "is_special": false
                   }
                 ],
                 "sub_category": "Capitaux propres",
                 "total": -17678.31
-              },
-              {
-                "categories": [
-                  {
-                    "amount": 2600.0,
-                    "category_name": "Cautions reçues",
-                    "is_special": false
-                  }
-                ],
-                "sub_category": "Trésorerie passive",
-                "total": 2600.0
               },
               {
                 "categories": [
@@ -2166,6 +2155,17 @@
                 ],
                 "sub_category": "Dettes financières",
                 "total": 162729.59
+              },
+              {
+                "categories": [
+                  {
+                    "amount": 2600.0,
+                    "category_name": "Cautions reçues",
+                    "is_special": false
+                  }
+                ],
+                "sub_category": "Trésorerie passive",
+                "total": 2600.0
               }
             ],
             "total": 147651.28,
