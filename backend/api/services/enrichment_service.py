@@ -21,6 +21,30 @@ from backend.api.services.mapping_obligatoire_service import (
 logger = logging.getLogger(__name__)
 
 
+def _sync_transaction_category(db: Session, transaction: Transaction,
+                                level_1: str | None, level_2: str | None,
+                                level_3: str | None) -> None:
+    """Maintient transactions.category_id aligné sur la classification texte.
+
+    Transitoire étape 2 : disparaît avec enriched_transactions (Task 8).
+
+    Garde défensive : si la classification est incomplète (level_2/level_3
+    manquants) ou si level_3 n'est pas une des 5 natures autorisées,
+    category_id est remis à NULL plutôt que de laisser
+    `get_or_create_category` lever un KeyError. En pratique tous les sites
+    d'appel valident déjà (level_1, level_2, level_3) contre
+    `allowed_mappings` avant d'écrire, SAUF `update_transaction_classification`
+    appelée avec un seul niveau fourni (level_2/level_3 restant None) — cas
+    non exercé aujourd'hui par le frontend (qui envoie toujours les 3
+    niveaux ensemble) mais possible via l'API brute.
+    """
+    from backend.api.services.category_service import get_or_create_category, NATURE_BY_LABEL
+    if level_1 is None or level_2 is None or level_3 not in NATURE_BY_LABEL:
+        transaction.category_id = None
+    else:
+        transaction.category_id = get_or_create_category(db, level_1, level_2, level_3).id
+
+
 def find_best_mapping(transaction_name: str, mappings: list[Mapping]) -> Optional[Mapping]:
     """
     Trouve le meilleur mapping pour un nom de transaction donné.
@@ -232,11 +256,16 @@ def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional
         level_2 = None
         level_3 = None
     
+    # Double-écriture (Étape 2 Task 4) : synchroniser transactions.category_id
+    # sur la même classification texte, que la ligne enriched soit créée ou
+    # mise à jour ci-dessous.
+    _sync_transaction_category(db, transaction, level_1, level_2, level_3)
+
     # Vérifier si une ligne enriched_transaction existe déjà
     enriched = db.query(EnrichedTransaction).filter(
         EnrichedTransaction.transaction_id == transaction.id
     ).first()
-    
+
     if enriched:
         # Mettre à jour l'enregistrement existant seulement si les valeurs ont changé
         # OPTIMISATION: Éviter les commits inutiles si rien n'a changé
@@ -389,10 +418,17 @@ def update_transaction_classification(
             level_3=level_3
         )
         db.add(enriched)
-    
+
+    # Double-écriture (Étape 2 Task 4) : synchroniser transactions.category_id
+    # sur l'état FINAL de l'enriched (tient compte de la sémantique "None =
+    # ne pas modifier ce champ" ci-dessus : si level_1/2/3 n'étaient pas
+    # fournis, on resynchronise sur les valeurs conservées, pas sur les
+    # arguments bruts).
+    _sync_transaction_category(db, transaction, enriched.level_1, enriched.level_2, enriched.level_3)
+
     db.commit()
     db.refresh(enriched)
-    
+
     return enriched
 
 

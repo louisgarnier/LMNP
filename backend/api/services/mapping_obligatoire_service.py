@@ -529,7 +529,15 @@ def reset_allowed_mappings(db: Session, property_id: int) -> dict:
             EnrichedTransaction.transaction_id == transaction_id
         ).delete()
         unassigned_count += 1
-    
+
+    # Double-écriture (Étape 2 Task 4) : la ligne enriched disparaît -> category_id
+    # doit aussi repasser à NULL pour les mêmes transactions (UPDATE en masse,
+    # pas de boucle par ligne).
+    if transactions_to_unassign:
+        db.query(Transaction).filter(
+            Transaction.id.in_(transactions_to_unassign)
+        ).update({Transaction.category_id: None}, synchronize_session=False)
+
     db.commit()
     
     return {
