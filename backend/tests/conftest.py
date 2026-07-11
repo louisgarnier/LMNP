@@ -70,45 +70,34 @@ _PROD_DB_PATTERN = re.compile(r"\bSessionLocal\b|next\(get_db\(\)\)")
 _MANUAL_LIVE_SERVER_PATTERN = re.compile(r'BASE_URL\s*=\s*[\'"]http://localhost:8000')
 
 
-def pytest_collection_modifyitems(config, items):
+def pytest_ignore_collect(collection_path, config):
     """
-    Skippe à la collecte tout module de test qui accède directement à la base
+    Ignore AVANT IMPORT tout module de test qui accède directement à la base
     de production, soit via SQLAlchemy (`SessionLocal`/`get_db()`), soit via
     un appel HTTP en dur sur un serveur local (scripts "manuels" hérités) —
-    voir quarantaine dans le docstring du module. Le contenu de chaque
-    fichier n'est lu qu'une fois par session pytest.
+    voir quarantaine dans le docstring du module.
+
+    Historique : la quarantaine initiale posait des marqueurs skip via
+    `pytest_collection_modifyitems`, ce qui IMPORTAIT quand même les modules.
+    Depuis la purge des modèles morts (étape 2 Task 1, 2026-07-11), certains
+    modules hérités ne s'importent plus (ImportError sur Parameter/
+    Amortization/...) et cassaient la collecte entière. `pytest_ignore_collect`
+    lit le texte du fichier SANS l'importer : les fichiers en quarantaine
+    n'apparaissent plus du tout dans la sortie pytest (ils ne sont plus
+    comptés « skipped »).
     """
     if os.environ.get("LMNP_ALLOW_PROD_DB_TESTS") == "1":
-        return
-
-    verdict_by_file = {}
-    for item in items:
-        path = str(item.fspath)
-        if path not in verdict_by_file:
-            try:
-                source = Path(path).read_text(encoding="utf-8", errors="ignore")
-            except OSError:
-                source = ""
-            if _PROD_DB_PATTERN.search(source):
-                verdict_by_file[path] = (
-                    "Test hérité utilisant la base de PRODUCTION "
-                    "(SessionLocal/get_db direct) — quarantaine du "
-                    "2026-07-10, voir docs/workflow/ERROR_INVESTIGATION.md. "
-                    "Forcer avec LMNP_ALLOW_PROD_DB_TESTS=1 (backup d'abord !)."
-                )
-            elif _MANUAL_LIVE_SERVER_PATTERN.search(source):
-                verdict_by_file[path] = (
-                    "Script manuel hérité appelant un serveur local en dur "
-                    "(http://localhost:8000, souvent la base de PRODUCTION) — "
-                    "prévu pour être lancé à la main, pas via pytest ; "
-                    "quarantaine du 2026-07-10 (Bloc A Task 8), voir "
-                    "docs/workflow/ERROR_INVESTIGATION.md. Forcer avec "
-                    "LMNP_ALLOW_PROD_DB_TESTS=1 (backup d'abord !)."
-                )
-            else:
-                verdict_by_file[path] = None
-        if verdict_by_file[path]:
-            item.add_marker(pytest.mark.skip(reason=verdict_by_file[path]))
+        return None
+    path = Path(str(collection_path))
+    if path.suffix != ".py" or not path.name.startswith("test_"):
+        return None
+    try:
+        source = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    if _PROD_DB_PATTERN.search(source) or _MANUAL_LIVE_SERVER_PATTERN.search(source):
+        return True
+    return None
 
 
 @pytest.fixture
