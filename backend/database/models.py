@@ -5,8 +5,8 @@ SQLAlchemy models for the LMNP application.
 """
 
 from sqlalchemy import (
-    Column, Integer, String, Float, Date, DateTime, Text, 
-    ForeignKey, Boolean, Index
+    Column, Integer, String, Float, Date, DateTime, Text,
+    ForeignKey, Boolean, Index, UniqueConstraint
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -229,6 +229,28 @@ class AllowedMapping(Base):
         Index('idx_allowed_mapping_level_2', 'level_2'),
         Index('idx_allowed_mapping_level_3', 'level_3'),
     )
+
+
+class CategoryGroup(Base):
+    """Groupe de catégories (ex-« Level 2 »). nature = ex-« Level 3 », enum fermé."""
+    __tablename__ = "category_groups"
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String(100), nullable=False, unique=True)
+    nature = Column(String(30), nullable=False)  # produits|charges_deductibles|emprunt|actif|passif
+    created_at = Column(DateTime, default=datetime.utcnow)
+    categories = relationship("Category", back_populates="group")
+
+
+class Category(Base):
+    """Catégorie de classification (ex-« Level 1 »). Référentiel GLOBAL (pas de property_id)."""
+    __tablename__ = "categories"
+    id = Column(Integer, primary_key=True, index=True)
+    label = Column(String(100), nullable=False)
+    group_id = Column(Integer, ForeignKey("category_groups.id"), nullable=False)
+    is_custom = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    group = relationship("CategoryGroup", back_populates="categories")
+    __table_args__ = (UniqueConstraint("label", "group_id", name="uq_category_label_group"),)
 
 
 class AmortizationType(Base):
