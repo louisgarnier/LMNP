@@ -1,0 +1,40 @@
+{
+  "results": {
+    "2023": {
+      "amortissements": 0.0,
+      "charges": {
+        "Charges d'entretien et de réparation": -800.0
+      },
+      "cout_financement": 0.0,
+      "produits": {
+        "Loyers hors charge encaissés": 6000.0
+      },
+      "prorata_applied": false,
+      "resultat_exploitation": 5200.0,
+      "resultat_net": 5200.0,
+      "total_charges": -800.0,
+      "total_charges_exploitation": 800.0,
+      "total_produits": 6000.0
+    },
+    "2024": {
+      "amortissements": 0.0,
+      "charges": {
+        "Charges d'entretien et de réparation": -500.0
+      },
+      "cout_financement": 0.0,
+      "produits": {
+        "Loyers hors charge encaissés": 7200.0
+      },
+      "prorata_applied": false,
+      "resultat_exploitation": 6700.0,
+      "resultat_net": 6700.0,
+      "total_charges": -500.0,
+      "total_charges_exploitation": 500.0,
+      "total_produits": 7200.0
+    }
+  },
+  "years": [
+    2023,
+    2024
+  ]
+}

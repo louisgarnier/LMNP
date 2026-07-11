@@ -25,16 +25,99 @@ from sqlalchemy import and_, or_, func
 from backend.database.models import (
     Transaction,
     EnrichedTransaction,
+    Category,
+    CategoryGroup,
     CompteResultatMapping,
+    CompteResultatMappingCategory,
     CompteResultatConfig,
     AmortizationResult,
     LoanPayment,
     LoanConfig
 )
 from backend.api.services.prorata_service import apply_prorata, get_prorata_settings, get_forecast_configs
+from backend.api.services.category_service import NATURE_BY_LABEL
 
 # Logger configuration
 logger = logging.getLogger(__name__)
+
+# Étape 2 Task 5 : les 2 lignes calculées (amortissements + coût du
+# financement) sont INJECTÉES par le service (get_amortissements /
+# get_cout_financement) et non lues depuis la config. Elles sont exclues des
+# lignes de config lors du calcul produits/charges. Détection par `line_code`
+# d'abord (stable), nom français en fallback (aucune ligne de config ne porte
+# ces codes aujourd'hui — la colonne line_code reste NULL, cf. migration).
+SPECIAL_LINE_CODES = ("AMORT", "COUT_FINANCEMENT")
+SPECIAL_LINE_NAMES = (
+    "Charges d'amortissements",
+    "Coût du financement (hors remboursement du capital)",
+)
+
+
+def _is_special_line(mapping: CompteResultatMapping) -> bool:
+    """True si le mapping est une des 2 lignes calculées (à exclure du calcul
+    produits/charges). line_code prioritaire, nom français en fallback."""
+    if getattr(mapping, "line_code", None) in SPECIAL_LINE_CODES:
+        return True
+    return mapping.category_name in SPECIAL_LINE_NAMES
+
+
+def _natures_from_level_3_values(level_3_values: List[str]) -> List[str]:
+    """Traduit les labels level_3 (ex: 'Charges Déductibles') en natures de
+    groupe (ex: 'charges_deductibles'). Les labels non traduisibles sont
+    simplement absents du filtre (équivalent au comportement historique : un
+    label ne correspondant à rien ne filtre rien en entrée)."""
+    return [NATURE_BY_LABEL[label] for label in level_3_values if label in NATURE_BY_LABEL]
+
+
+def _category_ids_for_mappings(category_mappings: List[CompteResultatMapping]) -> set:
+    """Union des category_id liés (liaison) de tous les mappings d'une ligne CR."""
+    ids = set()
+    for mapping in category_mappings:
+        for link in mapping.category_links:
+            ids.add(link.category_id)
+    return ids
+
+
+def sync_mapping_categories(db: Session, mapping: CompteResultatMapping,
+                            level_1_values_json: Optional[str]):
+    """Reconstruit la liaison `compte_resultat_mapping_categories` d'un mapping
+    à partir des labels `level_1_values` (dual-write étape 2 Task 5).
+
+    Idempotent : remplace intégralement les liaisons existantes par celles
+    résolues depuis les labels. Les labels non résolus sont journalisés (jamais
+    devinés) et absents de la liaison. Retourne (category_ids, unresolved)."""
+    from backend.api.services.category_service import resolve_categories_for_labels
+
+    try:
+        labels = json.loads(level_1_values_json) if level_1_values_json else []
+    except (json.JSONDecodeError, TypeError):
+        labels = []
+
+    category_ids, unresolved = resolve_categories_for_labels(db, labels, mapping.property_id)
+    if unresolved:
+        logger.warning(
+            f"[CompteResultatService] sync_mapping_categories - labels non résolus "
+            f"pour mapping {mapping.id} (property {mapping.property_id}): {unresolved}"
+        )
+
+    existing = {link.category_id: link for link in mapping.category_links}
+    wanted = set(category_ids)
+    for cat_id, link in list(existing.items()):
+        if cat_id not in wanted:
+            mapping.category_links.remove(link)
+    for cat_id in wanted:
+        if cat_id not in existing:
+            mapping.category_links.append(
+                CompteResultatMappingCategory(category_id=cat_id)
+            )
+    return category_ids, unresolved
+
+
+def labels_from_mapping_categories(mapping: CompteResultatMapping) -> str:
+    """Reconstruit le JSON de labels `level_1_values` depuis la liaison (source
+    de vérité étape 2 Task 5) pour les réponses GET. Ordre déterministe (trié)."""
+    labels = sorted(link.category.label for link in mapping.category_links)
+    return json.dumps(labels, ensure_ascii=False)
 
 
 def get_mappings(db: Session, property_id: int) -> List[CompteResultatMapping]:
@@ -111,41 +194,51 @@ def calculate_produits_exploitation(
     if not level_3_values:
         # Si aucune valeur level_3 sélectionnée, retourner des montants vides
         return {}
-    
+
+    natures = _natures_from_level_3_values(level_3_values)
+    if not natures:
+        # Aucun label level_3 traduisible en nature -> aucun filtre positif
+        return {}
+
     # Date de début et fin de l'année
     start_date = date(year, 1, 1)
     end_date = date(year, 12, 31)
-    
-    # Filtrer les transactions par level_3, année ET property_id
+
+    # Filtrer les transactions par nature (via category_id -> categories ->
+    # category_groups), année ET property_id. category_id remplace
+    # enriched.level_1 ; la nature du groupe remplace enriched.level_3
+    # (bijection sur les 5 natures ; sortie byte-identique — étape 2 Task 5).
     query = db.query(
-        EnrichedTransaction.level_1,
+        Transaction.category_id,
         Transaction.quantite
     ).join(
-        Transaction, Transaction.id == EnrichedTransaction.transaction_id
+        Category, Category.id == Transaction.category_id
+    ).join(
+        CategoryGroup, CategoryGroup.id == Category.group_id
     ).filter(
         and_(
             Transaction.property_id == property_id,  # Filtre par property_id
-            EnrichedTransaction.level_3.in_(level_3_values),
+            CategoryGroup.nature.in_(natures),
             Transaction.date >= start_date,
             Transaction.date <= end_date,
-            EnrichedTransaction.level_1.isnot(None)  # Uniquement les transactions avec level_1
+            Transaction.category_id.isnot(None)  # Uniquement les transactions classées
         )
     )
-    
+
     # Récupérer toutes les transactions filtrées
     transactions = query.all()
-    
+
     # Grouper par catégorie selon les mappings
     # IMPORTANT : Regrouper tous les mappings d'une même catégorie avec OR pour éviter les doublons
     results = {}
-    
+
     # Catégories prédéfinies de produits
     PRODUITS_CATEGORIES = [
         'Loyers hors charge encaissés',
         'Charges locatives payées par locataires',
         'Autres revenus',
     ]
-    
+
     # Déterminer le type si None
     def get_type_for_category(category_name, mapping_type):
         if mapping_type:
@@ -154,54 +247,46 @@ def calculate_produits_exploitation(
         if category_name in PRODUITS_CATEGORIES:
             return "Produits d'exploitation"
         return "Charges d'exploitation"
-    
+
     # Grouper les mappings par catégorie
     # IMPORTANT : Filtrer uniquement les mappings de type "Produits d'exploitation"
     mappings_by_category = {}
     for mapping in mappings:
         category_name = mapping.category_name
-        
+
         # Ignorer les catégories spéciales (amortissements, coût financement)
-        if category_name in ["Charges d'amortissements", "Coût du financement (hors remboursement du capital)"]:
+        if _is_special_line(mapping):
             continue
-        
+
         # Déterminer le type (automatiquement si None)
         mapping_type = get_type_for_category(category_name, mapping.type)
-        
+
         # Filtrer uniquement les produits d'exploitation
         if mapping_type != "Produits d'exploitation":
             continue
-        
+
         if category_name not in mappings_by_category:
             mappings_by_category[category_name] = []
         mappings_by_category[category_name].append(mapping)
-    
-    # Pour chaque catégorie, regrouper tous les level_1_values avec OR
+
+    # Pour chaque catégorie, regrouper tous les category_id liés (OR)
     for category_name, category_mappings in mappings_by_category.items():
-        # Collecter tous les level_1_values de tous les mappings de cette catégorie (OR)
-        all_level_1_values = set()
-        for mapping in category_mappings:
-            if mapping.level_1_values:
-                try:
-                    level_1_values = json.loads(mapping.level_1_values)
-                    all_level_1_values.update(level_1_values)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-        
-        if not all_level_1_values:
-            # Pas de level_1_values configuré pour cette catégorie
+        all_category_ids = _category_ids_for_mappings(category_mappings)
+
+        if not all_category_ids:
+            # Pas de liaison configurée pour cette catégorie
             continue
-        
-        # Filtrer les transactions dont le level_1 est dans la liste (OR de tous les mappings)
+
+        # Filtrer les transactions dont le category_id est dans la liste (OR de tous les mappings)
         category_amount = 0.0
-        for level_1, quantite in transactions:
-            if level_1 in all_level_1_values:
+        for cat_id, quantite in transactions:
+            if cat_id in all_category_ids:
                 # Pour les produits : revenus positifs - remboursements négatifs
                 category_amount += quantite
-        
+
         if category_amount != 0.0:
             results[category_name] = category_amount
-    
+
     return results
 
 
@@ -238,41 +323,51 @@ def calculate_charges_exploitation(
     if not level_3_values:
         # Si aucune valeur level_3 sélectionnée, retourner des montants vides
         return {}
-    
+
+    natures = _natures_from_level_3_values(level_3_values)
+    if not natures:
+        # Aucun label level_3 traduisible en nature -> aucun filtre positif
+        return {}
+
     # Date de début et fin de l'année
     start_date = date(year, 1, 1)
     end_date = date(year, 12, 31)
-    
-    # Filtrer les transactions par level_3, année ET property_id
+
+    # Filtrer les transactions par nature (via category_id -> categories ->
+    # category_groups), année ET property_id. category_id remplace
+    # enriched.level_1 ; la nature du groupe remplace enriched.level_3
+    # (bijection sur les 5 natures ; sortie byte-identique — étape 2 Task 5).
     query = db.query(
-        EnrichedTransaction.level_1,
+        Transaction.category_id,
         Transaction.quantite
     ).join(
-        Transaction, Transaction.id == EnrichedTransaction.transaction_id
+        Category, Category.id == Transaction.category_id
+    ).join(
+        CategoryGroup, CategoryGroup.id == Category.group_id
     ).filter(
         and_(
             Transaction.property_id == property_id,  # Filtre par property_id
-            EnrichedTransaction.level_3.in_(level_3_values),
+            CategoryGroup.nature.in_(natures),
             Transaction.date >= start_date,
             Transaction.date <= end_date,
-            EnrichedTransaction.level_1.isnot(None)  # Uniquement les transactions avec level_1
+            Transaction.category_id.isnot(None)  # Uniquement les transactions classées
         )
     )
-    
+
     # Récupérer toutes les transactions filtrées
     transactions = query.all()
-    
+
     # Grouper par catégorie selon les mappings
     # IMPORTANT : Regrouper tous les mappings d'une même catégorie avec OR pour éviter les doublons
     results = {}
-    
+
     # Catégories prédéfinies de produits
     PRODUITS_CATEGORIES = [
         'Loyers hors charge encaissés',
         'Charges locatives payées par locataires',
         'Autres revenus',
     ]
-    
+
     # Déterminer le type si None
     def get_type_for_category(category_name, mapping_type):
         if mapping_type:
@@ -281,54 +376,46 @@ def calculate_charges_exploitation(
         if category_name in PRODUITS_CATEGORIES:
             return "Produits d'exploitation"
         return "Charges d'exploitation"
-    
+
     # Grouper les mappings par catégorie
     # IMPORTANT : Filtrer uniquement les mappings de type "Charges d'exploitation"
     mappings_by_category = {}
     for mapping in mappings:
         category_name = mapping.category_name
-        
+
         # Ignorer les catégories spéciales (amortissements, coût financement)
-        if category_name in ["Charges d'amortissements", "Coût du financement (hors remboursement du capital)"]:
+        if _is_special_line(mapping):
             continue
-        
+
         # Déterminer le type (automatiquement si None)
         mapping_type = get_type_for_category(category_name, mapping.type)
-        
+
         # Filtrer uniquement les charges d'exploitation
         if mapping_type != "Charges d'exploitation":
             continue
-        
+
         if category_name not in mappings_by_category:
             mappings_by_category[category_name] = []
         mappings_by_category[category_name].append(mapping)
-    
-    # Pour chaque catégorie, regrouper tous les level_1_values avec OR
+
+    # Pour chaque catégorie, regrouper tous les category_id liés (OR)
     for category_name, category_mappings in mappings_by_category.items():
-        # Collecter tous les level_1_values de tous les mappings de cette catégorie (OR)
-        all_level_1_values = set()
-        for mapping in category_mappings:
-            if mapping.level_1_values:
-                try:
-                    level_1_values = json.loads(mapping.level_1_values)
-                    all_level_1_values.update(level_1_values)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-        
-        if not all_level_1_values:
-            # Pas de level_1_values configuré pour cette catégorie
+        all_category_ids = _category_ids_for_mappings(category_mappings)
+
+        if not all_category_ids:
+            # Pas de liaison configurée pour cette catégorie
             continue
-        
-        # Filtrer les transactions dont le level_1 est dans la liste (OR de tous les mappings)
+
+        # Filtrer les transactions dont le category_id est dans la liste (OR de tous les mappings)
         category_amount = 0.0
-        for level_1, quantite in transactions:
-            if level_1 in all_level_1_values:
+        for cat_id, quantite in transactions:
+            if cat_id in all_category_ids:
                 # Pour les charges : dépenses négatives - remboursements/crédits positifs
                 category_amount += quantite
-        
+
         if category_amount != 0.0:
             results[category_name] = category_amount
-    
+
     return results
 
 

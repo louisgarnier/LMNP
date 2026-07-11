@@ -365,17 +365,51 @@ class CompteResultatMapping(Base):
     property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (ex: "Loyers hors charge encaissés")
     type = Column(String(50), nullable=True)  # Type: "Produits d'exploitation" ou "Charges d'exploitation" (pour les catégories personnalisées)
-    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]')
+    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]') — LEGACY (étape 2 Task 5, supprimé en Task 8, remplacé par la liaison category_links)
+    line_code = Column(String(30), nullable=True)  # Code de ligne stable (ex: 'AMORT', 'COUT_FINANCEMENT') — étape 2 Task 5. NULL pour les lignes ordinaires.
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relations
     property = relationship("Property", back_populates="compte_resultat_mappings")
-    
+    # Liaison vers le référentiel category (étape 2 Task 5) : source de LECTURE
+    # du calcul CR, remplace level_1_values JSON. Cascade ORM pour que la
+    # suppression d'un mapping efface ses liaisons même si le PRAGMA foreign_keys
+    # de SQLite n'est pas actif sur la connexion.
+    category_links = relationship(
+        "CompteResultatMappingCategory",
+        back_populates="mapping",
+        cascade="all, delete-orphan",
+    )
+
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_compte_resultat_mapping_category', 'category_name'),
         Index('idx_compte_resultat_mapping_property_id', 'property_id'),
+    )
+
+
+class CompteResultatMappingCategory(Base):
+    """Liaison ligne CR ↔ catégorie du référentiel (étape 2 Task 5).
+
+    Remplace `CompteResultatMapping.level_1_values` (JSON de labels) comme
+    source de lecture du calcul du compte de résultat. Une ligne par
+    (mapping, category). La sérialisation API continue d'exposer des labels
+    (reconstruits depuis `categories.label`), byte-identiques à l'ancien JSON.
+    """
+    __tablename__ = "compte_resultat_mapping_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mapping_id = Column(Integer, ForeignKey("compte_resultat_mappings.id", ondelete="CASCADE"), nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    mapping = relationship("CompteResultatMapping", back_populates="category_links")
+    category = relationship("Category")
+
+    __table_args__ = (
+        UniqueConstraint("mapping_id", "category_id", name="uq_cr_mapping_category"),
     )
 
 

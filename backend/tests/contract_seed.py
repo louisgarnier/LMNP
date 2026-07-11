@@ -39,9 +39,19 @@ from backend.database.models import (
 LEVEL_3 = "LOC"
 YEARS = (2023, 2024)
 
+# Compte de résultat (étape 2 Task 5) : le calcul CR filtre désormais par
+# category_id -> nature du groupe. La config CR liste des labels de nature
+# (traduits en natures), et non plus le label synthétique "LOC" (qui reste la
+# valeur enriched.level_3 pour le chemin bilan, inchangé cette étape).
+CR_NATURES = ("Produits", "Charges Déductibles")
 
-def _add_transaction(db, property_id, d, quantite, nom, solde, level_1):
-    """Ajoute une transaction + sa ligne enrichie (level_3 = LOC)."""
+
+def _add_transaction(db, property_id, d, quantite, nom, solde, level_1,
+                     category_group=None, category_nature=None):
+    """Ajoute une transaction + sa ligne enrichie (level_3 = LOC, inchangé pour
+    le bilan). Si (category_group, category_nature) sont fournis, renseigne
+    aussi `transactions.category_id` via le référentiel (comme le fait la
+    double-écriture Task 4 en production), ce que le calcul CR lit désormais."""
     tx = Transaction(
         property_id=property_id,
         date=d,
@@ -63,6 +73,12 @@ def _add_transaction(db, property_id, d, quantite, nom, solde, level_1):
     )
     db.add(enriched)
     db.flush()
+    if category_group is not None and category_nature is not None:
+        from backend.api.services.category_service import get_or_create_category
+        tx.category_id = get_or_create_category(
+            db, level_1, category_group, category_nature
+        ).id
+        db.flush()
     return tx
 
 
@@ -74,22 +90,27 @@ def seed_contract_data(db) -> int:
     pid = prop.id
 
     # --- Configs Level 3 ---
-    db.add(CompteResultatConfig(property_id=pid, level_3_values=f'["{LEVEL_3}"]'))
+    # CR : labels de nature (traduits en natures par le service). Bilan : "LOC"
+    # (inchangé, chemin enriched).
+    cr_level_3 = ", ".join(f'"{n}"' for n in CR_NATURES)
+    db.add(CompteResultatConfig(property_id=pid, level_3_values=f'[{cr_level_3}]'))
     db.add(BilanConfig(property_id=pid, level_3_values=f'["{LEVEL_3}"]'))
 
     # --- Mappings compte de résultat ---
-    db.add(CompteResultatMapping(
+    cr_mapping_loyers = CompteResultatMapping(
         property_id=pid,
         category_name="Loyers hors charge encaissés",
         type="Produits d'exploitation",
         level_1_values='["LOYERS"]',
-    ))
-    db.add(CompteResultatMapping(
+    )
+    cr_mapping_entretien = CompteResultatMapping(
         property_id=pid,
         category_name="Charges d'entretien et de réparation",
         type="Charges d'exploitation",
         level_1_values='["ENTRETIEN"]',
-    ))
+    )
+    db.add(cr_mapping_loyers)
+    db.add(cr_mapping_entretien)
 
     # --- Mappings bilan ---
     db.add(BilanMapping(
@@ -124,20 +145,34 @@ def seed_contract_data(db) -> int:
     ))
 
     # --- Transactions 2023 (immobilisation, emprunt, loyer, entretien) ---
+    # LOYERS/ENTRETIEN sont classées (category_id) sous les natures produits/
+    # charges_deductibles : c'est ce que lit le calcul CR. IMMO/emprunt restent
+    # non classées (category_id NULL) : hors périmètre CR, seulement bilan.
     _add_transaction(db, pid, date(2023, 1, 5), -100000.0, "Achat immobilisation",
                      -100000.0, "IMMO")
     _add_transaction(db, pid, date(2023, 1, 6), -80000.0, "Deblocage emprunt",
                      -20000.0, "Dettes financières (emprunt bancaire)")
     _add_transaction(db, pid, date(2023, 6, 15), 6000.0, "Loyers 2023",
-                     -14000.0, "LOYERS")
+                     -14000.0, "LOYERS",
+                     category_group="Produits (contrat)", category_nature="Produits")
     _add_transaction(db, pid, date(2023, 7, 10), -800.0, "Entretien 2023",
-                     -14800.0, "ENTRETIEN")
+                     -14800.0, "ENTRETIEN",
+                     category_group="Charges (contrat)", category_nature="Charges Déductibles")
 
     # --- Transactions 2024 (loyer, entretien) ---
     _add_transaction(db, pid, date(2024, 6, 15), 7200.0, "Loyers 2024",
-                     -7600.0, "LOYERS")
+                     -7600.0, "LOYERS",
+                     category_group="Produits (contrat)", category_nature="Produits")
     _add_transaction(db, pid, date(2024, 7, 10), -500.0, "Entretien 2024",
-                     -8100.0, "ENTRETIEN")
+                     -8100.0, "ENTRETIEN",
+                     category_group="Charges (contrat)", category_nature="Charges Déductibles")
+
+    # --- Liaison CR (source de lecture du calcul CR, étape 2 Task 5) ---
+    # Les categories LOYERS/ENTRETIEN existent maintenant : on résout la liaison.
+    from backend.api.services.compte_resultat_service import sync_mapping_categories
+    db.flush()
+    sync_mapping_categories(db, cr_mapping_loyers, cr_mapping_loyers.level_1_values)
+    sync_mapping_categories(db, cr_mapping_entretien, cr_mapping_entretien.level_1_values)
 
     # --- Crédit + paiements ---
     loan = LoanConfig(
