@@ -65,12 +65,14 @@ class Transaction(Base):
     nom = Column(String(500), nullable=False, index=True)  # Description/nom de la transaction
     solde = Column(Float, nullable=False)  # Solde après transaction
     source_file = Column(String(255))  # Fichier source d'origine
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)  # Référentiel category (Étape 2 Task 3)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relations
     property = relationship("Property", back_populates="transactions")
-    
+    category = relationship("Category")
+
     # Index pour détection de doublons et recherche par property_id
     __table_args__ = (
         Index('idx_transaction_unique', 'date', 'quantite', 'nom'),
