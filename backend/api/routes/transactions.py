@@ -832,7 +832,7 @@ async def delete_transaction(
     # Valider property_id
     validate_property_id(db, property_id, "Transactions")
     
-    from backend.database.models import EnrichedTransaction, Amortization, AmortizationResult
+    from backend.database.models import EnrichedTransaction, AmortizationResult
     from backend.api.utils.balance_utils import recalculate_balances_from_date
     
     db_transaction = db.query(Transaction).filter(
@@ -850,11 +850,7 @@ async def delete_transaction(
     db.query(EnrichedTransaction).filter(
         EnrichedTransaction.transaction_id == transaction_id
     ).delete()
-    
-    db.query(Amortization).filter(
-        Amortization.transaction_id == transaction_id
-    ).delete()
-    
+
     # Supprimer les résultats d'amortissement associés
     db.query(AmortizationResult).filter(
         AmortizationResult.transaction_id == transaction_id

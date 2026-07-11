@@ -130,70 +130,6 @@ class Mapping(Base):
     )
 
 
-class Parameter(Base):
-    """Configuration parameters for calculations."""
-    __tablename__ = "parameters"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    key = Column(String(100), nullable=False, unique=True, index=True)
-    value = Column(String(500), nullable=False)  # Valeur stockée comme string, conversion selon type
-    value_type = Column(String(20), default="float")  # float, int, string
-    description = Column(Text)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
-class Amortization(Base):
-    """Amortization calculations by category and year."""
-    __tablename__ = "amortizations"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    type_amortissement = Column(String(100), nullable=False, index=True)  # meubles, travaux, construction, terrain
-    annee = Column(Integer, nullable=False, index=True)
-    montant = Column(Float, nullable=False)  # Montant négatif (charge)
-    transaction_id = Column(Integer, ForeignKey("transactions.id"))  # Transaction source si applicable
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Index pour regroupements
-    __table_args__ = (
-        Index('idx_amort_type_year', 'type_amortissement', 'annee'),
-    )
-
-
-class FinancialStatement(Base):
-    """Generated financial statements (bilan, compte de résultat)."""
-    __tablename__ = "financial_statements"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    statement_type = Column(String(50), nullable=False, index=True)  # bilan_actif, bilan_passif, compte_resultat
-    annee = Column(Integer, nullable=False, index=True)
-    ligne = Column(String(200), nullable=False)  # Nom de la ligne (ex: "TRAVAUX ET PRESTATIONS DE SERV")
-    montant = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Index pour recherches
-    __table_args__ = (
-        Index('idx_fs_type_year', 'statement_type', 'annee'),
-    )
-
-
-class ConsolidatedFinancialStatement(Base):
-    """Consolidated financial statements with coherence analysis."""
-    __tablename__ = "consolidated_financial_statements"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    annee = Column(Integer, nullable=False, index=True)
-    total_actif = Column(Float, nullable=False)
-    total_passif = Column(Float, nullable=False)
-    difference = Column(Float)  # Actif - Passif
-    pourcentage_ecart = Column(Float)  # ((Passif - Actif) / Passif) * 100
-    generated_at = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-
-
 class FileImport(Base):
     """Track imported CSV files to prevent duplicate processing."""
     __tablename__ = "file_imports"
@@ -392,7 +328,6 @@ class LoanConfig(Base):
     
     # Index pour recherches fréquentes
     __table_args__ = (
-        Index('idx_loan_config_name', 'name', unique=True),
         Index('idx_loan_configs_property_id', 'property_id'),
         Index('idx_loan_config_property_name', 'property_id', 'name', unique=True),  # Unique par propriété
     )
