@@ -463,16 +463,26 @@ class BilanMapping(Base):
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (niveau C)
     type = Column(String(50), nullable=False, index=True)  # Type: "ACTIF" ou "PASSIF"
     sub_category = Column(String(100), nullable=False, index=True)  # Sous-catégorie (niveau B)
-    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]')
+    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]') — LEGACY (étape 2 Task 6, supprimé en Task 8, remplacé par la liaison category_links)
     is_special = Column(Boolean, nullable=False, default=False)  # Indique si c'est une catégorie spéciale
-    special_source = Column(String(100), nullable=True)  # Source pour les catégories spéciales ("amortization_result", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments")
+    special_source = Column(String(100), nullable=True)  # Source pour les catégories spéciales ("amortizations"/"amortization_result", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments") — LEGACY (fallback du dispatch, remplacé par line_code, supprimé Task 8)
+    line_code = Column(String(30), nullable=True)  # Code de ligne spéciale stable (ex: 'AMORT_CUMULES', 'COMPTE_BANCAIRE', 'RESULTAT_EXERCICE', 'REPORT_A_NOUVEAU', 'CAPITAL_RESTANT_DU') — étape 2 Task 6. NULL pour les lignes normales.
     compte_resultat_view_id = Column(Integer, nullable=True)  # Pour catégorie "Résultat de l'exercice" (ForeignKey vers compte_resultat_mapping_views.id - table à créer si nécessaire)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+
     # Relation avec Property
     property = relationship("Property", back_populates="bilan_mappings")
-    
+    # Liaison vers le référentiel category (étape 2 Task 6) : source de LECTURE
+    # du calcul des lignes normales du bilan, remplace level_1_values JSON.
+    # Cascade ORM pour effacer les liaisons à la suppression d'un mapping même
+    # si le PRAGMA foreign_keys de SQLite n'est pas actif sur la connexion.
+    category_links = relationship(
+        "BilanMappingCategory",
+        back_populates="mapping",
+        cascade="all, delete-orphan",
+    )
+
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_bilan_mapping_category', 'category_name'),
@@ -480,6 +490,30 @@ class BilanMapping(Base):
         Index('idx_bilan_mapping_sub_category', 'sub_category'),
         Index('idx_bilan_mapping_type_sub_category', 'type', 'sub_category'),
         Index('idx_bilan_mapping_property_id', 'property_id'),
+    )
+
+
+class BilanMappingCategory(Base):
+    """Liaison ligne bilan ↔ catégorie du référentiel (étape 2 Task 6).
+
+    Remplace `BilanMapping.level_1_values` (JSON de labels) comme source de
+    lecture du calcul des lignes normales du bilan. Une ligne par
+    (mapping, category). La sérialisation API continue d'exposer des labels
+    (reconstruits depuis `categories.label`), byte-identiques à l'ancien JSON.
+    """
+    __tablename__ = "bilan_mapping_categories"
+
+    id = Column(Integer, primary_key=True, index=True)
+    mapping_id = Column(Integer, ForeignKey("bilan_mappings.id", ondelete="CASCADE"), nullable=False, index=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    mapping = relationship("BilanMapping", back_populates="category_links")
+    category = relationship("Category")
+
+    __table_args__ = (
+        UniqueConstraint("mapping_id", "category_id", name="uq_bilan_mapping_category"),
     )
 
 

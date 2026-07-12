@@ -34,7 +34,9 @@ from backend.api.models import (
 from backend.api.services.bilan_service import (
     get_mappings,
     get_level_3_values,
-    calculate_bilan
+    calculate_bilan,
+    sync_bilan_mapping_categories,
+    labels_from_bilan_mapping_categories,
 )
 from backend.api.utils.validation import validate_property_id
 
@@ -172,7 +174,7 @@ async def get_bilan_mappings(
             category_name=m.category_name,
             type=m.type,
             sub_category=m.sub_category,
-            level_1_values=m.level_1_values,
+            level_1_values=labels_from_bilan_mapping_categories(m),  # reconstruit depuis la liaison (Task 6)
             is_special=m.is_special,
             special_source=m.special_source,
             compte_resultat_view_id=m.compte_resultat_view_id,
@@ -218,7 +220,7 @@ async def get_bilan_mapping(
         category_name=mapping.category_name,
         type=mapping.type,
         sub_category=mapping.sub_category,
-        level_1_values=mapping.level_1_values,
+        level_1_values=labels_from_bilan_mapping_categories(mapping),  # reconstruit depuis la liaison (Task 6)
         is_special=mapping.is_special,
         special_source=mapping.special_source,
         compte_resultat_view_id=mapping.compte_resultat_view_id,
@@ -255,13 +257,20 @@ async def create_bilan_mapping(
         category_name=mapping.category_name,
         type=mapping.type,
         sub_category=mapping.sub_category,
-        level_1_values=mapping.level_1_values,
+        level_1_values=mapping.level_1_values,  # LEGACY (dual-write, supprimé Task 8)
         is_special=mapping.is_special,
         special_source=mapping.special_source,
         compte_resultat_view_id=mapping.compte_resultat_view_id
     )
-    
+
     db.add(new_mapping)
+    db.flush()  # obtenir new_mapping.id avant de poser la liaison
+
+    # Dual-write : liaison category_id (source de lecture — Task 6) + JSON legacy.
+    # Les lignes spéciales n'ont pas de level_1_values (liaison vide).
+    if not new_mapping.is_special:
+        sync_bilan_mapping_categories(db, new_mapping, mapping.level_1_values)
+
     db.commit()
     db.refresh(new_mapping)
 
@@ -271,7 +280,7 @@ async def create_bilan_mapping(
         category_name=new_mapping.category_name,
         type=new_mapping.type,
         sub_category=new_mapping.sub_category,
-        level_1_values=new_mapping.level_1_values,
+        level_1_values=labels_from_bilan_mapping_categories(new_mapping),
         is_special=new_mapping.is_special,
         special_source=new_mapping.special_source,
         compte_resultat_view_id=new_mapping.compte_resultat_view_id,
@@ -313,14 +322,19 @@ async def update_bilan_mapping(
     if mapping_update.sub_category is not None:
         mapping.sub_category = mapping_update.sub_category
     if mapping_update.level_1_values is not None:
-        mapping.level_1_values = mapping_update.level_1_values
+        mapping.level_1_values = mapping_update.level_1_values  # LEGACY (dual-write)
     if mapping_update.is_special is not None:
         mapping.is_special = mapping_update.is_special
     if mapping_update.special_source is not None:
         mapping.special_source = mapping_update.special_source
     if mapping_update.compte_resultat_view_id is not None:
         mapping.compte_resultat_view_id = mapping_update.compte_resultat_view_id
-    
+
+    # Dual-write : reconstruire la liaison category_id (source de lecture —
+    # Task 6) quand les labels changent, sur les lignes normales uniquement.
+    if mapping_update.level_1_values is not None and not mapping.is_special:
+        sync_bilan_mapping_categories(db, mapping, mapping_update.level_1_values)
+
     db.commit()
     db.refresh(mapping)
 
@@ -330,7 +344,7 @@ async def update_bilan_mapping(
         category_name=mapping.category_name,
         type=mapping.type,
         sub_category=mapping.sub_category,
-        level_1_values=mapping.level_1_values,
+        level_1_values=labels_from_bilan_mapping_categories(mapping),
         is_special=mapping.is_special,
         special_source=mapping.special_source,
         compte_resultat_view_id=mapping.compte_resultat_view_id,

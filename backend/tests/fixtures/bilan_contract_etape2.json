@@ -1,0 +1,82 @@
+{
+  "results": {
+    "2023": {
+      "actif_total": 0.0,
+      "difference": 0.0,
+      "difference_percent": 0.0,
+      "passif_total": 0.0,
+      "types": [
+        {
+          "sub_categories": [
+            {
+              "categories": [
+                {
+                  "amount": 94000.0,
+                  "category_name": "Immobilisations",
+                  "is_special": false
+                }
+              ],
+              "sub_category": "Actif immobilisé",
+              "total": 94000.0
+            },
+            {
+              "categories": [
+                {
+                  "amount": -94000.0,
+                  "category_name": "Compte bancaire",
+                  "is_special": true
+                }
+              ],
+              "sub_category": "Actif circulant",
+              "total": -94000.0
+            }
+          ],
+          "total": 0.0,
+          "type": "ACTIF"
+        }
+      ],
+      "year": 2023
+    },
+    "2024": {
+      "actif_total": 0.0,
+      "difference": 0.0,
+      "difference_percent": 0.0,
+      "passif_total": 0.0,
+      "types": [
+        {
+          "sub_categories": [
+            {
+              "categories": [
+                {
+                  "amount": 99000.0,
+                  "category_name": "Immobilisations",
+                  "is_special": false
+                }
+              ],
+              "sub_category": "Actif immobilisé",
+              "total": 99000.0
+            },
+            {
+              "categories": [
+                {
+                  "amount": -99000.0,
+                  "category_name": "Compte bancaire",
+                  "is_special": true
+                }
+              ],
+              "sub_category": "Actif circulant",
+              "total": -99000.0
+            }
+          ],
+          "total": 0.0,
+          "type": "ACTIF"
+        }
+      ],
+      "year": 2024
+    }
+  },
+  "years": [
+    2023,
+    2024
+  ]
+}

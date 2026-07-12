@@ -90,11 +90,12 @@ def seed_contract_data(db) -> int:
     pid = prop.id
 
     # --- Configs Level 3 ---
-    # CR : labels de nature (traduits en natures par le service). Bilan : "LOC"
-    # (inchangé, chemin enriched).
+    # CR : labels de nature (traduits en natures par le service). Bilan (étape 2
+    # Task 6) : idem, le calcul des lignes normales du bilan filtre désormais
+    # par nature de groupe (via category_id), plus par enriched.level_3.
     cr_level_3 = ", ".join(f'"{n}"' for n in CR_NATURES)
     db.add(CompteResultatConfig(property_id=pid, level_3_values=f'[{cr_level_3}]'))
-    db.add(BilanConfig(property_id=pid, level_3_values=f'["{LEVEL_3}"]'))
+    db.add(BilanConfig(property_id=pid, level_3_values='["Actif", "Passif"]'))
 
     # --- Mappings compte de résultat ---
     cr_mapping_loyers = CompteResultatMapping(
@@ -113,11 +114,12 @@ def seed_contract_data(db) -> int:
     db.add(cr_mapping_entretien)
 
     # --- Mappings bilan ---
-    db.add(BilanMapping(
+    bilan_mapping_immo = BilanMapping(
         property_id=pid, category_name="Immobilisations corporelles",
         type="ACTIF", sub_category="Actif immobilisé",
         level_1_values='["IMMO"]', is_special=False,
-    ))
+    )
+    db.add(bilan_mapping_immo)
     db.add(BilanMapping(
         property_id=pid, category_name="Amortissements cumulés",
         type="ACTIF", sub_category="Actif immobilisé",
@@ -149,9 +151,11 @@ def seed_contract_data(db) -> int:
     # charges_deductibles : c'est ce que lit le calcul CR. IMMO/emprunt restent
     # non classées (category_id NULL) : hors périmètre CR, seulement bilan.
     _add_transaction(db, pid, date(2023, 1, 5), -100000.0, "Achat immobilisation",
-                     -100000.0, "IMMO")
+                     -100000.0, "IMMO",
+                     category_group="Immobilisations (contrat)", category_nature="Actif")
     _add_transaction(db, pid, date(2023, 1, 6), -80000.0, "Deblocage emprunt",
-                     -20000.0, "Dettes financières (emprunt bancaire)")
+                     -20000.0, "Dettes financières (emprunt bancaire)",
+                     category_group="Dettes (contrat)", category_nature="Passif")
     _add_transaction(db, pid, date(2023, 6, 15), 6000.0, "Loyers 2023",
                      -14000.0, "LOYERS",
                      category_group="Produits (contrat)", category_nature="Produits")
@@ -173,6 +177,12 @@ def seed_contract_data(db) -> int:
     db.flush()
     sync_mapping_categories(db, cr_mapping_loyers, cr_mapping_loyers.level_1_values)
     sync_mapping_categories(db, cr_mapping_entretien, cr_mapping_entretien.level_1_values)
+
+    # --- Liaison bilan (source de lecture des lignes normales, étape 2 Task 6) ---
+    # La category "IMMO" existe maintenant (classification ci-dessus) : on
+    # résout la liaison de la ligne normale "Immobilisations corporelles".
+    from backend.api.services.bilan_service import sync_bilan_mapping_categories
+    sync_bilan_mapping_categories(db, bilan_mapping_immo, bilan_mapping_immo.level_1_values)
 
     # --- Crédit + paiements ---
     loan = LoanConfig(

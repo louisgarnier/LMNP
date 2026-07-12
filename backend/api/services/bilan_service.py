@@ -22,7 +22,10 @@ from sqlalchemy import and_, func, exists
 from backend.database.models import (
     Transaction,
     EnrichedTransaction,
+    Category,
+    CategoryGroup,
     BilanMapping,
+    BilanMappingCategory,
     BilanConfig,
     AmortizationResult,
     LoanPayment,
@@ -30,8 +33,106 @@ from backend.database.models import (
     CompteResultatOverride
 )
 from backend.api.services.compte_resultat_service import calculate_compte_resultat
+from backend.api.services.category_service import (
+    NATURE_BY_LABEL,
+    resolve_categories_for_labels,
+)
 
 logger = logging.getLogger(__name__)
+
+# Étape 2 Task 6 : les lignes spéciales du bilan sont calculées par le service
+# (amortissements cumulés, compte bancaire, résultat/report de l'exercice,
+# capital restant dû) et dispatchées par un `line_code` stable. Le
+# `special_source` legacy reste en fallback pendant la transition (colonne
+# morte supprimée en Task 8). Codes ↔ sources historiques :
+#   AMORT_CUMULES       ← amortizations | amortization_result
+#   COMPTE_BANCAIRE     ← transactions
+#   RESULTAT_EXERCICE   ← compte_resultat
+#   REPORT_A_NOUVEAU    ← compte_resultat_cumul
+#   CAPITAL_RESTANT_DU  ← loan_payments
+LINE_CODE_AMORT_CUMULES = "AMORT_CUMULES"
+LINE_CODE_COMPTE_BANCAIRE = "COMPTE_BANCAIRE"
+LINE_CODE_RESULTAT_EXERCICE = "RESULTAT_EXERCICE"
+LINE_CODE_REPORT_A_NOUVEAU = "REPORT_A_NOUVEAU"
+LINE_CODE_CAPITAL_RESTANT_DU = "CAPITAL_RESTANT_DU"
+
+# Correspondance special_source (legacy) → line_code stable. Utilisée par la
+# migration pour poser les codes, et ici comme fallback de dispatch.
+LINE_CODE_BY_SPECIAL_SOURCE = {
+    "amortizations": LINE_CODE_AMORT_CUMULES,
+    "amortization_result": LINE_CODE_AMORT_CUMULES,
+    "transactions": LINE_CODE_COMPTE_BANCAIRE,
+    "compte_resultat": LINE_CODE_RESULTAT_EXERCICE,
+    "compte_resultat_cumul": LINE_CODE_REPORT_A_NOUVEAU,
+    "loan_payments": LINE_CODE_CAPITAL_RESTANT_DU,
+}
+
+# Label `level_1` (référentiel) dont la SOMME des transactions cumulées définit
+# le montant du crédit accordé (déblocage d'emprunt) pour le calcul du capital
+# restant dû. Provenance : historiquement en dur dans
+# calculate_capital_restant_du (magic string level_1 == ...). Résolu via le
+# référentiel (category_id) — étape 2 Task 6. L'externalisation en config
+# (fiscalité) n'interviendra, si nécessaire, qu'à l'étape 6.
+CREDIT_DISBURSEMENT_CATEGORY_LABEL = "Dettes financières (emprunt bancaire)"
+
+
+def line_code_for_mapping(mapping: BilanMapping) -> Optional[str]:
+    """Code de ligne spéciale d'un mapping : `line_code` prioritaire (stable),
+    dérivé de `special_source` en fallback (transition Task 6)."""
+    code = getattr(mapping, "line_code", None)
+    if code:
+        return code
+    return LINE_CODE_BY_SPECIAL_SOURCE.get(mapping.special_source)
+
+
+def _natures_from_level_3_values(level_3_values: List[str]) -> List[str]:
+    """Traduit les labels level_3 (ex: 'Actif') en natures de groupe (ex:
+    'actif'). Les labels non traduisibles (ex: 'TEST_L3_VALUE') sont
+    simplement absents du filtre — équivalent au comportement historique où
+    un level_3 ne correspondant à aucune transaction ne filtrait rien."""
+    return [NATURE_BY_LABEL[label] for label in level_3_values if label in NATURE_BY_LABEL]
+
+
+def sync_bilan_mapping_categories(db: Session, mapping: BilanMapping,
+                                  level_1_values_json: Optional[str]):
+    """Reconstruit la liaison `bilan_mapping_categories` d'un mapping à partir
+    des labels `level_1_values` (dual-write étape 2 Task 6).
+
+    Idempotent : remplace intégralement les liaisons existantes par celles
+    résolues depuis les labels. Les labels non résolus sont journalisés (jamais
+    devinés) et absents de la liaison. Retourne (category_ids, unresolved)."""
+    try:
+        labels = json.loads(level_1_values_json) if level_1_values_json else []
+    except (json.JSONDecodeError, TypeError):
+        labels = []
+
+    category_ids, unresolved = resolve_categories_for_labels(db, labels, mapping.property_id)
+    if unresolved:
+        logger.warning(
+            f"[BilanService] sync_bilan_mapping_categories - labels non résolus "
+            f"pour mapping {mapping.id} (property {mapping.property_id}): {unresolved}"
+        )
+
+    existing = {link.category_id: link for link in mapping.category_links}
+    wanted = set(category_ids)
+    for cat_id, link in list(existing.items()):
+        if cat_id not in wanted:
+            mapping.category_links.remove(link)
+    for cat_id in wanted:
+        if cat_id not in existing:
+            mapping.category_links.append(BilanMappingCategory(category_id=cat_id))
+    return category_ids, unresolved
+
+
+def labels_from_bilan_mapping_categories(mapping: BilanMapping) -> Optional[str]:
+    """Reconstruit le JSON de labels `level_1_values` depuis la liaison (source
+    de vérité étape 2 Task 6) pour les réponses GET. Ordre déterministe (trié).
+    Retourne None pour les lignes spéciales (aucune liaison, level_1_values
+    historiquement NULL) afin de préserver la sérialisation existante."""
+    if mapping.is_special:
+        return None
+    labels = sorted(link.category.label for link in mapping.category_links)
+    return json.dumps(labels, ensure_ascii=False)
 
 
 def get_mappings(db: Session, property_id: int) -> List[BilanMapping]:
@@ -417,21 +518,31 @@ def calculate_capital_restant_du(
         )
     ).all()
     
-    # Calculer le montant du crédit accordé depuis les transactions réelles
-    # Utiliser level_1 = "Dettes financières (emprunt bancaire)"
-    level_1_value = "Dettes financières (emprunt bancaire)"
-    
-    credit_amount_from_transactions = db.query(
-        func.sum(Transaction.quantite)
-    ).join(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
-    ).filter(
-        and_(
-            Transaction.property_id == property_id,
-            EnrichedTransaction.level_1 == level_1_value,
-            Transaction.date <= end_date
+    # Calculer le montant du crédit accordé depuis les transactions réelles.
+    # Étape 2 Task 6 : la catégorie de déblocage d'emprunt est résolue via le
+    # référentiel (category_id) à partir du label stable
+    # CREDIT_DISBURSEMENT_CATEGORY_LABEL, au lieu du filtre enriched.level_1.
+    credit_category_ids, unresolved = resolve_categories_for_labels(
+        db, [CREDIT_DISBURSEMENT_CATEGORY_LABEL], property_id
+    )
+    if unresolved:
+        logger.warning(
+            f"[BilanService] calculate_capital_restant_du - label de déblocage "
+            f"d'emprunt non résolu: {unresolved}"
         )
-    ).scalar()
+
+    if credit_category_ids:
+        credit_amount_from_transactions = db.query(
+            func.sum(Transaction.quantite)
+        ).filter(
+            and_(
+                Transaction.property_id == property_id,
+                Transaction.category_id.in_(list(credit_category_ids)),
+                Transaction.date <= end_date
+            )
+        ).scalar()
+    else:
+        credit_amount_from_transactions = None
     
     # Le montant est négatif dans les transactions (débit), donc on prend la valeur absolue
     credit_amount = abs(credit_amount_from_transactions) if credit_amount_from_transactions is not None else 0.0
@@ -467,7 +578,7 @@ def calculate_capital_restant_du(
     
     # Debug: Afficher le calcul
     logger.info(f"[BilanService] calculate_capital_restant_du - Calcul pour {year}, property_id={property_id}:")
-    logger.info(f"  - Montant transactions (level_1 = 'Dettes financières (emprunt bancaire)'): {credit_amount:.2f} €")
+    logger.info(f"  - Montant transactions (catégorie '{CREDIT_DISBURSEMENT_CATEGORY_LABEL}'): {credit_amount:.2f} €")
     logger.info(f"  - Capital remboursé (tous crédits actifs): {capital_paid:.2f} €")
     logger.info(f"  - Capital restant dû: {remaining:.2f} €")
     
@@ -520,59 +631,70 @@ def calculate_bilan(
     # Dictionnaire pour stocker les montants par catégorie
     categories = {}
     
-    # OPTIMISATION: Calculer toutes les catégories normales en une seule requête
+    # OPTIMISATION: Calculer toutes les catégories normales en une seule requête.
+    # Étape 2 Task 6 : lecture par category_id (liaison) + filtre par nature de
+    # groupe (ex-level_3), au lieu de enriched.level_1 + enriched.level_3. Les
+    # transactions portent category_id (dual-write Task 4) et category → group →
+    # nature reproduit exactement le triplet (level_1, level_2, level_3) : sortie
+    # inchangée (garanti par le golden master).
     normal_mappings = [m for m in mappings if not m.is_special]
     if normal_mappings:
         # Date de fin de l'année (cumul jusqu'à cette date)
         end_date = date(year, 12, 31)
-        
-        # Construire un dictionnaire category_name -> set(level_1_values)
-        category_to_level_1 = {}
-        all_level_1_values = set()
+
+        # Natures de groupe issues du filtre level_3 (labels non traduisibles
+        # simplement ignorés — ex. 'TEST_L3_VALUE', équivalent à l'ancien
+        # level_3.in_ qui ne matchait rien).
+        natures = _natures_from_level_3_values(level_3_values)
+
+        # Construire un dictionnaire category_name -> set(category_id) depuis la
+        # liaison (remplace level_1_values).
+        category_to_catids = {}
+        all_cat_ids = set()
         for mapping in normal_mappings:
-            if not mapping.level_1_values:
+            catids = {link.category_id for link in mapping.category_links}
+            if not catids:
                 continue
-            try:
-                level_1_values_list = json.loads(mapping.level_1_values)
-                category_to_level_1[mapping.category_name] = set(level_1_values_list)
-                all_level_1_values.update(level_1_values_list)
-            except (json.JSONDecodeError, TypeError):
-                continue
-        
-        if all_level_1_values:
-            # Une seule requête pour toutes les catégories normales, filtrée par property_id
+            category_to_catids[mapping.category_name] = catids
+            all_cat_ids.update(catids)
+
+        if all_cat_ids and natures:
+            # Une seule requête pour toutes les catégories normales, filtrée par
+            # property_id, nature de groupe et category_id (cumul jusqu'à fin d'année).
             query = db.query(
-                EnrichedTransaction.level_1,
+                Transaction.category_id,
                 func.sum(Transaction.quantite).label('total')
             ).join(
-                Transaction, Transaction.id == EnrichedTransaction.transaction_id
+                Category, Category.id == Transaction.category_id
+            ).join(
+                CategoryGroup, CategoryGroup.id == Category.group_id
             ).filter(
                 and_(
                     Transaction.property_id == property_id,
-                    EnrichedTransaction.level_3.in_(level_3_values),
-                    EnrichedTransaction.level_1.in_(list(all_level_1_values)),
+                    CategoryGroup.nature.in_(natures),
+                    Transaction.category_id.in_(list(all_cat_ids)),
                     Transaction.date <= end_date
                 )
-            ).group_by(EnrichedTransaction.level_1)
-            
+            ).group_by(Transaction.category_id)
+
             results = query.all()
-            
+
             # Initialiser toutes les catégories normales à 0
             for mapping in normal_mappings:
                 categories[mapping.category_name] = 0.0
-            
-            # Répartir les résultats par catégorie (chaque level_1 peut appartenir à plusieurs catégories)
+
+            # Répartir les résultats par catégorie (chaque category_id peut appartenir à plusieurs catégories)
             # IMPORTANT: On additionne d'abord les montants bruts (avec leurs signes), puis on applique la logique
             # à la somme finale. Cela permet de gérer correctement les catégories avec transactions mixtes
             # (ex: "Cautions reçues" avec paiements positifs et remboursements négatifs)
-            for level_1, total in results:
-                if level_1 and total is not None:
-                    # Trouver toutes les catégories qui utilisent ce level_1
-                    for category_name, level_1_set in category_to_level_1.items():
-                        if level_1 in level_1_set:
+            for cat_id, total in results:
+                if cat_id is not None and total is not None:
+                    # Trouver toutes les catégories qui utilisent ce category_id
+                    for category_name, catid_set in category_to_catids.items():
+                        if cat_id in catid_set:
                             # Additionner les montants bruts (avec leurs signes)
                             categories[category_name] += total
-            
+
             # Appliquer la logique de signe à la somme finale de chaque catégorie
             # Construire un dictionnaire category_name -> type (ACTIF/PASSIF) pour déterminer la logique
             category_to_type = {}
@@ -595,21 +717,24 @@ def calculate_bilan(
                     else:
                         categories[category_name] = abs(result) if result is not None else 0.0
     
-    # Calculer les catégories spéciales (une par une, elles sont peu nombreuses)
+    # Calculer les catégories spéciales (une par une, elles sont peu nombreuses).
+    # Étape 2 Task 6 : dispatch par `line_code` stable, `special_source` en
+    # fallback pendant la transition (cf. line_code_for_mapping).
     for mapping in mappings:
         if mapping.is_special:
             category_name = mapping.category_name
-            if mapping.special_source == "amortization_result" or mapping.special_source == "amortizations":
+            code = line_code_for_mapping(mapping)
+            if code == LINE_CODE_AMORT_CUMULES:
                 amount = calculate_amortizations_cumul(db, year, property_id)
-            elif mapping.special_source == "transactions":
+            elif code == LINE_CODE_COMPTE_BANCAIRE:
                 amount = calculate_compte_bancaire(db, year, property_id)
-            elif mapping.special_source == "compte_resultat":
+            elif code == LINE_CODE_RESULTAT_EXERCICE:
                 amount = calculate_resultat_exercice(
                     db, year, property_id, mapping.compte_resultat_view_id, cr_cache=cr_cache
                 )
-            elif mapping.special_source == "compte_resultat_cumul":
+            elif code == LINE_CODE_REPORT_A_NOUVEAU:
                 amount = calculate_report_a_nouveau(db, year, property_id, cr_cache=cr_cache)
-            elif mapping.special_source == "loan_payments":
+            elif code == LINE_CODE_CAPITAL_RESTANT_DU:
                 amount = calculate_capital_restant_du(db, year, property_id)
             else:
                 amount = 0.0
