@@ -174,9 +174,9 @@ def test_evry_terrain_non_amorti(ro_session):
             SELECT COUNT(*)
             FROM amortization_results ar
             JOIN transactions t ON t.id = ar.transaction_id
-            JOIN enriched_transactions e ON e.transaction_id = t.id
+            JOIN categories c ON c.id = t.category_id
             WHERE t.property_id = :pid
-              AND e.level_1 = 'Terrain (non amortissable)'
+              AND c.label = 'Terrain (non amortissable)'
             """
         ),
         {"pid": EVRY_PROPERTY_ID},
