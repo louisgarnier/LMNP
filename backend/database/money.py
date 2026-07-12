@@ -6,14 +6,12 @@ flottants SQLite) sans réécrire les calculs. On stocke des centimes entiers su
 disque, mais l'ORM continue d'exposer des euros (float) aux services, à l'API et
 au frontend — le contrat golden (valeurs API en euros) reste inchangé.
 
-⚠️ Limite importante (documentée) : un `TypeDecorator` n'applique
-`process_result_value` QUE lors de la lecture directe d'une colonne mappée
-(`row.quantite`). Il NE s'applique PAS automatiquement au résultat d'une
-fonction d'agrégation SQL comme `func.sum(Transaction.quantite)` : SQLAlchemy
-ne propage pas toujours le type de la colonne à l'expression `sum()`. Pour que
-les agrégats restent en euros, on force le type de retour côté requête avec
-`func.sum(col, type_=EuroCents())` (ou équivalent) là où c'est nécessaire — voir
-les services bilan/compte de résultat.
+Agrégats : SQLAlchemy 2.0 propage AUTOMATIQUEMENT le type de la colonne à
+`func.sum(...)` (la fonction `sum` est un `ReturnTypeFromArgs`), donc
+`process_result_value` s'applique aussi au résultat d'un `func.sum(colonne
+EuroCents)` : les agrégats ressortent en euros sans rien forcer. Aucun service
+n'a besoin de `type_=EuroCents()` — les services bilan/compte de résultat sont
+inchangés. Le test `test_func_sum_applies_decorator` verrouille ce comportement.
 """
 
 from sqlalchemy import Integer
