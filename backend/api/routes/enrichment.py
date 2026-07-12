@@ -8,8 +8,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.database.models import Transaction, EnrichedTransaction
+from backend.database.models import Transaction
 from backend.api.models import TransactionResponse
+from backend.api.services.classification_read import levels_for_transaction
 from backend.api.services.enrichment_service import (
     update_transaction_classification,
     create_or_update_mapping_from_classification,
@@ -58,15 +59,14 @@ async def update_transaction_classifications(
     if not transaction:
         raise HTTPException(status_code=404, detail=f"Transaction avec ID {transaction_id} non trouvée")
     
-    # Récupérer les valeurs actuelles de l'enriched_transaction si elles existent
-    existing_enriched = db.query(EnrichedTransaction).filter(
-        EnrichedTransaction.transaction_id == transaction.id
-    ).first()
-    
+    # Valeurs actuelles de la classification dérivées du référentiel (via
+    # transaction.category_id) — étape 2 Task 8, ex-lecture d'enriched_transactions.
+    cur_level_1, cur_level_2, cur_level_3 = levels_for_transaction(transaction)
+
     # Utiliser les nouvelles valeurs si fournies, sinon garder les valeurs existantes
-    final_level_1 = level_1 if level_1 is not None else (existing_enriched.level_1 if existing_enriched else None)
-    final_level_2 = level_2 if level_2 is not None else (existing_enriched.level_2 if existing_enriched else None)
-    final_level_3 = level_3 if level_3 is not None else (existing_enriched.level_3 if existing_enriched else None)
+    final_level_1 = level_1 if level_1 is not None else cur_level_1
+    final_level_2 = level_2 if level_2 is not None else cur_level_2
+    final_level_3 = level_3 if level_3 is not None else cur_level_3
     
     # Validation contre allowed_mappings (Step 5.4)
     if final_level_1 and final_level_2:
@@ -84,8 +84,8 @@ async def update_transaction_classifications(
                 detail=f"La combinaison (level_1='{final_level_1}', level_2='{final_level_2}', level_3='{final_level_3}') n'est pas autorisée pour cette propriété. Veuillez utiliser une combinaison valide depuis les mappings autorisés."
             )
     
-    # Mettre à jour les classifications
-    updated_enriched = update_transaction_classification(
+    # Mettre à jour la classification (écriture de category_id)
+    update_transaction_classification(
         db=db,
         transaction=transaction,
         level_1=level_1,
@@ -152,11 +152,10 @@ async def update_transaction_classifications(
         error_details = traceback.format_exc()
         print(f"⚠️ [update_transaction_classifications] Erreur lors du recalcul des amortissements: {error_details}")
 
-    # Construire la réponse avec les données enrichies
-    enriched_data = db.query(EnrichedTransaction).filter(
-        EnrichedTransaction.transaction_id == transaction.id
-    ).first()
-    
+    # Construire la réponse avec la classification dérivée du référentiel
+    # (via transaction.category_id) — étape 2 Task 8.
+    resp_level_1, resp_level_2, resp_level_3 = levels_for_transaction(transaction)
+
     return TransactionResponse(
         id=transaction.id,
         date=transaction.date,
@@ -166,9 +165,9 @@ async def update_transaction_classifications(
         source_file=transaction.source_file,
         created_at=transaction.created_at,
         updated_at=transaction.updated_at,
-        level_1=enriched_data.level_1 if enriched_data else None,
-        level_2=enriched_data.level_2 if enriched_data else None,
-        level_3=enriched_data.level_3 if enriched_data else None,
+        level_1=resp_level_1,
+        level_2=resp_level_2,
+        level_3=resp_level_3,
     )
 
 

@@ -9,10 +9,9 @@ les transactions avec des classifications hiérarchiques (level_1, level_2, leve
 
 from sqlalchemy.orm import Session
 from typing import Optional, Tuple
-from datetime import date
 import logging
 
-from backend.database.models import Transaction, Mapping, EnrichedTransaction
+from backend.database.models import Transaction, Mapping
 from backend.api.services.mapping_obligatoire_service import (
     validate_mapping,
     validate_level3_value
@@ -21,12 +20,14 @@ from backend.api.services.mapping_obligatoire_service import (
 logger = logging.getLogger(__name__)
 
 
-def _sync_transaction_category(db: Session, transaction: Transaction,
-                                level_1: str | None, level_2: str | None,
-                                level_3: str | None) -> None:
-    """Maintient transactions.category_id aligné sur la classification texte.
+def assign_category(db: Session, transaction: Transaction,
+                    level_1: str | None, level_2: str | None,
+                    level_3: str | None) -> None:
+    """Écrit `transactions.category_id` depuis la classification texte.
 
-    Transitoire étape 2 : disparaît avec enriched_transactions (Task 8).
+    Étape 2 Task 8 : SEUL point d'écriture de la classification (la table
+    `enriched_transactions` a disparu ; la classification vit désormais dans
+    `transactions.category_id`, dérivée via le référentiel category).
 
     Garde défensive : si la classification est incomplète (level_2/level_3
     manquants) ou si level_3 n'est pas une des 5 natures autorisées,
@@ -214,22 +215,25 @@ def transaction_matches_mapping_name(transaction_name: str, mapping_name: str, i
     return False
 
 
-def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional[list[Mapping]] = None) -> EnrichedTransaction:
+def enrich_transaction(transaction: Transaction, db: Session,
+                       mappings: Optional[list[Mapping]] = None) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
-    Enrichit une transaction avec des classifications basées sur le mapping.
-    
+    Classe une transaction via le meilleur mapping et écrit sa classification.
+
+    Étape 2 Task 8 : la classification est écrite uniquement dans
+    `transactions.category_id` (via `assign_category`) ; il n'y a plus de ligne
+    `enriched_transactions`. Les niveaux level_1/2/3 sont dérivés du mapping
+    trouvé puis résolus en category_id.
+
     Args:
-        transaction: Transaction à enrichir
+        transaction: Transaction à classer
         db: Session de base de données
         mappings: Liste des mappings (optionnel, sera chargée depuis DB si non fournie)
-    
+
     Returns:
-        L'objet EnrichedTransaction créé ou mis à jour
+        Le triplet (level_1, level_2, level_3) appliqué (None, None, None si
+        aucun mapping ne correspond → transaction non classée, category_id NULL).
     """
-    # Calculer l'année depuis la date
-    annee = transaction.date.year
-    mois = transaction.date.month
-    
     # Récupérer tous les mappings de cette propriété depuis la DB si non fournis
     if mappings is None:
         mappings = db.query(Mapping).filter(Mapping.property_id == transaction.property_id).all()
@@ -241,10 +245,10 @@ def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional
             # Si aucun mapping ne correspond après filtrage, recharger depuis la DB
             logger.warning(f"[enrich_transaction] Aucun mapping valide fourni pour property_id={transaction.property_id}, rechargement depuis DB")
             mappings = db.query(Mapping).filter(Mapping.property_id == transaction.property_id).all()
-    
+
     # Trouver le meilleur mapping
     best_mapping = find_best_mapping(transaction.nom, mappings)
-    
+
     # Déterminer les valeurs de level_1, level_2, level_3
     if best_mapping:
         level_1 = best_mapping.level_1
@@ -255,64 +259,19 @@ def enrich_transaction(transaction: Transaction, db: Session, mappings: Optional
         level_1 = None
         level_2 = None
         level_3 = None
-    
-    # Double-écriture (Étape 2 Task 4) : synchroniser transactions.category_id
-    # sur la même classification texte, que la ligne enriched soit créée ou
-    # mise à jour ci-dessous.
-    _sync_transaction_category(db, transaction, level_1, level_2, level_3)
 
-    # Vérifier si une ligne enriched_transaction existe déjà
-    enriched = db.query(EnrichedTransaction).filter(
-        EnrichedTransaction.transaction_id == transaction.id
-    ).first()
+    # Écriture unique de la classification (Étape 2 Task 8) : category_id.
+    assign_category(db, transaction, level_1, level_2, level_3)
 
-    if enriched:
-        # Mettre à jour l'enregistrement existant seulement si les valeurs ont changé
-        # OPTIMISATION: Éviter les commits inutiles si rien n'a changé
-        needs_update = (
-            enriched.property_id != transaction.property_id or
-            enriched.annee != annee or
-            enriched.mois != mois or
-            enriched.level_1 != level_1 or
-            enriched.level_2 != level_2 or
-            enriched.level_3 != level_3
-        )
-        
-        if needs_update:
-            enriched.property_id = transaction.property_id  # Mettre à jour property_id aussi
-            enriched.annee = annee
-            enriched.mois = mois
-            enriched.level_1 = level_1
-            enriched.level_2 = level_2
-            enriched.level_3 = level_3
-    else:
-        # Créer un nouvel enregistrement
-        enriched = EnrichedTransaction(
-            transaction_id=transaction.id,
-            property_id=transaction.property_id,  # Ajouter property_id depuis la transaction
-            annee=annee,
-            mois=mois,
-            level_1=level_1,
-            level_2=level_2,
-            level_3=level_3
-        )
-        db.add(enriched)
-    
-    # Ne pas commit ici si rien n'a changé (optimisation)
-    # Le commit sera fait par l'appelant en batch pour de meilleures performances
-    # Mais on commit quand même pour garantir la persistance (certains appels sont isolés)
+    # Le commit est normalement fait par l'appelant en batch, mais on commit ici
+    # pour garantir la persistance des appels isolés (création/édition unitaire).
     try:
         db.commit()
-        db.refresh(enriched)
     except Exception as e:
-        # Si le commit échoue (par exemple si déjà commité), on continue
+        # Si le commit échoue (par exemple si déjà commité en amont), on continue.
         logger.debug(f"[enrich_transaction] Commit échoué (peut être normal): {e}")
-        try:
-            db.refresh(enriched)
-        except:
-            pass
-    
-    return enriched
+
+    return (level_1, level_2, level_3)
 
 
 def enrich_all_transactions(db: Session, property_id: Optional[int] = None) -> Tuple[int, int]:
@@ -340,7 +299,7 @@ def enrich_all_transactions(db: Session, property_id: Optional[int] = None) -> T
     
     enriched_count = 0
     already_enriched_count = 0
-    
+
     for transaction in transactions:
         # Si property_id est fourni, utiliser uniquement les mappings de cette propriété
         if property_id:
@@ -348,20 +307,18 @@ def enrich_all_transactions(db: Session, property_id: Optional[int] = None) -> T
         else:
             # Mode legacy : utiliser tous les mappings (pour compatibilité)
             transaction_mappings = mappings
-        
-        # Vérifier si déjà enrichi
-        existing = db.query(EnrichedTransaction).filter(
-            EnrichedTransaction.transaction_id == transaction.id
-        ).first()
-        
-        if existing:
+
+        # « Déjà enrichi » = déjà classé (category_id non NULL) avant re-classification.
+        # Étape 2 Task 8 : remplace le test d'existence d'une ligne
+        # enriched_transactions par l'état de category_id (même sémantique de
+        # comptage pour le message de l'endpoint re-enrich).
+        was_classified = transaction.category_id is not None
+        enrich_transaction(transaction, db, transaction_mappings)
+        if was_classified:
             already_enriched_count += 1
-            # Re-enrichir quand même pour mettre à jour si le mapping a changé
-            enrich_transaction(transaction, db, transaction_mappings)
         else:
-            enrich_transaction(transaction, db, transaction_mappings)
             enriched_count += 1
-    
+
     return enriched_count, already_enriched_count
 
 
@@ -371,65 +328,39 @@ def update_transaction_classification(
     level_1: str | None = None,
     level_2: str | None = None,
     level_3: str | None = None
-) -> EnrichedTransaction:
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
-    Met à jour les classifications d'une transaction.
-    
+    Met à jour la classification d'une transaction (écriture de category_id).
+
+    Sémantique « None = ne pas modifier ce niveau » : un argument None conserve
+    la valeur courante (dérivée de `transaction.category_id` via le référentiel),
+    et non « effacer ». Étape 2 Task 8 : la classification vit dans
+    `transactions.category_id` (plus de ligne enriched_transactions).
+
     Args:
         db: Session de base de données
         transaction: Transaction à mettre à jour
         level_1: Nouvelle valeur pour level_1 (optionnel)
         level_2: Nouvelle valeur pour level_2 (optionnel)
         level_3: Nouvelle valeur pour level_3 (optionnel)
-    
-    Returns:
-        L'objet EnrichedTransaction mis à jour
-    """
-    # Calculer l'année et le mois depuis la date
-    annee = transaction.date.year
-    mois = transaction.date.month
-    
-    # Vérifier si une ligne enriched_transaction existe déjà
-    enriched = db.query(EnrichedTransaction).filter(
-        EnrichedTransaction.transaction_id == transaction.id
-    ).first()
-    
-    if enriched:
-        # Mettre à jour l'enregistrement existant
-        enriched.property_id = transaction.property_id  # Mettre à jour property_id aussi
-        if level_1 is not None:
-            enriched.level_1 = level_1
-        if level_2 is not None:
-            enriched.level_2 = level_2
-        if level_3 is not None:
-            enriched.level_3 = level_3
-        # Toujours mettre à jour annee et mois
-        enriched.annee = annee
-        enriched.mois = mois
-    else:
-        # Créer un nouvel enregistrement
-        enriched = EnrichedTransaction(
-            transaction_id=transaction.id,
-            property_id=transaction.property_id,  # Ajouter property_id depuis la transaction
-            annee=annee,
-            mois=mois,
-            level_1=level_1,
-            level_2=level_2,
-            level_3=level_3
-        )
-        db.add(enriched)
 
-    # Double-écriture (Étape 2 Task 4) : synchroniser transactions.category_id
-    # sur l'état FINAL de l'enriched (tient compte de la sémantique "None =
-    # ne pas modifier ce champ" ci-dessus : si level_1/2/3 n'étaient pas
-    # fournis, on resynchronise sur les valeurs conservées, pas sur les
-    # arguments bruts).
-    _sync_transaction_category(db, transaction, enriched.level_1, enriched.level_2, enriched.level_3)
+    Returns:
+        Le triplet (level_1, level_2, level_3) final appliqué.
+    """
+    from backend.api.services.classification_read import levels_for_transaction
+
+    # Valeurs courantes dérivées du référentiel (ex-lecture de la ligne enriched).
+    cur_level_1, cur_level_2, cur_level_3 = levels_for_transaction(transaction)
+    final_level_1 = level_1 if level_1 is not None else cur_level_1
+    final_level_2 = level_2 if level_2 is not None else cur_level_2
+    final_level_3 = level_3 if level_3 is not None else cur_level_3
+
+    assign_category(db, transaction, final_level_1, final_level_2, final_level_3)
 
     db.commit()
-    db.refresh(enriched)
+    db.refresh(transaction)
 
-    return enriched
+    return (final_level_1, final_level_2, final_level_3)
 
 
 def create_or_update_mapping_from_classification(

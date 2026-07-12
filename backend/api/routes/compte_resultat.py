@@ -129,12 +129,13 @@ async def create_compte_resultat_mapping(
         property_id=mapping.property_id,
         category_name=mapping.category_name,
         type=mapping.type,
-        level_1_values=mapping.level_1_values  # LEGACY (dual-write, supprimé Task 8)
     )
     db.add(new_mapping)
     db.flush()  # obtenir new_mapping.id avant de poser la liaison
 
-    # Dual-write : liaison category_id (source de lecture — Task 5) + JSON legacy
+    # Liaison category_id : unique source de lecture du calcul CR (Task 5 ;
+    # colonne level_1_values retirée du modèle en Task 8). Résolue depuis les
+    # labels envoyés par le frontend (inchangé cette étape).
     sync_mapping_categories(db, new_mapping, mapping.level_1_values)
 
     db.commit()
@@ -195,8 +196,8 @@ async def update_compte_resultat_mapping(
     if mapping.type is not None:
         existing_mapping.type = mapping.type
     if mapping.level_1_values is not None:
-        existing_mapping.level_1_values = mapping.level_1_values  # LEGACY (dual-write)
-        # Dual-write : reconstruire la liaison category_id (source de lecture — Task 5)
+        # Reconstruire la liaison category_id (unique source de lecture du calcul
+        # CR — Task 5 ; colonne level_1_values retirée du modèle en Task 8).
         sync_mapping_categories(db, existing_mapping, mapping.level_1_values)
 
     db.commit()

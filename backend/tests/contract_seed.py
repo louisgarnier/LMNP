@@ -25,7 +25,6 @@ from datetime import date
 from backend.database.models import (
     Property,
     Transaction,
-    EnrichedTransaction,
     CompteResultatMapping,
     CompteResultatConfig,
     BilanMapping,
@@ -36,22 +35,19 @@ from backend.database.models import (
     AmortizationResult,
 )
 
-LEVEL_3 = "LOC"
 YEARS = (2023, 2024)
 
-# Compte de résultat (étape 2 Task 5) : le calcul CR filtre désormais par
-# category_id -> nature du groupe. La config CR liste des labels de nature
-# (traduits en natures), et non plus le label synthétique "LOC" (qui reste la
-# valeur enriched.level_3 pour le chemin bilan, inchangé cette étape).
+# Compte de résultat (étape 2 Task 5) : le calcul CR filtre par category_id ->
+# nature du groupe. La config CR liste des labels de nature (traduits en natures).
 CR_NATURES = ("Produits", "Charges Déductibles")
 
 
 def _add_transaction(db, property_id, d, quantite, nom, solde, level_1,
                      category_group=None, category_nature=None):
-    """Ajoute une transaction + sa ligne enrichie (level_3 = LOC, inchangé pour
-    le bilan). Si (category_group, category_nature) sont fournis, renseigne
-    aussi `transactions.category_id` via le référentiel (comme le fait la
-    double-écriture Task 4 en production), ce que le calcul CR lit désormais."""
+    """Ajoute une transaction. Si (category_group, category_nature) sont fournis,
+    renseigne `transactions.category_id` via le référentiel — étape 2 Task 8 :
+    la classification vit dans category_id (plus de ligne enriched_transactions),
+    ce que lisent les calculs CR ET bilan."""
     tx = Transaction(
         property_id=property_id,
         date=d,
@@ -62,17 +58,6 @@ def _add_transaction(db, property_id, d, quantite, nom, solde, level_1,
     )
     db.add(tx)
     db.flush()  # pour obtenir tx.id
-    enriched = EnrichedTransaction(
-        transaction_id=tx.id,
-        property_id=property_id,
-        mois=d.month,
-        annee=d.year,
-        level_1=level_1,
-        level_2="detail",
-        level_3=LEVEL_3,
-    )
-    db.add(enriched)
-    db.flush()
     if category_group is not None and category_nature is not None:
         from backend.api.services.category_service import get_or_create_category
         tx.category_id = get_or_create_category(
@@ -98,52 +83,58 @@ def seed_contract_data(db) -> int:
     db.add(BilanConfig(property_id=pid, level_3_values='["Actif", "Passif"]'))
 
     # --- Mappings compte de résultat ---
+    # Étape 2 Task 8 : les labels level_1 (ex-colonne level_1_values) ne sont plus
+    # stockés sur le mapping ; ils servent uniquement à résoudre la liaison
+    # category_links (source de lecture du calcul), posée plus bas via sync.
+    cr_loyers_labels = '["LOYERS"]'
+    cr_entretien_labels = '["ENTRETIEN"]'
     cr_mapping_loyers = CompteResultatMapping(
         property_id=pid,
         category_name="Loyers hors charge encaissés",
         type="Produits d'exploitation",
-        level_1_values='["LOYERS"]',
     )
     cr_mapping_entretien = CompteResultatMapping(
         property_id=pid,
         category_name="Charges d'entretien et de réparation",
         type="Charges d'exploitation",
-        level_1_values='["ENTRETIEN"]',
     )
     db.add(cr_mapping_loyers)
     db.add(cr_mapping_entretien)
 
     # --- Mappings bilan ---
+    # Étape 2 Task 8 : lignes spéciales dispatchées par `line_code` stable
+    # (ex-colonne special_source retirée du modèle).
+    bilan_immo_labels = '["IMMO"]'
     bilan_mapping_immo = BilanMapping(
         property_id=pid, category_name="Immobilisations corporelles",
         type="ACTIF", sub_category="Actif immobilisé",
-        level_1_values='["IMMO"]', is_special=False,
+        is_special=False,
     )
     db.add(bilan_mapping_immo)
     db.add(BilanMapping(
         property_id=pid, category_name="Amortissements cumulés",
         type="ACTIF", sub_category="Actif immobilisé",
-        is_special=True, special_source="amortization_result",
+        is_special=True, line_code="AMORT_CUMULES",
     ))
     db.add(BilanMapping(
         property_id=pid, category_name="Compte bancaire",
         type="ACTIF", sub_category="Actif circulant",
-        is_special=True, special_source="transactions",
+        is_special=True, line_code="COMPTE_BANCAIRE",
     ))
     db.add(BilanMapping(
         property_id=pid, category_name="Résultat de l'exercice",
         type="PASSIF", sub_category="Capitaux propres",
-        is_special=True, special_source="compte_resultat",
+        is_special=True, line_code="RESULTAT_EXERCICE",
     ))
     db.add(BilanMapping(
         property_id=pid, category_name="Report à nouveau",
         type="PASSIF", sub_category="Capitaux propres",
-        is_special=True, special_source="compte_resultat_cumul",
+        is_special=True, line_code="REPORT_A_NOUVEAU",
     ))
     db.add(BilanMapping(
         property_id=pid, category_name="Capital restant dû",
         type="PASSIF", sub_category="Dettes financières",
-        is_special=True, special_source="loan_payments",
+        is_special=True, line_code="CAPITAL_RESTANT_DU",
     ))
 
     # --- Transactions 2023 (immobilisation, emprunt, loyer, entretien) ---
@@ -175,14 +166,14 @@ def seed_contract_data(db) -> int:
     # Les categories LOYERS/ENTRETIEN existent maintenant : on résout la liaison.
     from backend.api.services.compte_resultat_service import sync_mapping_categories
     db.flush()
-    sync_mapping_categories(db, cr_mapping_loyers, cr_mapping_loyers.level_1_values)
-    sync_mapping_categories(db, cr_mapping_entretien, cr_mapping_entretien.level_1_values)
+    sync_mapping_categories(db, cr_mapping_loyers, cr_loyers_labels)
+    sync_mapping_categories(db, cr_mapping_entretien, cr_entretien_labels)
 
     # --- Liaison bilan (source de lecture des lignes normales, étape 2 Task 6) ---
     # La category "IMMO" existe maintenant (classification ci-dessus) : on
     # résout la liaison de la ligne normale "Immobilisations corporelles".
     from backend.api.services.bilan_service import sync_bilan_mapping_categories
-    sync_bilan_mapping_categories(db, bilan_mapping_immo, bilan_mapping_immo.level_1_values)
+    sync_bilan_mapping_categories(db, bilan_mapping_immo, bilan_immo_labels)
 
     # --- Crédit + paiements ---
     loan = LoanConfig(

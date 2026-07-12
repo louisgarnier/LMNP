@@ -484,8 +484,8 @@ def reset_allowed_mappings(db: Session, property_id: int) -> dict:
     logger = logging.getLogger(__name__)
     logger.info(f"[MappingObligatoire] reset_allowed_mappings - property_id={property_id}")
     
-    from backend.database.models import Mapping, EnrichedTransaction
-    
+    from backend.database.models import Mapping
+
     # 1. Supprimer les allowed_mappings non hard codés pour cette propriété
     deleted_allowed = db.query(AllowedMapping).filter(
         AllowedMapping.property_id == property_id,
@@ -522,17 +522,10 @@ def reset_allowed_mappings(db: Session, property_id: int) -> dict:
     
     db.commit()
     
-    # 3. Marquer les transactions associées comme non assignées (supprimer EnrichedTransaction)
-    unassigned_count = 0
-    for transaction_id in transactions_to_unassign:
-        db.query(EnrichedTransaction).filter(
-            EnrichedTransaction.transaction_id == transaction_id
-        ).delete()
-        unassigned_count += 1
-
-    # Double-écriture (Étape 2 Task 4) : la ligne enriched disparaît -> category_id
-    # doit aussi repasser à NULL pour les mêmes transactions (UPDATE en masse,
-    # pas de boucle par ligne).
+    # 3. Marquer les transactions associées comme non assignées.
+    # Étape 2 Task 8 : la désassignation = remise à NULL de category_id (UPDATE
+    # en masse, plus de ligne enriched_transactions à supprimer).
+    unassigned_count = len(transactions_to_unassign)
     if transactions_to_unassign:
         db.query(Transaction).filter(
             Transaction.id.in_(transactions_to_unassign)

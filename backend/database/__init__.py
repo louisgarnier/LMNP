@@ -8,7 +8,6 @@ from .connection import get_db, init_database, engine, SessionLocal
 from .models import (
     Base,
     Transaction,
-    EnrichedTransaction,
     Mapping,
     PivotConfig,
     AllowedMapping,
@@ -28,7 +27,6 @@ __all__ = [
     "SessionLocal",
     "Base",
     "Transaction",
-    "EnrichedTransaction",
     "Mapping",
     "PivotConfig",
     "AllowedMapping",

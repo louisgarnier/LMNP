@@ -36,40 +36,28 @@ def resolve_categories_for_labels(db: Session, labels, property_id: int):
     Stratégie de résolution (cf. brief Task 5) :
       1. Par label seul s'il est unique dans le référentiel (cas réel : les 56
          labels sont globalement uniques).
-      2. Si le label est ambigu (même label sous plusieurs groupes), lever
-         l'ambiguïté via les combos (level_2, level_3) réellement utilisés
-         dans `enriched_transactions` de la propriété.
-      3. Sinon → label non résolu (collecté, jamais deviné).
+      2. Sinon (0 correspondance OU label ambigu) → label non résolu (collecté,
+         jamais deviné).
+
+    Étape 2 Task 8 : la désambiguïsation historique via les combos
+    `enriched_transactions` (level_2/level_3) a été retirée avec la suppression
+    de la table. Les labels du référentiel étant globalement uniques (invariant
+    prod, cf. task-8-report), la branche ambiguë n'était jamais atteinte en
+    production ; un label ambigu est désormais simplement `unresolved` (journalisé
+    par les appelants, jamais deviné). Le `property_id` reste dans la signature
+    pour la stabilité de l'API interne.
 
     Retourne (category_ids: set[int], unresolved: list[str]).
     """
-    from backend.database.models import EnrichedTransaction
-
     category_ids = set()
     unresolved = []
     for label in labels:
         matches = db.query(Category).filter(Category.label == label).all()
         if len(matches) == 1:
             category_ids.add(matches[0].id)
-        elif len(matches) == 0:
-            unresolved.append(label)
         else:
-            # Ambigu : désambiguïser via les combos enriched de la propriété.
-            combos = (
-                db.query(EnrichedTransaction.level_2, EnrichedTransaction.level_3)
-                .filter(EnrichedTransaction.property_id == property_id,
-                        EnrichedTransaction.level_1 == label)
-                .distinct()
-                .all()
-            )
-            resolved_any = False
-            for level_2, level_3 in combos:
-                cat = resolve_category(db, label, level_2, level_3)
-                if cat is not None:
-                    category_ids.add(cat.id)
-                    resolved_any = True
-            if not resolved_any:
-                unresolved.append(label)
+            # 0 correspondance ou ambiguïté (>1) : non résolu, jamais deviné.
+            unresolved.append(label)
     return category_ids, unresolved
 
 

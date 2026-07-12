@@ -37,6 +37,8 @@ from backend.api.services.bilan_service import (
     calculate_bilan,
     sync_bilan_mapping_categories,
     labels_from_bilan_mapping_categories,
+    special_source_for_mapping,
+    LINE_CODE_BY_SPECIAL_SOURCE,
 )
 from backend.api.utils.validation import validate_property_id
 
@@ -176,7 +178,7 @@ async def get_bilan_mappings(
             sub_category=m.sub_category,
             level_1_values=labels_from_bilan_mapping_categories(m),  # reconstruit depuis la liaison (Task 6)
             is_special=m.is_special,
-            special_source=m.special_source,
+            special_source=special_source_for_mapping(m),  # reconstruit depuis line_code (Task 8)
             compte_resultat_view_id=m.compte_resultat_view_id,
             created_at=m.created_at,
             updated_at=m.updated_at
@@ -222,7 +224,7 @@ async def get_bilan_mapping(
         sub_category=mapping.sub_category,
         level_1_values=labels_from_bilan_mapping_categories(mapping),  # reconstruit depuis la liaison (Task 6)
         is_special=mapping.is_special,
-        special_source=mapping.special_source,
+        special_source=special_source_for_mapping(mapping),  # reconstruit depuis line_code (Task 8)
         compte_resultat_view_id=mapping.compte_resultat_view_id,
         created_at=mapping.created_at,
         updated_at=mapping.updated_at
@@ -252,22 +254,28 @@ async def create_bilan_mapping(
             detail=f"Un mapping avec la catégorie '{mapping.category_name}' existe déjà pour cette propriété"
         )
     
+    # Étape 2 Task 8 : `special_source` (label métier envoyé par le frontend)
+    # est traduit en `line_code` stable côté serveur ; la colonne `special_source`
+    # a été retirée du modèle. Pour une ligne normale, line_code reste NULL.
+    line_code = (
+        LINE_CODE_BY_SPECIAL_SOURCE.get(mapping.special_source)
+        if mapping.is_special else None
+    )
     new_mapping = BilanMapping(
         property_id=mapping.property_id,
         category_name=mapping.category_name,
         type=mapping.type,
         sub_category=mapping.sub_category,
-        level_1_values=mapping.level_1_values,  # LEGACY (dual-write, supprimé Task 8)
         is_special=mapping.is_special,
-        special_source=mapping.special_source,
+        line_code=line_code,
         compte_resultat_view_id=mapping.compte_resultat_view_id
     )
 
     db.add(new_mapping)
     db.flush()  # obtenir new_mapping.id avant de poser la liaison
 
-    # Dual-write : liaison category_id (source de lecture — Task 6) + JSON legacy.
-    # Les lignes spéciales n'ont pas de level_1_values (liaison vide).
+    # Liaison category_id (unique source de lecture — Task 6). Les lignes
+    # spéciales n'ont pas de level_1_values (liaison vide).
     if not new_mapping.is_special:
         sync_bilan_mapping_categories(db, new_mapping, mapping.level_1_values)
 
@@ -282,7 +290,7 @@ async def create_bilan_mapping(
         sub_category=new_mapping.sub_category,
         level_1_values=labels_from_bilan_mapping_categories(new_mapping),
         is_special=new_mapping.is_special,
-        special_source=new_mapping.special_source,
+        special_source=special_source_for_mapping(new_mapping),  # reconstruit depuis line_code (Task 8)
         compte_resultat_view_id=new_mapping.compte_resultat_view_id,
         created_at=new_mapping.created_at,
         updated_at=new_mapping.updated_at
@@ -321,17 +329,17 @@ async def update_bilan_mapping(
         mapping.type = mapping_update.type
     if mapping_update.sub_category is not None:
         mapping.sub_category = mapping_update.sub_category
-    if mapping_update.level_1_values is not None:
-        mapping.level_1_values = mapping_update.level_1_values  # LEGACY (dual-write)
     if mapping_update.is_special is not None:
         mapping.is_special = mapping_update.is_special
+    # Étape 2 Task 8 : `special_source` reçu est traduit en `line_code` stable
+    # (colonne `special_source` retirée du modèle).
     if mapping_update.special_source is not None:
-        mapping.special_source = mapping_update.special_source
+        mapping.line_code = LINE_CODE_BY_SPECIAL_SOURCE.get(mapping_update.special_source)
     if mapping_update.compte_resultat_view_id is not None:
         mapping.compte_resultat_view_id = mapping_update.compte_resultat_view_id
 
-    # Dual-write : reconstruire la liaison category_id (source de lecture —
-    # Task 6) quand les labels changent, sur les lignes normales uniquement.
+    # Reconstruire la liaison category_id (unique source de lecture — Task 6)
+    # quand les labels changent, sur les lignes normales uniquement.
     if mapping_update.level_1_values is not None and not mapping.is_special:
         sync_bilan_mapping_categories(db, mapping, mapping_update.level_1_values)
 
@@ -346,7 +354,7 @@ async def update_bilan_mapping(
         sub_category=mapping.sub_category,
         level_1_values=labels_from_bilan_mapping_categories(mapping),
         is_special=mapping.is_special,
-        special_source=mapping.special_source,
+        special_source=special_source_for_mapping(mapping),  # reconstruit depuis line_code (Task 8)
         compte_resultat_view_id=mapping.compte_resultat_view_id,
         created_at=mapping.created_at,
         updated_at=mapping.updated_at

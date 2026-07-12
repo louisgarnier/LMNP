@@ -22,7 +22,6 @@ from datetime import date
 from backend.database.models import (
     Property,
     Transaction,
-    EnrichedTransaction,
     LoanConfig,
     LoanPayment,
 )
@@ -54,18 +53,10 @@ def _setup_loan_with_late_start_date(db_session):
     db_session.add(transaction)
     db_session.flush()
 
-    enriched = EnrichedTransaction(
-        transaction_id=transaction.id,
-        property_id=prop.id,
-        mois=12,
-        annee=2020,
-        level_1=LEVEL_1_DETTES,
-    )
-    db_session.add(enriched)
-
-    # Étape 2 Task 6 : calculate_capital_restant_du résout la catégorie de
+    # Étape 2 Task 6/8 : calculate_capital_restant_du résout la catégorie de
     # déblocage d'emprunt par label (référentiel) et filtre par category_id.
-    # On classe donc la transaction (comme le fait la double-écriture Task 4).
+    # On classe donc la transaction (classification = category_id, plus de ligne
+    # enriched_transactions).
     from backend.api.services.category_service import get_or_create_category
     transaction.category_id = get_or_create_category(
         db_session, LEVEL_1_DETTES, "Dettes", "Passif"

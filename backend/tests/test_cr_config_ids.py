@@ -215,43 +215,9 @@ def test_delete_mapping_cascades_liaison(client, db_session):
         CompteResultatMappingCategory.mapping_id == mid).count() == 0
 
 
-def test_migration_builds_liaison_and_line_codes(db_session):
-    from backend.database.models import Property, CompteResultatMapping, CompteResultatMappingCategory
-    from backend.database.migrations.migrate_cr_config_to_ids import _migrate
-    prop = Property(name="P"); db_session.add(prop); db_session.flush()
-    pid = prop.id
-    cat = _seed_category(db_session, "AAA", "G1", "produits")
-    db_session.add(CompteResultatMapping(
-        property_id=pid, category_name="Ligne", type="Produits d'exploitation",
-        level_1_values=json.dumps(["AAA"]),
-    ))
-    db_session.commit()
-
-    stats, unresolved = _migrate(db_session)
-    db_session.commit()
-    assert unresolved == []
-    assert stats["links_created"] == 1
-    link = db_session.query(CompteResultatMappingCategory).one()
-    assert link.category_id == cat.id
-
-    # Idempotence : deuxième passage ne recrée rien
-    stats2, unresolved2 = _migrate(db_session)
-    assert unresolved2 == []
-    assert stats2["links_created"] == 0
-    assert stats2["links_existing"] == 1
-
-
-def test_migration_reports_unresolved_label(db_session):
-    from backend.database.models import Property, CompteResultatMapping
-    from backend.database.migrations.migrate_cr_config_to_ids import _migrate
-    prop = Property(name="P"); db_session.add(prop); db_session.flush()
-    db_session.add(CompteResultatMapping(
-        property_id=prop.id, category_name="Ligne", type="Produits d'exploitation",
-        level_1_values=json.dumps(["LABEL_INEXISTANT"]),
-    ))
-    db_session.commit()
-
-    stats, unresolved = _migrate(db_session)
-    assert len(unresolved) == 1
-    assert unresolved[0][2] == "LABEL_INEXISTANT"
-    assert stats["links_created"] == 0
+# NB étape 2 Task 8 : les tests de la migration one-shot
+# `migrate_cr_config_to_ids._migrate` (level_1_values JSON → liaison) ont été
+# retirés avec la migration elle-même (obsolète : la colonne level_1_values a
+# été retirée du modèle, la liaison category_links est désormais la seule source).
+# La construction/idempotence de la liaison reste couverte par les tests API
+# ci-dessus (POST/PUT/DELETE) et par le golden de contrat.

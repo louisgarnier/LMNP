@@ -798,31 +798,30 @@ async def delete_transaction(
 ):
     """
     Supprimer une transaction.
-    Note: Supprime également les données enrichies associées, les résultats d'amortissement et recalcule les soldes.
+    Note: Supprime également les résultats d'amortissement associés et recalcule les soldes.
     """
     logger.info(f"[Transactions] DELETE /api/transactions/{transaction_id} - property_id={property_id}")
     
     # Valider property_id
     validate_property_id(db, property_id, "Transactions")
     
-    from backend.database.models import EnrichedTransaction, AmortizationResult
+    from backend.database.models import AmortizationResult
     from backend.api.utils.balance_utils import recalculate_balances_from_date
-    
+
     db_transaction = db.query(Transaction).filter(
         Transaction.id == transaction_id,
         Transaction.property_id == property_id
     ).first()
-    
+
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction non trouvée ou n'appartient pas à cette propriété")
-    
+
     # Sauvegarder la date pour recalculer les soldes après
     transaction_date = db_transaction.date
-    
-    # Supprimer les données associées en cascade
-    db.query(EnrichedTransaction).filter(
-        EnrichedTransaction.transaction_id == transaction_id
-    ).delete()
+
+    # Étape 2 Task 8 : la classification (category_id) est portée par la ligne
+    # transaction elle-même et disparaît avec elle (plus de ligne
+    # enriched_transactions à supprimer).
 
     # Supprimer les résultats d'amortissement associés
     db.query(AmortizationResult).filter(

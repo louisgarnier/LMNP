@@ -230,82 +230,32 @@ def test_delete_mapping_cascades_liaison(client, db_session):
         BilanMappingCategory.mapping_id == mid).count() == 0
 
 
-def test_special_mapping_has_no_liaison_and_line_code_migrates(db_session):
-    from backend.database.models import Property, BilanMapping, BilanMappingCategory
-    from backend.database.migrations.migrate_bilan_config_to_ids import _migrate
+def test_special_mapping_line_code_from_special_source(client, db_session):
+    """Étape 2 Task 8 : à la création d'une ligne spéciale, le `special_source`
+    envoyé par le frontend est traduit en `line_code` stable (colonne
+    special_source retirée du modèle) et re-sérialisé à l'identique en réponse."""
+    from backend.database.models import Property, BilanMapping
     prop = Property(name="P"); db_session.add(prop); db_session.flush()
     pid = prop.id
-    cat = _seed_category(db_session, "AAA", "G1", "actif")
-    db_session.add(BilanMapping(
-        property_id=pid, category_name="Immo", type="ACTIF",
-        sub_category="Actif immobilisé", level_1_values=json.dumps(["AAA"]),
-        is_special=False,
-    ))
-    db_session.add(BilanMapping(
-        property_id=pid, category_name="Compte bancaire", type="ACTIF",
-        sub_category="Actif circulant", is_special=True,
-        special_source="transactions",
-    ))
-    db_session.add(BilanMapping(
-        property_id=pid, category_name="Amortissements cumulés", type="ACTIF",
-        sub_category="Actif immobilisé", is_special=True,
-        special_source="amortizations",
-    ))
     db_session.commit()
 
-    stats, unresolved = _migrate(db_session)
-    db_session.commit()
-    assert unresolved == []
-    assert stats["links_created"] == 1
-    assert stats["line_codes_set"] == 2  # transactions + amortizations
-    link = db_session.query(BilanMappingCategory).one()
-    assert link.category_id == cat.id
+    resp = client.post("/api/bilan/mappings", json={
+        "property_id": pid, "category_name": "Amortissements cumulés",
+        "type": "ACTIF", "sub_category": "Actif immobilisé",
+        "is_special": True, "special_source": "amortizations",
+    })
+    assert resp.status_code == 201, resp.text
+    # Réponse : special_source reconstruit depuis line_code (byte-identique côté frontend)
+    assert resp.json()["special_source"] == "amortizations"
 
-    # line codes posés
-    banque = db_session.query(BilanMapping).filter(
-        BilanMapping.category_name == "Compte bancaire").one()
-    assert banque.line_code == "COMPTE_BANCAIRE"
-    amort = db_session.query(BilanMapping).filter(
-        BilanMapping.category_name == "Amortissements cumulés").one()
-    assert amort.line_code == "AMORT_CUMULES"
-
-    # Idempotence : deuxième passage ne recrée rien
-    stats2, unresolved2 = _migrate(db_session)
-    assert unresolved2 == []
-    assert stats2["links_created"] == 0
-    assert stats2["links_existing"] == 1
-    assert stats2["line_codes_set"] == 0
+    mid = resp.json()["id"]
+    mapping = db_session.query(BilanMapping).filter(BilanMapping.id == mid).one()
+    assert mapping.line_code == "AMORT_CUMULES"
 
 
-def test_migration_reports_unresolved_label(db_session):
-    from backend.database.models import Property, BilanMapping
-    from backend.database.migrations.migrate_bilan_config_to_ids import _migrate
-    prop = Property(name="P"); db_session.add(prop); db_session.flush()
-    db_session.add(BilanMapping(
-        property_id=prop.id, category_name="Ligne", type="ACTIF",
-        sub_category="Actif immobilisé",
-        level_1_values=json.dumps(["LABEL_INEXISTANT"]), is_special=False,
-    ))
-    db_session.commit()
-
-    stats, unresolved = _migrate(db_session)
-    assert len(unresolved) == 1
-    assert unresolved[0][2] == "LABEL_INEXISTANT"
-    assert stats["links_created"] == 0
-
-
-def test_empty_level_1_values_gives_zero_links(db_session):
-    from backend.database.models import Property, BilanMapping, BilanMappingCategory
-    from backend.database.migrations.migrate_bilan_config_to_ids import _migrate
-    prop = Property(name="P"); db_session.add(prop); db_session.flush()
-    db_session.add(BilanMapping(
-        property_id=prop.id, category_name="Vide", type="PASSIF",
-        sub_category="Capitaux propres", level_1_values="[]", is_special=False,
-    ))
-    db_session.commit()
-
-    stats, unresolved = _migrate(db_session)
-    db_session.commit()
-    assert unresolved == []
-    assert stats["links_created"] == 0
-    assert db_session.query(BilanMappingCategory).count() == 0
+# NB étape 2 Task 8 : les tests de la migration one-shot
+# `migrate_bilan_config_to_ids._migrate` (level_1_values JSON → liaison +
+# special_source → line_code) ont été retirés avec la migration elle-même
+# (obsolète : colonnes level_1_values/special_source retirées du modèle). La
+# construction/idempotence de la liaison et la dérivation du line_code restent
+# couvertes par les tests API ci-dessus et par le golden de contrat.

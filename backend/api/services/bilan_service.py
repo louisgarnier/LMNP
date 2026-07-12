@@ -41,9 +41,11 @@ logger = logging.getLogger(__name__)
 
 # Étape 2 Task 6 : les lignes spéciales du bilan sont calculées par le service
 # (amortissements cumulés, compte bancaire, résultat/report de l'exercice,
-# capital restant dû) et dispatchées par un `line_code` stable. Le
-# `special_source` legacy reste en fallback pendant la transition (colonne
-# morte supprimée en Task 8). Codes ↔ sources historiques :
+# capital restant dû) et dispatchées par un `line_code` stable. Étape 2 Task 8 :
+# la colonne legacy `special_source` a été retirée du modèle ; `line_code` est
+# désormais l'unique source de dispatch (posé par la migration pour l'existant,
+# et dérivé de `special_source` à la création via l'API — cf. routes/bilan.py).
+# Codes ↔ sources historiques :
 #   AMORT_CUMULES       ← amortizations | amortization_result
 #   COMPTE_BANCAIRE     ← transactions
 #   RESULTAT_EXERCICE   ← compte_resultat
@@ -55,8 +57,10 @@ LINE_CODE_RESULTAT_EXERCICE = "RESULTAT_EXERCICE"
 LINE_CODE_REPORT_A_NOUVEAU = "REPORT_A_NOUVEAU"
 LINE_CODE_CAPITAL_RESTANT_DU = "CAPITAL_RESTANT_DU"
 
-# Correspondance special_source (legacy) → line_code stable. Utilisée par la
-# migration pour poser les codes, et ici comme fallback de dispatch.
+# Correspondance special_source (label métier envoyé par le frontend) → line_code
+# stable. Utilisée par la migration pour poser les codes et par l'API à la
+# création/mise à jour d'une ligne spéciale (le frontend continue d'envoyer
+# `special_source`, traduit en `line_code` côté serveur).
 LINE_CODE_BY_SPECIAL_SOURCE = {
     "amortizations": LINE_CODE_AMORT_CUMULES,
     "amortization_result": LINE_CODE_AMORT_CUMULES,
@@ -64,6 +68,18 @@ LINE_CODE_BY_SPECIAL_SOURCE = {
     "compte_resultat": LINE_CODE_RESULTAT_EXERCICE,
     "compte_resultat_cumul": LINE_CODE_REPORT_A_NOUVEAU,
     "loan_payments": LINE_CODE_CAPITAL_RESTANT_DU,
+}
+
+# Réciproque line_code → special_source « canonique » (valeurs telles qu'émises
+# par le frontend), pour reconstruire le champ `special_source` des réponses API
+# désormais que la colonne a disparu du modèle. Le frontend ne LIT pas ce champ
+# (il ne fait que l'envoyer), mais on préserve la sérialisation à l'identique.
+SPECIAL_SOURCE_BY_LINE_CODE = {
+    LINE_CODE_AMORT_CUMULES: "amortizations",
+    LINE_CODE_COMPTE_BANCAIRE: "transactions",
+    LINE_CODE_RESULTAT_EXERCICE: "compte_resultat",
+    LINE_CODE_REPORT_A_NOUVEAU: "compte_resultat_cumul",
+    LINE_CODE_CAPITAL_RESTANT_DU: "loan_payments",
 }
 
 # Label `level_1` (référentiel) dont la SOMME des transactions cumulées définit
@@ -76,12 +92,16 @@ CREDIT_DISBURSEMENT_CATEGORY_LABEL = "Dettes financières (emprunt bancaire)"
 
 
 def line_code_for_mapping(mapping: BilanMapping) -> Optional[str]:
-    """Code de ligne spéciale d'un mapping : `line_code` prioritaire (stable),
-    dérivé de `special_source` en fallback (transition Task 6)."""
-    code = getattr(mapping, "line_code", None)
-    if code:
-        return code
-    return LINE_CODE_BY_SPECIAL_SOURCE.get(mapping.special_source)
+    """Code de ligne spéciale d'un mapping. Étape 2 Task 8 : `line_code` est
+    l'unique source (colonne `special_source` retirée du modèle)."""
+    return getattr(mapping, "line_code", None)
+
+
+def special_source_for_mapping(mapping: BilanMapping) -> Optional[str]:
+    """Reconstruit le `special_source` (label métier) d'un mapping pour les
+    réponses API depuis son `line_code` (étape 2 Task 8, colonne retirée du
+    modèle). None pour une ligne normale."""
+    return SPECIAL_SOURCE_BY_LINE_CODE.get(getattr(mapping, "line_code", None))
 
 
 def _natures_from_level_3_values(level_3_values: List[str]) -> List[str]:
@@ -663,6 +683,15 @@ def calculate_bilan(
             category_to_catids[mapping.category_name] = catids
             all_cat_ids.update(catids)
 
+        # INVARIANT (étape 2 Task 8, validé par
+        # migrations/validate_bilan_config_natures.py) : toute config bilan NON
+        # VIDE contient ≥1 label traduisible en nature → `natures` est non vide
+        # dès que `level_3_values` l'est. La divergence latente « absent vs 0 »
+        # (une config non vide dont AUCUN label ne se traduit ferait, sous
+        # l'ancien code, initialiser les lignes normales à 0 au lieu de sauter le
+        # bloc) est donc structurellement impossible sur données réelles. Une
+        # config VIDE court-circuite plus haut (`if not level_3_values`), même
+        # comportement qu'avant. Voir task-8-report.md.
         if all_cat_ids and natures:
             # Une seule requête pour toutes les catégories normales, filtrée par
             # property_id, nature de groupe et category_id (cumul jusqu'à fin d'année).

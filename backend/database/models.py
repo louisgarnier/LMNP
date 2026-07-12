@@ -27,7 +27,6 @@ class Property(Base):
     
     # Relations
     transactions = relationship("Transaction", back_populates="property", cascade="all, delete-orphan")
-    enriched_transactions = relationship("EnrichedTransaction", back_populates="property", cascade="all, delete-orphan")
     mappings = relationship("Mapping", back_populates="property", cascade="all, delete-orphan")
     file_imports = relationship("FileImport", back_populates="property", cascade="all, delete-orphan")
     mapping_imports = relationship("MappingImport", back_populates="property", cascade="all, delete-orphan")
@@ -80,31 +79,10 @@ class Transaction(Base):
     )
 
 
-class EnrichedTransaction(Base):
-    """Transactions with classifications and metadata."""
-    __tablename__ = "enriched_transactions"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, unique=True)
-    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
-    mois = Column(Integer, nullable=False, index=True)  # 1-12
-    annee = Column(Integer, nullable=False, index=True)
-    level_1 = Column(String(100), index=True)  # Catégorie principale
-    level_2 = Column(String(100), index=True)  # Sous-catégorie
-    level_3 = Column(String(100), index=True)  # Détail spécifique
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relations
-    transaction = relationship("Transaction", backref="enriched")
-    property = relationship("Property", back_populates="enriched_transactions")
-    
-    # Index pour recherches fréquentes et recherche par property_id
-    __table_args__ = (
-        Index('idx_enriched_year_month', 'annee', 'mois'),
-        Index('idx_enriched_levels', 'level_1', 'level_2', 'level_3'),
-        Index('idx_enriched_transactions_property_id', 'property_id'),
-    )
+# Étape 2 Task 8 : la classe EnrichedTransaction (table enriched_transactions) a
+# été supprimée. La classification vit désormais dans transactions.category_id
+# (référentiel category/category_groups). La table physique est droppée par la
+# migration drop_enriched_transactions.py.
 
 
 class Mapping(Base):
@@ -365,7 +343,8 @@ class CompteResultatMapping(Base):
     property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (ex: "Loyers hors charge encaissés")
     type = Column(String(50), nullable=True)  # Type: "Produits d'exploitation" ou "Charges d'exploitation" (pour les catégories personnalisées)
-    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]') — LEGACY (étape 2 Task 5, supprimé en Task 8, remplacé par la liaison category_links)
+    # NB étape 2 Task 8 : ex-colonne level_1_values retirée du modèle (remplacée
+    # par la liaison category_links). La colonne SQLite reste physiquement (morte).
     line_code = Column(String(30), nullable=True)  # Code de ligne stable (ex: 'AMORT', 'COUT_FINANCEMENT') — étape 2 Task 5. NULL pour les lignes ordinaires.
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -463,10 +442,11 @@ class BilanMapping(Base):
     category_name = Column(String(255), nullable=False, index=True)  # Nom de la catégorie comptable (niveau C)
     type = Column(String(50), nullable=False, index=True)  # Type: "ACTIF" ou "PASSIF"
     sub_category = Column(String(100), nullable=False, index=True)  # Sous-catégorie (niveau B)
-    level_1_values = Column(Text, nullable=True)  # JSON array des level_1 à inclure (ex: '["LOYERS", "REVENUS"]') — LEGACY (étape 2 Task 6, supprimé en Task 8, remplacé par la liaison category_links)
+    # NB étape 2 Task 8 : ex-colonnes level_1_values (remplacée par category_links)
+    # et special_source (remplacée par line_code) retirées du modèle. Les colonnes
+    # SQLite restent physiquement (mortes) — un DROP COLUMN SQLite exige un rebuild.
     is_special = Column(Boolean, nullable=False, default=False)  # Indique si c'est une catégorie spéciale
-    special_source = Column(String(100), nullable=True)  # Source pour les catégories spéciales ("amortizations"/"amortization_result", "transactions", "compte_resultat", "compte_resultat_cumul", "loan_payments") — LEGACY (fallback du dispatch, remplacé par line_code, supprimé Task 8)
-    line_code = Column(String(30), nullable=True)  # Code de ligne spéciale stable (ex: 'AMORT_CUMULES', 'COMPTE_BANCAIRE', 'RESULTAT_EXERCICE', 'REPORT_A_NOUVEAU', 'CAPITAL_RESTANT_DU') — étape 2 Task 6. NULL pour les lignes normales.
+    line_code = Column(String(30), nullable=True)  # Code de ligne spéciale stable (ex: 'AMORT_CUMULES', 'COMPTE_BANCAIRE', 'RESULTAT_EXERCICE', 'REPORT_A_NOUVEAU', 'CAPITAL_RESTANT_DU') — étape 2 Task 6/8 : unique source de dispatch. NULL pour les lignes normales.
     compte_resultat_view_id = Column(Integer, nullable=True)  # Pour catégorie "Résultat de l'exercice" (ForeignKey vers compte_resultat_mapping_views.id - table à créer si nécessaire)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

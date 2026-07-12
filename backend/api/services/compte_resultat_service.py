@@ -194,6 +194,12 @@ def calculate_produits_exploitation(
         # Si aucune valeur level_3 sélectionnée, retourner des montants vides
         return {}
 
+    # INVARIANT (étape 2 Task 8, validé par
+    # migrations/validate_bilan_config_natures.py) : toute config CR non vide a
+    # ≥1 label traduisible → `natures` non vide dès que `level_3_values` l'est.
+    # Une catégorie sans montant n'apparaît pas dans le résultat de toute façon,
+    # donc « natures vide » (config non vide non traduisible, impossible sur
+    # données réelles) et « aucune transaction » donnent le même dict vide.
     natures = _natures_from_level_3_values(level_3_values)
     if not natures:
         # Aucun label level_3 traduisible en nature -> aucun filtre positif
@@ -323,6 +329,12 @@ def calculate_charges_exploitation(
         # Si aucune valeur level_3 sélectionnée, retourner des montants vides
         return {}
 
+    # INVARIANT (étape 2 Task 8, validé par
+    # migrations/validate_bilan_config_natures.py) : toute config CR non vide a
+    # ≥1 label traduisible → `natures` non vide dès que `level_3_values` l'est.
+    # Une catégorie sans montant n'apparaît pas dans le résultat de toute façon,
+    # donc « natures vide » (config non vide non traduisible, impossible sur
+    # données réelles) et « aucune transaction » donnent le même dict vide.
     natures = _natures_from_level_3_values(level_3_values)
     if not natures:
         # Aucun label level_3 traduisible en nature -> aucun filtre positif
