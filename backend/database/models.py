@@ -12,6 +12,8 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from datetime import datetime
 
+from .money import EuroCents  # Étape 2 Task 9 : montants stockés en centimes (INTEGER)
+
 Base = declarative_base()
 
 
@@ -60,9 +62,9 @@ class Transaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
     date = Column(Date, nullable=False, index=True)
-    quantite = Column(Float, nullable=False)  # Montant de la transaction
+    quantite = Column(EuroCents, nullable=False)  # Montant de la transaction (centimes en base, euros à l'ORM)
     nom = Column(String(500), nullable=False, index=True)  # Description/nom de la transaction
-    solde = Column(Float, nullable=False)  # Solde après transaction
+    solde = Column(EuroCents, nullable=False)  # Solde après transaction (centimes en base, euros à l'ORM)
     source_file = Column(String(255))  # Fichier source d'origine
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)  # Référentiel category (Étape 2 Task 3)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -244,7 +246,7 @@ class AmortizationType(Base):
     level_1_values = Column(Text, nullable=False, default="[]")  # JSON array des valeurs level_1 mappées
     start_date = Column(Date, nullable=True)  # Date de début d'amortissement (override, nullable)
     duration = Column(Float, nullable=False, default=0.0)  # Durée d'amortissement en années (0 = non amortissable)
-    annual_amount = Column(Float, nullable=True)  # Annuité d'amortissement (override, nullable)
+    annual_amount = Column(EuroCents, nullable=True)  # Annuité d'amortissement (override, nullable) — centimes en base
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -266,7 +268,13 @@ class AmortizationResult(Base):
     transaction_id = Column(Integer, ForeignKey("transactions.id", ondelete="CASCADE"), nullable=False, index=True)
     year = Column(Integer, nullable=False, index=True)  # Année d'amortissement (ex: 2021, 2022)
     category = Column(String(255), nullable=False, index=True)  # Nom du type d'amortissement (ex: "Immobilisation terrain")
-    amount = Column(Float, nullable=False)  # Montant amorti pour cette année (négatif)
+    # Étape 2 Task 9 : cette colonne reste en Float (PAS EuroCents) — c'est le
+    # SEUL montant NON converti en centimes. L'amortissement linéaire produit des
+    # valeurs dérivées à décimales infinies (ex. total/durée = -643.7569444...).
+    # Les arrondir au centime au stockage ferait dériver les lignes cumulées du
+    # bilan jusqu'à ~0,06 € (mesuré), au-delà de la tolérance golden de 0,01 €.
+    # On conserve donc la précision sub-centime ici. Voir .superpowers/sdd/task-9-report.md.
+    amount = Column(Float, nullable=False)  # Montant amorti pour cette année (négatif) — Float délibéré (valeur dérivée)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -287,10 +295,10 @@ class LoanPayment(Base):
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     date = Column(Date, nullable=False, index=True)  # Date de la mensualité (01/01/année)
-    capital = Column(Float, nullable=False)  # Montant du capital remboursé
-    interest = Column(Float, nullable=False)  # Montant des intérêts
-    insurance = Column(Float, nullable=False)  # Montant de l'assurance crédit
-    total = Column(Float, nullable=False)  # Total de la mensualité (capital + interest + insurance)
+    capital = Column(EuroCents, nullable=False)  # Montant du capital remboursé (centimes en base)
+    interest = Column(EuroCents, nullable=False)  # Montant des intérêts (centimes en base)
+    insurance = Column(EuroCents, nullable=False)  # Montant de l'assurance crédit (centimes en base)
+    total = Column(EuroCents, nullable=False)  # Total de la mensualité (centimes en base)
     loan_name = Column(String(255), nullable=False, index=True)  # Nom du prêt (ex: "Prêt principal")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -314,13 +322,13 @@ class LoanConfig(Base):
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False, index=True)  # Nom du crédit (ex: "Prêt principal", "Prêt construction")
-    credit_amount = Column(Float, nullable=False)  # Montant du crédit accordé en euros
+    credit_amount = Column(EuroCents, nullable=False)  # Montant du crédit accordé (centimes en base, euros à l'ORM)
     interest_rate = Column(Float, nullable=False)  # Taux fixe actuel hors assurance en %
     duration_years = Column(Integer, nullable=False)  # Durée de l'emprunt en années
     initial_deferral_months = Column(Integer, default=0, nullable=False)  # Décalage initial en mois
     loan_start_date = Column(Date, nullable=True)  # Date d'emprunt
     loan_end_date = Column(Date, nullable=True)  # Date de fin prévisionnelle
-    monthly_insurance = Column(Float, default=0.0, nullable=False)  # Assurance mensuelle en euros
+    monthly_insurance = Column(EuroCents, default=0.0, nullable=False)  # Assurance mensuelle (centimes en base, euros à l'ORM)
     simulation_months = Column(Text, nullable=True)  # JSON array des mensualités personnalisées (ex: "[1, 50, 100, 150, 200]")
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -418,7 +426,7 @@ class CompteResultatOverride(Base):
     id = Column(Integer, primary_key=True, index=True)
     property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
     year = Column(Integer, nullable=False, index=True)  # Année du compte de résultat (unique par property_id)
-    override_value = Column(Float, nullable=False)  # Valeur override du résultat de l'exercice
+    override_value = Column(EuroCents, nullable=False)  # Valeur override du résultat de l'exercice (centimes en base)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
@@ -541,7 +549,7 @@ class AnnualForecastConfig(Base):
     year = Column(Integer, nullable=False, index=True)  # Année de base (ex: 2026)
     level_1 = Column(String(100), nullable=False, index=True)  # Catégorie comptable
     target_type = Column(String(50), nullable=False, index=True)  # "compte_resultat", "bilan_actif", "bilan_passif"
-    base_annual_amount = Column(Float, nullable=False)  # Montant prévu annuel
+    base_annual_amount = Column(EuroCents, nullable=False)  # Montant prévu annuel (centimes en base, euros à l'ORM)
     annual_growth_rate = Column(Float, default=0.0, nullable=False)  # Taux d'évolution (ex: 0.02 = +2%)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
