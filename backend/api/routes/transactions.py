@@ -17,9 +17,16 @@ import io
 import logging
 
 from backend.database import get_db
-from backend.database.models import Transaction, FileImport, EnrichedTransaction
+from backend.database.models import Transaction, FileImport, Category, CategoryGroup
 from backend.api.services.enrichment_service import enrich_transaction
 from backend.api.utils.validation import validate_property_id
+from backend.api.services.classification_read import (
+    join_classification,
+    category_label_columns,
+    month_expr,
+    year_expr,
+    levels_for_transaction,
+)
 
 logger = logging.getLogger(__name__)
 from backend.api.models import (
@@ -92,93 +99,82 @@ async def get_transactions(
     # Base query - filtrer par property_id dès le début
     base_query = db.query(Transaction).filter(Transaction.property_id == property_id)
     
-    # Déterminer si on doit joindre avec EnrichedTransaction
+    # Colonnes de niveaux dérivées du référentiel via category_id (étape 2 Task 7).
+    level_1_col, level_2_col, level_3_col = category_label_columns()
+
+    # Déterminer si on doit joindre au référentiel (categories/category_groups)
     needs_join = (
         (sort_by and sort_by in ["level_1", "level_2", "level_3"]) or
         filter_level_1 or filter_level_2 or filter_level_3 or
         unclassified_only
     )
-    
+
     if needs_join:
-        query = base_query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
+        query = join_classification(base_query)
     else:
         query = base_query
-    
-    # Filtre pour transactions non classées (level_1/2/3 = NULL)
+
+    # Filtre pour transactions non classées (category_id = NULL, ex-level_1 NULL)
     if unclassified_only:
-        if not needs_join:
-            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
-        # Filtrer les transactions où level_1 est NULL (ou EnrichedTransaction n'existe pas)
-        query = query.filter(
-            or_(
-                EnrichedTransaction.level_1.is_(None),
-                EnrichedTransaction.transaction_id.is_(None)
-            )
-        )
-    
+        query = query.filter(Transaction.category_id.is_(None))
+
     # Filtres par date
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:
         query = query.filter(Transaction.date <= end_date)
-    
+
     # Filtres texte (contient, insensible à la casse)
     if filter_nom:
         query = query.filter(func.lower(Transaction.nom).contains(func.lower(filter_nom)))
-    
+
     if filter_level_1:
-        if not needs_join:
-            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
         filter_normalized = filter_level_1.lower().strip()
         # Détecter "unassigned" ou préfixe de "unassigned" (ex: "un", "una", "unas")
         if filter_normalized == "unassigned":
-            query = query.filter(EnrichedTransaction.level_1.is_(None))
+            query = query.filter(level_1_col.is_(None))
         elif "unassigned".startswith(filter_normalized):
             # Si le filtre est un préfixe de "unassigned", inclure les NULL ET les valeurs qui contiennent le filtre
             query = query.filter(
                 or_(
-                    EnrichedTransaction.level_1.is_(None),
-                    func.lower(EnrichedTransaction.level_1).contains(func.lower(filter_level_1))
+                    level_1_col.is_(None),
+                    func.lower(level_1_col).contains(func.lower(filter_level_1))
                 )
             )
         else:
-            query = query.filter(func.lower(EnrichedTransaction.level_1).contains(func.lower(filter_level_1)))
-    
+            query = query.filter(func.lower(level_1_col).contains(func.lower(filter_level_1)))
+
     if filter_level_2:
-        if not needs_join:
-            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
         filter_normalized = filter_level_2.lower().strip()
         # Détecter "unassigned" ou préfixe de "unassigned" (ex: "un", "una", "unas")
         if filter_normalized == "unassigned":
-            query = query.filter(EnrichedTransaction.level_2.is_(None))
+            query = query.filter(level_2_col.is_(None))
         elif "unassigned".startswith(filter_normalized):
             # Si le filtre est un préfixe de "unassigned", inclure les NULL ET les valeurs qui contiennent le filtre
             query = query.filter(
                 or_(
-                    EnrichedTransaction.level_2.is_(None),
-                    func.lower(EnrichedTransaction.level_2).contains(func.lower(filter_level_2))
+                    level_2_col.is_(None),
+                    func.lower(level_2_col).contains(func.lower(filter_level_2))
                 )
             )
         else:
-            query = query.filter(func.lower(EnrichedTransaction.level_2).contains(func.lower(filter_level_2)))
-    
+            query = query.filter(func.lower(level_2_col).contains(func.lower(filter_level_2)))
+
     if filter_level_3:
-        if not needs_join:
-            query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
         filter_normalized = filter_level_3.lower().strip()
         # Détecter "unassigned" ou préfixe de "unassigned" (ex: "un", "una", "unas")
         if filter_normalized == "unassigned":
-            query = query.filter(EnrichedTransaction.level_3.is_(None))
+            query = query.filter(level_3_col.is_(None))
         elif "unassigned".startswith(filter_normalized):
             # Si le filtre est un préfixe de "unassigned", inclure les NULL ET les valeurs qui contiennent le filtre
             query = query.filter(
                 or_(
-                    EnrichedTransaction.level_3.is_(None),
-                    func.lower(EnrichedTransaction.level_3).contains(func.lower(filter_level_3))
+                    level_3_col.is_(None),
+                    func.lower(level_3_col).contains(func.lower(filter_level_3))
                 )
             )
         else:
-            query = query.filter(func.lower(EnrichedTransaction.level_3).contains(func.lower(filter_level_3)))
+            query = query.filter(func.lower(level_3_col).contains(func.lower(filter_level_3)))
     
     # Filtres numériques (quantité)
     if filter_quantite_min is not None:
@@ -212,17 +208,11 @@ async def get_transactions(
         elif sort_by == "solde":
             order_col = Transaction.solde
         elif sort_by == "level_1":
-            if not needs_join:
-                query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
-            order_col = EnrichedTransaction.level_1
+            order_col = level_1_col
         elif sort_by == "level_2":
-            if not needs_join:
-                query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
-            order_col = EnrichedTransaction.level_2
+            order_col = level_2_col
         elif sort_by == "level_3":
-            if not needs_join:
-                query = query.outerjoin(EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id)
-            order_col = EnrichedTransaction.level_3
+            order_col = level_3_col
         else:
             # Par défaut, trier par date desc
             order_col = Transaction.date
@@ -242,15 +232,10 @@ async def get_transactions(
     
     logger.info(f"[Transactions] Retourné {len(transactions)} transactions pour property_id={property_id} (total={total})")
     
-    # Récupérer les données enrichies pour chaque transaction
+    # Construire la réponse : niveaux dérivés du référentiel via category_id.
     transaction_responses = []
     for t in transactions:
-        # Récupérer les données enrichies
-        enriched = db.query(EnrichedTransaction).filter(
-            EnrichedTransaction.transaction_id == t.id
-        ).first()
-        
-        # Créer la réponse avec les données enrichies
+        level_1, level_2, level_3 = levels_for_transaction(t)
         transaction_dict = {
             "id": t.id,
             "date": t.date,
@@ -260,12 +245,12 @@ async def get_transactions(
             "source_file": t.source_file,
             "created_at": t.created_at,
             "updated_at": t.updated_at,
-            "level_1": enriched.level_1 if enriched else None,
-            "level_2": enriched.level_2 if enriched else None,
-            "level_3": enriched.level_3 if enriched else None,
+            "level_1": level_1,
+            "level_2": level_2,
+            "level_3": level_3,
         }
         transaction_responses.append(TransactionResponse(**transaction_dict))
-    
+
     return TransactionListResponse(
         transactions=transaction_responses,
         total=total,
@@ -302,77 +287,70 @@ async def get_transaction_unique_values(
     # Valider property_id
     validate_property_id(db, property_id, "Transactions")
     
-    # Pour level_1/2/3, on DOIT toujours faire le JOIN avec Transaction pour filtrer par property_id
-    # Pour les autres colonnes (nom, date), on utilise directement Transaction
+    # Colonnes de niveaux dérivées du référentiel via category_id (étape 2 Task 7).
+    level_1_col, level_2_col, level_3_col = category_label_columns()
+
+    # Pour level_1/2/3, JOIN transactions → categories → category_groups (INNER :
+    # seules les transactions classées ont un category_id, comme l'ancien INNER
+    # JOIN sur enriched_transactions). Pour nom/date/mois/annee : Transaction seul.
     if column in ["level_1", "level_2", "level_3"]:
-        # TOUJOURS faire le JOIN avec Transaction pour pouvoir filtrer par property_id
-        query = db.query(EnrichedTransaction).join(
-            Transaction, Transaction.id == EnrichedTransaction.transaction_id
+        query = db.query(Transaction).join(
+            Category, Category.id == Transaction.category_id
+        ).join(
+            CategoryGroup, CategoryGroup.id == Category.group_id
         ).filter(Transaction.property_id == property_id)
     else:
         # Pour nom, date, etc., filtrer directement par property_id
         query = db.query(Transaction).filter(Transaction.property_id == property_id)
-    
+
     # Filtre par level_2 si fourni (utile pour filtrer les level_1 par level_2)
     if filter_level_2:
         if column in ["level_1", "level_2", "level_3"]:
-            query = query.filter(EnrichedTransaction.level_2 == filter_level_2)
-        # Note: pour les autres colonnes (nom, date, etc.), on ne filtre pas par level_2 car elles ne sont pas dans EnrichedTransaction
-    
+            query = query.filter(level_2_col == filter_level_2)
+        # Note: pour les autres colonnes (nom, date, etc.), on ne filtre pas par level_2
+
     # Filtre par level_3 si fourni (utile pour filtrer les level_1 par plusieurs level_3)
     if filter_level_3:
         if column in ["level_1", "level_2", "level_3"]:
             # Parser les valeurs séparées par virgule
             level_3_values = [v.strip() for v in filter_level_3.split(',') if v.strip()]
             if level_3_values:
-                query = query.filter(EnrichedTransaction.level_3.in_(level_3_values))
-        # Note: pour les autres colonnes (nom, date, etc.), on ne filtre pas par level_3 car elles ne sont pas dans EnrichedTransaction
-    
+                query = query.filter(level_3_col.in_(level_3_values))
+        # Note: pour les autres colonnes (nom, date, etc.), on ne filtre pas par level_3
+
     # Filtres par date si fournis
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:
         query = query.filter(Transaction.date <= end_date)
-    
+
     # Récupérer les valeurs uniques selon la colonne
     if column == "nom":
         values = query.with_entities(Transaction.nom).distinct().filter(Transaction.nom.isnot(None)).order_by(Transaction.nom).all()
         unique_values = [v[0] for v in values if v[0]]
     elif column == "level_1":
         # Utiliser distinct() directement sur la colonne pour optimiser
-        values = query.with_entities(EnrichedTransaction.level_1).distinct().filter(EnrichedTransaction.level_1.isnot(None)).order_by(EnrichedTransaction.level_1).all()
+        values = query.with_entities(level_1_col).distinct().filter(level_1_col.isnot(None)).order_by(level_1_col).all()
         unique_values = [v[0] for v in values if v[0]]
     elif column == "level_2":
-        values = query.with_entities(EnrichedTransaction.level_2).distinct().filter(EnrichedTransaction.level_2.isnot(None)).order_by(EnrichedTransaction.level_2).all()
+        values = query.with_entities(level_2_col).distinct().filter(level_2_col.isnot(None)).order_by(level_2_col).all()
         unique_values = [v[0] for v in values if v[0]]
     elif column == "level_3":
-        values = query.with_entities(EnrichedTransaction.level_3).distinct().filter(EnrichedTransaction.level_3.isnot(None)).order_by(EnrichedTransaction.level_3).all()
+        values = query.with_entities(level_3_col).distinct().filter(level_3_col.isnot(None)).order_by(level_3_col).all()
         unique_values = [v[0] for v in values if v[0]]
     elif column == "date":
         values = query.with_entities(Transaction.date).distinct().filter(Transaction.date.isnot(None)).order_by(Transaction.date).all()
         unique_values = [v[0].strftime('%Y-%m-%d') if v[0] else None for v in values if v[0]]
         unique_values = [v for v in unique_values if v]
     elif column == "mois":
-        # Pour mois, on doit utiliser EnrichedTransaction avec JOIN et filtrer par property_id
-        query = db.query(EnrichedTransaction).join(
-            Transaction, Transaction.id == EnrichedTransaction.transaction_id
-        ).filter(Transaction.property_id == property_id)
-        if start_date:
-            query = query.filter(Transaction.date >= start_date)
-        if end_date:
-            query = query.filter(Transaction.date <= end_date)
-        values = query.with_entities(EnrichedTransaction.mois).distinct().filter(EnrichedTransaction.mois.isnot(None)).order_by(EnrichedTransaction.mois).all()
+        # mois dérivé de Transaction.date (ex-enriched.mois)
+        mois_col = month_expr()
+        values = query.with_entities(mois_col).distinct().filter(mois_col.isnot(None)).order_by(mois_col).all()
         unique_values = [str(v[0]) for v in values if v[0] is not None]
     elif column == "annee":
-        # Pour annee, on doit utiliser EnrichedTransaction avec JOIN et filtrer par property_id
-        query = db.query(EnrichedTransaction).join(
-            Transaction, Transaction.id == EnrichedTransaction.transaction_id
-        ).filter(Transaction.property_id == property_id)
-        if start_date:
-            query = query.filter(Transaction.date >= start_date)
-        if end_date:
-            query = query.filter(Transaction.date <= end_date)
-        values = query.with_entities(EnrichedTransaction.annee).distinct().filter(EnrichedTransaction.annee.isnot(None)).order_by(EnrichedTransaction.annee).all()
+        # annee dérivée de Transaction.date (ex-enriched.annee)
+        annee_col = year_expr()
+        values = query.with_entities(annee_col).distinct().filter(annee_col.isnot(None)).order_by(annee_col).all()
         unique_values = [str(v[0]) for v in values if v[0] is not None]
     else:
         raise HTTPException(status_code=400, detail=f"Colonne '{column}' non supportée. Colonnes supportées: nom, level_1, level_2, level_3, date, mois, annee")
@@ -466,12 +444,12 @@ async def get_transaction_sum_by_level1(
     query = db.query(
         func.sum(Transaction.quantite)
     ).join(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+        Category, Category.id == Transaction.category_id
     ).filter(
         Transaction.property_id == property_id,
-        EnrichedTransaction.level_1 == level_1
+        Category.label == level_1
     )
-    
+
     if end_date:
         query = query.filter(Transaction.date <= end_date)
     
@@ -518,11 +496,14 @@ async def export_transactions(
     # Valider property_id
     validate_property_id(db, property_id, "Transactions")
     
+    # Colonnes de niveaux dérivées du référentiel via category_id (étape 2 Task 7).
+    level_1_col, level_2_col, level_3_col = category_label_columns()
+
     # Construire la requête avec les mêmes filtres que GET /api/transactions - FILTRER PAR PROPERTY_ID
-    query = db.query(Transaction).filter(Transaction.property_id == property_id).outerjoin(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+    query = join_classification(
+        db.query(Transaction).filter(Transaction.property_id == property_id)
     )
-    
+
     # Appliquer les filtres
     if start_date:
         query = query.filter(Transaction.date >= start_date)
@@ -531,11 +512,11 @@ async def export_transactions(
     if filter_nom:
         query = query.filter(func.lower(Transaction.nom).contains(func.lower(filter_nom)))
     if filter_level_1:
-        query = query.filter(EnrichedTransaction.level_1 == filter_level_1)
+        query = query.filter(level_1_col == filter_level_1)
     if filter_level_2:
-        query = query.filter(EnrichedTransaction.level_2 == filter_level_2)
+        query = query.filter(level_2_col == filter_level_2)
     if filter_level_3:
-        query = query.filter(EnrichedTransaction.level_3 == filter_level_3)
+        query = query.filter(level_3_col == filter_level_3)
     
     # Trier par date (croissant)
     query = query.order_by(Transaction.date, Transaction.id)
@@ -549,20 +530,16 @@ async def export_transactions(
     # Préparer les données pour le DataFrame
     data = []
     for transaction in transactions:
-        # Récupérer les données enrichies
-        enriched = db.query(EnrichedTransaction).filter(
-            EnrichedTransaction.transaction_id == transaction.id
-        ).first()
-        
+        level_1, level_2, level_3 = levels_for_transaction(transaction)
         data.append({
             'id': transaction.id,
             'date': transaction.date.strftime('%Y-%m-%d') if transaction.date else '',
             'quantite': transaction.quantite,
             'nom': transaction.nom,
             'solde': transaction.solde,
-            'level_1': enriched.level_1 if enriched else '',
-            'level_2': enriched.level_2 if enriched else '',
-            'level_3': enriched.level_3 if enriched else '',
+            'level_1': level_1 if level_1 is not None else '',
+            'level_2': level_2 if level_2 is not None else '',
+            'level_3': level_3 if level_3 is not None else '',
             'source_file': transaction.source_file or '',
             'created_at': transaction.created_at.strftime('%Y-%m-%d %H:%M:%S') if transaction.created_at else '',
             'updated_at': transaction.updated_at.strftime('%Y-%m-%d %H:%M:%S') if transaction.updated_at else ''
@@ -637,12 +614,8 @@ async def get_transaction(
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction non trouvée ou n'appartient pas à cette propriété")
     
-    # Récupérer les données enrichies
-    enriched = db.query(EnrichedTransaction).filter(
-        EnrichedTransaction.transaction_id == transaction.id
-    ).first()
-    
-    # Créer la réponse avec les données enrichies
+    # Niveaux dérivés du référentiel via category_id (étape 2 Task 7)
+    level_1, level_2, level_3 = levels_for_transaction(transaction)
     transaction_dict = {
         "id": transaction.id,
         "date": transaction.date,
@@ -652,11 +625,11 @@ async def get_transaction(
         "source_file": transaction.source_file,
         "created_at": transaction.created_at,
         "updated_at": transaction.updated_at,
-        "level_1": enriched.level_1 if enriched else None,
-        "level_2": enriched.level_2 if enriched else None,
-        "level_3": enriched.level_3 if enriched else None,
+        "level_1": level_1,
+        "level_2": level_2,
+        "level_3": level_3,
     }
-    
+
     return TransactionResponse(**transaction_dict)
 
 

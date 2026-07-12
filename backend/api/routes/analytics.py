@@ -12,9 +12,16 @@ from datetime import date
 import logging
 
 from backend.database import get_db
-from backend.database.models import Transaction, EnrichedTransaction
+from backend.database.models import Transaction, Category, CategoryGroup
 from backend.api.models import TransactionResponse, TransactionListResponse
 from backend.api.utils.validation import validate_property_id
+from backend.api.services.classification_read import (
+    join_classification,
+    category_label_columns,
+    month_expr,
+    year_expr,
+    levels_for_transaction,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -22,62 +29,54 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-def get_field_column(field: str, transaction_alias=None, enriched_alias=None):
+def get_field_column(field: str):
     """
-    Retourne la colonne SQLAlchemy correspondant au champ demandé.
-    
+    Retourne l'expression SQLAlchemy correspondant au champ demandé.
+
+    Les niveaux (level_1/2/3) et mois/annee sont dérivés du référentiel via
+    `transactions.category_id` (étape 2 Task 7), mêmes valeurs textuelles que
+    l'ex-`enriched_transactions`. Nécessite un LEFT JOIN au préalable
+    (`join_classification`).
+
     Args:
         field: Nom du champ (date, mois, annee, level_1, level_2, level_3, nom)
-        transaction_alias: Alias SQLAlchemy pour Transaction (optionnel)
-        enriched_alias: Alias SQLAlchemy pour EnrichedTransaction (optionnel)
-    
+
     Returns:
-        Colonne SQLAlchemy
+        Expression colonne SQLAlchemy
     """
-    if transaction_alias is None:
-        transaction_alias = Transaction
-    if enriched_alias is None:
-        enriched_alias = EnrichedTransaction
-    
+    level_1_col, level_2_col, level_3_col = category_label_columns()
     field_mapping = {
-        'date': transaction_alias.date,
-        'mois': enriched_alias.mois,
-        'annee': enriched_alias.annee,
-        'level_1': enriched_alias.level_1,
-        'level_2': enriched_alias.level_2,
-        'level_3': enriched_alias.level_3,
-        'nom': transaction_alias.nom,
+        'date': Transaction.date,
+        'mois': month_expr(),
+        'annee': year_expr(),
+        'level_1': level_1_col,
+        'level_2': level_2_col,
+        'level_3': level_3_col,
+        'nom': Transaction.nom,
     }
-    
+
     if field not in field_mapping:
         raise ValueError(f"Champ '{field}' non supporté. Champs supportés: {list(field_mapping.keys())}")
-    
+
     return field_mapping[field]
 
 
-def apply_filters(query, filters: Dict[str, Any], property_id: int, transaction_alias=None, enriched_alias=None):
+def apply_filters(query, filters: Dict[str, Any], property_id: int):
     """
     Applique les filtres à la requête.
-    
+
     Args:
         query: Requête SQLAlchemy
         filters: Dictionnaire de filtres {field: value}
         property_id: ID de la propriété pour filtrer les transactions
-        transaction_alias: Alias SQLAlchemy pour Transaction
-        enriched_alias: Alias SQLAlchemy pour EnrichedTransaction
-    
+
     Returns:
         Requête filtrée
     """
     logger.info(f"[PivotService] apply_filters - property_id={property_id}")
-    
-    if transaction_alias is None:
-        transaction_alias = Transaction
-    if enriched_alias is None:
-        enriched_alias = EnrichedTransaction
-    
+
     # Always filter by property_id first
-    query = query.filter(transaction_alias.property_id == property_id)
+    query = query.filter(Transaction.property_id == property_id)
     
     if not filters:
         return query
@@ -86,8 +85,8 @@ def apply_filters(query, filters: Dict[str, Any], property_id: int, transaction_
         if value is None:
             continue
         
-        column = get_field_column(field, transaction_alias, enriched_alias)
-        
+        column = get_field_column(field)
+
         # Gérer les arrays de valeurs (OR pour le même champ)
         if isinstance(value, list):
             if len(value) == 0:
@@ -180,14 +179,13 @@ async def get_pivot_data(
                 detail=f"Champ '{field}' non supporté. Champs supportés: {valid_fields}"
             )
     
-    # Construire la requête de base avec jointure EnrichedTransaction
-    query = db.query(Transaction).outerjoin(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
-    )
-    
+    # Construire la requête de base avec jointure vers le référentiel
+    # (transactions → categories → category_groups) pour dériver les niveaux.
+    query = join_classification(db.query(Transaction))
+
     # Appliquer les filtres (includes property_id filtering)
     query = apply_filters(query, filter_dict, property_id)
-    
+
     # Construire le groupby
     group_by_columns = []
     for field in row_fields:
@@ -408,11 +406,10 @@ async def get_pivot_details(
             detail=f"Nombre de column_values ({len(column_vals)}) ne correspond pas au nombre de column_fields ({len(column_fields)})"
         )
     
-    # Construire la requête de base avec jointure EnrichedTransaction
-    query = db.query(Transaction).outerjoin(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
-    )
-    
+    # Construire la requête de base avec jointure vers le référentiel
+    # (transactions → categories → category_groups) pour dériver les niveaux.
+    query = join_classification(db.query(Transaction))
+
     # Appliquer les filtres globaux (includes property_id filtering)
     query = apply_filters(query, filter_dict, property_id)
     
@@ -446,15 +443,10 @@ async def get_pivot_details(
     # Appliquer la pagination
     transactions = query.offset(skip).limit(limit).all()
     
-    # Récupérer les données enrichies pour chaque transaction
+    # Construire la réponse : niveaux dérivés du référentiel via category_id.
     transaction_responses = []
     for t in transactions:
-        # Récupérer les données enrichies
-        enriched = db.query(EnrichedTransaction).filter(
-            EnrichedTransaction.transaction_id == t.id
-        ).first()
-        
-        # Créer la réponse avec les données enrichies
+        level_1, level_2, level_3 = levels_for_transaction(t)
         transaction_dict = {
             "id": t.id,
             "date": t.date,
@@ -464,9 +456,9 @@ async def get_pivot_details(
             "source_file": t.source_file,
             "created_at": t.created_at,
             "updated_at": t.updated_at,
-            "level_1": enriched.level_1 if enriched else None,
-            "level_2": enriched.level_2 if enriched else None,
-            "level_3": enriched.level_3 if enriched else None,
+            "level_1": level_1,
+            "level_2": level_2,
+            "level_3": level_3,
         }
         transaction_responses.append(TransactionResponse(**transaction_dict))
     

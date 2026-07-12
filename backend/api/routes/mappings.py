@@ -17,8 +17,9 @@ from pathlib import Path
 from datetime import datetime
 
 from backend.database import get_db
-from backend.database.models import Mapping, Transaction, EnrichedTransaction, MappingImport, AllowedMapping
+from backend.database.models import Mapping, Transaction, Category, CategoryGroup, MappingImport, AllowedMapping
 from backend.api.utils.validation import validate_property_id
+from backend.api.services.classification_read import join_classification, category_label_columns
 from backend.api.models import (
     MappingCreate,
     MappingUpdate,
@@ -1105,40 +1106,37 @@ async def delete_mapping(
     mapping_level_2 = mapping.level_2
     mapping_level_3 = mapping.level_3
     
-    # Trouver toutes les transactions enrichies de cette propriété qui utilisent ce mapping
-    # On cherche les transactions qui ont les mêmes level_1, level_2, level_3
-    # ET dont le nom correspond au mapping
-    enriched_transactions = db.query(EnrichedTransaction).join(Transaction).filter(
-        EnrichedTransaction.property_id == property_id,
-        Transaction.property_id == property_id,
-        EnrichedTransaction.level_1 == mapping_level_1,
-        EnrichedTransaction.level_2 == mapping_level_2,
-        EnrichedTransaction.level_3 == mapping_level_3
+    # Trouver toutes les transactions de cette propriété qui utilisent ce mapping.
+    # La classification (level_1/2/3) est dérivée du référentiel via category_id
+    # (étape 2 Task 7) : level_1 == Category.label, level_2 == CategoryGroup.label,
+    # level_3 == LABEL_BY_NATURE[CategoryGroup.nature].
+    _, _, level_3_col = category_label_columns()
+    candidate_transactions = join_classification(
+        db.query(Transaction).filter(Transaction.property_id == property_id)
+    ).filter(
+        Category.label == mapping_level_1,
+        CategoryGroup.label == mapping_level_2,
+        level_3_col == mapping_level_3
     ).all()
-    
+
     # Filtrer pour ne garder que celles dont le nom correspond au mapping
     transactions_to_re_enrich = []
-    for enriched in enriched_transactions:
-        transaction = db.query(Transaction).filter(
-            Transaction.id == enriched.transaction_id,
-            Transaction.property_id == property_id
-        ).first()
-        if transaction:
-            # Vérifier si le nom de la transaction correspond au mapping
-            transaction_name = transaction.nom.strip()
-            mapping_name = mapping_nom.strip()
-            
-            # Utiliser la même logique que find_best_mapping
-            matches = False
-            if 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
-                matches = transaction_name.startswith(mapping_name)
-            elif 'VIR STRIPE' in transaction_name and mapping_name == 'VIR STRIPE':
-                matches = True
-            elif mapping_name in transaction_name or transaction_name.startswith(mapping_name):
-                matches = True
-            
-            if matches:
-                transactions_to_re_enrich.append(transaction)
+    for transaction in candidate_transactions:
+        # Vérifier si le nom de la transaction correspond au mapping
+        transaction_name = transaction.nom.strip()
+        mapping_name = mapping_nom.strip()
+
+        # Utiliser la même logique que find_best_mapping
+        matches = False
+        if 'PRLV SEPA' in transaction_name and 'PRLV SEPA' in mapping_name:
+            matches = transaction_name.startswith(mapping_name)
+        elif 'VIR STRIPE' in transaction_name and mapping_name == 'VIR STRIPE':
+            matches = True
+        elif mapping_name in transaction_name or transaction_name.startswith(mapping_name):
+            matches = True
+
+        if matches:
+            transactions_to_re_enrich.append(transaction)
     
     # Supprimer le mapping
     db.delete(mapping)

@@ -21,7 +21,6 @@ from sqlalchemy import and_, func, exists
 
 from backend.database.models import (
     Transaction,
-    EnrichedTransaction,
     Category,
     CategoryGroup,
     BilanMapping,
@@ -214,35 +213,41 @@ def calculate_normal_category(
     
     if not level_3_values:
         return 0.0
-    
-    if not mapping.level_1_values:
+
+    # Lecture par category_id (liaison bilan_mapping_categories) + filtre par
+    # nature de groupe (ex-level_3), au lieu de enriched.level_1 + enriched.level_3
+    # (étape 2 Task 7 ; même transformation que calculate_bilan, golden-vérifiée).
+    # Note : cette fonction n'est plus appelée dans le chemin API (calculate_bilan
+    # calcule les lignes normales en masse) — conservée pour le script d'analyse
+    # de performance offline.
+    natures = _natures_from_level_3_values(level_3_values)
+    if not natures:
         return 0.0
-    
-    try:
-        level_1_values = json.loads(mapping.level_1_values)
-    except (json.JSONDecodeError, TypeError):
+
+    catids = {link.category_id for link in mapping.category_links}
+    if not catids:
         return 0.0
-    
-    if not level_1_values:
-        return 0.0
-    
+
     # Date de fin de l'année (cumul jusqu'à cette date)
     end_date = date(year, 12, 31)
-    
-    # Filtrer les transactions par level_3, level_1, property_id et cumul jusqu'à la fin de l'année
+
+    # Filtrer les transactions par nature (via category_id → groupe), category_id,
+    # property_id et cumul jusqu'à la fin de l'année.
     query = db.query(
         func.sum(Transaction.quantite)
     ).join(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+        Category, Category.id == Transaction.category_id
+    ).join(
+        CategoryGroup, CategoryGroup.id == Category.group_id
     ).filter(
         and_(
             Transaction.property_id == property_id,
-            EnrichedTransaction.level_3.in_(level_3_values),
-            EnrichedTransaction.level_1.in_(level_1_values),
+            CategoryGroup.nature.in_(natures),
+            Transaction.category_id.in_(catids),
             Transaction.date <= end_date  # Cumul jusqu'à la fin de l'année
         )
     )
-    
+
     result = query.scalar()
     if result is None:
         return 0.0

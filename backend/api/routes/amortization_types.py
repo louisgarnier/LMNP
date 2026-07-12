@@ -17,8 +17,10 @@ from backend.database.models import (
     AmortizationType,
     AmortizationResult,
     Transaction,
-    EnrichedTransaction
+    Category,
+    CategoryGroup
 )
+from backend.api.services.classification_read import category_label_columns
 from backend.api.models import (
     AmortizationTypeCreate,
     AmortizationTypeUpdate,
@@ -360,12 +362,15 @@ async def delete_amortization_type(
     
     if level_1_values:
         # Récupérer les transactions correspondantes
+        level_1_col, level_2_col, _ = category_label_columns()
         matching_transactions = db.query(Transaction.id).join(
-            EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+            Category, Category.id == Transaction.category_id
+        ).join(
+            CategoryGroup, CategoryGroup.id == Category.group_id
         ).filter(
             and_(
-                EnrichedTransaction.level_2 == atype.level_2_value,
-                EnrichedTransaction.level_1.in_(level_1_values)
+                level_2_col == atype.level_2_value,
+                level_1_col.in_(level_1_values)
             )
         ).all()
         
@@ -436,13 +441,16 @@ async def get_amortization_type_amount(
         )
     
     # Calculer la somme des transactions correspondantes (filtrées par property_id)
+    level_1_col, level_2_col, _ = category_label_columns()
     result = db.query(func.sum(Transaction.quantite)).join(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+        Category, Category.id == Transaction.category_id
+    ).join(
+        CategoryGroup, CategoryGroup.id == Category.group_id
     ).filter(
         and_(
             Transaction.property_id == property_id,
-            EnrichedTransaction.level_2 == atype.level_2_value,
-            EnrichedTransaction.level_1.in_(level_1_values)
+            level_2_col == atype.level_2_value,
+            level_1_col.in_(level_1_values)
         )
     ).scalar()
     
@@ -515,13 +523,16 @@ async def get_amortization_type_cumulated(
         )
     
     # Récupérer toutes les transactions correspondantes au type (filtrées par property_id)
+    level_1_col, level_2_col, _ = category_label_columns()
     transactions = db.query(Transaction).join(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+        Category, Category.id == Transaction.category_id
+    ).join(
+        CategoryGroup, CategoryGroup.id == Category.group_id
     ).filter(
         and_(
             Transaction.property_id == property_id,
-            EnrichedTransaction.level_2 == atype.level_2_value,
-            EnrichedTransaction.level_1.in_(level_1_values)
+            level_2_col == atype.level_2_value,
+            level_1_col.in_(level_1_values)
         )
     ).all()
     
@@ -636,13 +647,16 @@ async def get_amortization_type_transaction_count(
         )
     
     # Compter les transactions correspondantes (filtrées par property_id)
+    level_1_col, level_2_col, _ = category_label_columns()
     count = db.query(Transaction).join(
-        EnrichedTransaction, Transaction.id == EnrichedTransaction.transaction_id
+        Category, Category.id == Transaction.category_id
+    ).join(
+        CategoryGroup, CategoryGroup.id == Category.group_id
     ).filter(
         and_(
             Transaction.property_id == property_id,
-            EnrichedTransaction.level_2 == atype.level_2_value,
-            EnrichedTransaction.level_1.in_(level_1_values)
+            level_2_col == atype.level_2_value,
+            level_1_col.in_(level_1_values)
         )
     ).count()
     

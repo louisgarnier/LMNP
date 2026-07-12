@@ -24,7 +24,6 @@ from sqlalchemy import and_, or_, func
 
 from backend.database.models import (
     Transaction,
-    EnrichedTransaction,
     Category,
     CategoryGroup,
     CompteResultatMapping,

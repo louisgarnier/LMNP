@@ -19,7 +19,6 @@ from dateutil.relativedelta import relativedelta
 
 from backend.database.models import (
     Transaction,
-    EnrichedTransaction,
     AmortizationType,
     AmortizationResult
 )
@@ -137,7 +136,7 @@ def recalculate_transaction_amortization(
     Recalcule les amortissements pour une transaction donnée.
     
     Logique :
-    1. Récupérer la transaction et son EnrichedTransaction
+    1. Récupérer la transaction et sa classification (via category_id → référentiel)
     2. Trouver le AmortizationType correspondant (level_2 + level_1)
     3. Si type trouvé et duration > 0 :
        - Calculer les montants par année
@@ -156,29 +155,31 @@ def recalculate_transaction_amortization(
     if not transaction:
         return 0
     
-    # Récupérer l'enrichissement
-    enriched = db.query(EnrichedTransaction).filter(
-        EnrichedTransaction.transaction_id == transaction_id
-    ).first()
-    
-    if not enriched or not enriched.level_2 or not enriched.level_1:
-        # Pas d'enrichissement ou pas de level_2/level_1 → supprimer les résultats existants
+    # Classification dérivée du référentiel via category_id (étape 2 Task 7) :
+    # level_1 == Category.label, level_2 == CategoryGroup.label.
+    category = transaction.category
+    group = category.group if category is not None else None
+    level_1 = category.label if category is not None else None
+    level_2 = group.label if group is not None else None
+
+    if not level_2 or not level_1:
+        # Pas de classification (level_1/level_2) → supprimer les résultats existants
         db.query(AmortizationResult).filter(
             AmortizationResult.transaction_id == transaction_id
         ).delete()
         db.commit()
         return 0
-    
+
     # Trouver le type d'amortissement correspondant (filtré par property_id de la transaction)
     amortization_types = db.query(AmortizationType).filter(
         AmortizationType.property_id == transaction.property_id,
-        AmortizationType.level_2_value == enriched.level_2
+        AmortizationType.level_2_value == level_2
     ).all()
-    
+
     matching_type = None
     for atype in amortization_types:
         level_1_values = json.loads(atype.level_1_values or "[]")
-        if enriched.level_1 in level_1_values:
+        if level_1 in level_1_values:
             matching_type = atype
             break
     
@@ -235,9 +236,11 @@ def recalculate_all_amortizations(db: Session, property_id: int) -> int:
     """
     logger.info(f"[AmortizationService] Recalcul tous les amortissements pour property_id={property_id}")
     
-    # Récupérer toutes les transactions avec enrichissement (filtrées par property_id)
-    transactions = db.query(Transaction).join(EnrichedTransaction).filter(
-        Transaction.property_id == property_id
+    # Récupérer toutes les transactions classées (category_id non NULL, ex-enrichies),
+    # filtrées par property_id.
+    transactions = db.query(Transaction).filter(
+        Transaction.property_id == property_id,
+        Transaction.category_id.isnot(None)
     ).all()
     
     total_created = 0
