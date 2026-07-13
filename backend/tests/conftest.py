@@ -52,13 +52,58 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from backend.database.models import Base
+from backend.database import connection as _prod_connection
 from backend.database.connection import get_db
 from backend.api.main import app
+
+# ---------------------------------------------------------------------------
+# Garde-fou moteur de PRODUCTION (durcissement de la quarantaine, étape 2 T10)
+# ---------------------------------------------------------------------------
+# `pytest_ignore_collect` (plus bas) ne garde que les SCANS de répertoire :
+# un fichier de test nommé EXPLICITEMENT sur la ligne de commande le contourne
+# et est importé/exécuté quand même. Le 2026-07-12 (Task 5), un test hérité
+# utilisant le sessionmaker de prod ainsi nommé a CONTAMINÉ la base de prod.
+#
+# Défense en profondeur : on attache un évènement `connect` sur l'OBJET moteur
+# de PRODUCTION (`backend.database.connection.engine`, bindé sur lmnp.db).
+# Toute ouverture de connexion via ce moteur — donc via le sessionmaker de prod
+# ou `next(get_db())` — lève une RuntimeError claire tant que
+# LMNP_ALLOW_PROD_DB_TESTS != "1".
+#
+# Ciblage volontairement étroit sur l'OBJET moteur de prod :
+#   - le harnais isolé (`db_session`/`client`) a son PROPRE moteur mémoire → OK ;
+#   - les tests golden en lecture seule (`test_amortization_evry_golden.py`,
+#     `test_realtime_states.py`) ouvrent la vraie base via LEUR PROPRE moteur
+#     (fichier `?mode=ro` ou copie temporaire) → non concernés, l'évènement
+#     n'est attaché qu'au moteur de prod, pas à ces moteurs-là.
+#
+# La variable d'environnement est lue à CHAQUE connexion (pas à l'import) : un
+# test peut ainsi forcer l'accès via `monkeypatch.setenv(...)` (après backup !).
+
+_PROD_DB_GUARD_MESSAGE = (
+    "Test tente d'accéder à la base de PRODUCTION — interdit "
+    "(quarantaine étape 2). Voir docs/workflow/ERROR_INVESTIGATION.md ; "
+    "forcer avec LMNP_ALLOW_PROD_DB_TESTS=1 après backup."
+)
+
+
+@event.listens_for(_prod_connection.engine, "connect")
+def _block_prod_engine_connections(dbapi_connection, connection_record):
+    """Lève si un test ouvre une connexion sur le moteur de PRODUCTION."""
+    if os.environ.get("LMNP_ALLOW_PROD_DB_TESTS") == "1":
+        return
+    raise RuntimeError(_PROD_DB_GUARD_MESSAGE)
+
+
+# Purge toute connexion déjà présente dans le pool du moteur de prod pour que
+# la PROCHAINE ouverture déclenche bien l'évènement `connect` ci-dessus (sinon
+# une connexion recyclée du pool ne rejouerait pas l'évènement).
+_prod_connection.engine.dispose()
 
 # Motif des accès directs à la base de production dans un module de test :
 # import/usage de SessionLocal ou consommation manuelle du générateur get_db.
