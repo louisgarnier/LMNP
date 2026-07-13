@@ -551,6 +551,39 @@ jamais globalement (uniquement dans un test précis via `monkeypatch.setenv`).
 
 ---
 
+## Cas — Étape 3 §5 : 63 divergences de classification à la bascule (2026-07-13)
+
+**Symptôme :** à la vérification réversible de la bascule (migration des
+`mappings` → `classification_rules` puis contrôle de non-régression), **63
+transactions déjà classées ressortaient `moteur=None`** — le nouveau moteur
+ne les rangeait plus. Toutes des prélèvements SEPA récurrents
+(`PRLV SEPA FREE TELECOM ...`, TotalEnergies, syndics, MACIF, DGFiP…).
+
+**Cause :** le nouveau moteur unifié (`classification_engine`) appliquait la
+garde de similarité 70 % à **tous** les préfixes. L'ancien
+`find_best_mapping` (enrichment_service.py:104-113) avait des branches
+spéciales `PRLV SEPA` / `VIR STRIPE` qui **contournent** cette garde. Ces
+prélèvements ont un préfixe stable court + un long suffixe variable (n° de
+contrat) → ratio `len(pattern)/len(label)` ≈ 0,46 < 0,70 → rejetés à tort.
+En supprimant les cas spéciaux (Task 3), on a supprimé le contournement.
+
+**Ce qui a marché :** le **contrôle de non-régression** a fait son travail —
+il a attrapé l'écart AVANT tout drop de table (rien n'a été supprimé, prod
+réversible). Diagnostic par simulation : bypasser la garde pour
+`'PRLV SEPA' in pattern or pattern=='VIR STRIPE'` → 63 → **0 divergence**.
+Fix : drapeau `strict_ratio` par règle (cf. ADR étape 3), littéraux confinés
+à la migration one-shot, moteur runtime générique. Re-vérif : non-régression
+0, golden 0.
+
+**Règle de prévention :** quand on réécrit un moteur de matching censé
+**reproduire** un existant, ne jamais supposer qu'un « cas spécial » est
+redondant — vérifier ce qu'il change vraiment. **Toujours** valider une
+migration de classification par un rejeu sur les données réelles
+(non-régression = 0) AVANT de supprimer l'ancien système ; ne jamais dropper
+sur la foi des seuls tests unitaires isolés.
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet

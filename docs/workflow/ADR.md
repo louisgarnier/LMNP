@@ -322,3 +322,40 @@ restauré depuis backup, prod vérifiée byte-identique — voir
   matcher les regex de quarantaine, donc il s'exécute réellement) qui prouve
   que l'ouverture d'une connexion sur le moteur de prod lève la
   `RuntimeError` — sans jamais écrire en prod.
+
+---
+
+## ADR — Étape 3 §5 : moteur de classification unifié `classification_rules` (2026-07-13)
+
+**Contexte :** 4 systèmes de classification coexistaient (table `mappings`,
+`allowed_mappings`, Excel `mappings_obligatoires.xlsx`, script hardcodé).
+Objectif étape 3 §5 : les unifier en **une** table `classification_rules` +
+**un** moteur, sans déplacer un centime (golden master v4 bloquant).
+
+**Décisions :**
+1. **Table unique `classification_rules`** (`pattern`, `match_type` ∈
+   exact|prefix|contains, `category_id` FK→categories, `property_id` nullable
+   = règle globale, `priority`, `source` migrated|manual|auto_from_inbox,
+   `strict_ratio`). Migration des 366 `mappings` → règles (0 non résolu),
+   validée par un **contrôle de non-régression** (rejeu du moteur sur les 880
+   transactions classées → 0 divergence) + golden 0.
+2. **`strict_ratio` (bool, défaut True)** — garde de similarité 70 %
+   désactivable **par règle**. L'ancien moteur (`find_best_mapping`)
+   contournait la garde pour les préfixes `PRLV SEPA` et le motif
+   `VIR STRIPE` (prélèvements récurrents : préfixe stable + suffixe variable
+   = n° de contrat). Plutôt que recopier ces littéraux dans le moteur
+   runtime, on porte un **drapeau par règle** : le moteur reste générique, et
+   les littéraux vivent UNIQUEMENT dans la migration one-shot
+   (`strict_ratio=False` si `'PRLV SEPA' in pattern or pattern=='VIR STRIPE'`).
+   48/366 règles ont la garde désactivée.
+3. **Portée** : règle de bien (`property_id` non NULL) prime sur globale à
+   égalité ; le moteur charge `règles du bien + globales`.
+
+**Statut :** cœur livré et vérifié (non-régression 0, golden 0, 91 tests).
+**Différé (décision assumée par l'agent, sur les faits) :** suppression des
+tables/routes/code legacy (`mappings`/`allowed_mappings`/`mapping_imports`) —
+`allowed_mappings` reste une **whitelist de validation VIVANTE**
+(`validate_mapping` interroge la table pour la classification manuelle), donc
+son retrait est un refactor à faire **avec le plan frontend** (les écrans
+inbox+éditeur remplaceront l'UI mapping en un seul geste). Les 2 écrans =
+plan séparé après maquette, consommant `/api/inbox` + `/api/rules`.
