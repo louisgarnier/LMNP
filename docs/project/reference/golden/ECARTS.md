@@ -170,3 +170,41 @@ Ces deux écarts ne sont PAS couverts par la contrainte "chiffres 2023-2025
 = référence au centime" (qui porte sur Evry) et ne sont pas introduits ni
 aggravés par cette tâche — ils préexistaient dans golden v1 à l'identique.
 Aucune action prise sur eux ici ; à traiter dans une tâche dédiée si besoin.
+
+---
+
+# `v3-apres-amortissements` → `v4-etape2-referentiel` (Étape 2) : **0 écart**
+
+**0 écart — l'étape 2 ne change aucun chiffre** (référentiel + IDs +
+centimes à output identique).
+
+L'étape 2 est une refonte **structurelle** de la classification et du
+stockage, à sortie financière strictement inchangée :
+- référentiel global `category_groups`/`categories` + bascule des
+  lectures/écritures sur `transactions.category_id`, puis suppression de
+  `enriched_transactions` (ADR-004) ;
+- configs CR/Bilan liées par `category_id` + `line_code` stables, libellés
+  résolus au bord (ADR-005) ;
+- montants stockés en **centimes entiers** via `EuroCents` (11/12 colonnes ;
+  `amortization_results.amount` laissé Float, cf. déviation ci-dessous) (ADR-006).
+
+**Preuve** : `python3 backend/scripts/golden_master.py --compare --tag
+v3-apres-amortissements` → « Aucune différence détectée ». Vérification
+indépendante : `golden-v3-apres-amortissements.json == golden-v4-etape2-referentiel.json`
+(égalité stricte des dicts Python sur les 17 combinaisons propriété × année ;
+seule différence de sérialisation JSON = zéro signé `-0.0` vs `0.0` sur les
+champs `difference`/`difference_percent` déjà nuls, valeur identique).
+
+**Snapshot figé** : `docs/project/reference/golden/golden-v4-etape2-referentiel.json`
+(17 combos : Evry 25 × 8 ans 2021-2028, mars 15 × 5 ans 2024-2028, mars
+colloc 26 × 4 ans 2025-2028).
+
+**Déviation spec à noter (non un écart golden)** :
+`amortization_results.amount` reste en `Float` (et non en centimes entiers)
+car ses valeurs dérivées sous le centime (ex. `-643,7569`), arrondies,
+feraient dériver les amortissements cumulés jusqu'à **0,06 €** — ce qui
+casserait précisément ce golden. Le contrat au centime prime (ADR-006).
+
+Les 3 écarts prévisionnels 2026 pré-existants (mars 3 506,85 € ; mars colloc
+643,95 € ; mars colloc 2025 0,75 €) restent **identiques** en v4 (donc absents
+du diff `--compare`) — l'étape 2 ne les touche pas.

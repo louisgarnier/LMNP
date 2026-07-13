@@ -154,3 +154,171 @@ qu'après un backup frais de `lmnp.db`.
   tourner sous `pytest` — sinon il sera automatiquement mis en
   quarantaine (ou pire, laissé actif et dangereux si son motif échappe
   aux deux regex actuelles).
+
+---
+
+## ADR-004 — Référentiel global `category_groups`/`categories` + bascule des lectures/écritures sur `transactions.category_id`
+
+**Date** : 2026-07-12 (Étape 2, Tasks 2-4, 7, 8)
+
+**Contexte** : la classification d'une transaction était portée par la
+table `enriched_transactions` (une ligne par transaction enrichie),
+stockant les libellés de classification en clair (`level_1`, `level_2`,
+`level_3`) et dupliqués/dénormalisés à travers les configs CR/Bilan, les
+mappings et les types d'amortissement. Aucune table de référence : les
+catégories n'existaient que comme chaînes de caractères répétées, sans
+identité stable ni contrainte d'intégrité, ce qui rendait tout renommage
+risqué et toute jointure fragile (comparaisons de libellés).
+
+**Décision** : introduire un **référentiel global** en deux tables
+(`category_groups`, `categories`, seedées de façon idempotente : 19
+groupes, 56 catégories) donnant à chaque catégorie une **identité stable
+par ID**, puis ajouter `transactions.category_id` (FK nullable, indexée) et
+**basculer tout le code** dessus :
+- backfill `transactions.category_id` (880/880, 0 mismatch de libellé) ;
+- **double-écriture transitoire** (helper unique `_sync_transaction_category`)
+  pendant la migration : tout site d'écriture de classification met à jour
+  À LA FOIS l'ancien `enriched_transactions` ET le nouveau `category_id`,
+  pour ne jamais désynchroniser les deux représentations pendant la bascule ;
+- toutes les LECTURES basculées sur `category_id` via un helper unique
+  `classification_read.py` (`level_1/2/3` = `Category.label` /
+  `CategoryGroup.label` / `CASE` sur la nature), puis
+- suppression finale de `enriched_transactions` (table + classe ORM +
+  colonnes mortes) une fois toutes les lectures et écritures migrées :
+  la classification n'est plus portée QUE par `transactions.category_id`.
+
+**Conséquences** :
+- Identité stable par ID : renommer une catégorie ne casse plus aucune
+  jointure ni aucune config ; l'intégrité est garantie par une FK.
+- Une seule source de vérité pour la classification (`category_id`), une
+  seule table transaction — fin de la duplication `enriched_transactions`.
+- Golden master **zéro écart** à chaque étape (backfill, double-écriture,
+  bascule des lectures, drop) — la migration ne change aucun chiffre.
+- Sémantique préservée découverte en route :
+  `update_transaction_classification(level_1=None)` signifie « conserver »
+  (pas « effacer ») ; la désassignation réelle passe par
+  `reset_allowed_mappings` (couverte par la double-écriture en bulk UPDATE).
+- Dette restante pour l'étape 3 (documentée) : les tables `mappings` /
+  `allowed_mappings` / `mapping_imports` et le moteur de règles de
+  classification restent vivants jusqu'à l'étape 3.
+
+---
+
+## ADR-005 — Configs CR/Bilan liées par `category_id` + `line_code` stables ; sérialisation « label at the edge »
+
+**Date** : 2026-07-12 (Étape 2, Tasks 5-6)
+
+**Contexte** : les configs du compte de résultat et du bilan
+sélectionnaient les transactions à agréger par **listes de libellés en
+clair** (`level_1_values`, `level_3_values`) et identifiaient leurs lignes
+spéciales (calculées) par un champ texte `special_source`. Deux fragilités :
+la sélection par libellé se casse au moindre renommage, et les lignes
+calculées n'avaient pas d'identifiant stable indépendant de leur nom
+d'affichage français.
+
+**Décision** :
+- migrer les configs CR (55 lignes) et Bilan (35 lignes) vers des **tables
+  de liaison par `category_id`** (many-to-one, pas de fan-out vérifié) —
+  la sélection se fait désormais par ID de catégorie, pas par libellé ;
+- introduire un **`line_code` stable** (5 codes × propriétés pour le bilan,
+  injection par le service pour les lignes calculées du CR) comme identité
+  des lignes spéciales, indépendante de leur libellé d'affichage ;
+- adopter la règle **« label at the edge »** : les libellés français
+  (identité du golden master) ne sont PAS stockés dans les liaisons — ils
+  sont **résolus au bord** (à la sérialisation de la réponse API) depuis le
+  référentiel. Le cœur du calcul travaille sur des IDs/natures ; seul le
+  bord parle français.
+
+**Conséquences** :
+- Les configs survivent à un renommage de catégorie (liaison par ID).
+- L'équivalence a été **prouvée** byte-à-byte par le reviewer :
+  `NATURE_BY_LABEL` étant 1:1, le filtre par nature ≡ l'ancien filtre par
+  `level_3` ; `SPECIAL_LINE_NAMES` et la logique de signe (surface la plus
+  risquée) préservées à l'identique. Golden **zéro écart**.
+- Invariant de traductibilité à surveiller (validé sur toutes les configs
+  réelles par la migration `validate_bilan_config_natures`, documenté aux
+  sites de garde) : le calcul des lignes normales est gardé par
+  `if all_cat_ids and natures:` — une config dont les `level_3_values` ne
+  contiendraient QUE des libellés non-nature produirait `natures=[]` → bloc
+  sauté → lignes absentes au lieu de valant 0. Aucune config actuelle n'est
+  dans ce cas ; à revalider si de nouvelles configs sont éditées.
+
+---
+
+## ADR-006 — Montants stockés en centimes entiers via `EuroCents` (TypeDecorator) ; `amortization_results.amount` laissé en Float
+
+**Date** : 2026-07-12 (Étape 2, Task 9)
+
+**Contexte** : les montants monétaires étaient stockés en `Float` (euros),
+exposant le modèle aux erreurs d'arrondi binaire classiques du flottant sur
+des additions/soustractions répétées.
+
+**Décision** : introduire un **`TypeDecorator` `EuroCents`** (module
+`backend/database/money.py`) qui **stocke des centimes entiers** en base et
+expose des **euros** côté ORM/API (conversion au bord). Appliqué à **11
+colonnes monétaires sur 12**. Migration in-place par `UPDATE` (les colonnes
+étaient déclarées `FLOAT` mais contenaient des valeurs entières après
+conversion, le décorateur gouverne la lecture/écriture). `func.sum` propage
+correctement le type `EuroCents` (SQLAlchemy 2.0 `ReturnTypeFromArgs`,
+vérifié par test). `SUM` préservée à `0.000000 €` sur les 11 colonnes.
+
+**Déviation spec assumée** : la **12ᵉ colonne, `amortization_results.amount`,
+est laissée en `Float`**. Ses valeurs sont des dotations d'amortissement
+**dérivées, sous le centime** (ex. `-643,7569`) ; les arrondir au centime
+ferait dériver les amortissements cumulés **jusqu'à 0,06 €**, ce qui
+**casserait le golden master** (contrat au centime). Le contrat golden au
+centime prime sur la règle « toutes les colonnes en entier ». Décision
+documentée à la colonne, dans la migration et le rapport de Task 9.
+
+**Conséquences** :
+- Plus d'erreur d'arrondi flottant sur les 11 colonnes stockées en centimes.
+- Golden **zéro écart** ; perf inchangée (60-84 ms).
+- Résidu latent documenté : le mode d'arrondi de la migration
+  (`CAST ROUND`, half-away) diffère de celui du décorateur (half-to-even)
+  au cas `x.xx5` exact — aucune valeur de prod concernée.
+
+---
+
+## ADR-007 — Durcissement de la quarantaine des tests : `pytest_ignore_collect` (avant import) + garde sur le moteur de PRODUCTION
+
+**Date** : 2026-07-12 (Étape 2, Tasks 1 et 10)
+
+**Contexte** : la quarantaine initiale (ADR-003) posait des marqueurs skip
+via `pytest_collection_modifyitems`, ce qui **importait** quand même les
+modules — depuis la purge des modèles morts (Task 1), certains modules
+hérités ne s'importent plus (`ImportError`) et cassaient la collecte. De
+plus, la garde par collecte ne protège que les **scans de répertoire** :
+un fichier **nommé explicitement** sur la ligne de commande pytest la
+contourne. Le 2026-07-12 (Task 5), un test hérité utilisant le sessionmaker
+de prod, ainsi nommé, a **contaminé la base de production** (remédié,
+restauré depuis backup, prod vérifiée byte-identique — voir
+`ERROR_INVESTIGATION.md`).
+
+**Décision** : deux niveaux complémentaires.
+1. **Avant import** : bascule de la quarantaine sur `pytest_ignore_collect`
+   (Task 1) — le texte du fichier est lu SANS l'importer (regex sur
+   `SessionLocal`/`next(get_db())` et sur l'URL serveur en dur) ; les
+   fichiers en quarantaine n'apparaissent même plus comme « skipped » et ne
+   cassent plus la collecte.
+2. **Défense en profondeur, à l'accès** (Task 10) : `conftest.py` attache un
+   évènement `connect` sur l'**OBJET moteur de PRODUCTION**
+   (`backend.database.connection.engine`, bindé sur `lmnp.db`) qui **lève une
+   `RuntimeError`** dès qu'une connexion est ouverte via ce moteur (donc via
+   le sessionmaker de prod ou `next(get_db())`), tant que
+   `LMNP_ALLOW_PROD_DB_TESTS != "1"`. Le pool du moteur est vidé à l'install
+   (`dispose()`) pour qu'une connexion recyclée ne contourne pas l'évènement.
+
+**Conséquences** :
+- **Aucun** test — scanné, nommé explicitement, ou important le moteur
+  directement — ne peut plus toucher `lmnp.db` sans le flag d'override
+  (à n'utiliser qu'après backup).
+- Ciblage volontairement étroit sur l'objet moteur de prod : le harnais
+  isolé (`db_session`/`client`, moteur mémoire) et les **tests golden en
+  lecture seule** (`test_amortization_evry_golden.py` = vrai fichier
+  `?mode=ro`, `test_realtime_states.py` = copie temporaire) ont LEUR PROPRE
+  moteur → **non affectés** (vérifié : ils passent toujours). L'évènement
+  n'est attaché qu'au moteur de prod, pas à ces moteurs-là.
+- Couvert par un test dédié `test_prod_db_guard.py` (écrit pour ne PAS
+  matcher les regex de quarantaine, donc il s'exécute réellement) qui prouve
+  que l'ouverture d'une connexion sur le moteur de prod lève la
+  `RuntimeError` — sans jamais écrire en prod.

@@ -508,13 +508,56 @@ accidentellement avec un vrai `property_id` de production.
 
 ---
 
+## ⚠️ INCIDENT (Étape 2, Task 5, 2026-07-12) : un test hérité `SessionLocal` NOMMÉ EXPLICITEMENT contourne la quarantaine de répertoire → écriture en base de PRODUCTION
+
+**Contexte :** pendant l'étape 2 Task 5 (bascule du service CR sur
+`category_id`), un test hérité utilisant le sessionmaker de PRODUCTION
+(bindé sur `backend/database/lmnp.db`) a été **nommé explicitement** sur la
+ligne de commande pytest (au lieu de lancer le répertoire complet
+`backend/tests/`). Il a **contaminé la base de production**.
+
+**Cause :** la quarantaine de l'époque (`pytest_ignore_collect`, ADR-003 /
+ADR-007) ne garde que les **scans de répertoire** — elle lit le texte des
+fichiers découverts en scannant `backend/tests/` et ignore ceux qui matchent
+les regex `SessionLocal`/`next(get_db())`. Mais lorsqu'un fichier est
+**nommé explicitement** (`pytest backend/tests/test_xxx.py`), pytest le
+collecte par son chemin et `pytest_ignore_collect` ne l'écarte pas de la
+même façon : le module est importé/exécuté, son `SessionLocal` ouvre une
+connexion sur le VRAI moteur de prod, et ses écritures atteignent `lmnp.db`.
+
+**Remédiation :** base de production **restaurée depuis backup**, puis
+**vérifiée byte-identique** (hash) après restauration. Aucune perte de
+données résiduelle.
+
+**Durcissement (Task 10, voir ADR-007) :** `conftest.py` installe désormais,
+à l'import, un **garde sur l'objet moteur de PRODUCTION**
+(`event.listens_for(backend.database.connection.engine, "connect")`) qui
+**lève une `RuntimeError` claire** dès qu'une connexion est ouverte via ce
+moteur, tant que `LMNP_ALLOW_PROD_DB_TESTS != "1"`. Ce garde intercepte
+l'accès QUEL QUE SOIT le mode de découverte du test (scanné, nommé
+explicitement, ou important le moteur directement) — il ne dépend plus de la
+collecte. Ciblé sur l'objet moteur de prod uniquement : les tests golden en
+lecture seule (moteur propre `?mode=ro` / copie temporaire) et le harnais
+isolé (moteur mémoire) ne sont pas affectés. Couvert par
+`backend/tests/test_prod_db_guard.py`.
+
+**Règle de prévention :** un test ne doit **JAMAIS** utiliser `SessionLocal`
+ni le moteur de PRODUCTION (`backend.database.connection.engine`) —
+uniquement les fixtures isolées `db_session`/`client` (moteur mémoire) ou un
+moteur dédié en lecture seule pour les tests golden. Le garde moteur-prod est
+actif en permanence sous pytest ; **ne forcer** l'accès
+(`LMNP_ALLOW_PROD_DB_TESTS=1`) **qu'après un backup frais** de `lmnp.db`, et
+jamais globalement (uniquement dans un test précis via `monkeypatch.setenv`).
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet
 - [GIT_WORKFLOW.md](./GIT_WORKFLOW.md) - Workflow Git
-- [ADR.md](./ADR.md) - Décisions d'architecture (Bloc A)
+- [ADR.md](./ADR.md) - Décisions d'architecture (Bloc A + Étape 2)
 
 ---
 
-**Dernière mise à jour :** 2026-07-10 (Bloc A, Task 8 — clôture)
-**Cas d'étude :** Récursion Pydantic avec modèles LoanPayment
+**Dernière mise à jour :** 2026-07-12 (Étape 2, Task 10 — clôture)
+**Cas d'étude :** Quarantaine tests / contamination base de production
