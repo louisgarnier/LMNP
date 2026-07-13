@@ -950,7 +950,7 @@ async def create_mapping(
         # OPTIMISATION: Faire le flush par batch
         batch_size = 50
         for i, transaction in enumerate(transactions_to_re_enrich):
-            enrich_transaction(transaction, db, property_mappings)
+            enrich_transaction(transaction, db)
             # Flush par batch pour améliorer les performances
             if (i + 1) % batch_size == 0:
                 db.flush()
@@ -1053,7 +1053,7 @@ async def update_mapping(
     logger.info(f"[Mappings] Re-enrichissement de {len(transactions_to_re_enrich)} transaction(s) pour property_id={property_id}")
     
     for i, transaction in enumerate(transactions_to_re_enrich):
-        enrich_transaction(transaction, db, property_mappings)
+        enrich_transaction(transaction, db)
         # Flush par batch pour améliorer les performances
         if (i + 1) % batch_size == 0:
             db.flush()
@@ -1149,11 +1149,11 @@ async def delete_mapping(
     # OPTIMISATION: Faire le flush par batch au lieu d'une transaction par transaction
     batch_size = 50
     for i, transaction in enumerate(transactions_to_re_enrich):
-        enrich_transaction(transaction, db, property_mappings)
+        enrich_transaction(transaction, db)
         # Flush par batch pour améliorer les performances
         if (i + 1) % batch_size == 0:
             db.flush()
-    
+
     db.commit()
     
     return None

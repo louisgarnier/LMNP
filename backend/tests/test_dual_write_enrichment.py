@@ -16,18 +16,34 @@ que cette dernière traite `level_1=None` (et idem level_2/level_3) comme « ne
 pas toucher ce champ », pas comme « effacer » — y compris quand les trois
 niveaux sont None simultanément. Seule la suppression du mapping (reset en masse
 ou DELETE transaction) désassigne réellement (category_id repassé à NULL).
+
+Étape 3 Task 5 : `enrich_transaction` lit désormais `classification_rules`
+(et non plus `mappings`) — les seeds ci-dessous utilisent `ClassificationRule`
+pour déclencher la classification. `reset_allowed_mappings`
+(mapping_obligatoire_service) reste sur l'ancien système `Mapping`/
+`AllowedMapping` jusqu'à sa suppression (Task 10) : le second test seed donc
+AUSSI un `Mapping` (uniquement consommé par `reset_allowed_mappings` pour
+retrouver puis désassigner la transaction), en plus de la `ClassificationRule`
+qui sert de précondition de classification via le nouveau moteur.
 """
 from datetime import date
 
 
+def _seed_cat(db, label, group_label, nature):
+    from backend.database.models import Category, CategoryGroup
+    g = CategoryGroup(label=group_label, nature=nature); db.add(g); db.flush()
+    c = Category(label=label, group_id=g.id); db.add(c); db.flush()
+    return c
+
+
 def test_enrich_transaction_sets_category_id(db_session):
-    from backend.database.models import Property, Transaction, Mapping
+    from backend.database.models import Property, Transaction, ClassificationRule
     from backend.api.services.enrichment_service import enrich_transaction
     p = Property(name="T"); db_session.add(p); db_session.flush()
-    db_session.add(Mapping(property_id=p.id, nom="VIR LOYER",
-                           level_1="Encaissement locataire et CAF",
-                           level_2="Produits", level_3="Produits",
-                           is_prefix_match=False, priority=1))
+    cat = _seed_cat(db_session, "Encaissement locataire et CAF", "Produits", "produits")
+    db_session.add(ClassificationRule(pattern="VIR LOYER", match_type="exact",
+                                      category_id=cat.id, property_id=p.id,
+                                      priority=1, source="manual"))
     t = Transaction(date=date(2024, 1, 5), quantite=500.0, nom="VIR LOYER",
                     solde=500.0, property_id=p.id)
     db_session.add(t); db_session.flush()
@@ -40,12 +56,18 @@ def test_enrich_transaction_sets_category_id(db_session):
 def test_reset_allowed_mappings_clears_category_id(db_session):
     """Désassignation en masse (mapping_obligatoire_service.reset_allowed_mappings) :
     quand une combinaison devient interdite, le Mapping associé est supprimé ->
-    transactions.category_id doit repasser à NULL (Étape 2 Task 8)."""
-    from backend.database.models import Property, Transaction, Mapping, AllowedMapping
+    transactions.category_id doit repasser à NULL (Étape 2 Task 8).
+
+    `reset_allowed_mappings` reste branché sur l'ancien système `Mapping` (il
+    n'est retiré qu'à Task 10) : on seed donc un `Mapping` pour qu'il retrouve
+    la transaction à désassigner, en plus de la `ClassificationRule` qui sert
+    de précondition (transaction classée par le nouveau moteur avant reset)."""
+    from backend.database.models import Property, Transaction, Mapping, AllowedMapping, ClassificationRule
     from backend.api.services.enrichment_service import enrich_transaction
     from backend.api.services.mapping_obligatoire_service import reset_allowed_mappings
 
     p = Property(name="T"); db_session.add(p); db_session.flush()
+    cat = _seed_cat(db_session, "Encaissement locataire et CAF", "Produits", "produits")
     db_session.add(AllowedMapping(property_id=p.id,
                                    level_1="Encaissement locataire et CAF",
                                    level_2="Produits", level_3="Produits",
@@ -54,6 +76,9 @@ def test_reset_allowed_mappings_clears_category_id(db_session):
                            level_1="Encaissement locataire et CAF",
                            level_2="Produits", level_3="Produits",
                            is_prefix_match=False, priority=1))
+    db_session.add(ClassificationRule(pattern="VIR LOYER", match_type="exact",
+                                      category_id=cat.id, property_id=p.id,
+                                      priority=1, source="manual"))
     t = Transaction(date=date(2024, 1, 5), quantite=500.0, nom="VIR LOYER",
                     solde=500.0, property_id=p.id)
     db_session.add(t); db_session.flush()

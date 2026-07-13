@@ -1234,14 +1234,12 @@ async def import_file(
             recalculate_all_balances(db, property_id)
             
             # Enrichir automatiquement toutes les transactions insérées
-            # Charger les mappings de cette propriété une seule fois pour optimiser
-            from backend.database.models import Mapping
+            # (Étape 3 Task 5 : classification_rules bien + globales, chargées
+            # depuis la DB par enrich_transaction via _rules_for_property)
             from backend.api.services.amortization_service import recalculate_transaction_amortization
-            property_mappings = db.query(Mapping).filter(Mapping.property_id == property_id).all()
             for transaction in transactions_to_insert:
                 # Enrichir la transaction (elle a déjà un ID après flush)
-                # enrich_transaction filtrera automatiquement les mappings par property_id
-                enrich_transaction(transaction, db, property_mappings)
+                enrich_transaction(transaction, db)
                 
                 # Recalculer les amortissements après enrichissement
                 # (gestion silencieuse des erreurs pour ne pas bloquer l'import)

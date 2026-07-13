@@ -10,17 +10,22 @@ via le même `TestClient` (session en mémoire isolée de conftest).
 
 Harnais isolé (fixtures `db_session` / `client`) : ne touche JAMAIS la base de
 production.
+
+Étape 3 Task 5 : `enrich_transaction` lit désormais `classification_rules`
+(et non plus `mappings`) — le seed ci-dessous crée des `ClassificationRule`
+(correspondance exacte par nom) au lieu de `Mapping`/`AllowedMapping`. Le
+contrat de sortie (level_1/level_2/level_3 identiques) est inchangé.
 """
 from datetime import date
 
 from backend.database.models import (
     Property,
-    Mapping,
-    AllowedMapping,
+    ClassificationRule,
     AmortizationType,
     AmortizationResult,
     Transaction,
 )
+from backend.api.services.category_service import get_or_create_category
 
 # Combos de classification utilisés (level_1 = Category.label,
 # level_2 = CategoryGroup.label, level_3 = label de nature).
@@ -30,17 +35,17 @@ IMMO = ("Immobilisations corporelles", "Immobilisations", "Actif")
 
 
 def _seed_property_with_mappings(db):
-    """Crée une propriété + les mappings (nom → classification) nécessaires pour
-    que l'enrichissement pose category_id via la double-écriture."""
+    """Crée une propriété + les règles de classification (nom → catégorie)
+    nécessaires pour que l'enrichissement pose category_id."""
     p = Property(name="T7_READS")
     db.add(p)
     db.flush()
     for (l1, l2, l3), nom in [(LOYER, "VIR LOYER"), (ENTRETIEN, "PRLV ENTRETIEN"),
                               (IMMO, "ACHAT IMMO")]:
-        db.add(AllowedMapping(property_id=p.id, level_1=l1, level_2=l2, level_3=l3,
-                              is_hardcoded=False))
-        db.add(Mapping(property_id=p.id, nom=nom, level_1=l1, level_2=l2, level_3=l3,
-                       is_prefix_match=False, priority=1))
+        cat = get_or_create_category(db, l1, l2, l3)
+        db.add(ClassificationRule(pattern=nom, match_type="exact",
+                                  category_id=cat.id, property_id=p.id,
+                                  priority=1, source="manual"))
     db.commit()
     return p.id
 

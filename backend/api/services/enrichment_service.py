@@ -7,11 +7,13 @@ Ce service implémente la logique de mapping intelligent pour enrichir
 les transactions avec des classifications hiérarchiques (level_1, level_2, level_3).
 """
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from typing import Optional, Tuple
 import logging
 
-from backend.database.models import Transaction, Mapping
+from backend.database.models import Transaction, Mapping, ClassificationRule
+from backend.api.services.classification_engine import find_matching_rule
 from backend.api.services.mapping_obligatoire_service import (
     validate_mapping,
     validate_level3_value
@@ -215,53 +217,47 @@ def transaction_matches_mapping_name(transaction_name: str, mapping_name: str, i
     return False
 
 
-def enrich_transaction(transaction: Transaction, db: Session,
-                       mappings: Optional[list[Mapping]] = None) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-    """
-    Classe une transaction via le meilleur mapping et écrit sa classification.
+def _rules_for_property(db: Session, property_id: Optional[int]) -> list[ClassificationRule]:
+    """Règles applicables à une propriété : celles du bien + les globales
+    (`property_id IS NULL`)."""
+    return (db.query(ClassificationRule)
+            .filter(or_(ClassificationRule.property_id == property_id,
+                        ClassificationRule.property_id.is_(None)))
+            .all())
 
-    Étape 2 Task 8 : la classification est écrite uniquement dans
-    `transactions.category_id` (via `assign_category`) ; il n'y a plus de ligne
-    `enriched_transactions`. Les niveaux level_1/2/3 sont dérivés du mapping
-    trouvé puis résolus en category_id.
+
+def enrich_transaction(transaction: Transaction, db: Session,
+                       rules: Optional[list[ClassificationRule]] = None) -> Optional[ClassificationRule]:
+    """
+    Classe une transaction via la meilleure `ClassificationRule` et écrit
+    `transaction.category_id`.
+
+    Étape 3 Task 5 : remplace le moteur `mappings`/`find_best_mapping` par
+    `classification_rules`/`find_matching_rule` (Task 3). Signature conservée
+    (3e arg optionnel = liste de règles, ex-mappings) pour ne pas casser les
+    appelants qui pré-chargent leurs règles en batch.
 
     Args:
         transaction: Transaction à classer
         db: Session de base de données
-        mappings: Liste des mappings (optionnel, sera chargée depuis DB si non fournie)
+        rules: Liste de règles (optionnel, sera chargée depuis DB — bien +
+            globales — si non fournie)
 
     Returns:
-        Le triplet (level_1, level_2, level_3) appliqué (None, None, None si
-        aucun mapping ne correspond → transaction non classée, category_id NULL).
+        La règle retenue, ou None si aucune règle ne correspond (transaction
+        non classée, category_id NULL).
     """
-    # Récupérer tous les mappings de cette propriété depuis la DB si non fournis
-    if mappings is None:
-        mappings = db.query(Mapping).filter(Mapping.property_id == transaction.property_id).all()
+    if rules is None:
+        rules = _rules_for_property(db, transaction.property_id)
     else:
-        # CRITIQUE: Filtrer les mappings fournis pour ne garder que ceux de la même propriété
-        # Cela évite d'utiliser des mappings d'autres propriétés par erreur
-        mappings = [m for m in mappings if m.property_id == transaction.property_id]
-        if not mappings:
-            # Si aucun mapping ne correspond après filtrage, recharger depuis la DB
-            logger.warning(f"[enrich_transaction] Aucun mapping valide fourni pour property_id={transaction.property_id}, rechargement depuis DB")
-            mappings = db.query(Mapping).filter(Mapping.property_id == transaction.property_id).all()
+        # Filtrer les règles fournies pour ne garder que celles applicables à
+        # cette propriété (règles du bien + règles globales), au cas où
+        # l'appelant aurait chargé un lot couvrant plusieurs propriétés.
+        rules = [r for r in rules
+                 if r.property_id == transaction.property_id or r.property_id is None]
 
-    # Trouver le meilleur mapping
-    best_mapping = find_best_mapping(transaction.nom, mappings)
-
-    # Déterminer les valeurs de level_1, level_2, level_3
-    if best_mapping:
-        level_1 = best_mapping.level_1
-        level_2 = best_mapping.level_2
-        level_3 = best_mapping.level_3
-    else:
-        # Pas de mapping trouvé → valeurs NULL (affichées "unassigned" dans l'interface)
-        level_1 = None
-        level_2 = None
-        level_3 = None
-
-    # Écriture unique de la classification (Étape 2 Task 8) : category_id.
-    assign_category(db, transaction, level_1, level_2, level_3)
+    match = find_matching_rule(transaction.nom, rules)
+    transaction.category_id = match.category_id if match else None
 
     # Le commit est normalement fait par l'appelant en batch, mais on commit ici
     # pour garantir la persistance des appels isolés (création/édition unitaire).
@@ -271,49 +267,42 @@ def enrich_transaction(transaction: Transaction, db: Session,
         # Si le commit échoue (par exemple si déjà commité en amont), on continue.
         logger.debug(f"[enrich_transaction] Commit échoué (peut être normal): {e}")
 
-    return (level_1, level_2, level_3)
+    return match
 
 
 def enrich_all_transactions(db: Session, property_id: Optional[int] = None) -> Tuple[int, int]:
     """
     Enrichit toutes les transactions qui n'ont pas encore été enrichies.
-    
+
     Args:
         db: Session de base de données
         property_id: ID de la propriété (optionnel, si fourni, enrichit uniquement les transactions de cette propriété)
-    
+
     Returns:
         Tuple (nombre de transactions enrichies, nombre de transactions déjà enrichies)
     """
     # Récupérer toutes les transactions (filtrées par property_id si fourni)
     if property_id:
         transactions = db.query(Transaction).filter(Transaction.property_id == property_id).all()
-        # Récupérer tous les mappings de cette propriété
-        mappings = db.query(Mapping).filter(Mapping.property_id == property_id).all()
     else:
         # Mode legacy : toutes les transactions (pour compatibilité)
         transactions = db.query(Transaction).all()
-        # Récupérer tous les mappings (groupés par property_id)
-        all_mappings = db.query(Mapping).all()
-        mappings = all_mappings
-    
+
     enriched_count = 0
     already_enriched_count = 0
+    rules_cache: dict[Optional[int], list[ClassificationRule]] = {}
 
     for transaction in transactions:
-        # Si property_id est fourni, utiliser uniquement les mappings de cette propriété
-        if property_id:
-            transaction_mappings = [m for m in mappings if m.property_id == transaction.property_id]
-        else:
-            # Mode legacy : utiliser tous les mappings (pour compatibilité)
-            transaction_mappings = mappings
+        pid = transaction.property_id
+        if pid not in rules_cache:
+            rules_cache[pid] = _rules_for_property(db, pid)
 
         # « Déjà enrichi » = déjà classé (category_id non NULL) avant re-classification.
         # Étape 2 Task 8 : remplace le test d'existence d'une ligne
         # enriched_transactions par l'état de category_id (même sémantique de
         # comptage pour le message de l'endpoint re-enrich).
         was_classified = transaction.category_id is not None
-        enrich_transaction(transaction, db, transaction_mappings)
+        enrich_transaction(transaction, db, rules_cache[pid])
         if was_classified:
             already_enriched_count += 1
         else:
