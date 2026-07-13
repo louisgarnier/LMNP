@@ -5,6 +5,8 @@ exact d'abord, sinon prefix/contains sous garde de similarité 70 %, puis
 priorité décroissante et longueur de motif décroissante ; règle de bien prime
 sur règle globale à égalité ; conflit de longueur max → None.
 """
+import re
+
 from backend.database.models import ClassificationRule
 
 MIN_SIMILARITY_RATIO = 0.70
@@ -56,3 +58,22 @@ def find_matching_rule(label: str, rules: list[ClassificationRule]) -> Classific
     if len(top) > 1:
         return None
     return best
+
+
+_VARIABLE_TOKEN = re.compile(r"^(G-\S+|GP\d+|(?=\S*\d)[A-Z0-9]{8,}|\S*\d{6,}\S*)$")
+
+
+def derive_prefix_pattern(label: str) -> tuple[str, str]:
+    """Propose (pattern, match_type) pour une auto-règle inbox.
+
+    Retire les tokens de fin qui ressemblent à un identifiant variable ;
+    le préfixe stable restant devient un motif 'prefix'. Si rien n'est retiré,
+    repli sur (label, 'exact').
+    """
+    tokens = label.strip().split()
+    end = len(tokens)
+    while end > 1 and _VARIABLE_TOKEN.match(tokens[end - 1]):
+        end -= 1
+    if end == len(tokens):
+        return (label.strip(), "exact")
+    return (" ".join(tokens[:end]), "prefix")
