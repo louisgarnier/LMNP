@@ -71,3 +71,7 @@ backups/
 *.pyd
 
 
+
+# Outillage agent (hors versioning)
+.claude/
+.superpowers/
