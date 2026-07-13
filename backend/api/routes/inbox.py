@@ -16,9 +16,7 @@ from sqlalchemy.orm import Session
 from backend.database.connection import get_db
 from backend.database.models import Transaction, ClassificationRule
 from backend.api.services.enrichment_service import _rules_for_property
-from backend.api.services.classification_engine import (
-    find_matching_rule, rule_matches, derive_prefix_pattern, MIN_SIMILARITY_RATIO,
-)
+from backend.api.services.classification_engine import derive_prefix_pattern
 
 router = APIRouter()
 
@@ -36,13 +34,18 @@ class ValidateIn(BaseModel):
 
 
 def _suggestion(db, tx, rules):
-    # suggestion = meilleure règle "seuil relâché" : on cherche le plus long motif
-    # préfixe/contient présent dans le libellé, sans imposer les 70 %.
+    # suggestion = meilleure règle "seuil relâché" : on retire uniquement la garde
+    # de similarité 70 % de find_matching_rule, en conservant l'ancrage propre à
+    # chaque match_type (exact = égalité, prefix = startswith, contains = substring).
     best = None
     for r in rules:
-        if r.match_type == "exact" and tx.nom.strip() == r.pattern.strip():
+        pattern = r.pattern.strip()
+        if r.match_type == "exact" and tx.nom.strip() == pattern:
             return r.category_id
-        if r.match_type in ("prefix", "contains") and r.pattern.strip() in tx.nom:
+        if r.match_type == "prefix" and tx.nom.strip().startswith(pattern):
+            if best is None or len(r.pattern) > len(best.pattern):
+                best = r
+        elif r.match_type == "contains" and pattern in tx.nom:
             if best is None or len(r.pattern) > len(best.pattern):
                 best = r
     return best.category_id if best else None
@@ -90,10 +93,18 @@ def validate_all(property_id: int, db: Session = Depends(get_db)):
         if cat is None:
             continue                      # ambiguë : reste dans l'inbox
         pattern, match_type = derive_prefix_pattern(t.nom)
-        key = (pattern, match_type, cat)
-        groups.setdefault(key, {"tx": [], "category_id": cat,
-                                "pattern": pattern, "match_type": match_type})
-        groups[key]["tx"].append(t)
+        key = (pattern, cat)              # groupé par (motif, catégorie) : un même motif
+                                           # stable peut être dérivé "exact" pour une
+                                           # transaction et "prefix" pour une autre (suffixe
+                                           # variable retiré) — une seule règle doit couvrir
+                                           # les deux, pas deux règles dupliquées.
+        g = groups.setdefault(key, {"tx": [], "category_id": cat,
+                                    "pattern": pattern, "match_type": "exact"})
+        if match_type == "prefix":
+            g["match_type"] = "prefix"    # "prefix" dès qu'un membre du groupe l'exige :
+                                           # une règle "prefix" matche aussi les membres
+                                           # dérivés "exact" (startswith), l'inverse est faux.
+        g["tx"].append(t)
     created = validated = 0
     for g in groups.values():
         db.add(ClassificationRule(pattern=g["pattern"], match_type=g["match_type"],
