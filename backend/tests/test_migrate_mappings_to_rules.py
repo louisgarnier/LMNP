@@ -44,6 +44,27 @@ def test_unresolved_triple_aborts(db_session):
     assert db_session.query(ClassificationRule).count() == 0   # rien inséré
 
 
+def test_strict_ratio_false_for_recurring_debit_patterns(db_session):
+    """Bypass historique de la garde 70 % : les motifs PRLV SEPA (et VIR STRIPE,
+    couvert ailleurs) migrent avec strict_ratio=False ; les motifs ordinaires
+    (ex: VIR AIRBNB) gardent strict_ratio=True."""
+    cat_id = _seed_ref(db_session)
+    db_session.add_all([
+        Mapping(property_id=25, nom="PRLV SEPA FREE TELECOM", level_1="Encaissement locataire et CAF",
+                level_2="Produits", level_3="Produits", is_prefix_match=True, priority=0),
+        Mapping(property_id=25, nom="VIR AIRBNB", level_1="Encaissement locataire et CAF",
+                level_2="Produits", level_3="Produits", is_prefix_match=True, priority=0),
+    ]); db_session.commit()
+
+    report = migrate(db_session)
+    assert report["unresolved"] == []
+    rules = db_session.query(ClassificationRule).all()
+    by_pattern = {r.pattern: r for r in rules}
+    assert by_pattern["PRLV SEPA FREE TELECOM"].strict_ratio is False
+    assert by_pattern["VIR AIRBNB"].strict_ratio is True
+    assert all(r.category_id == cat_id and r.property_id == 25 for r in rules)
+
+
 def test_dedup_identical_rules(db_session):
     """Doublon de RÈGLE (pas de mapping) : deux `nom` bruts distincts
     ("VIR AIRBNB" et "VIR AIRBNB ") passent l'index unique

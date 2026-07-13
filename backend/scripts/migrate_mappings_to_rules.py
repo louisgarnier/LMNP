@@ -27,9 +27,14 @@ def migrate(db: Session) -> dict:
             deduped += 1
             continue
         seen.add(key)
+        # L'ancien moteur (enrichment_service) contournait sa garde de similarité
+        # 70 % pour les motifs de prélèvement récurrent : ces deux littéraux ne
+        # doivent exister QUE dans ce script one-shot, jamais dans le moteur.
+        strict_ratio = not ("PRLV SEPA" in pattern or pattern == "VIR STRIPE")
         db.add(ClassificationRule(pattern=pattern, match_type=match_type,
                                   category_id=cat_id, property_id=pid,
-                                  priority=prio, source="migrated"))
+                                  priority=prio, source="migrated",
+                                  strict_ratio=strict_ratio))
         created += 1
     db.commit()
     return {"created": created, "deduped": deduped, "unresolved": []}

@@ -12,7 +12,7 @@ from backend.database.models import ClassificationRule
 MIN_SIMILARITY_RATIO = 0.70
 
 
-def rule_matches(label: str, pattern: str, match_type: str) -> bool:
+def rule_matches(label: str, pattern: str, match_type: str, strict_ratio: bool = True) -> bool:
     label = label.strip()
     pattern = pattern.strip()
     if not label or not pattern:
@@ -20,10 +20,11 @@ def rule_matches(label: str, pattern: str, match_type: str) -> bool:
     if match_type == "exact":
         return label == pattern
     ratio = len(pattern) / len(label) if len(label) > 0 else 0.0
+    ratio_ok = (ratio >= MIN_SIMILARITY_RATIO) if strict_ratio else True
     if match_type == "prefix":
-        return label.startswith(pattern) and ratio >= MIN_SIMILARITY_RATIO
+        return label.startswith(pattern) and ratio_ok
     if match_type == "contains":
-        return pattern in label and ratio >= MIN_SIMILARITY_RATIO
+        return pattern in label and ratio_ok
     return False
 
 
@@ -42,9 +43,11 @@ def find_matching_rule(label: str, rules: list[ClassificationRule]) -> Classific
         exact.sort(key=_sort_key)
         return exact[0]
 
-    # 2) prefix / contains sous garde 70 %
+    # 2) prefix / contains sous garde 70 % (sauf strict_ratio=False explicite sur la règle)
     cands = [r for r in rules
-             if r.match_type in ("prefix", "contains") and rule_matches(label, r.pattern, r.match_type)]
+             if r.match_type in ("prefix", "contains")
+             and rule_matches(label, r.pattern, r.match_type,
+                               strict_ratio=(r.strict_ratio is not False))]
     if not cands:
         return None
 

@@ -124,6 +124,7 @@ class ClassificationRule(Base):
                          nullable=True, index=True)  # NULL = règle globale
     priority = Column(Integer, nullable=False, default=0)
     source = Column(String(20), nullable=False, default="manual")  # migrated | manual | auto_from_inbox
+    strict_ratio = Column(Boolean, nullable=False, default=True)  # False = garde de similarité 70 % désactivée (prélèvements récurrents)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     category = relationship("Category")

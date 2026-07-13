@@ -16,6 +16,7 @@ class RuleIn(BaseModel):
     category_id: int
     property_id: int | None = None
     priority: int = 0
+    strict_ratio: bool = True  # False = désactive la garde de similarité 70 % (prélèvements récurrents)
 
 
 class RuleOut(RuleIn):
@@ -28,10 +29,12 @@ def _validate_match_type(match_type: str) -> None:
         raise HTTPException(400, f"match_type invalide: {match_type}")
 
 
-def _tx_count(db, rule_pattern, match_type, property_id):
+def _tx_count(db, rule, property_id):
     q = db.query(Transaction)
     q = q.filter(Transaction.property_id == property_id) if property_id is not None else q
-    return sum(1 for t in q.all() if rule_matches(t.nom, rule_pattern, match_type))
+    strict = (rule.strict_ratio is not False)
+    return sum(1 for t in q.all()
+               if rule_matches(t.nom, rule.pattern, rule.match_type, strict_ratio=strict))
 
 
 @router.get("/rules")
@@ -45,7 +48,8 @@ def list_rules(property_id: int | None = None, db: Session = Depends(get_db)):
         items.append({"id": r.id, "pattern": r.pattern, "match_type": r.match_type,
                       "category_id": r.category_id, "property_id": r.property_id,
                       "priority": r.priority, "source": r.source,
-                      "tx_count": _tx_count(db, r.pattern, r.match_type, r.property_id)})
+                      "strict_ratio": r.strict_ratio,
+                      "tx_count": _tx_count(db, r, r.property_id)})
     return {"items": items}
 
 
@@ -54,7 +58,8 @@ def create_rule(body: RuleIn, db: Session = Depends(get_db)):
     _validate_match_type(body.match_type)
     rule = ClassificationRule(pattern=body.pattern.strip(), match_type=body.match_type,
                               category_id=body.category_id, property_id=body.property_id,
-                              priority=body.priority, source="manual")
+                              priority=body.priority, source="manual",
+                              strict_ratio=body.strict_ratio)
     db.add(rule); db.commit(); db.refresh(rule)
     return {"id": rule.id}
 
@@ -68,6 +73,7 @@ def update_rule(rule_id: int, body: RuleIn, db: Session = Depends(get_db)):
     rule.pattern = body.pattern.strip(); rule.match_type = body.match_type
     rule.category_id = body.category_id; rule.property_id = body.property_id
     rule.priority = body.priority
+    rule.strict_ratio = body.strict_ratio
     db.commit()
     return {"id": rule.id}
 
@@ -88,7 +94,7 @@ def preview_rule(body: RuleIn, db: Session = Depends(get_db)):
         q = q.filter(Transaction.property_id == body.property_id)
     would_classify, conflicts = 0, []
     for t in q.all():
-        if not rule_matches(t.nom, body.pattern, body.match_type):
+        if not rule_matches(t.nom, body.pattern, body.match_type, strict_ratio=body.strict_ratio):
             continue
         if t.category_id is None:
             would_classify += 1
