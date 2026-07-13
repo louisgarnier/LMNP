@@ -112,6 +112,27 @@ class Mapping(Base):
     )
 
 
+class ClassificationRule(Base):
+    """Règle de classification unifiée (remplace mappings + allowed_mappings + Excel + hardcodé)."""
+    __tablename__ = "classification_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pattern = Column(String(500), nullable=False, index=True)
+    match_type = Column(String(10), nullable=False)  # exact | prefix | contains
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"),
+                         nullable=True, index=True)  # NULL = règle globale
+    priority = Column(Integer, nullable=False, default=0)
+    source = Column(String(20), nullable=False, default="manual")  # migrated | manual | auto_from_inbox
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    category = relationship("Category")
+
+    __table_args__ = (
+        Index("idx_rules_property_id", "property_id"),
+    )
+
+
 class FileImport(Base):
     """Track imported CSV files to prevent duplicate processing."""
     __tablename__ = "file_imports"
