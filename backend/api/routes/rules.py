@@ -23,6 +23,11 @@ class RuleOut(RuleIn):
     source: str
 
 
+def _validate_match_type(match_type: str) -> None:
+    if match_type not in ("exact", "prefix", "contains"):
+        raise HTTPException(400, f"match_type invalide: {match_type}")
+
+
 def _tx_count(db, rule_pattern, match_type, property_id):
     q = db.query(Transaction)
     q = q.filter(Transaction.property_id == property_id) if property_id is not None else q
@@ -46,8 +51,7 @@ def list_rules(property_id: int | None = None, db: Session = Depends(get_db)):
 
 @router.post("/rules", status_code=status.HTTP_201_CREATED)
 def create_rule(body: RuleIn, db: Session = Depends(get_db)):
-    if body.match_type not in ("exact", "prefix", "contains"):
-        raise HTTPException(400, f"match_type invalide: {body.match_type}")
+    _validate_match_type(body.match_type)
     rule = ClassificationRule(pattern=body.pattern.strip(), match_type=body.match_type,
                               category_id=body.category_id, property_id=body.property_id,
                               priority=body.priority, source="manual")
@@ -60,6 +64,7 @@ def update_rule(rule_id: int, body: RuleIn, db: Session = Depends(get_db)):
     rule = db.get(ClassificationRule, rule_id)
     if not rule:
         raise HTTPException(404, "Règle introuvable")
+    _validate_match_type(body.match_type)
     rule.pattern = body.pattern.strip(); rule.match_type = body.match_type
     rule.category_id = body.category_id; rule.property_id = body.property_id
     rule.priority = body.priority
@@ -77,6 +82,7 @@ def delete_rule(rule_id: int, db: Session = Depends(get_db)):
 
 @router.post("/rules/preview")
 def preview_rule(body: RuleIn, db: Session = Depends(get_db)):
+    _validate_match_type(body.match_type)
     q = db.query(Transaction)
     if body.property_id is not None:
         q = q.filter(Transaction.property_id == body.property_id)

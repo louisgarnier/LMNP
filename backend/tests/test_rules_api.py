@@ -33,3 +33,22 @@ def test_preview_counts_unclassified_and_conflicts(client, db_session):
     body = r.json()
     assert body["would_classify"] == 1        # la non classée
     assert len(body["conflicts"]) == 1        # celle classée "Autre"
+
+
+def test_put_rejects_invalid_match_type(client, db_session):
+    cat_id = _seed(db_session)
+    r = client.post("/api/rules", json={"pattern": "VIR LOYER", "match_type": "prefix",
+                                        "category_id": cat_id, "property_id": 25, "priority": 0})
+    rule_id = r.json()["id"]
+    r2 = client.put(f"/api/rules/{rule_id}", json={"pattern": "VIR LOYER", "match_type": "fuzzy",
+                                                    "category_id": cat_id, "property_id": 25, "priority": 0})
+    assert r2.status_code == 400
+    rule = db_session.get(ClassificationRule, rule_id)
+    assert rule.match_type == "prefix"
+
+
+def test_preview_rejects_invalid_match_type(client, db_session):
+    cat_id = _seed(db_session)
+    r = client.post("/api/rules/preview", json={"pattern": "VIR LOYER", "match_type": "fuzzy",
+                                                 "category_id": cat_id, "property_id": 25})
+    assert r.status_code == 400
