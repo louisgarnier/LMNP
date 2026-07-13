@@ -1,7 +1,28 @@
 -- Database Schema for LMNP Application
 -- ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
--- 
--- This schema is maintained for reference. The actual schema is managed
+--
+-- ============================================================================
+-- ⚠️ OBSOLÈTE / NON FAISANT AUTORITÉ (mis à jour étape 2 Task 10, 2026-07-12)
+-- ============================================================================
+-- Ce fichier n'est JAMAIS exécuté et a divergé de la réalité. La source de
+-- vérité du schéma est backend/database/models.py (SQLAlchemy), matérialisée
+-- par init_database(). Ne pas s'y fier pour la structure courante.
+--
+-- Écarts connus avec les modèles actuels (liste non exhaustive) :
+--   • Le référentiel de l'étape 2 est ABSENT ici : category_groups, categories,
+--     compte_resultat_mapping_categories, bilan_mapping_categories, ainsi que
+--     transactions.category_id et les colonnes line_code des configs.
+--   • Les montants monétaires sont désormais stockés en CENTIMES (INTEGER) via
+--     le TypeDecorator EuroCents (étape 2 Task 9), pas en REAL/euros.
+--   • Des tables listées plus bas (amortizations, financial_statements,
+--     consolidated_financial_statements, parameters, pivot_configs, …) ne
+--     reflètent plus les modèles ; se reporter à models.py.
+--   • enriched_transactions et 8 tables orphelines ont été supprimées à
+--     l'étape 2 (Tasks 1 & 8) — le bloc enriched_transactions a été retiré
+--     ci-dessous, mais le reste n'a pas été réconcilié.
+-- ============================================================================
+--
+-- This schema is maintained for reference only. The actual schema is managed
 -- by SQLAlchemy models in models.py and created via init_database().
 
 -- Transactions table - Raw transactions aggregated from CSV files
@@ -20,26 +41,9 @@ CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_nom ON transactions(nom);
 CREATE INDEX IF NOT EXISTS idx_transaction_unique ON transactions(date, quantite, nom);
 
--- Enriched transactions table - Transactions with classifications
-CREATE TABLE IF NOT EXISTS enriched_transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    transaction_id INTEGER NOT NULL UNIQUE,
-    mois INTEGER NOT NULL,
-    annee INTEGER NOT NULL,
-    level_1 VARCHAR(100),
-    level_2 VARCHAR(100),
-    level_3 VARCHAR(100),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (transaction_id) REFERENCES transactions(id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_enriched_transaction_id ON enriched_transactions(transaction_id);
-CREATE INDEX IF NOT EXISTS idx_enriched_year_month ON enriched_transactions(annee, mois);
-CREATE INDEX IF NOT EXISTS idx_enriched_level_1 ON enriched_transactions(level_1);
-CREATE INDEX IF NOT EXISTS idx_enriched_level_2 ON enriched_transactions(level_2);
-CREATE INDEX IF NOT EXISTS idx_enriched_level_3 ON enriched_transactions(level_3);
-CREATE INDEX IF NOT EXISTS idx_enriched_levels ON enriched_transactions(level_1, level_2, level_3);
+-- (étape 2 Task 8) La table enriched_transactions a été SUPPRIMÉE. Les
+-- classifications passent désormais par transactions.category_id → categories →
+-- category_groups (voir models.py). Bloc retiré volontairement de ce fichier.
 
 -- Mappings table - Mapping rules for transaction names to categories
 CREATE TABLE IF NOT EXISTS mappings (

@@ -690,8 +690,10 @@ def calculate_bilan(
         # (une config non vide dont AUCUN label ne se traduit ferait, sous
         # l'ancien code, initialiser les lignes normales à 0 au lieu de sauter le
         # bloc) est donc structurellement impossible sur données réelles. Une
-        # config VIDE court-circuite plus haut (`if not level_3_values`), même
-        # comportement qu'avant. Voir task-8-report.md.
+        # config VIDE ne court-circuite PAS via un return anticipé : level_3_values=[]
+        # → natures=[] → la garde `if all_cat_ids and natures` ci-dessous est fausse
+        # → le bloc des lignes normales est simplement sauté, donc ces lignes sont
+        # ABSENTES (non initialisées à 0). Voir task-8-report.md.
         if all_cat_ids and natures:
             # Une seule requête pour toutes les catégories normales, filtrée par
             # property_id, nature de groupe et category_id (cumul jusqu'à fin d'année).

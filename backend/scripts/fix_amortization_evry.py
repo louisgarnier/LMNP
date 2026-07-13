@@ -79,7 +79,6 @@ from backend.database.models import (
     AmortizationType,
     AmortizationResult,
     Transaction,
-    EnrichedTransaction,
 )
 from backend.api.services.amortization_service import recalculate_all_amortizations
 

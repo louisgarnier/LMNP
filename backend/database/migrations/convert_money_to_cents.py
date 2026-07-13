@@ -150,6 +150,12 @@ def main() -> int:
 
             for table, cols in MONEY_COLUMNS:
                 for col in cols:
+                    # SQLite ROUND() arrondit au demi supérieur en valeur absolue
+                    # (half-away-from-zero), alors que le TypeDecorator EuroCents
+                    # arrondit au pair le plus proche (half-to-even, Python). L'écart
+                    # n'apparaît qu'à un centième de centime exact (valeur en x.xx5) :
+                    # aucune valeur de prod ne tombe sur ce cas, et la SUM est préservée
+                    # (vérifiée plus bas dans la transaction).
                     conn.execute(text(
                         f"UPDATE {table} SET {col} = CAST(ROUND({col} * 100) AS INTEGER) "
                         f"WHERE {col} IS NOT NULL"
