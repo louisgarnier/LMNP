@@ -683,17 +683,16 @@ def calculate_bilan(
             category_to_catids[mapping.category_name] = catids
             all_cat_ids.update(catids)
 
-        # INVARIANT (étape 2 Task 8, validé par
-        # migrations/validate_bilan_config_natures.py) : toute config bilan NON
-        # VIDE contient ≥1 label traduisible en nature → `natures` est non vide
-        # dès que `level_3_values` l'est. La divergence latente « absent vs 0 »
-        # (une config non vide dont AUCUN label ne se traduit ferait, sous
-        # l'ancien code, initialiser les lignes normales à 0 au lieu de sauter le
-        # bloc) est donc structurellement impossible sur données réelles. Une
-        # config VIDE ne court-circuite PAS via un return anticipé : level_3_values=[]
-        # → natures=[] → la garde `if all_cat_ids and natures` ci-dessous est fausse
-        # → le bloc des lignes normales est simplement sauté, donc ces lignes sont
-        # ABSENTES (non initialisées à 0). Voir task-8-report.md.
+        # Les lignes normales sont TOUJOURS présentes, initialisées à 0, même
+        # si aucune transaction ne les alimente. Cette initialisation est faite
+        # AVANT la garde `if all_cat_ids and natures` pour reproduire exactement
+        # l'ancien comportement : une config non vide dont aucun label ne se
+        # traduit en nature (ou ne résout aucun category_id) émet ses lignes
+        # normales à 0, pas absentes. La requête d'alimentation, elle, n'a de
+        # sens que si l'on a des category_id ET des natures à filtrer.
+        for mapping in normal_mappings:
+            categories[mapping.category_name] = 0.0
+
         if all_cat_ids and natures:
             # Une seule requête pour toutes les catégories normales, filtrée par
             # property_id, nature de groupe et category_id (cumul jusqu'à fin d'année).
@@ -714,10 +713,6 @@ def calculate_bilan(
             ).group_by(Transaction.category_id)
 
             results = query.all()
-
-            # Initialiser toutes les catégories normales à 0
-            for mapping in normal_mappings:
-                categories[mapping.category_name] = 0.0
 
             # Répartir les résultats par catégorie (chaque category_id peut appartenir à plusieurs catégories)
             # IMPORTANT: On additionne d'abord les montants bruts (avec leurs signes), puis on applique la logique
