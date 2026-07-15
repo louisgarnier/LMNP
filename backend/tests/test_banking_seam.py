@@ -23,3 +23,10 @@ def test_mock_transactions_include_shared_fx_id():
     ids_a = {t["external_id"] for t in a}
     ids_b = {t["external_id"] for t in b}
     assert ids_a & ids_b, "au moins un external_id partagé entre 2 comptes (test dédoublonnage composite)"
+
+
+def test_list_aspsps_mock_returns_french_banks(monkeypatch):
+    monkeypatch.delenv("ENABLE_BANKING_APP_ID", raising=False)
+    banks = bs.list_aspsps(country="FR")
+    assert len(banks) >= 1
+    assert all(b["country"] == "FR" for b in banks)

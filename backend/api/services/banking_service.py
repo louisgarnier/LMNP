@@ -62,6 +62,48 @@ _MOCK_ACCOUNTS = [
 ]
 
 
+def _make_jwt() -> str:
+    """Forge le JWT RS256 d'authentification Enable Banking (mode live uniquement)."""
+    jwt = _pyjwt()
+    key = _key_path().read_text()
+    now = datetime.utcnow()
+    payload = {
+        "iss": "enablebanking.com",
+        "aud": "api.enablebanking.com",
+        "iat": now,
+        "exp": now + timedelta(hours=1),
+    }
+    return jwt.encode(payload, key, algorithm="RS256", headers={"kid": _app_id()})
+
+
+def _auth_headers() -> dict:
+    return {"Authorization": f"Bearer {_make_jwt()}"}
+
+
+def _get(path: str, params: dict | None = None) -> dict:
+    """Import paresseux de requests : l'app doit tourner sans la dépendance installée."""
+    import requests
+
+    r = requests.get(f"{_API_BASE}{path}", headers=_auth_headers(), params=params or {}, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def _post(path: str, json: dict) -> dict:
+    import requests
+
+    r = requests.post(f"{_API_BASE}{path}", headers=_auth_headers(), json=json, timeout=30)
+    r.raise_for_status()
+    return r.json()
+
+
+def list_aspsps(country: str = "FR") -> list[dict]:
+    if not is_live():
+        return [b for b in _MOCK_ASPSPS if b["country"] == country]
+    data = _get("/aspsps", {"country": country})
+    return data.get("aspsps", data.get("data", []))
+
+
 def _mock_raw_transactions(account_uid: str) -> list[dict]:
     base = [
         {"external_id": f"{account_uid}-t1", "date": date(2026, 1, 5), "quantite": 390.0, "nom": "LOYER MOCK", "status": "booked"},
