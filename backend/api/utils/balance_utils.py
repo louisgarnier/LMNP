@@ -19,8 +19,11 @@ def recalculate_balances_from_date(db: Session, from_date: date, property_id: in
         property_id: ID de la propriété (obligatoire)
     """
     # Récupérer toutes les transactions triées par date - FILTRER PAR PROPERTY_ID
+    # (exclut les lignes parentes éclatées : elles ne doivent pas compter dans le solde,
+    # remplacées par leurs enfants — voir Étape 4 Task 4)
     all_transactions = db.query(Transaction).filter(
-        Transaction.property_id == property_id
+        Transaction.property_id == property_id,
+        Transaction.is_split_parent == False,
     ).order_by(Transaction.date, Transaction.id).all()
     
     if not all_transactions:
@@ -56,8 +59,10 @@ def recalculate_all_balances(db: Session, property_id: int) -> None:
     Args:
         db: Session de base de données
     """
+    # Exclut les lignes parentes éclatées (voir Étape 4 Task 4)
     transactions = db.query(Transaction).filter(
-        Transaction.property_id == property_id
+        Transaction.property_id == property_id,
+        Transaction.is_split_parent == False,
     ).order_by(Transaction.date, Transaction.id).all()
     
     current_solde = 0.0

@@ -103,7 +103,11 @@ async def get_transactions(
     validate_property_id(db, property_id, "Transactions")
     
     # Base query - filtrer par property_id dès le début
-    base_query = db.query(Transaction).filter(Transaction.property_id == property_id)
+    # Exclut les lignes parentes éclatées (masquées, remplacées par leurs enfants — Étape 4 Task 4)
+    base_query = db.query(Transaction).filter(
+        Transaction.property_id == property_id,
+        Transaction.is_split_parent == False,
+    )
     
     # Colonnes de niveaux dérivées du référentiel via category_id (étape 2 Task 7).
     level_1_col, level_2_col, level_3_col = category_label_columns()

@@ -55,8 +55,12 @@ def _suggestion(db, tx, rules):
 def list_inbox(property_id: int, db: Session = Depends(get_db)):
     rules = _rules_for_property(db, property_id)
     items = []
+    # Exclut les lignes parentes éclatées : category_id est NULL mais elles sont
+    # masquées, remplacées par leurs enfants — elles ne doivent pas apparaître
+    # dans l'inbox (Étape 4 Task 4).
     txs = (db.query(Transaction)
-           .filter(Transaction.property_id == property_id, Transaction.category_id.is_(None))
+           .filter(Transaction.property_id == property_id, Transaction.category_id.is_(None),
+                   Transaction.is_split_parent == False)
            .order_by(Transaction.date).all())
     for t in txs:
         pattern, match_type = derive_prefix_pattern(t.nom)
