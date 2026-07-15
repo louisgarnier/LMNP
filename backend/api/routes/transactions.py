@@ -41,7 +41,8 @@ from backend.api.models import (
     FileImportHistory,
     ColumnMapping,
     DuplicateTransaction,
-    TransactionError
+    TransactionError,
+    ManualTransactionIn
 )
 from backend.api.utils.csv_utils import (
     read_csv_safely,
@@ -708,6 +709,40 @@ async def create_transaction(
         print(f"⚠️ [create_transaction] Erreur lors du recalcul des soldes: {error_details}")
 
     return TransactionResponse.from_orm(db_transaction)
+
+
+@router.post("/transactions/manual")
+def create_manual_transaction(body: ManualTransactionIn, db: Session = Depends(get_db)):
+    """
+    Saisie manuelle simple d'une transaction (étape 4 Task 5).
+
+    Passe par le point d'entrée unique d'ingestion (dédoublonnage +
+    insertion + solde + enrichissement + amortissement), source="manual".
+    Si `category_id` est fourni, il prime sur la classification automatique
+    par règles (posé après l'ingestion). Sinon la classification par règles
+    s'applique normalement (sinon NULL → apparaît dans l'inbox).
+    """
+    logger.info(f"[Transactions] POST /api/transactions/manual - property_id={body.property_id}")
+
+    validate_property_id(db, body.property_id)
+    if body.category_id is not None and db.get(Category, body.category_id) is None:
+        raise HTTPException(400, f"category_id inconnu: {body.category_id}")
+
+    from backend.api.services.ingestion_service import ingest_transactions
+    res = ingest_transactions(db, body.property_id, None,
+                              [{"date": body.date, "quantite": body.quantite,
+                                "nom": body.nom, "external_id": None}], "manual")
+    if not res["ids"]:
+        raise HTTPException(409, "Transaction identique déjà existante (doublon)")
+    tx = db.get(Transaction, res["ids"][0])
+    # catégorie explicite fournie : prime sur la classification auto
+    if body.category_id is not None and tx.category_id != body.category_id:
+        tx.category_id = body.category_id
+        db.commit()
+
+    logger.info(f"[Transactions] Transaction manuelle créée: id={tx.id}, category_id={tx.category_id}")
+
+    return {"id": tx.id, "category_id": tx.category_id}
 
 
 @router.put("/transactions/{transaction_id}", response_model=TransactionResponse)

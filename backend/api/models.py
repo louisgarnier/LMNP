@@ -26,6 +26,15 @@ class TransactionCreate(TransactionBase):
     property_id: int = Field(..., description="ID de la propriété (obligatoire)")
 
 
+class ManualTransactionIn(BaseModel):
+    """Model for manual transaction creation (saisie manuelle simple, étape 4 Task 5)."""
+    property_id: int
+    date: date
+    quantite: float
+    nom: str
+    category_id: Optional[int] = None
+
+
 class TransactionUpdate(BaseModel):
     """Model for updating a transaction."""
     date: Optional[str] = None  # Accept string, will be converted to date in route
