@@ -13,9 +13,7 @@ import ImportLog from '@/components/ImportLog';
 import TransactionsTable from '@/components/TransactionsTable';
 import InboxScreen from '@/components/InboxScreen';
 import RulesScreen from '@/components/RulesScreen';
-import MappingFileUpload from '@/components/MappingFileUpload';
-import MappingImportLog from '@/components/MappingImportLog';
-import { transactionsAPI, mappingsAPI, fileUploadAPI } from '@/api/client';
+import { transactionsAPI, fileUploadAPI } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
 import { useProperty } from '@/contexts/PropertyContext';
 
@@ -36,8 +34,6 @@ export default function TransactionsPage() {
   const tab = searchParams?.get('tab');
   const [transactionCount, setTransactionCount] = useState<number | null>(null);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
-  const [mappingCount, setMappingCount] = useState<number | null>(null);
-  const [isLoadingMappingCount, setIsLoadingMappingCount] = useState(false);
   const { clearLogs } = useImportLog();
   const [backendStatus, setBackendStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
 
@@ -90,38 +86,13 @@ export default function TransactionsPage() {
     }
   };
 
-  const loadMappingCount = async () => {
-    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-      console.warn('[TransactionsPage] loadMappingCount - PROPERTY INVALIDE. Skipping API call.');
-      setMappingCount(null);
-      setIsLoadingMappingCount(false);
-      return;
-    }
-    
-    console.log('[TransactionsPage] loadMappingCount - Appel avec propertyId:', activeProperty.id);
-    setIsLoadingMappingCount(true);
-    try {
-      const response = await mappingsAPI.getCount(activeProperty.id);
-      console.log('[TransactionsPage] loadMappingCount - Réponse:', { count: response.count, propertyId: activeProperty.id });
-      setMappingCount(response.count);
-    } catch (error) {
-      console.error('[TransactionsPage] loadMappingCount - Erreur:', error);
-      setMappingCount(null);
-    } finally {
-      setIsLoadingMappingCount(false);
-    }
-  };
-
   useEffect(() => {
     if (tab === 'load_trades' && activeProperty && activeProperty.id && activeProperty.id > 0) {
       loadTransactionCount();
-      loadMappingCount();
     } else if (tab === 'load_trades') {
       // Pas de propriété valide, réinitialiser les compteurs
       setTransactionCount(null);
-      setMappingCount(null);
       setIsLoadingCount(false);
-      setIsLoadingMappingCount(false);
     }
   }, [tab, activeProperty?.id]);
 
@@ -146,9 +117,8 @@ export default function TransactionsPage() {
 
   const handleImportComplete = () => {
     console.log('✅ [TransactionsPage] Import terminé');
-    // Recharger les compteurs après import
+    // Recharger le compteur après import
     loadTransactionCount();
-    loadMappingCount();
     // Le tableau se rechargera automatiquement via son propre useEffect
   };
 
@@ -280,50 +250,9 @@ export default function TransactionsPage() {
                     🔄 Actualiser
                   </button>
                 </div>
-                <div style={{ 
-                  padding: '12px 20px', 
-                  backgroundColor: '#f5f5f5', 
-                  borderRadius: '8px',
-                  border: '1px solid #e5e5e5',
-                  minWidth: '200px',
-                  textAlign: 'center',
-                  flexShrink: 0
-                }}>
-                  <div style={{ fontSize: '12px', color: '#666', marginBottom: '4px' }}>
-                    Mappings en BDD
-                  </div>
-                  {isLoadingMappingCount ? (
-                    <div style={{ fontSize: '20px', fontWeight: '600', color: '#1e3a5f' }}>
-                      ⏳ Chargement...
-                    </div>
-                  ) : mappingCount !== null ? (
-                    <div style={{ fontSize: '24px', fontWeight: '600', color: '#1e3a5f' }}>
-                      {mappingCount} mapping{mappingCount !== 1 ? 's' : ''}
-                    </div>
-                  ) : (
-                    <div style={{ fontSize: '14px', color: '#dc3545' }}>
-                      ❌ Erreur de chargement
-                    </div>
-                  )}
-                  <button
-                    onClick={loadMappingCount}
-                    style={{
-                      marginTop: '8px',
-                      padding: '4px 12px',
-                      fontSize: '12px',
-                      backgroundColor: '#1e3a5f',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    🔄 Actualiser
-                  </button>
-                </div>
                 <button
                   onClick={async () => {
-                    if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer DÉFINITIVEMENT tous les historiques d\'imports ?\n\nCette action est irréversible et supprimera tous les logs de transactions ET de mappings de la base de données.')) {
+                    if (confirm('⚠️ Êtes-vous sûr de vouloir supprimer DÉFINITIVEMENT tous les historiques d\'imports ?\n\nCette action est irréversible et supprimera tous les logs de transactions de la base de données.')) {
                       if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
                         alert('❌ Aucune propriété active sélectionnée. Veuillez sélectionner une propriété avant de supprimer les imports.');
                         return;
@@ -332,18 +261,13 @@ export default function TransactionsPage() {
                         // Supprimer tous les imports de transactions pour cette propriété
                         await fileUploadAPI.deleteAllImports(activeProperty.id);
                         console.log('✅ Tous les imports de transactions supprimés pour property_id:', activeProperty.id);
-                        
-                        // Supprimer tous les imports de mappings pour cette propriété
-                        await mappingsAPI.deleteAllImports(activeProperty.id);
-                        console.log('✅ Tous les imports de mappings supprimés pour property_id:', activeProperty.id);
-                        
+
                         // Vider les logs en mémoire
                         clearLogs();
-                        
-                        // Recharger les compteurs
+
+                        // Recharger le compteur
                         loadTransactionCount();
-                        loadMappingCount();
-                        
+
                         alert('✅ Tous les historiques d\'imports ont été supprimés définitivement.');
                       } catch (error) {
                         console.error('❌ Erreur lors de la suppression des imports:', error);
@@ -385,54 +309,10 @@ export default function TransactionsPage() {
             </div>
 
             {/* Historique des imports */}
-            <ImportLog 
-              hideHeader={true} 
+            <ImportLog
+              hideHeader={true}
               onTransactionCountChange={handleTransactionCountChange}
             />
-
-            {/* Section Import de mappings */}
-            <div style={{ 
-              marginTop: '48px', 
-              paddingTop: '24px', 
-              borderTop: '2px solid #e5e5e5'
-            }}>
-              <h3 style={{ 
-                fontSize: '18px', 
-                fontWeight: '600', 
-                color: '#1a1a1a', 
-                marginBottom: '16px' 
-              }}>
-                Import de mappings
-              </h3>
-              
-              <MappingFileUpload 
-                onFileSelect={handleFileSelect} 
-                onImportComplete={handleImportComplete} 
-              />
-              
-              <div style={{ 
-                marginTop: '16px', 
-                padding: '16px', 
-                backgroundColor: '#f9f9f9', 
-                borderRadius: '4px',
-                fontSize: '14px',
-                color: '#666',
-                marginBottom: '24px'
-              }}>
-                <p style={{ margin: 0 }}>
-                  Sélectionnez un fichier Excel (.xlsx ou .xls) pour charger vos mappings. 
-                  Le fichier sera analysé et vous pourrez confirmer le mapping des colonnes (nom, level_1, level_2, level_3).
-                </p>
-              </div>
-
-              {/* Historique des imports de mappings */}
-              <MappingImportLog 
-                hideHeader={true} 
-                onMappingCountChange={(count) => {
-                  setMappingCount(count);
-                }}
-              />
-            </div>
           </div>
         )}
       </div>
