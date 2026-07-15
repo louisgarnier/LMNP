@@ -44,7 +44,8 @@ from backend.api.models import (
     DuplicateTransaction,
     TransactionError,
     ManualTransactionIn,
-    SplitIn
+    SplitIn,
+    CrossEntryIn
 )
 from backend.api.utils.csv_utils import (
     read_csv_safely,
@@ -745,6 +746,45 @@ def create_manual_transaction(body: ManualTransactionIn, db: Session = Depends(g
     logger.info(f"[Transactions] Transaction manuelle créée: id={tx.id}, category_id={tx.category_id}")
 
     return {"id": tx.id, "category_id": tx.category_id}
+
+
+@router.post("/transactions/cross-entry")
+def create_cross_entry(body: CrossEntryIn, db: Session = Depends(get_db)):
+    """
+    Écriture croisée (paire qui s'annule) : crée deux transactions manuelles
+    liées, l'une en débit (-montant) et l'autre en crédit (+montant), même
+    bien, même date. Net = 0 sur le solde (étape 4 Task 7).
+
+    Passe par le point d'entrée unique d'ingestion (dédoublonnage + insertion
+    + solde + enrichissement + amortissement), source="manual". Les
+    catégories fournies sont posées après l'ingestion (priment sur la
+    classification automatique par règles).
+    """
+    logger.info(f"[Transactions] POST /api/transactions/cross-entry - property_id={body.property_id}")
+
+    validate_property_id(db, body.property_id)
+    for leg in (body.debit, body.credit):
+        if leg.category_id is not None and db.get(Category, leg.category_id) is None:
+            raise HTTPException(400, f"category_id inconnu: {leg.category_id}")
+
+    from backend.api.services.ingestion_service import ingest_transactions
+    res = ingest_transactions(db, body.property_id, None, [
+        {"date": body.date, "quantite": -abs(body.montant), "nom": body.debit.nom, "external_id": None},
+        {"date": body.date, "quantite": abs(body.montant), "nom": body.credit.nom, "external_id": None},
+    ], "manual")
+    if len(res["ids"]) != 2:
+        raise HTTPException(409, "Écriture croisée : au moins une ligne est un doublon")
+    debit_id, credit_id = res["ids"][0], res["ids"][1]
+    debit, credit = db.get(Transaction, debit_id), db.get(Transaction, credit_id)
+    if body.debit.category_id is not None:
+        debit.category_id = body.debit.category_id
+    if body.credit.category_id is not None:
+        credit.category_id = body.credit.category_id
+    db.commit()
+
+    logger.info(f"[Transactions] Écriture croisée créée: debit_id={debit_id}, credit_id={credit_id}")
+
+    return {"debit_id": debit_id, "credit_id": credit_id}
 
 
 @router.put("/transactions/{transaction_id}", response_model=TransactionResponse)

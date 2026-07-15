@@ -47,6 +47,21 @@ class SplitIn(BaseModel):
     parts: List[SplitPartIn]
 
 
+class CrossEntryLegIn(BaseModel):
+    """Une jambe (débit ou crédit) d'une écriture croisée (étape 4 Task 7)."""
+    nom: str
+    category_id: Optional[int] = None
+
+
+class CrossEntryIn(BaseModel):
+    """Body de POST /transactions/cross-entry (étape 4 Task 7)."""
+    property_id: int
+    date: date
+    montant: float           # montant positif ; debit = -montant, credit = +montant
+    debit: CrossEntryLegIn
+    credit: CrossEntryLegIn
+
+
 class TransactionUpdate(BaseModel):
     """Model for updating a transaction."""
     date: Optional[str] = None  # Accept string, will be converted to date in route
