@@ -90,12 +90,9 @@ async def create_property(
     
     - **name**: Nom de la propriété (obligatoire, unique)
     - **address**: Adresse de la propriété (optionnel)
-    
-    Les mappings autorisés (hardcodés) sont automatiquement chargés depuis le fichier Excel.
     """
     from backend.api.utils.logger_config import get_logger
-    from backend.api.services.mapping_obligatoire_service import load_allowed_mappings_from_excel
-    
+
     logger = get_logger(__name__)
     
     # Vérifier si une propriété avec le même nom existe déjà
@@ -116,19 +113,7 @@ async def create_property(
     db.refresh(property)
     
     logger.info(f"[Properties] POST /api/properties - Propriété créée: {property.name} (ID: {property.id})")
-    
-    # Charger automatiquement les mappings autorisés depuis le fichier Excel
-    try:
-        logger.info(f"[Properties] POST /api/properties - Chargement des mappings autorisés pour la propriété {property.id}...")
-        loaded_count = load_allowed_mappings_from_excel(db, property_id=property.id)
-        logger.info(f"[Properties] POST /api/properties - {loaded_count} mappings autorisés chargés pour la propriété {property.id}")
-    except FileNotFoundError as e:
-        logger.warning(f"[Properties] POST /api/properties - Fichier Excel des mappings autorisés non trouvé: {e}")
-        # Ne pas faire échouer la création de la propriété si le fichier n'existe pas
-    except Exception as e:
-        logger.error(f"[Properties] POST /api/properties - Erreur lors du chargement des mappings autorisés: {e}", exc_info=True)
-        # Ne pas faire échouer la création de la propriété si le chargement échoue
-    
+
     return PropertyResponse(
         id=property.id,
         name=property.name,

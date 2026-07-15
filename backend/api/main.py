@@ -58,7 +58,7 @@ import traceback
 import time
 
 # Import routes
-from backend.api.routes import transactions, mappings, enrichment, analytics, pivot_configs, amortization, amortization_types, loan_payments, loan_configs, compte_resultat, bilan, properties, logs, prorata_forecast, rules, inbox, categories
+from backend.api.routes import transactions, analytics, pivot_configs, amortization, amortization_types, loan_payments, loan_configs, compte_resultat, bilan, properties, logs, prorata_forecast, rules, inbox, categories
 
 # Import middleware de logging
 from backend.api.middleware.logging_middleware import LoggingMiddleware
@@ -195,8 +195,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # Include routers
 app.include_router(properties.router, prefix="/api", tags=["properties"])
 app.include_router(transactions.router, prefix="/api", tags=["transactions"])
-app.include_router(mappings.router, prefix="/api", tags=["mappings"])
-app.include_router(enrichment.router, prefix="/api", tags=["enrichment"])
 app.include_router(analytics.router, prefix="/api", tags=["analytics"])
 app.include_router(pivot_configs.router, prefix="/api", tags=["pivot-configs"])
 app.include_router(amortization.router, prefix="/api", tags=["amortization"])

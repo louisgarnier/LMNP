@@ -8,12 +8,11 @@ line_code). Il devient le verrou : après bascule, le JSON doit rester IDENTIQUE
 Le mini-monde est semé via le client isolé (`client` partage la session
 `db_session` en mémoire — jamais la base de production) :
   - 1 propriété
-  - allowed_mappings (pour autoriser la classification via l'API)
   - transactions ACTIF (immobilisation) sur 2 années (2023, 2024)
-  - classification via l'API PUT /api/enrichment/transactions/{id} : écrit
-    enriched_transactions ET synchronise transactions.category_id (dual-write
-    Task 4). La classification CRÉE les categories custom au passage, ce qui
-    rend résoluble la liaison posée par POST /mappings.
+  - classification via `update_transaction_classification` (moteur vivant,
+    étape 3 Task 9 : remplace l'ancien appel API PUT
+    /api/enrichment/transactions/{id}, route retirée) : écrit directement
+    transactions.category_id.
   - config Level 3 + 1 ligne normale (Immobilisations) + 1 ligne spéciale
     (Compte bancaire, COMPTE_BANCAIRE) via l'API POST /mappings
 
@@ -26,7 +25,7 @@ import json
 from datetime import date
 from pathlib import Path
 
-from backend.database.models import Property, Transaction, AllowedMapping, Category, CategoryGroup
+from backend.database.models import Property, Transaction, Category, CategoryGroup
 from backend.api.services.category_service import NATURE_BY_LABEL
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "bilan_contract_etape2.json"
@@ -48,13 +47,6 @@ def _seed_and_calculate(client, db_session):
     db_session.add(prop)
     db_session.flush()
     pid = prop.id
-
-    # Autoriser les combinaisons de classification pour cette propriété
-    # (allowed_mappings conservée pour compat legacy ; la validation réelle
-    # passe désormais par le référentiel categories/category_groups)
-    for l1, l2, l3 in {(t[4], t[5], t[6]) for t in _TX}:
-        db_session.add(AllowedMapping(property_id=pid, level_1=l1, level_2=l2,
-                                      level_3=l3, is_hardcoded=False))
 
     # Peupler le référentiel (validate_mapping résout désormais via
     # resolve_category, plus via allowed_mappings)
@@ -79,13 +71,15 @@ def _seed_and_calculate(client, db_session):
         tx_ids.append((tx.id, l1, l2, l3))
     db_session.commit()
 
-    # Classifier via l'API (écrit enriched + category_id via dual-write Task 4)
+    # Classifier via le moteur vivant (étape 3 Task 9 : remplace l'appel API
+    # PUT /api/enrichment/transactions/{id}, route retirée avec le reste du
+    # back legacy mapping — écrit directement transactions.category_id,
+    # équivalent au dual-write historique qui écrivait aussi
+    # enriched_transactions, table supprimée depuis étape 2 Task 8).
+    from backend.api.services.enrichment_service import update_transaction_classification
     for tid, l1, l2, l3 in tx_ids:
-        resp = client.put(
-            f"/api/enrichment/transactions/{tid}",
-            params={"level_1": l1, "level_2": l2, "level_3": l3},
-        )
-        assert resp.status_code == 200, resp.text
+        tx_obj = db_session.query(Transaction).filter(Transaction.id == tid).first()
+        update_transaction_classification(db_session, tx_obj, level_1=l1, level_2=l2, level_3=l3)
 
     # Config Level 3 (natures ACTIF/PASSIF autorisées dans le bilan)
     resp = client.put(

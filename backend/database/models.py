@@ -31,8 +31,6 @@ class Property(Base):
     transactions = relationship("Transaction", back_populates="property", cascade="all, delete-orphan")
     mappings = relationship("Mapping", back_populates="property", cascade="all, delete-orphan")
     file_imports = relationship("FileImport", back_populates="property", cascade="all, delete-orphan")
-    mapping_imports = relationship("MappingImport", back_populates="property", cascade="all, delete-orphan")
-    allowed_mappings = relationship("AllowedMapping", back_populates="property", cascade="all, delete-orphan")
     amortization_types = relationship("AmortizationType", back_populates="property", cascade="all, delete-orphan")
     loan_configs = relationship("LoanConfig", back_populates="property", cascade="all, delete-orphan")
     loan_payments = relationship("LoanPayment", back_populates="property", cascade="all, delete-orphan")
@@ -88,7 +86,19 @@ class Transaction(Base):
 
 
 class Mapping(Base):
-    """Mapping rules for transaction names to categories."""
+    """Mapping rules for transaction names to categories.
+
+    Étape 3 Task 9 : le moteur vivant (routes/services API) ne lit/écrit plus
+    cette classe — retirée de `enrichment_service`/`mapping_obligatoire_service`
+    et des routes (`mappings.py`, `enrichment.py`, supprimées). La classe ORM
+    est VOLONTAIREMENT conservée (déviation du brief Task 9 §C.5) car
+    `backend/scripts/migrate_mappings_to_rules.py` (script étape-3 protégé,
+    jamais à supprimer) et son test associé (`test_migrate_mappings_to_rules.py`,
+    live) en dépendent directement pour lire la table `mappings` comme source
+    de migration. La table physique n'est pas droppée (différé Task 10) ; ce
+    choix garde le modèle ORM cohérent avec elle tant qu'un consommateur vivant
+    existe.
+    """
     __tablename__ = "mappings"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -162,32 +172,6 @@ class FileImport(Base):
     )
 
 
-class MappingImport(Base):
-    """Track imported Excel mapping files to prevent duplicate processing."""
-    __tablename__ = "mapping_imports"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False)
-    filename = Column(String(255), nullable=False, index=True)  # Plus unique globalement, unique par property_id
-    imported_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    imported_count = Column(Integer, default=0)  # Nombre de mappings importés
-    duplicates_count = Column(Integer, default=0)  # Nombre de doublons détectés
-    errors_count = Column(Integer, default=0)  # Nombre d'erreurs
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relations
-    property = relationship("Property", back_populates="mapping_imports")
-    
-    # Index pour recherches et unicité par property
-    __table_args__ = (
-        Index('idx_mapping_imports_property_id', 'property_id'),
-        Index('idx_mapping_imports_filename', 'filename'),
-        Index('idx_mapping_imports_imported_at', 'imported_at'),
-        Index('idx_mapping_imports_property_filename_unique', 'property_id', 'filename', unique=True),  # Unique par propriété
-    )
-
-
 class PivotConfig(Base):
     """Saved pivot table configurations."""
     __tablename__ = "pivot_configs"
@@ -206,32 +190,6 @@ class PivotConfig(Base):
     __table_args__ = (
         Index('idx_pivot_configs_name', 'name'),
         Index('idx_pivot_configs_property_id', 'property_id'),
-    )
-
-
-class AllowedMapping(Base):
-    """Allowed mapping combinations (level_1, level_2, level_3) that can be used for transactions."""
-    __tablename__ = "allowed_mappings"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
-    level_1 = Column(String(100), nullable=False, index=True)  # Catégorie principale
-    level_2 = Column(String(100), nullable=False, index=True)  # Sous-catégorie
-    level_3 = Column(String(100), index=True)  # Détail spécifique (nullable)
-    is_hardcoded = Column(Boolean, default=False, nullable=False)  # True pour les 50 combinaisons initiales (protégées)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relation avec Property
-    property = relationship("Property", back_populates="allowed_mappings")
-    
-    # Contrainte unique sur la combinaison (property_id, level_1, level_2, level_3)
-    # Index pour recherches fréquentes
-    __table_args__ = (
-        Index('idx_allowed_mapping_unique', 'property_id', 'level_1', 'level_2', 'level_3', unique=True),
-        Index('idx_allowed_mapping_level_1', 'level_1'),
-        Index('idx_allowed_mapping_level_2', 'level_2'),
-        Index('idx_allowed_mapping_level_3', 'level_3'),
     )
 
 

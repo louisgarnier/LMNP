@@ -19,12 +19,15 @@ ou DELETE transaction) désassigne réellement (category_id repassé à NULL).
 
 Étape 3 Task 5 : `enrich_transaction` lit désormais `classification_rules`
 (et non plus `mappings`) — les seeds ci-dessous utilisent `ClassificationRule`
-pour déclencher la classification. `reset_allowed_mappings`
-(mapping_obligatoire_service) reste sur l'ancien système `Mapping`/
-`AllowedMapping` jusqu'à sa suppression (Task 10) : le second test seed donc
-AUSSI un `Mapping` (uniquement consommé par `reset_allowed_mappings` pour
-retrouver puis désassigner la transaction), en plus de la `ClassificationRule`
-qui sert de précondition de classification via le nouveau moteur.
+pour déclencher la classification.
+
+Étape 3 Task 9 : le test `test_reset_allowed_mappings_clears_category_id`
+(désassignation via `mapping_obligatoire_service.reset_allowed_mappings`) a été
+retiré ici — cette fonction et `AllowedMapping` sont supprimées avec le reste
+du CRUD `allowed_mappings` legacy (retrait routes/services legacy, moteur
+unique `classification_rules`). Les deux tests restants exercent le moteur
+vivant (`enrich_transaction`, `update_transaction_classification`) et sont
+conservés.
 """
 from datetime import date
 
@@ -51,46 +54,6 @@ def test_enrich_transaction_sets_category_id(db_session):
     db_session.refresh(t)
     assert t.category_id is not None
     assert t.category.label == "Encaissement locataire et CAF"
-
-
-def test_reset_allowed_mappings_clears_category_id(db_session):
-    """Désassignation en masse (mapping_obligatoire_service.reset_allowed_mappings) :
-    quand une combinaison devient interdite, le Mapping associé est supprimé ->
-    transactions.category_id doit repasser à NULL (Étape 2 Task 8).
-
-    `reset_allowed_mappings` reste branché sur l'ancien système `Mapping` (il
-    n'est retiré qu'à Task 10) : on seed donc un `Mapping` pour qu'il retrouve
-    la transaction à désassigner, en plus de la `ClassificationRule` qui sert
-    de précondition (transaction classée par le nouveau moteur avant reset)."""
-    from backend.database.models import Property, Transaction, Mapping, AllowedMapping, ClassificationRule
-    from backend.api.services.enrichment_service import enrich_transaction
-    from backend.api.services.mapping_obligatoire_service import reset_allowed_mappings
-
-    p = Property(name="T"); db_session.add(p); db_session.flush()
-    cat = _seed_cat(db_session, "Encaissement locataire et CAF", "Produits", "produits")
-    db_session.add(AllowedMapping(property_id=p.id,
-                                   level_1="Encaissement locataire et CAF",
-                                   level_2="Produits", level_3="Produits",
-                                   is_hardcoded=False))
-    db_session.add(Mapping(property_id=p.id, nom="VIR LOYER",
-                           level_1="Encaissement locataire et CAF",
-                           level_2="Produits", level_3="Produits",
-                           is_prefix_match=False, priority=1))
-    db_session.add(ClassificationRule(pattern="VIR LOYER", match_type="exact",
-                                      category_id=cat.id, property_id=p.id,
-                                      priority=1, source="manual"))
-    t = Transaction(date=date(2024, 1, 5), quantite=500.0, nom="VIR LOYER",
-                    solde=500.0, property_id=p.id)
-    db_session.add(t); db_session.flush()
-
-    enrich_transaction(t, db_session)
-    db_session.refresh(t)
-    assert t.category_id is not None  # pré-condition : bien classifiée avant reset
-
-    reset_allowed_mappings(db_session, p.id)
-    db_session.refresh(t)
-
-    assert t.category_id is None
 
 
 def test_manual_classification_new_combo_creates_custom_category(db_session):
