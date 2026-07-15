@@ -25,7 +25,8 @@ import json
 from datetime import date
 from pathlib import Path
 
-from backend.database.models import Property, Transaction, AllowedMapping
+from backend.database.models import Property, Transaction, AllowedMapping, Category, CategoryGroup
+from backend.api.services.category_service import NATURE_BY_LABEL
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "cr_contract_etape2.json"
 
@@ -46,9 +47,24 @@ def _seed_and_calculate(client, db_session):
     pid = prop.id
 
     # Autoriser les 2 combinaisons de classification pour cette propriété
+    # (allowed_mappings conservée pour compat legacy ; la validation réelle
+    # passe désormais par le référentiel categories/category_groups)
     for l1, l2, l3 in {(t[3], t[4], t[5]) for t in _TX}:
         db_session.add(AllowedMapping(property_id=pid, level_1=l1, level_2=l2,
                                       level_3=l3, is_hardcoded=False))
+
+    # Peupler le référentiel (validate_mapping résout désormais via
+    # resolve_category, plus via allowed_mappings)
+    for l1, l2, l3 in {(t[3], t[4], t[5]) for t in _TX}:
+        nature = NATURE_BY_LABEL[l3]
+        group = db_session.query(CategoryGroup).filter(
+            CategoryGroup.label == l2, CategoryGroup.nature == nature
+        ).first()
+        if group is None:
+            group = CategoryGroup(label=l2, nature=nature)
+            db_session.add(group)
+            db_session.flush()
+        db_session.add(Category(label=l1, group_id=group.id, is_custom=False))
 
     # Insérer les transactions brutes
     tx_ids = []

@@ -11,6 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 from backend.database.models import AllowedMapping, Transaction
+from backend.api.services.category_service import resolve_category
 
 
 # Liste fixe des valeurs level_3 autorisées
@@ -215,33 +216,24 @@ def get_allowed_level3_values(db: Session, level_1: str, level_2: str, property_
 
 def validate_mapping(db: Session, level_1: str, level_2: str, level_3: Optional[str] = None, property_id: Optional[int] = None) -> bool:
     """
-    Valide qu'une combinaison existe dans la table allowed_mappings.
-    
+    Valide qu'un triplet existe dans le RÉFÉRENTIEL (categories/category_groups).
+    Remplace l'ancienne interrogation de allowed_mappings (supprimée en étape 3).
+
     Args:
         db: Session de base de données
         level_1: Valeur de level_1
         level_2: Valeur de level_2
-        level_3: Valeur de level_3 (optionnel)
-        property_id: ID de la propriété (obligatoire pour l'isolation multi-propriétés)
-    
+        level_3: Valeur de level_3 (obligatoire pour résoudre dans le référentiel)
+        property_id: ID de la propriété (obligatoire, conservé pour compat signature)
+
     Returns:
-        True si la combinaison existe, False sinon
+        True si le triplet résout dans le référentiel, False sinon
     """
     if property_id is None:
         raise ValueError("property_id est obligatoire pour valider un mapping")
-    
-    query = db.query(AllowedMapping).filter(
-        AllowedMapping.property_id == property_id,
-        AllowedMapping.level_1 == level_1,
-        AllowedMapping.level_2 == level_2
-    )
-    
-    if level_3 is not None:
-        query = query.filter(AllowedMapping.level_3 == level_3)
-    else:
-        query = query.filter(AllowedMapping.level_3.is_(None))
-    
-    return query.first() is not None
+    if level_3 is None:
+        return False  # le référentiel exige les 3 niveaux (nature)
+    return resolve_category(db, level_1, level_2, level_3) is not None
 
 
 def reset_to_hardcoded_values(db: Session) -> int:
