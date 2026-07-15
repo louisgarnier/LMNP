@@ -2578,3 +2578,137 @@ export const prorataAPI = {
     return fetchAPI<ReferenceDataResponse>(`/api/forecast-configs/reference-data?property_id=${propertyId}&year=${year}&target_type=${targetType}`);
   },
 };
+
+// --- Catégories (référentiel) ---
+export interface Category {
+  id: number;
+  label: string;
+  group_label: string;
+  nature: string;
+}
+
+export const categoriesAPI = {
+  /**
+   * Récupérer la liste des catégories du référentiel
+   */
+  list: async (): Promise<Category[]> =>
+    (await fetchAPI<{ items: Category[] }>('/api/categories')).items,
+};
+
+// --- Règles de classification automatique ---
+export interface Rule {
+  id: number;
+  pattern: string;
+  match_type: 'exact' | 'prefix' | 'contains';
+  category_id: number;
+  property_id: number | null;
+  priority: number;
+  source: string;
+  strict_ratio: boolean;
+  tx_count?: number;
+}
+
+export interface RuleInput {
+  pattern: string;
+  match_type: 'exact' | 'prefix' | 'contains';
+  category_id: number;
+  property_id: number | null;
+  priority?: number;
+  strict_ratio?: boolean;
+}
+
+// Le back (`RuleIn` dans backend/api/routes/rules.py) attend property_id DANS LE BODY
+// pour POST /api/rules et POST /api/rules/preview. On respecte le property_id explicite
+// de l'input (y compris `null` = règle globale) et on ne retombe sur le paramètre
+// propertyId que si l'appelant ne l'a pas renseigné.
+function ruleBody(propertyId: number, r: RuleInput): RuleInput {
+  return {
+    ...r,
+    property_id: r.property_id !== undefined ? r.property_id : propertyId,
+  };
+}
+
+export const rulesAPI = {
+  /**
+   * Récupérer les règles applicables à une propriété (globales incluses)
+   */
+  list: async (propertyId: number): Promise<Rule[]> =>
+    (await fetchAPI<{ items: Rule[] }>(`/api/rules?property_id=${propertyId}`)).items,
+
+  /**
+   * Créer une règle
+   */
+  create: (propertyId: number, r: RuleInput) =>
+    fetchAPI<{ id: number }>('/api/rules', {
+      method: 'POST',
+      body: JSON.stringify(ruleBody(propertyId, r)),
+    }),
+
+  /**
+   * Modifier une règle
+   */
+  update: (id: number, r: RuleInput) =>
+    fetchAPI<{ id: number }>(`/api/rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(r),
+    }),
+
+  /**
+   * Supprimer une règle
+   */
+  remove: (id: number) =>
+    fetchAPI<void>(`/api/rules/${id}`, { method: 'DELETE' }),
+
+  /**
+   * Prévisualiser l'effet d'une règle (sans la créer) : transactions qui seraient
+   * classées et conflits avec des transactions déjà classées différemment
+   */
+  preview: (propertyId: number, r: RuleInput) =>
+    fetchAPI<{
+      would_classify: number;
+      conflicts: { transaction_id: number; current_category_id: number }[];
+    }>('/api/rules/preview', {
+      method: 'POST',
+      body: JSON.stringify(ruleBody(propertyId, r)),
+    }),
+};
+
+// --- Inbox (file d'attente de classification en un clic) ---
+export interface InboxItem {
+  transaction_id: number;
+  nom: string;
+  date: string;
+  montant: number;
+  suggestion: { category_id: number | null };
+  proposed_rule: { pattern: string; match_type: 'exact' | 'prefix' | 'contains' };
+}
+
+export const inboxAPI = {
+  /**
+   * Lister les transactions non classées d'une propriété, avec suggestion et règle proposée
+   */
+  list: async (propertyId: number): Promise<InboxItem[]> =>
+    (await fetchAPI<{ items: InboxItem[] }>(`/api/inbox?property_id=${propertyId}`)).items,
+
+  /**
+   * Valider une transaction de l'inbox (avec ou sans création de règle associée)
+   */
+  validate: (body: {
+    transaction_id: number;
+    category_id: number;
+    rule?: { pattern: string; match_type: string; property_id?: number | null };
+  }) =>
+    fetchAPI<{ transaction_id: number; category_id: number }>('/api/inbox/validate', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Valider en masse toutes les transactions non ambiguës de l'inbox d'une propriété
+   */
+  validateAll: (propertyId: number) =>
+    fetchAPI<{ rules_created: number; transactions_validated: number }>(
+      `/api/inbox/validate-all?property_id=${propertyId}`,
+      { method: 'POST' }
+    ),
+};
