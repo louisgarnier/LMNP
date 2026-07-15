@@ -584,6 +584,42 @@ sur la foi des seuls tests unitaires isolés.
 
 ---
 
+## `db.begin_nested()` (SAVEPOINT) autour d'une fonction qui committe déjà en interne (2026-07-16)
+
+**Symptôme :** `banking_service.sync_account` renvoyait systématiquement `{errors: [...],
+inserted: 0}` sur CHAQUE synchro réussie (les transactions étaient pourtant bien insérées), et
+`bank_account.last_sync_at` n'était jamais persisté (incrémental live cassé — chaque sync
+repartait de zéro).
+
+**Cause :** `sync_account` faisait `with db.begin_nested(): res = ingest_transactions(...)`.
+`ingest_transactions` (`ingestion_service.py`) fait son propre `db.commit()` en interne (comme
+l'import CSV) — ce commit ferme la transaction SAVEPOINT que le `with` croit encore gérer. À la
+sortie du `with`, SQLAlchemy lève `InvalidRequestError: Can't operate on closed transaction`.
+Cette exception était avalée par le `except` englobant → `rollback()` (qui détruit
+`last_sync_at`, jamais commité) → retour `{errors: [...], inserted: 0}` alors que l'insertion
+avait déjà réussi (commitée par `ingest_transactions` avant l'exception).
+
+Fait notable : ce risque avait été **noté comme un doute théorique non neutralisé** dans le
+rapport de la tâche d'origine (`.superpowers/sdd/task-5-report.md`, §"begin_nested() + commit
+interne d'ingest_transactions") — 3 tests passaient car ils ne vérifiaient que le contenu de la
+table `Transaction`, jamais le contrat de retour `{errors, inserted}` ni `last_sync_at`. Le
+doute théorique s'est confirmé en usage réel dès la première synchro.
+
+**Fix :** ne jamais empaqueter dans un `begin_nested()`/SAVEPOINT un appel à une fonction qui
+committe déjà elle-même — soit la fonction appelée committe (pas de SAVEPOINT), soit
+l'appelant gère toute la transaction (la fonction appelée ne committe pas). Ici :
+suppression du SAVEPOINT, `sync_account` englobe fetch + ingest + `last_sync_at` +
+`db.commit()` dans un seul `try/except`.
+
+**Règle de prévention :** avant d'ajouter un `with db.begin_nested():` (ou toute transaction
+imbriquée) autour d'un appel de fonction, vérifier si cette fonction fait déjà `db.commit()` en
+interne — si oui, ne PAS l'envelopper dans un SAVEPOINT, sous peine de fermer prématurément la
+transaction. Tout test qui exerce un chemin critique doit vérifier le **contrat de retour complet**
+(pas seulement l'état final en base) — ici, vérifier `errors == []` et `inserted >= 1`, pas
+seulement le contenu de la table, aurait fait échouer les tests dès l'origine.
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet
@@ -592,5 +628,5 @@ sur la foi des seuls tests unitaires isolés.
 
 ---
 
-**Dernière mise à jour :** 2026-07-12 (Étape 2, Task 10 — clôture)
+**Dernière mise à jour :** 2026-07-16 (correctif CRITICAL sync_account — begin_nested)
 **Cas d'étude :** Quarantaine tests / contamination base de production
