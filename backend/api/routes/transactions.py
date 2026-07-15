@@ -1111,14 +1111,13 @@ async def import_file(
         
         period_start = None
         period_end = None
-        
-        # Récupérer le solde actuel le plus récent en BDD (ou 0 si aucune transaction)
-        last_transaction = db.query(Transaction).order_by(Transaction.date.desc(), Transaction.id.desc()).first()
-        current_solde = last_transaction.solde if last_transaction else 0.0
-        
-        # Liste des transactions à insérer (pour calculer le solde en une fois)
-        transactions_to_insert = []
-        
+
+        # Lignes candidates normalisées, construites au fil de la boucle ci-dessous puis
+        # remises en bloc au service d'ingestion (dédoublonnage + insertion + solde +
+        # enrich + amortissement). L'insertion réelle, et donc le solde/la période, ne
+        # sont connus qu'après l'appel au service (cf. plus bas).
+        rows = []
+
         for idx, row in df_validated.iterrows():
             try:
                 # Numéro de ligne dans le fichier original
@@ -1160,17 +1159,19 @@ async def import_file(
                 # Vérifier que le nom n'est pas vide
                 nom_original = str(row[nom_col]).strip() if pd.notna(row[nom_col]) else ''
                 nom_value = nom_original
-                is_nom_generated = False
-                
+
                 # Si le nom est vide, vérifier d'abord les doublons sur (Date + Quantité) uniquement
-                # car le nom généré changera à chaque import
+                # car le nom généré changera à chaque import (sinon deux imports du même fichier
+                # génèreraient un nom différent à chaque fois → faux doublon côté service, qui
+                # dédoublonne sur (property_id, date, quantite, nom)). On doit donc trancher
+                # "doublon vs nouveau" AVANT de générer le nom, avec la même règle qu'aujourd'hui.
                 if not nom_value:
                     # Vérifier doublon sur (Date + Quantité) uniquement pour les transactions sans nom
                     existing_no_nom = db.query(Transaction).filter(
                         Transaction.date == date_value,
                         Transaction.quantite == quantite_value
                     ).first()
-                    
+
                     if existing_no_nom:
                         # C'est un doublon, utiliser le nom existant pour l'affichage
                         duplicates_count += 1
@@ -1181,53 +1182,24 @@ async def import_file(
                             existing_id=existing_no_nom.id
                         ))
                         continue
-                    
+
                     # Pas de doublon, générer automatiquement un nom "nom_a_justifier_N"
                     existing_justify_count = db.query(Transaction).filter(
                         Transaction.nom.like('nom_a_justifier_%')
                     ).count()
                     nom_value = f"nom_a_justifier_{existing_justify_count + 1}"
-                    is_nom_generated = True
-                
-                # Vérifier doublon (Date + Quantité + nom) pour les transactions avec nom
-                if not is_nom_generated:
-                    existing = db.query(Transaction).filter(
-                        Transaction.date == date_value,
-                        Transaction.quantite == quantite_value,
-                        Transaction.nom == nom_value
-                    ).first()
-                    
-                    if existing:
-                        duplicates_count += 1
-                        duplicates_list.append(DuplicateTransaction(
-                            date=date_value.strftime('%d/%m/%Y'),
-                            quantite=quantite_value,
-                            nom=nom_value,
-                            existing_id=existing.id
-                        ))
-                        continue
-                
-                # Calculer le solde : solde = solde précédent + quantité
-                current_solde = current_solde + quantite_value
-                
-                # Créer la transaction avec solde calculé
-                transaction = Transaction(
-                    property_id=property_id,  # Ajouter property_id
-                    date=date_value,
-                    quantite=quantite_value,
-                    nom=nom_value,  # Utiliser la valeur déjà vérifiée (non vide)
-                    solde=current_solde,  # Solde calculé automatiquement
-                    source_file=filename
-                )
-                transactions_to_insert.append(transaction)
-                imported_count += 1
-                
-                # Mettre à jour période
-                if period_start is None or date_value < period_start:
-                    period_start = date_value
-                if period_end is None or date_value > period_end:
-                    period_end = date_value
-                    
+
+                # Ligne candidate normalisée pour le service d'ingestion. Le dédoublonnage
+                # (Date + Quantité + nom) pour les transactions nommées, l'insertion, le
+                # recalcul de solde, l'enrichissement et l'amortissement sont désormais
+                # délégués à ingest_transactions (point d'entrée unique d'ingestion).
+                rows.append({
+                    "date": date_value,
+                    "quantite": quantite_value,
+                    "nom": nom_value,
+                    "external_id": None,
+                })
+
             except Exception as e:
                 errors_count += 1
                 # Essayer d'extraire les informations de la ligne pour l'erreur
@@ -1260,41 +1232,33 @@ async def import_file(
                 ))
                 continue
         
-        # Insérer toutes les transactions en une fois
-        for transaction in transactions_to_insert:
-            db.add(transaction)
-        db.flush()  # Flush pour obtenir les IDs sans commit
-        
-        # Recalculer tous les soldes après insertion
-        # Si on a inséré des transactions, on doit recalculer depuis la date minimale
-        # pour gérer le cas où des transactions sont insérées à des dates antérieures
-        if transactions_to_insert:
-            from backend.api.utils.balance_utils import recalculate_all_balances
-            # Trouver la date minimale des transactions insérées
-            min_inserted_date = min(t.date for t in transactions_to_insert)
-            # Recalculer tous les soldes depuis le début pour garantir la cohérence
-            # (plus simple et plus sûr que de recalculer depuis une date spécifique)
-            recalculate_all_balances(db, property_id)
-            
-            # Enrichir automatiquement toutes les transactions insérées
-            # (Étape 3 Task 5 : classification_rules bien + globales, chargées
-            # depuis la DB par enrich_transaction via _rules_for_property)
-            from backend.api.services.amortization_service import recalculate_transaction_amortization
-            for transaction in transactions_to_insert:
-                # Enrichir la transaction (elle a déjà un ID après flush)
-                enrich_transaction(transaction, db)
-                
-                # Recalculer les amortissements après enrichissement
-                # (gestion silencieuse des erreurs pour ne pas bloquer l'import)
-                try:
-                    recalculate_transaction_amortization(db, transaction.id)
-                except Exception as e:
-                    # Log l'erreur mais ne bloque pas l'import
-                    import traceback
-                    error_details = traceback.format_exc()
-                    print(f"⚠️ [import_file] Erreur lors du recalcul des amortissements pour transaction {transaction.id}: {error_details}")
-        
-        db.commit()
+        # Point d'entrée unique d'ingestion (Étape 4) : dédoublonnage (Date + Quantité + nom,
+        # scope property_id) + insertion + recalcul de solde + enrichissement + amortissement.
+        # Les noms vides ont déjà été résolus (doublon vs "nom_a_justifier_N" généré) ci-dessus,
+        # avant l'appel, pour préserver l'idempotence des réimports (cf. commentaire plus haut).
+        from backend.api.services.ingestion_service import ingest_transactions
+        res = ingest_transactions(db, property_id, None, rows, source="csv")
+
+        imported_count = res["inserted"]
+        # duplicates_count a déjà été incrémenté ci-dessus pour les lignes à nom vide
+        # détectées comme doublons avant même d'atteindre le service ; on y ajoute les
+        # doublons détectés par le service lui-même (transactions nommées).
+        duplicates_count += res["deduplicated"]
+
+        # Période couverte : uniquement les transactions réellement insérées (comme avant,
+        # où seules les lignes effectivement ajoutées à transactions_to_insert la mettaient à jour).
+        # On renseigne aussi `source_file` (colonne historique, non gérée par le service générique
+        # ingest_transactions qui ne connaît que `source`="csv"/"api"/"manual") pour préserver le
+        # comportement actuel de l'écran transactions/analytics qui l'affiche.
+        if res["ids"]:
+            inserted_transactions = db.query(Transaction).filter(Transaction.id.in_(res["ids"])).all()
+            for t in inserted_transactions:
+                t.source_file = filename
+                if period_start is None or t.date < period_start:
+                    period_start = t.date
+                if period_end is None or t.date > period_end:
+                    period_end = t.date
+            db.commit()
         
         # Créer ou mettre à jour l'enregistrement FileImport
         if existing_import:
