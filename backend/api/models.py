@@ -35,6 +35,18 @@ class ManualTransactionIn(BaseModel):
     category_id: Optional[int] = None
 
 
+class SplitPartIn(BaseModel):
+    """Une ligne d'éclatement d'une transaction (étape 4 Task 6)."""
+    quantite: float
+    nom: str
+    category_id: Optional[int] = None
+
+
+class SplitIn(BaseModel):
+    """Body de POST /transactions/{id}/split (étape 4 Task 6)."""
+    parts: List[SplitPartIn]
+
+
 class TransactionUpdate(BaseModel):
     """Model for updating a transaction."""
     date: Optional[str] = None  # Accept string, will be converted to date in route

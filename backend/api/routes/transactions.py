@@ -21,6 +21,7 @@ from backend.database import get_db
 from backend.database.models import Transaction, FileImport, Category, CategoryGroup
 from backend.api.services.enrichment_service import enrich_transaction
 from backend.api.utils.validation import validate_property_id
+from backend.api.utils.balance_utils import recalculate_all_balances
 from backend.api.services.classification_read import (
     join_classification,
     category_label_columns,
@@ -42,7 +43,8 @@ from backend.api.models import (
     ColumnMapping,
     DuplicateTransaction,
     TransactionError,
-    ManualTransactionIn
+    ManualTransactionIn,
+    SplitIn
 )
 from backend.api.utils.csv_utils import (
     read_csv_safely,
@@ -870,6 +872,81 @@ def set_transaction_category(
     logger.info(f"[Transactions] Transaction {transaction_id} reclassée: category_id={tx.category_id}")
 
     return {"id": tx.id, "category_id": tx.category_id}
+
+
+@router.post("/transactions/{transaction_id}/split")
+def split_transaction(transaction_id: int, body: SplitIn, db: Session = Depends(get_db)):
+    """
+    Éclate une transaction en N lignes (étape 4 Task 6).
+
+    Garde-fou dur : la somme des parts (au centime) doit égaler exactement
+    le montant de la transaction parente, sinon 400 et rien n'est écrit.
+    La parente est marquée `is_split_parent=True` et `category_id=None`
+    (masquée du CR/bilan et des listes, cf. Task 4) ; les enfants sont créés
+    avec `source="manual"` et rattachés via `parent_transaction_id`.
+    """
+    logger.info(f"[Transactions] POST /api/transactions/{transaction_id}/split")
+
+    parent = db.get(Transaction, transaction_id)
+    if not parent:
+        raise HTTPException(404, "Transaction introuvable")
+    if parent.is_split_parent:
+        raise HTTPException(400, "Transaction déjà éclatée")
+    if not body.parts:
+        raise HTTPException(400, "Au moins une ligne requise")
+
+    # garde-fou dur : somme au centime == montant parent (jamais d'égalité float directe)
+    total_cents = sum(round(p.quantite * 100) for p in body.parts)
+    if total_cents != round(parent.quantite * 100):
+        raise HTTPException(400, f"La somme des lignes ({total_cents/100:.2f}) doit égaler {parent.quantite:.2f}")
+    for p in body.parts:
+        if p.category_id is not None and db.get(Category, p.category_id) is None:
+            raise HTTPException(400, f"category_id inconnu: {p.category_id}")
+
+    parent.is_split_parent = True
+    parent.category_id = None
+    child_ids = []
+    for p in body.parts:
+        child = Transaction(property_id=parent.property_id, account_id=parent.account_id,
+                            date=parent.date, quantite=p.quantite, nom=p.nom, solde=0.0,
+                            source="manual", parent_transaction_id=parent.id, is_split_parent=False)
+        db.add(child); db.flush()
+        if p.category_id is not None:
+            child.category_id = p.category_id
+        else:
+            enrich_transaction(child, db)
+        child_ids.append(child.id)
+    db.flush()
+    recalculate_all_balances(db, parent.property_id)
+    db.commit()
+
+    logger.info(f"[Transactions] Transaction {transaction_id} éclatée en {len(child_ids)} ligne(s): {child_ids}")
+
+    return {"parent_id": parent.id, "child_ids": child_ids}
+
+
+@router.delete("/transactions/{transaction_id}/split")
+def undo_split(transaction_id: int, db: Session = Depends(get_db)):
+    """
+    Annule l'éclatement d'une transaction (étape 4 Task 6) : supprime les
+    enfants, restaure la parente (`is_split_parent=False`) et recalcule
+    les soldes.
+    """
+    logger.info(f"[Transactions] DELETE /api/transactions/{transaction_id}/split")
+
+    parent = db.get(Transaction, transaction_id)
+    if not parent or not parent.is_split_parent:
+        raise HTTPException(404, "Aucun éclatement à annuler")
+
+    db.query(Transaction).filter(Transaction.parent_transaction_id == parent.id).delete()
+    parent.is_split_parent = False
+    db.flush()
+    recalculate_all_balances(db, parent.property_id)
+    db.commit()
+
+    logger.info(f"[Transactions] Éclatement annulé pour la transaction {transaction_id}")
+
+    return {"restored_id": parent.id}
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
