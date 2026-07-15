@@ -48,16 +48,23 @@ def test_ingest_dedup_external_id(db_session):
     assert res["inserted"] == 0 and res["deduplicated"] == 1
 
 
-def test_ingest_dedup_intra_batch_fallback(db_session):
+def test_ingest_fallback_keeps_intra_batch_duplicates(db_session):
+    # Régression : la clé de repli (property_id, date, quantite, nom) ne doit PAS être
+    # dédoublonnée au sein d'un même lot. Deux lignes identiques dans un même fichier CSV
+    # sont souvent deux transactions RÉELLES distinctes (ex. deux encaissements de charges
+    # locatives de 60€ le même jour, pour deux locataires différents) — la prod contient
+    # 22 groupes de doublons littéraux (43 lignes) de ce type. L'ancien import CSV ne
+    # dédoublonnait ces lignes que contre la BASE, jamais au sein du fichier en cours :
+    # les deux lignes doivent donc être TOUTES DEUX insérées ici.
     prop, cat = _seed_property_with_rule(db_session)
     rows = [
         {"date": date(2023, 1, 5), "quantite": 390.0, "nom": "LOYER MATERA", "external_id": None},
         {"date": date(2023, 1, 5), "quantite": 390.0, "nom": "LOYER MATERA", "external_id": None},
     ]
     res = ingest_transactions(db_session, prop.id, None, rows, "csv")
-    assert res["inserted"] == 1
-    assert res["deduplicated"] == 1
-    assert db_session.query(Transaction).filter(Transaction.property_id == prop.id).count() == 1
+    assert res["inserted"] == 2
+    assert res["deduplicated"] == 0
+    assert db_session.query(Transaction).filter(Transaction.property_id == prop.id).count() == 2
 
 
 def test_ingest_dedup_intra_batch_external_id(db_session):

@@ -36,16 +36,30 @@ def ingest_transactions(db: Session, property_id: int, account_id: Optional[int]
     (enrich_transaction/recalculate_all_balances committent déjà, comme dans l'import CSV)."""
     inserted, deduplicated, new_ids = 0, 0, []
     new_txs = []
-    seen_keys = set()   # dédoublonnage intra-lot : la DB (autoflush=False) ne voit pas les lignes du lot en cours
+    # Dédoublonnage intra-lot : la DB (autoflush=False) ne voit pas les lignes du lot en
+    # cours, donc on garde nous-mêmes une trace des clés déjà vues dans CE lot.
+    # ⚠️ Limité à la branche external_id (API bancaire) : deux lignes avec le même
+    # external_id dans un même lot sont bien un doublon technique.
+    # La clé de repli (property_id, date, quantite, nom) — utilisée par le CSV/import
+    # manuel — n'est PAS ajoutée à seen_keys : deux lignes identiques dans un même
+    # fichier peuvent être deux transactions réelles distinctes (ex. deux encaissements
+    # de charges locatives de 60€ le même jour pour deux locataires). L'ancien import CSV
+    # ne dédoublonnait ces lignes que contre la BASE, jamais au sein du fichier en cours.
+    seen_keys = set()
     for r in rows:
         nom = (r["nom"] or "").strip()
         external_id = r.get("external_id")
-        local_key = ("ext", account_id, external_id) if external_id is not None \
-            else ("row", property_id, r["date"], r["quantite"], nom)
-        if local_key in seen_keys or _is_duplicate(db, property_id, account_id, r["date"], r["quantite"], nom, external_id):
-            deduplicated += 1
-            continue
-        seen_keys.add(local_key)
+        is_duplicate = _is_duplicate(db, property_id, account_id, r["date"], r["quantite"], nom, external_id)
+        if external_id is not None:
+            local_key = ("ext", account_id, external_id)
+            if local_key in seen_keys or is_duplicate:
+                deduplicated += 1
+                continue
+            seen_keys.add(local_key)
+        else:
+            if is_duplicate:
+                deduplicated += 1
+                continue
         tx = Transaction(
             property_id=property_id, account_id=account_id,
             date=r["date"], quantite=r["quantite"], nom=nom,
