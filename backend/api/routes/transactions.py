@@ -903,6 +903,8 @@ def split_transaction(transaction_id: int, body: SplitIn, db: Session = Depends(
         if p.category_id is not None and db.get(Category, p.category_id) is None:
             raise HTTPException(400, f"category_id inconnu: {p.category_id}")
 
+    from backend.api.services.amortization_service import recalculate_transaction_amortization
+
     parent.is_split_parent = True
     parent.category_id = None
     child_ids = []
@@ -917,6 +919,26 @@ def split_transaction(transaction_id: int, body: SplitIn, db: Session = Depends(
             enrich_transaction(child, db)
         child_ids.append(child.id)
     db.flush()
+
+    # Recalcul/purge des amortissements (fix revue) : le split créait les
+    # enfants directement sans jamais passer par recalculate_transaction_amortization
+    # (contrairement à ingest_transactions), donc un enfant classé dans une
+    # catégorie amortissable n'avait aucun échéancier, et l'amortissement de
+    # la parente (désormais démasquée : category_id=None) restait en base et
+    # était compté en double dans le CR/bilan. Best-effort comme
+    # ingestion_service.py:78-80, pour ne jamais bloquer l'éclatement.
+    for child_id in child_ids:
+        try:
+            recalculate_transaction_amortization(db, child_id)
+        except Exception as e:
+            logger.warning(f"[Transactions] split {transaction_id}: amortissement enfant {child_id} ignoré: {e}")
+    try:
+        # category_id de la parente est None : recalculate_transaction_amortization
+        # supprime alors ses AmortizationResult existants (pas de level_1/level_2).
+        recalculate_transaction_amortization(db, parent.id)
+    except Exception as e:
+        logger.warning(f"[Transactions] split {transaction_id}: purge amortissement parente ignorée: {e}")
+
     recalculate_all_balances(db, parent.property_id)
     db.commit()
 
@@ -938,9 +960,30 @@ def undo_split(transaction_id: int, db: Session = Depends(get_db)):
     if not parent or not parent.is_split_parent:
         raise HTTPException(404, "Aucun éclatement à annuler")
 
+    from backend.api.services.amortization_service import recalculate_transaction_amortization
+
+    # Suppression des enfants : leurs AmortizationResult sont purgés par la
+    # contrainte ON DELETE CASCADE côté SQLite (PRAGMA foreign_keys=ON activée
+    # par get_db(), cf. backend/database/connection.py ; FK déclarée avec
+    # ondelete="CASCADE" sur AmortizationResult.transaction_id) — pas de
+    # requête de suppression explicite nécessaire.
     db.query(Transaction).filter(Transaction.parent_transaction_id == parent.id).delete()
     parent.is_split_parent = False
     db.flush()
+
+    # Restaure la classification et l'amortissement de la parente, perdus au
+    # split (fix revue) : reclassification par les règles (best-effort — ne
+    # change rien si aucune règle ne matche) puis recalcul de l'échéancier
+    # d'amortissement si la catégorie retrouvée est amortissable.
+    try:
+        enrich_transaction(parent, db)
+    except Exception as e:
+        logger.warning(f"[Transactions] undo_split {transaction_id}: enrichissement parente ignoré: {e}")
+    try:
+        recalculate_transaction_amortization(db, parent.id)
+    except Exception as e:
+        logger.warning(f"[Transactions] undo_split {transaction_id}: amortissement parente ignoré: {e}")
+
     recalculate_all_balances(db, parent.property_id)
     db.commit()
 
