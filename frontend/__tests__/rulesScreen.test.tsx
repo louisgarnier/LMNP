@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import RulesScreen from '@/components/RulesScreen';
 
 jest.mock('@/contexts/PropertyContext', () => ({ useProperty: () => ({ activeProperty: { id: 25 } }) }));
@@ -15,4 +15,18 @@ test('affiche une règle avec son libellé de catégorie et son compte', async (
   await waitFor(() => expect(screen.getByText('VIR AIRBNB PAYMENTS LUXEMBOU')).toBeInTheDocument());
   expect(screen.getByText('Encaissement locataire et CAF')).toBeInTheDocument();
   expect(screen.getByText('37')).toBeInTheDocument();
+});
+
+test('la case Appliquer aux existantes est désactivée (bientôt disponible)', async () => {
+  render(<RulesScreen />);
+  await waitFor(() => expect(screen.getByText('VIR AIRBNB PAYMENTS LUXEMBOU')).toBeInTheDocument());
+
+  // Déclenche la préversion (motif + catégorie) pour faire apparaître le bloc contenant la case.
+  fireEvent.change(screen.getByPlaceholderText('CB CASTORAMA'), { target: { value: 'CB TEST' } });
+  const selects = screen.getAllByRole('combobox');
+  await waitFor(() => expect(selects[1]).not.toBeDisabled());
+  fireEvent.change(selects[1], { target: { value: '1' } });
+
+  await waitFor(() => expect(screen.getByRole('checkbox')).toBeInTheDocument());
+  expect(screen.getByRole('checkbox')).toBeDisabled();
 });

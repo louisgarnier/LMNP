@@ -114,6 +114,7 @@ export default function RulesScreen() {
         const result = await rulesAPI.preview(activeProperty.id, ruleInput);
         if (!cancelled) {
           setPreview(result);
+          setError(null);
         }
       } catch (err: any) {
         console.error('[RulesScreen] preview - Erreur:', err);
@@ -402,13 +403,15 @@ export default function RulesScreen() {
               </b>
               <span style={{ color: '#6b7280' }}>en conflit avec des opérations déjà classées</span>
             </div>
-            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#6b7280', cursor: 'pointer' }}>
+            <label style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12.5px', color: '#6b7280', cursor: 'not-allowed' }}>
               <input
                 type="checkbox"
                 checked={newRule.applyToExisting}
+                disabled
+                title="Appliquer aux opérations existantes (bientôt disponible)"
                 onChange={(e) => setNewRule({ ...newRule, applyToExisting: e.target.checked })}
               />
-              Appliquer aux opérations existantes <b style={{ color: '#1a1a1a' }}>(non par défaut)</b>
+              Appliquer aux opérations existantes <b style={{ color: '#1a1a1a' }}>(non par défaut)</b> — bientôt disponible
             </label>
           </div>
         )}
