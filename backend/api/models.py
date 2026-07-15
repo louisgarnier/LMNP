@@ -43,6 +43,7 @@ class TransactionResponse(TransactionBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    category_id: Optional[int] = None
     level_1: Optional[str] = None
     level_2: Optional[str] = None
     level_3: Optional[str] = None

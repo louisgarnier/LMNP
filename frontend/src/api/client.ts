@@ -115,6 +115,7 @@ export interface Transaction {
   source_file?: string;
   created_at: string;
   updated_at: string;
+  category_id?: number | null;
   level_1?: string;
   level_2?: string;
   level_3?: string;
@@ -314,6 +315,17 @@ export const transactionsAPI = {
     const blob = await response.blob();
     console.log(`📥 [API] Export transactions ${format.toUpperCase()} réussi`);
     return blob;
+  },
+
+  /**
+   * Reclasser une transaction via le référentiel de catégories (étape 3, cutover Task C2).
+   * categoryId à null pour retirer la classification.
+   */
+  setCategory: async (transactionId: number, categoryId: number | null): Promise<{ id: number; category_id: number | null }> => {
+    return fetchAPI<{ id: number; category_id: number | null }>(`/api/transactions/${transactionId}/category`, {
+      method: 'PATCH',
+      body: JSON.stringify({ category_id: categoryId }),
+    });
   },
 
   /**

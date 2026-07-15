@@ -7,8 +7,9 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { transactionsAPI, Transaction, TransactionUpdate, enrichmentAPI, mappingsAPI } from '@/api/client';
+import { transactionsAPI, Transaction, TransactionUpdate } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
+import CategorySelector from '@/components/CategorySelector';
 
 interface TransactionsTableProps {
   onDelete?: () => void;
@@ -32,12 +33,10 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingValues, setEditingValues] = useState<{ date?: string; nom?: string; quantite?: number }>({});
   const [editingClassificationId, setEditingClassificationId] = useState<number | null>(null);
-  const [editingClassificationValues, setEditingClassificationValues] = useState<{ level_1?: string; level_2?: string; level_3?: string }>({});
-  const [availableLevel1, setAvailableLevel1] = useState<string[]>([]);
-  const [availableLevel2, setAvailableLevel2] = useState<string[]>([]);
-  const [availableLevel3, setAvailableLevel3] = useState<string[]>([]);
-  // Step 5.5.3: Liste des level_1 autorisés chargée au montage
-  const [allowedLevel1List, setAllowedLevel1List] = useState<string[]>([]);
+  // Étape 3 (cutover Task C2) : la classification se fait désormais via une unique
+  // sélection de catégorie du référentiel (CategorySelector), au lieu des 3 dropdowns
+  // en cascade level_1/2/3 sur allowed_mappings.
+  const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
   
@@ -260,24 +259,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
 
   // Pour quantite et solde, on n'applique le filtre que manuellement (pas de debounce automatique)
   // Le filtre sera appliqué via onBlur ou onKeyDown (Enter)
-
-  // Step 5.5.3: Charger les level_1 autorisés au montage
-  useEffect(() => {
-    const loadAllowedLevel1 = async () => {
-      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-        console.warn('[TransactionsTable] loadAllowedLevel1 - PROPERTY INVALIDE. Skipping API calls.');
-        return;
-      }
-      try {
-        const response = await mappingsAPI.getAllowedLevel1(activeProperty.id);
-        setAllowedLevel1List(response.level_1 || []);
-      } catch (err) {
-        console.error('Error loading allowed level_1:', err);
-      }
-    };
-    loadAllowedLevel1();
-  }, [activeProperty?.id]);
-  // Cela évite de filtrer pendant la saisie et de tout cacher si aucune transaction ne correspond
 
   // Charger les valeurs uniques pour les filtres
   useEffect(() => {
@@ -635,396 +616,24 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     setEditingValues({});
   };
 
-  const handleEditClassification = async (transaction: Transaction) => {
+  // Étape 3 (cutover Task C2) : reclassification via le référentiel de catégories
+  // (transactionsAPI.setCategory), au lieu des dropdowns en cascade sur allowed_mappings.
+  const handleEditClassification = (transaction: Transaction) => {
     setEditingClassificationId(transaction.id);
-    const currentLevel1 = transaction.level_1 || undefined;
-    const currentLevel2 = transaction.level_2 || undefined;
-    const currentLevel3 = transaction.level_3 || undefined;
-    
-    setEditingClassificationValues({
-      level_1: currentLevel1,
-      level_2: currentLevel2,
-      level_3: currentLevel3,
-    });
-    
-    
-    // Step 5.5.3: Charger les level_1 autorisés depuis allowed_mappings
-    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-      console.warn('[TransactionsTable] handleLevel1Change - PROPERTY INVALIDE. Skipping API calls.');
-      return;
-    }
-    
-    try {
-      // Utiliser la liste déjà chargée au montage, ou la recharger si nécessaire
-      if (allowedLevel1List.length === 0) {
-        const response = await mappingsAPI.getAllowedLevel1(activeProperty.id);
-        setAllowedLevel1List(response.level_1 || []);
-        setAvailableLevel1(response.level_1 || []);
-      } else {
-        setAvailableLevel1(allowedLevel1List);
-      }
-      
-      // Step 5.5.4: Charger tous les level_2 disponibles pour permettre le scénario 2 (level_2 avant level_1)
-      try {
-        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id);
-        const level2List = level2Response.level_2 || [];
-        setAvailableLevel2(level2List);
-      } catch (err) {
-        console.error('Error loading allowed level_2:', err);
-        setAvailableLevel2([]);
-      }
-      
-      // Step 5.5.5: Charger tous les level_3 disponibles pour permettre le scénario 3 (level_3 avant level_2 et level_1)
-      // Les valeurs level_3 autorisées sont fixes : Passif, Produits, Emprunt, Charges Déductibles, Actif
-      const allowedLevel3Values = ['Passif', 'Produits', 'Emprunt', 'Charges Déductibles', 'Actif'];
-      setAvailableLevel3(allowedLevel3Values);
-      
-      // Step 5.5.3: Si level_1 existe, charger les level_2 spécifiques et level_3 autorisés
-      if (currentLevel1) {
-        try {
-          const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id, currentLevel1);
-          const level2List = level2Response.level_2 || [];
-          setAvailableLevel2(level2List);
-          
-          // Si level_2 existe aussi, charger les level_3 autorisés pour cette combinaison
-          if (currentLevel2) {
-            const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, currentLevel1, currentLevel2);
-            const level3List = level3Response.level_3 || [];
-            setAvailableLevel3(level3List);
-          }
-        } catch (err) {
-          console.error('Error loading allowed combinations:', err);
-        }
-      }
-      // Step 5.5.4: Si level_2 existe (sans level_1), charger les level_3 pour ce level_2
-      else if (currentLevel2) {
-        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-          console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel3ForLevel2');
-          return;
-        }
-        try {
-          const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(activeProperty.id, currentLevel2);
-          const level3List = level3Response.level_3 || [];
-          setAvailableLevel3(level3List);
-        } catch (err) {
-          console.error('Error loading allowed level_3 for level_2:', err);
-        }
-      }
-      // Step 5.5.5: Si level_3 existe (sans level_1 ni level_2), charger les level_2 pour ce level_3
-      else if (currentLevel3) {
-        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-          console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel2ForLevel3');
-          return;
-        }
-        try {
-          const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(activeProperty.id, currentLevel3);
-          const level2List = level2Response.level_2 || [];
-          setAvailableLevel2(level2List);
-        } catch (err) {
-          console.error('Error loading allowed level_2 for level_3:', err);
-        }
-      }
-    } catch (err) {
-      console.error('Error loading combinations:', err);
-    }
-  };
-
-  const handleLevel1Change = async (value: string) => {
-    // Step 5.5.3: Valeur vide pour retirer le mapping
-    if (value === '') {
-      setEditingClassificationValues({ 
-        ...editingClassificationValues, 
-        level_1: undefined, 
-        level_2: undefined, 
-        level_3: undefined 
-      });
-      setAvailableLevel2([]);
-      setAvailableLevel3([]);
-      return;
-    }
-    
-    // Step 5.5.3: Charger level_2 et level_3 automatiquement pour ce level_1
-    if (value) {
-      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-        console.warn('[TransactionsTable] handleLevel1Change - PROPERTY INVALIDE. Skipping API calls.');
-        return;
-      }
-      try {
-        // Charger les level_2 autorisés pour ce level_1
-        const level2Response = await mappingsAPI.getAllowedLevel2(activeProperty.id, value);
-        const level2List = level2Response.level_2 || [];
-        setAvailableLevel2(level2List);
-        
-        // Step 5.5.3: Si un seul level_2, pré-remplir automatiquement
-        let selectedLevel2: string | undefined = undefined;
-        if (level2List.length === 1) {
-          selectedLevel2 = level2List[0];
-        }
-        
-        // Charger les level_3 autorisés
-        let selectedLevel3: string | undefined = undefined;
-        if (selectedLevel2) {
-          const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, value, selectedLevel2);
-          const level3List = level3Response.level_3 || [];
-          setAvailableLevel3(level3List);
-          
-          // Step 5.5.3: Si un seul level_3, pré-remplir automatiquement
-          if (level3List.length === 1) {
-            selectedLevel3 = level3List[0];
-          }
-        } else {
-          // Si plusieurs level_2, ne pas pré-remplir level_3
-          setAvailableLevel3([]);
-        }
-        
-        // Mettre à jour les valeurs avec les pré-remplissages automatiques
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_1: value,
-          level_2: selectedLevel2,
-          level_3: selectedLevel3
-        });
-      } catch (err) {
-        console.error('Error loading allowed combinations:', err);
-        // En cas d'erreur, mettre à jour seulement level_1
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_1: value,
-          level_2: undefined,
-          level_3: undefined
-        });
-        setAvailableLevel2([]);
-        setAvailableLevel3([]);
-      }
-    } else {
-      // Si value est vide, réinitialiser
-      setEditingClassificationValues({ 
-        ...editingClassificationValues, 
-        level_1: undefined,
-        level_2: undefined,
-        level_3: undefined
-      });
-      setAvailableLevel2([]);
-      setAvailableLevel3([]);
-    }
-  };
-
-  const handleLevel2Change = async (value: string) => {
-    // Step 5.5.4: Valeur vide pour retirer le mapping
-    if (value === '') {
-      setEditingClassificationValues({ 
-        ...editingClassificationValues, 
-        level_2: undefined,
-        level_3: undefined
-      });
-      setAvailableLevel3([]);
-      return;
-    }
-    
-    const level_1 = editingClassificationValues.level_1;
-    
-    // Step 5.5.4: Scénario 2 - Si level_1 n'est pas encore sélectionné
-    if (!level_1 && value) {
-      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-        console.error('[TransactionsTable] Property ID invalide pour handleLevel2Change');
-        return;
-      }
-      try {
-        // Charger les level_3 possibles pour ce level_2
-        const level3Response = await mappingsAPI.getAllowedLevel3ForLevel2(activeProperty.id, value);
-        const level3List = level3Response.level_3 || [];
-        setAvailableLevel3(level3List);
-        
-        // Step 5.5.4: Si un seul level_3, pré-remplir automatiquement
-        let selectedLevel3: string | undefined = undefined;
-        if (level3List.length === 1) {
-          selectedLevel3 = level3List[0];
-        }
-        
-        // Charger les level_1 autorisés pour ce level_2
-        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2(activeProperty.id, value);
-        const level1List = level1Response.level_1 || [];
-        setAvailableLevel1(level1List);
-        
-        // Mettre à jour les valeurs
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_2: value,
-          level_3: selectedLevel3
-        });
-      } catch (err) {
-        console.error('Error loading allowed combinations for level_2:', err);
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_2: value,
-          level_3: undefined
-        });
-        setAvailableLevel3([]);
-      }
-    } 
-    // Si level_1 est déjà sélectionné, utiliser la logique normale
-    else if (level_1 && value) {
-      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-        console.warn('[TransactionsTable] handleLevel2Change - PROPERTY INVALIDE. Skipping API calls.');
-        return;
-      }
-      try {
-        // Charger les level_3 possibles pour cette combinaison level_1 + level_2
-        const level3Response = await mappingsAPI.getAllowedLevel3(activeProperty.id, level_1, value);
-        const level3List = level3Response.level_3 || [];
-        setAvailableLevel3(level3List);
-        
-        // Si un seul level_3, pré-remplir automatiquement
-        let selectedLevel3: string | undefined = undefined;
-        if (level3List.length === 1) {
-          selectedLevel3 = level3List[0];
-        }
-        
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_2: value,
-          level_3: selectedLevel3
-        });
-      } catch (err) {
-        console.error('Error loading level_3 combinations:', err);
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_2: value,
-          level_3: undefined
-        });
-        setAvailableLevel3([]);
-      }
-    }
-    // Step 5.5.5: Si level_3 est déjà sélectionné (mais pas level_1), charger les level_1 pour le couple (level_2, level_3)
-    else if (!level_1 && value) {
-      const level_3 = editingClassificationValues.level_3;
-      if (level_3) {
-        if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-          console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel1ForLevel2AndLevel3');
-          return;
-        }
-        try {
-          // Charger les level_1 autorisés pour le couple (level_2, level_3)
-          const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(activeProperty.id, value, level_3);
-          const level1List = level1Response.level_1 || [];
-          setAvailableLevel1(level1List);
-          
-          setEditingClassificationValues({ 
-            ...editingClassificationValues, 
-            level_2: value
-          });
-        } catch (err) {
-          console.error('Error loading allowed level_1 for level_2 and level_3:', err);
-          setEditingClassificationValues({ 
-            ...editingClassificationValues, 
-            level_2: value
-          });
-        }
-      } else {
-        // Si level_3 n'est pas sélectionné, juste mettre à jour level_2
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_2: value
-        });
-      }
-    }
-  };
-
-  const handleLevel3Change = async (value: string) => {
-    // Step 5.5.5: Valeur vide pour retirer le mapping
-    if (value === '') {
-      setEditingClassificationValues({ 
-        ...editingClassificationValues, 
-        level_3: undefined
-      });
-      return;
-    }
-    
-    const level_1 = editingClassificationValues.level_1;
-    const level_2 = editingClassificationValues.level_2;
-    
-    // Step 5.5.5: Scénario 3 - Si level_1 et level_2 ne sont pas encore sélectionnés
-    if (!level_1 && !level_2 && value) {
-      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-        console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel2ForLevel3');
-        return;
-      }
-      try {
-        // Charger les level_2 autorisés pour ce level_3
-        const level2Response = await mappingsAPI.getAllowedLevel2ForLevel3(activeProperty.id, value);
-        const level2List = level2Response.level_2 || [];
-        setAvailableLevel2(level2List);
-        
-        // Ne pas charger level_1 pour l'instant (sera chargé quand level_2 sera sélectionné)
-        setAvailableLevel1([]);
-        
-        // Mettre à jour la valeur
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_3: value
-        });
-      } catch (err) {
-        console.error('Error loading allowed level_2 for level_3:', err);
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_3: value
-        });
-        setAvailableLevel2([]);
-      }
-    }
-    // Si level_2 est déjà sélectionné (mais pas level_1), charger les level_1 pour le couple
-    else if (!level_1 && level_2 && value) {
-      if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
-        console.error('[TransactionsTable] Property ID invalide pour getAllowedLevel1ForLevel2AndLevel3');
-        return;
-      }
-      try {
-        // Charger les level_1 autorisés pour le couple (level_2, level_3)
-        const level1Response = await mappingsAPI.getAllowedLevel1ForLevel2AndLevel3(activeProperty.id, level_2, value);
-        const level1List = level1Response.level_1 || [];
-        setAvailableLevel1(level1List);
-        
-        // Mettre à jour la valeur
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_3: value
-        });
-      } catch (err) {
-        console.error('Error loading allowed level_1 for level_2 and level_3:', err);
-        setEditingClassificationValues({ 
-          ...editingClassificationValues, 
-          level_3: value
-        });
-      }
-    }
-    // Si level_1 et level_2 sont déjà sélectionnés, juste mettre à jour level_3
-    else {
-      setEditingClassificationValues({ 
-        ...editingClassificationValues, 
-        level_3: value
-      });
-    }
+    setEditingCategoryId(transaction.category_id ?? null);
   };
 
   const handleSaveClassification = async (transaction: Transaction) => {
     try {
-      await enrichmentAPI.updateClassifications(
-        transaction.id,
-        editingClassificationValues.level_1 || null,
-        editingClassificationValues.level_2 || null,
-        editingClassificationValues.level_3 || null
-      );
+      await transactionsAPI.setCategory(transaction.id, editingCategoryId);
       setEditingClassificationId(null);
-      setEditingClassificationValues({});
-      setAvailableLevel1([]);
-      setAvailableLevel2([]);
-      setAvailableLevel3([]);
+      setEditingCategoryId(null);
       await loadTransactions();
       // Appeler le callback pour rafraîchir Mapping
       if (onUpdate) {
         onUpdate();
       }
-      
+
       // Émettre un événement global pour notifier les autres pages (ex: Amortissements)
       // que la transaction a été modifiée (mapping)
       window.dispatchEvent(new CustomEvent('transactionUpdated', {
@@ -1038,11 +647,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   };
 
   const handleCancelClassification = () => {
-      setEditingClassificationId(null);
-      setEditingClassificationValues({});
-      setAvailableLevel1([]);
-      setAvailableLevel2([]);
-      setAvailableLevel3([]);
+    setEditingClassificationId(null);
+    setEditingCategoryId(null);
   };
 
   const totalPages = Math.ceil(total / pageSize);
@@ -1681,24 +1287,12 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_1 ? '#666' : '#999', fontStyle: transaction.level_1 ? 'normal' : 'italic' }}>
                       {editingClassificationId === transaction.id ? (
-                        <select
-                          value={editingClassificationValues.level_1 || ''}
-                          onChange={(e) => handleLevel1Change(e.target.value)}
-                          style={{ width: '100%', padding: '4px', border: '1px solid #ddd', borderRadius: '2px' }}
-                        >
-                          <option value="">-- Sélectionner --</option>
-                          {/* Step 5.5.4: Utiliser availableLevel1 si filtré (non vide), sinon allowedLevel1List */}
-                          {(availableLevel1.length > 0 ? availableLevel1 : allowedLevel1List)
-                            .filter(val => val && val !== 'Unassigned' && val !== 'unassigned')
-                            .map((val) => (
-                              <option key={val} value={val}>{val}</option>
-                            ))}
-                          {(allowedLevel1List.length === 0 && availableLevel1.length === 0) && (
-                            <option disabled>Aucune valeur disponible</option>
-                          )}
-                        </select>
+                        <CategorySelector
+                          value={editingCategoryId}
+                          onChange={setEditingCategoryId}
+                        />
                       ) : (
-                        <span 
+                        <span
                           onClick={() => handleEditClassification(transaction)}
                           style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         >
@@ -1708,29 +1302,11 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_2 ? '#666' : '#999', fontStyle: transaction.level_2 ? 'normal' : 'italic' }}>
                       {editingClassificationId === transaction.id ? (
-                        <select
-                          value={editingClassificationValues.level_2 || ''}
-                          onChange={(e) => handleLevel2Change(e.target.value)}
-                          disabled={false}
-                          style={{ 
-                            width: '100%', 
-                            padding: '4px', 
-                            border: '1px solid #ddd', 
-                            borderRadius: '2px',
-                            backgroundColor: 'white'
-                          }}
-                        >
-                          <option value="">-- Sélectionner --</option>
-                          {availableLevel2.length > 0 ? (
-                            availableLevel2.map((val) => (
-                              <option key={val} value={val}>{val}</option>
-                            ))
-                          ) : (
-                            <option disabled>Aucune valeur disponible</option>
-                          )}
-                        </select>
+                        <span style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                          (auto)
+                        </span>
                       ) : (
-                        <span 
+                        <span
                           onClick={() => handleEditClassification(transaction)}
                           style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         >
@@ -1740,29 +1316,11 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                     </td>
                     <td style={{ padding: '12px', color: transaction.level_3 ? '#666' : '#999', fontStyle: transaction.level_3 ? 'normal' : 'italic' }}>
                       {editingClassificationId === transaction.id ? (
-                        <select
-                          value={editingClassificationValues.level_3 || ''}
-                          onChange={(e) => handleLevel3Change(e.target.value)}
-                          disabled={false}
-                          style={{ 
-                            width: '100%', 
-                            padding: '4px', 
-                            border: '1px solid #ddd', 
-                            borderRadius: '2px',
-                            backgroundColor: 'white'
-                          }}
-                        >
-                          <option value="">-- Sélectionner (optionnel) --</option>
-                          {availableLevel3.length > 0 ? (
-                            availableLevel3.map((val) => (
-                              <option key={val} value={val}>{val}</option>
-                            ))
-                          ) : (
-                            <option disabled>Aucune valeur disponible</option>
-                          )}
-                        </select>
+                        <span style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                          (auto)
+                        </span>
                       ) : (
-                        <span 
+                        <span
                           onClick={() => handleEditClassification(transaction)}
                           style={{ cursor: 'pointer', textDecoration: 'underline' }}
                         >
