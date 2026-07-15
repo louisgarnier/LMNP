@@ -181,7 +181,12 @@ async def get_pivot_data(
     
     # Construire la requête de base avec jointure vers le référentiel
     # (transactions → categories → category_groups) pour dériver les niveaux.
-    query = join_classification(db.query(Transaction))
+    # Exclut les lignes parentes éclatées (is_split_parent=True, category_id=None) :
+    # elles sont remplacées par leurs enfants et compteraient en double dans
+    # l'agrégation sinon (même exclusion que balance_utils.py / GET /transactions / inbox.py).
+    query = join_classification(
+        db.query(Transaction).filter(Transaction.is_split_parent == False)
+    )
 
     # Appliquer les filtres (includes property_id filtering)
     query = apply_filters(query, filter_dict, property_id)
