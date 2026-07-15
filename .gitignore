@@ -29,6 +29,10 @@ out/
 .env.test.local
 .env.production.local
 
+# Secrets Enable Banking
+secrets/
+*.pem
+
 # Database
 *.db
 *.sqlite
