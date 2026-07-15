@@ -344,6 +344,53 @@ export const transactionsAPI = {
     
     return fetchAPI<{ level_1: string; total: number; end_date: string | null }>(`/api/transactions/sum-by-level1?${params}`);
   },
+
+  /**
+   * Créer une transaction manuelle simple (étape 4, saisie manuelle sur
+   * « Toutes les transactions »). Le montant est saisi en euros (le backend
+   * convertit en centimes en interne).
+   */
+  createManual: (p: { property_id: number; date: string; quantite: number; nom: string; category_id: number | null }) =>
+    fetchAPI<{ id: number; category_id: number | null }>(`/api/transactions/manual`, {
+      method: 'POST',
+      body: JSON.stringify(p),
+    }),
+
+  /**
+   * Éclater une transaction en N lignes (étape 4). La somme des parts doit
+   * être égale au montant d'origine (vérifié côté backend en plus du
+   * garde-fou côté UI).
+   */
+  splitTransaction: (id: number, parts: { quantite: number; nom: string; category_id: number | null }[]) =>
+    fetchAPI<{ parent_id: number; child_ids: number[] }>(`/api/transactions/${id}/split`, {
+      method: 'POST',
+      body: JSON.stringify({ parts }),
+    }),
+
+  /**
+   * Annuler un éclatement précédemment effectué (restaure la transaction
+   * d'origine).
+   */
+  undoSplit: (id: number) =>
+    fetchAPI<{ restored_id: number }>(`/api/transactions/${id}/split`, {
+      method: 'DELETE',
+    }),
+
+  /**
+   * Créer une écriture croisée (étape 4) : deux jambes (débit/crédit) d'un
+   * même montant, sur la même propriété et la même date.
+   */
+  crossEntry: (p: {
+    property_id: number;
+    date: string;
+    montant: number;
+    debit: { nom: string; category_id: number | null };
+    credit: { nom: string; category_id: number | null };
+  }) =>
+    fetchAPI<{ debit_id: number; credit_id: number }>(`/api/transactions/cross-entry`, {
+      method: 'POST',
+      body: JSON.stringify(p),
+    }),
 };
 
 /**

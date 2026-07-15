@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react';
 import { transactionsAPI, Transaction, TransactionUpdate } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
 import CategorySelector from '@/components/CategorySelector';
@@ -39,7 +39,30 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [editingCategoryId, setEditingCategoryId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [isDeletingMultiple, setIsDeletingMultiple] = useState(false);
-  
+
+  // Étape 4 : saisie manuelle (créer / éclater / écriture croisée)
+  const [manualError, setManualError] = useState<string | null>(null);
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addDate, setAddDate] = useState('');
+  const [addQuantite, setAddQuantite] = useState('');
+  const [addNom, setAddNom] = useState('');
+  const [addCategoryId, setAddCategoryId] = useState<number | null>(null);
+  const [addSubmitting, setAddSubmitting] = useState(false);
+
+  const [showCrossEntryForm, setShowCrossEntryForm] = useState(false);
+  const [crossDate, setCrossDate] = useState('');
+  const [crossMontant, setCrossMontant] = useState('');
+  const [crossDebitNom, setCrossDebitNom] = useState('');
+  const [crossDebitCategoryId, setCrossDebitCategoryId] = useState<number | null>(null);
+  const [crossCreditNom, setCrossCreditNom] = useState('');
+  const [crossCreditCategoryId, setCrossCreditCategoryId] = useState<number | null>(null);
+  const [crossSubmitting, setCrossSubmitting] = useState(false);
+
+  const [splittingId, setSplittingId] = useState<number | null>(null);
+  const [splitParts, setSplitParts] = useState<{ quantite: string; nom: string; category_id: number | null }[]>([]);
+  const [splitSubmitting, setSplitSubmitting] = useState(false);
+
   // États pour les filtres (valeurs affichées dans les inputs)
   const [filterDate, setFilterDate] = useState('');
   const [filterQuantite, setFilterQuantite] = useState('');
@@ -651,6 +674,198 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     setEditingCategoryId(null);
   };
 
+  // Étape 4 : saisie manuelle — ➕ Ajouter une transaction
+
+  const resetAddForm = () => {
+    setAddDate('');
+    setAddQuantite('');
+    setAddNom('');
+    setAddCategoryId(null);
+  };
+
+  const handleOpenAddForm = () => {
+    setManualError(null);
+    resetAddForm();
+    setShowAddForm(true);
+    setShowCrossEntryForm(false);
+    setSplittingId(null);
+  };
+
+  const handleCancelAddForm = () => {
+    setShowAddForm(false);
+    resetAddForm();
+  };
+
+  const handleSubmitAdd = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      setManualError('Aucune propriété sélectionnée');
+      return;
+    }
+    const quantite = parseFloat(addQuantite);
+    if (!addDate || addNom.trim() === '' || addQuantite.trim() === '' || isNaN(quantite)) {
+      setManualError('Merci de renseigner la date, le montant et le nom.');
+      return;
+    }
+    setAddSubmitting(true);
+    setManualError(null);
+    try {
+      await transactionsAPI.createManual({
+        property_id: activeProperty.id,
+        date: addDate,
+        quantite,
+        nom: addNom,
+        category_id: addCategoryId,
+      });
+      setShowAddForm(false);
+      resetAddForm();
+      await loadTransactions();
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err) {
+      console.error('Error creating manual transaction:', err);
+      setManualError(err instanceof Error ? err.message : 'Erreur lors de la création de la transaction');
+    } finally {
+      setAddSubmitting(false);
+    }
+  };
+
+  // Étape 4 : saisie manuelle — ✂️ Éclater une transaction
+
+  const handleOpenSplit = (transaction: Transaction) => {
+    setManualError(null);
+    setSplittingId(transaction.id);
+    setSplitParts([
+      { quantite: '', nom: '', category_id: null },
+      { quantite: '', nom: '', category_id: null },
+    ]);
+    setShowAddForm(false);
+    setShowCrossEntryForm(false);
+  };
+
+  const handleCancelSplit = () => {
+    setSplittingId(null);
+    setSplitParts([]);
+  };
+
+  const handleAddSplitPart = () => {
+    setSplitParts((prev) => [...prev, { quantite: '', nom: '', category_id: null }]);
+  };
+
+  const handleRemoveSplitPart = (index: number) => {
+    setSplitParts((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSplitPartQuantiteChange = (index: number, value: string) => {
+    setSplitParts((prev) => prev.map((part, i) => (i === index ? { ...part, quantite: value } : part)));
+  };
+
+  const handleSplitPartNomChange = (index: number, value: string) => {
+    setSplitParts((prev) => prev.map((part, i) => (i === index ? { ...part, nom: value } : part)));
+  };
+
+  const handleSplitPartCategoryChange = (index: number, categoryId: number | null) => {
+    setSplitParts((prev) => prev.map((part, i) => (i === index ? { ...part, category_id: categoryId } : part)));
+  };
+
+  const splitSum = useMemo(() => {
+    return splitParts.reduce((sum, part) => sum + (parseFloat(part.quantite) || 0), 0);
+  }, [splitParts]);
+
+  const handleSubmitSplit = async (transaction: Transaction) => {
+    const sumCents = Math.round(splitSum * 100);
+    const originalCents = Math.round(transaction.quantite * 100);
+    if (sumCents !== originalCents) {
+      setManualError("La somme des parts doit être égale au montant d'origine.");
+      return;
+    }
+    if (splitParts.some((p) => p.nom.trim() === '' || p.quantite.trim() === '' || isNaN(parseFloat(p.quantite)))) {
+      setManualError('Merci de renseigner le montant et le nom de chaque part.');
+      return;
+    }
+    setSplitSubmitting(true);
+    setManualError(null);
+    try {
+      await transactionsAPI.splitTransaction(
+        transaction.id,
+        splitParts.map((p) => ({
+          quantite: parseFloat(p.quantite),
+          nom: p.nom,
+          category_id: p.category_id,
+        }))
+      );
+      setSplittingId(null);
+      setSplitParts([]);
+      await loadTransactions();
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err) {
+      console.error('Error splitting transaction:', err);
+      setManualError(err instanceof Error ? err.message : "Erreur lors de l'éclatement de la transaction");
+    } finally {
+      setSplitSubmitting(false);
+    }
+  };
+
+  // Étape 4 : saisie manuelle — ⇄ Écriture croisée
+
+  const resetCrossEntryForm = () => {
+    setCrossDate('');
+    setCrossMontant('');
+    setCrossDebitNom('');
+    setCrossDebitCategoryId(null);
+    setCrossCreditNom('');
+    setCrossCreditCategoryId(null);
+  };
+
+  const handleOpenCrossEntryForm = () => {
+    setManualError(null);
+    resetCrossEntryForm();
+    setShowCrossEntryForm(true);
+    setShowAddForm(false);
+    setSplittingId(null);
+  };
+
+  const handleCancelCrossEntryForm = () => {
+    setShowCrossEntryForm(false);
+    resetCrossEntryForm();
+  };
+
+  const handleSubmitCrossEntry = async () => {
+    if (!activeProperty || !activeProperty.id || activeProperty.id <= 0) {
+      setManualError('Aucune propriété sélectionnée');
+      return;
+    }
+    const montant = parseFloat(crossMontant);
+    if (!crossDate || crossDebitNom.trim() === '' || crossCreditNom.trim() === '' || crossMontant.trim() === '' || isNaN(montant)) {
+      setManualError('Merci de renseigner la date, le montant et les deux noms.');
+      return;
+    }
+    setCrossSubmitting(true);
+    setManualError(null);
+    try {
+      await transactionsAPI.crossEntry({
+        property_id: activeProperty.id,
+        date: crossDate,
+        montant,
+        debit: { nom: crossDebitNom, category_id: crossDebitCategoryId },
+        credit: { nom: crossCreditNom, category_id: crossCreditCategoryId },
+      });
+      setShowCrossEntryForm(false);
+      resetCrossEntryForm();
+      await loadTransactions();
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err) {
+      console.error('Error creating cross entry:', err);
+      setManualError(err instanceof Error ? err.message : "Erreur lors de la création de l'écriture croisée");
+    } finally {
+      setCrossSubmitting(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / pageSize);
 
   return (
@@ -757,6 +972,214 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
           </div>
         )}
       </div>
+
+      {/* Saisie manuelle : Ajouter / Écriture croisée */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', padding: '0 4px' }}>
+        <button
+          onClick={handleOpenAddForm}
+          style={{
+            padding: '8px 16px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#fff',
+            backgroundColor: '#1e3a5f',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+          }}
+        >
+          ➕ Ajouter
+        </button>
+        <button
+          onClick={handleOpenCrossEntryForm}
+          style={{
+            padding: '8px 16px',
+            fontSize: '14px',
+            fontWeight: '500',
+            color: '#fff',
+            backgroundColor: '#1e3a5f',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+          }}
+        >
+          ⇄ Écriture croisée
+        </button>
+      </div>
+
+      {manualError && (
+        <div
+          role="alert"
+          style={{
+            padding: '12px 16px',
+            marginBottom: '16px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            borderRadius: '8px',
+            color: '#dc3545',
+            fontSize: '14px',
+          }}
+        >
+          ❌ {manualError}
+        </div>
+      )}
+
+      {showAddForm && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '16px',
+          backgroundColor: 'white',
+          border: '1px solid #e5e5e5',
+          borderRadius: '8px',
+        }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#1a1a1a' }}>➕ Ajouter une transaction</h3>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="date"
+              aria-label="Date"
+              value={addDate}
+              onChange={(e) => setAddDate(e.target.value)}
+              style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}
+            />
+            <input
+              type="number"
+              step="0.01"
+              aria-label="Montant"
+              placeholder="Montant €"
+              value={addQuantite}
+              onChange={(e) => setAddQuantite(e.target.value)}
+              style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', width: '120px' }}
+            />
+            <input
+              type="text"
+              aria-label="Nom"
+              placeholder="Nom"
+              value={addNom}
+              onChange={(e) => setAddNom(e.target.value)}
+              style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', minWidth: '200px' }}
+            />
+            <CategorySelector value={addCategoryId} onChange={setAddCategoryId} />
+            <button
+              onClick={handleSubmitAdd}
+              disabled={addSubmitting}
+              style={{
+                padding: '6px 14px',
+                backgroundColor: addSubmitting ? '#ccc' : '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '13px',
+                cursor: addSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {addSubmitting ? '⏳ Ajout...' : 'Ajouter'}
+            </button>
+            <button
+              onClick={handleCancelAddForm}
+              disabled={addSubmitting}
+              style={{
+                padding: '6px 14px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showCrossEntryForm && (
+        <div style={{
+          marginBottom: '16px',
+          padding: '16px',
+          backgroundColor: 'white',
+          border: '1px solid #e5e5e5',
+          borderRadius: '8px',
+        }}>
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '15px', color: '#1a1a1a' }}>⇄ Écriture croisée</h3>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <input
+              type="date"
+              aria-label="Date"
+              value={crossDate}
+              onChange={(e) => setCrossDate(e.target.value)}
+              style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}
+            />
+            <input
+              type="number"
+              step="0.01"
+              aria-label="Montant"
+              placeholder="Montant €"
+              value={crossMontant}
+              onChange={(e) => setCrossMontant(e.target.value)}
+              style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', width: '120px' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>Débit :</span>
+              <input
+                type="text"
+                aria-label="Nom débit"
+                placeholder="ex: Frais de notaire"
+                value={crossDebitNom}
+                onChange={(e) => setCrossDebitNom(e.target.value)}
+                style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', minWidth: '200px' }}
+              />
+              <CategorySelector value={crossDebitCategoryId} onChange={setCrossDebitCategoryId} />
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px', color: '#666', fontWeight: 500 }}>Crédit :</span>
+              <input
+                type="text"
+                aria-label="Nom crédit"
+                placeholder="ex: Compte courant d'associé"
+                value={crossCreditNom}
+                onChange={(e) => setCrossCreditNom(e.target.value)}
+                style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', minWidth: '200px' }}
+              />
+              <CategorySelector value={crossCreditCategoryId} onChange={setCrossCreditCategoryId} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleSubmitCrossEntry}
+              disabled={crossSubmitting}
+              style={{
+                padding: '6px 14px',
+                backgroundColor: crossSubmitting ? '#ccc' : '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '13px',
+                cursor: crossSubmitting ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {crossSubmitting ? '⏳ Création...' : 'Valider'}
+            </button>
+            <button
+              onClick={handleCancelCrossEntryForm}
+              disabled={crossSubmitting}
+              style={{
+                padding: '6px 14px',
+                backgroundColor: '#6c757d',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Statistiques et actions de sélection */}
       <div style={{ 
@@ -1202,8 +1625,8 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                   </tr>
                 ) : (
                   transactions.map((transaction) => (
+                    <Fragment key={transaction.id}>
                     <tr
-                    key={transaction.id}
                     style={{
                       borderBottom: '1px solid #e5e5e5',
                       transition: 'background-color 0.2s',
@@ -1409,6 +1832,20 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                               ✏️
                             </button>
                             <button
+                              onClick={() => handleOpenSplit(transaction)}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#1e3a5f',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              ✂️
+                            </button>
+                            <button
                               onClick={() => handleDelete(transaction.id)}
                               disabled={deletingId === transaction.id}
                               style={{
@@ -1429,6 +1866,86 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                       </div>
                     </td>
                   </tr>
+                  {splittingId === transaction.id && (
+                    <tr>
+                      <td colSpan={9} style={{ padding: '16px', backgroundColor: '#fafafa', borderBottom: '1px solid #e5e5e5' }}>
+                        <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', color: '#1a1a1a' }}>
+                          ✂️ Éclater la transaction ({formatAmount(transaction.quantite)})
+                        </h4>
+                        {splitParts.map((part, index) => (
+                          <div key={index} style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap' }}>
+                            <input
+                              type="number"
+                              step="0.01"
+                              aria-label={`Montant part ${index + 1}`}
+                              placeholder="Montant €"
+                              value={part.quantite}
+                              onChange={(e) => handleSplitPartQuantiteChange(index, e.target.value)}
+                              style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', width: '110px' }}
+                            />
+                            <input
+                              type="text"
+                              aria-label={`Nom part ${index + 1}`}
+                              placeholder="Nom"
+                              value={part.nom}
+                              onChange={(e) => handleSplitPartNomChange(index, e.target.value)}
+                              style={{ padding: '6px 8px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', minWidth: '200px' }}
+                            />
+                            <CategorySelector
+                              value={part.category_id}
+                              onChange={(categoryId) => handleSplitPartCategoryChange(index, categoryId)}
+                            />
+                            {splitParts.length > 2 && (
+                              <button
+                                onClick={() => handleRemoveSplitPart(index)}
+                                style={{ padding: '6px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}
+                              >
+                                ✗
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+                          <button
+                            onClick={handleAddSplitPart}
+                            style={{ padding: '6px 12px', backgroundColor: '#1e3a5f', color: 'white', border: 'none', borderRadius: '4px', fontSize: '12px', cursor: 'pointer' }}
+                          >
+                            + Ajouter une ligne
+                          </button>
+                          <span style={{
+                            fontSize: '13px',
+                            fontWeight: 500,
+                            color: Math.round(splitSum * 100) === Math.round(transaction.quantite * 100) ? '#28a745' : '#dc3545',
+                          }}>
+                            Somme : {formatAmount(splitSum)} / {formatAmount(transaction.quantite)}
+                          </span>
+                          <button
+                            onClick={() => handleSubmitSplit(transaction)}
+                            disabled={splitSubmitting || Math.round(splitSum * 100) !== Math.round(transaction.quantite * 100)}
+                            style={{
+                              padding: '6px 14px',
+                              backgroundColor: (splitSubmitting || Math.round(splitSum * 100) !== Math.round(transaction.quantite * 100)) ? '#ccc' : '#28a745',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '4px',
+                              fontSize: '13px',
+                              cursor: (splitSubmitting || Math.round(splitSum * 100) !== Math.round(transaction.quantite * 100)) ? 'not-allowed' : 'pointer',
+                            }}
+                          >
+                            {splitSubmitting ? '⏳ Validation...' : 'Valider'}
+                          </button>
+                          <button
+                            onClick={handleCancelSplit}
+                            disabled={splitSubmitting}
+                            style={{ padding: '6px 14px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', fontSize: '13px', cursor: 'pointer' }}
+                          >
+                            Annuler
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                   ))
                 )}
               </tbody>
