@@ -6,7 +6,7 @@ SQLAlchemy models for the LMNP application.
 
 from sqlalchemy import (
     Column, Integer, String, Float, Date, DateTime, Text,
-    ForeignKey, Boolean, Index, UniqueConstraint
+    ForeignKey, Boolean, Index, UniqueConstraint, text
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
@@ -46,7 +46,9 @@ class Property(Base):
     # Pro Rata & Forecast
     prorata_settings = relationship("ProRataSettings", back_populates="property", uselist=False, cascade="all, delete-orphan")
     annual_forecast_configs = relationship("AnnualForecastConfig", back_populates="property", cascade="all, delete-orphan")
-    
+    # Étape 4 Task 1 : comptes bancaires (peuplés à l'étape 5 Enable Banking)
+    bank_accounts = relationship("BankAccount", back_populates="property", cascade="all, delete-orphan")
+
     # Index pour recherches fréquentes
     __table_args__ = (
         Index('idx_property_name', 'name', unique=True),
@@ -65,6 +67,12 @@ class Transaction(Base):
     solde = Column(EuroCents, nullable=False)  # Solde après transaction (centimes en base, euros à l'ORM)
     source_file = Column(String(255))  # Fichier source d'origine
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True, index=True)  # Référentiel category (Étape 2 Task 3)
+    # Étape 4 Task 1 : champs d'ingestion (Enable Banking étape 5, imports manuels)
+    account_id = Column(Integer, ForeignKey("bank_accounts.id"), nullable=True, index=True)
+    external_id = Column(String(255), nullable=True)
+    source = Column(String(10), nullable=False, default="csv")  # csv | api | manual
+    parent_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True, index=True)
+    is_split_parent = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -76,7 +84,26 @@ class Transaction(Base):
     __table_args__ = (
         Index('idx_transaction_unique', 'date', 'quantite', 'nom'),
         Index('idx_transactions_property_id', 'property_id'),
+        Index('idx_tx_account_external_unique', 'account_id', 'external_id',
+              unique=True, sqlite_where=text('external_id IS NOT NULL')),
     )
+
+
+class BankAccount(Base):
+    """Compte bancaire d'un bien. Peuplé à l'étape 5 (Enable Banking) ; vide en étape 4."""
+    __tablename__ = "bank_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
+    bank_name = Column(String(255))
+    iban_masked = Column(String(64))
+    eb_account_uid = Column(String(255), nullable=True)
+    eb_session_id = Column(String(255), nullable=True)
+    session_valid_until = Column(Date, nullable=True)
+    last_sync_at = Column(DateTime, nullable=True)
+    last_tx_cursor = Column(String(255), nullable=True)
+
+    property = relationship("Property", back_populates="bank_accounts")
 
 
 # Étape 2 Task 8 : la classe EnrichedTransaction (table enriched_transactions) a
