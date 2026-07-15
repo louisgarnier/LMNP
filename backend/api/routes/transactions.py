@@ -6,6 +6,7 @@ API routes for transactions.
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
 from fastapi.responses import Response
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, desc, asc, func
 from typing import List, Optional
@@ -50,6 +51,11 @@ from backend.api.utils.csv_utils import (
 )
 
 router = APIRouter()
+
+
+class SetCategoryIn(BaseModel):
+    """Body de PATCH /transactions/{id}/category (étape 3, cutover Task C1)."""
+    category_id: Optional[int] = None
 
 
 @router.get("/transactions", response_model=TransactionListResponse)
@@ -788,6 +794,41 @@ async def update_transaction(
     logger.info(f"[Transactions] Transaction {transaction_id} mise à jour pour property_id={property_id}")
     
     return TransactionResponse.model_validate(db_transaction)
+
+
+@router.patch("/transactions/{transaction_id}/category")
+def set_transaction_category(
+    transaction_id: int,
+    body: SetCategoryIn,
+    db: Session = Depends(get_db)
+):
+    """
+    Fixe directement transactions.category_id (classification référentiel,
+    étape 2/3). Remplace enrichmentAPI.updateClassifications pour la
+    reclassification manuelle depuis le tableau principal des transactions :
+    aucun appel au moteur d'enrichissement legacy ni aux tables de mapping —
+    les états financiers se recalculent en direct (étape 1) et le golden
+    master est un instantané figé, non affecté par une reclassification
+    manuelle.
+
+    - **category_id**: id de la catégorie du référentiel, ou null pour
+      déclasser la transaction.
+    """
+    logger.info(f"[Transactions] PATCH /api/transactions/{transaction_id}/category - category_id={body.category_id}")
+
+    tx = db.get(Transaction, transaction_id)
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction introuvable")
+
+    if body.category_id is not None and db.get(Category, body.category_id) is None:
+        raise HTTPException(status_code=400, detail=f"category_id inconnu: {body.category_id}")
+
+    tx.category_id = body.category_id
+    db.commit()
+
+    logger.info(f"[Transactions] Transaction {transaction_id} reclassée: category_id={tx.category_id}")
+
+    return {"id": tx.id, "category_id": tx.category_id}
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
