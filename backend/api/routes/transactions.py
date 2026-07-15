@@ -263,6 +263,9 @@ async def get_transactions(
             "level_1": level_1,
             "level_2": level_2,
             "level_3": level_3,
+            "parent_transaction_id": t.parent_transaction_id,
+            "is_split_parent": t.is_split_parent,
+            "source": t.source,
         }
         transaction_responses.append(TransactionResponse(**transaction_dict))
 
@@ -644,6 +647,9 @@ async def get_transaction(
         "level_1": level_1,
         "level_2": level_2,
         "level_3": level_3,
+        "parent_transaction_id": transaction.parent_transaction_id,
+        "is_split_parent": transaction.is_split_parent,
+        "source": transaction.source,
     }
 
     return TransactionResponse(**transaction_dict)

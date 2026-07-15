@@ -62,6 +62,7 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
   const [splittingId, setSplittingId] = useState<number | null>(null);
   const [splitParts, setSplitParts] = useState<{ quantite: string; nom: string; category_id: number | null }[]>([]);
   const [splitSubmitting, setSplitSubmitting] = useState(false);
+  const [undoingSplitId, setUndoingSplitId] = useState<number | null>(null);
 
   // États pour les filtres (valeurs affichées dans les inputs)
   const [filterDate, setFilterDate] = useState('');
@@ -805,6 +806,28 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
       setManualError(err instanceof Error ? err.message : "Erreur lors de l'éclatement de la transaction");
     } finally {
       setSplitSubmitting(false);
+    }
+  };
+
+  // Correctif revue (annulation d'éclatement accessible depuis l'UI) :
+  // une ligne enfant (parent_transaction_id non-null) propose de défaire
+  // l'éclatement. undoSplit supprime TOUS les enfants de la parente et la
+  // restaure, donc l'action est portée par n'importe quel enfant mais prend
+  // toujours l'id de la PARENTE (parent_transaction_id), pas l'id de la ligne.
+  const handleUndoSplit = async (parentTransactionId: number) => {
+    setUndoingSplitId(parentTransactionId);
+    setManualError(null);
+    try {
+      await transactionsAPI.undoSplit(parentTransactionId);
+      await loadTransactions();
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (err) {
+      console.error('Error undoing split:', err);
+      setManualError(err instanceof Error ? err.message : "Erreur lors de l'annulation de l'éclatement");
+    } finally {
+      setUndoingSplitId(null);
     }
   };
 
@@ -1702,6 +1725,14 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                             <span style={{ fontSize: '14px' }}>⚠️</span>
                           )}
                           {transaction.nom}
+                          {transaction.parent_transaction_id != null && (
+                            <span
+                              title="Issu d'un éclatement"
+                              style={{ fontSize: '11px', color: '#999', fontStyle: 'italic', flexShrink: 0 }}
+                            >
+                              (éclaté)
+                            </span>
+                          )}
                         </span>
                       )}
                     </td>
@@ -1845,6 +1876,25 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
                             >
                               ✂️
                             </button>
+                            {transaction.parent_transaction_id != null && (
+                              <button
+                                onClick={() => handleUndoSplit(transaction.parent_transaction_id as number)}
+                                disabled={undoingSplitId === transaction.parent_transaction_id}
+                                title="Défaire l'éclatement"
+                                style={{
+                                  padding: '6px 12px',
+                                  backgroundColor: undoingSplitId === transaction.parent_transaction_id ? '#ccc' : '#6c757d',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  fontSize: '12px',
+                                  cursor: undoingSplitId === transaction.parent_transaction_id ? 'not-allowed' : 'pointer',
+                                  opacity: undoingSplitId === transaction.parent_transaction_id ? 0.6 : 1,
+                                }}
+                              >
+                                {undoingSplitId === transaction.parent_transaction_id ? '⏳' : '↩'}
+                              </button>
+                            )}
                             <button
                               onClick={() => handleDelete(transaction.id)}
                               disabled={deletingId === transaction.id}

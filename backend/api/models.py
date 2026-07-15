@@ -83,6 +83,9 @@ class TransactionResponse(TransactionBase):
     level_1: Optional[str] = None
     level_2: Optional[str] = None
     level_3: Optional[str] = None
+    parent_transaction_id: Optional[int] = None
+    is_split_parent: bool = False
+    source: Optional[str] = None
 
     class Config:
         from_attributes = True

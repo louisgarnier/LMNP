@@ -119,6 +119,9 @@ export interface Transaction {
   level_1?: string;
   level_2?: string;
   level_3?: string;
+  parent_transaction_id?: number | null;
+  is_split_parent?: boolean;
+  source?: string;
 }
 
 export interface TransactionCreate {
