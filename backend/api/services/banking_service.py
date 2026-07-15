@@ -8,7 +8,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from backend.database.models import BankAccount
+from backend.database.models import BankAccount, Transaction
 
 logger = logging.getLogger(__name__)
 
@@ -193,9 +193,16 @@ def list_connections(db: Session, property_id: int) -> list[BankAccount]:
 
 
 def disconnect(db: Session, account_id: int) -> bool:
+    """Supprime le compte bancaire mais CONSERVE les transactions déjà importées :
+    on détache la FK (account_id -> NULL) avant de supprimer, sinon la contrainte
+    FK (transactions.account_id -> bank_accounts.id, sans ondelete) lève une
+    IntegrityError dès qu'une synchro a eu lieu avant la déconnexion."""
     acc = db.get(BankAccount, account_id)
     if not acc:
         return False
+    db.query(Transaction).filter(Transaction.account_id == account_id).update(
+        {Transaction.account_id: None}, synchronize_session=False
+    )
     db.delete(acc)
     db.commit()
     return True  # conserve les transactions (account_id nullable)

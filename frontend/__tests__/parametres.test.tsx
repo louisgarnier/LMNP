@@ -76,6 +76,23 @@ test('le bouton Synchroniser est désactivé en mode démo (status.live === fals
   expect(screen.getByText('connecte tes credentials pour synchroniser')).toBeInTheDocument();
 });
 
+test("le bouton Synchroniser est désactivé tant que le statut n'est pas encore chargé (status === null)", async () => {
+  const { bankingAPI } = require('@/api/client');
+  // status ne se résout jamais avant l'assertion : status reste null au premier rendu.
+  let resolveStatus: (v: any) => void = () => {};
+  bankingAPI.status.mockReturnValueOnce(new Promise((resolve) => { resolveStatus = resolve; }));
+  bankingAPI.connections.mockResolvedValueOnce([makeConnection()]);
+
+  render(<ParametresScreen />);
+
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Synchroniser' })).toBeDisabled());
+
+  // Résout la promesse en attente et laisse React flusher la mise à jour d'état
+  // avant la fin du test, pour éviter un warning "not wrapped in act" résiduel.
+  resolveStatus({ live: false, message: 'Mode démo actif' });
+  await waitFor(() => expect(screen.getByText('Mode démo actif')).toBeInTheDocument());
+});
+
 test('le bouton Synchroniser est actif quand le connecteur est en mode réel', async () => {
   const { bankingAPI } = require('@/api/client');
   bankingAPI.status.mockResolvedValueOnce({ live: true, message: 'Connecté' });

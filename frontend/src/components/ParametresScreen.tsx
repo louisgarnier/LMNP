@@ -412,16 +412,16 @@ export default function ParametresScreen() {
             <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>Compte(s) connecté(s)</div>
             <button
               onClick={handleSync}
-              disabled={syncing || status?.live === false}
+              disabled={syncing || !status?.live}
               style={{
                 padding: '8px 16px',
                 fontSize: '13px',
                 fontWeight: 550,
-                backgroundColor: syncing || status?.live === false ? '#ccc' : '#1e3a5f',
+                backgroundColor: syncing || !status?.live ? '#ccc' : '#1e3a5f',
                 color: 'white',
                 border: 'none',
                 borderRadius: '8px',
-                cursor: syncing || status?.live === false ? 'not-allowed' : 'pointer',
+                cursor: syncing || !status?.live ? 'not-allowed' : 'pointer',
               }}
             >
               {syncing ? '⏳ Synchronisation…' : 'Synchroniser'}

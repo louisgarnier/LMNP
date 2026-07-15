@@ -92,7 +92,17 @@ async def get_connections(property_id: int = Query(...), db: Session = Depends(g
 
 @router.post("/banking/sync")
 async def sync(body: SyncIn, db: Session = Depends(get_db)):
-    """Synchronise les comptes bancaires d'un bien (fetch + ingestion des transactions)."""
+    """Synchronise les comptes bancaires d'un bien (fetch + ingestion des transactions).
+
+    Garde anti-pollution : refuse en mode démo (mock) pour ne jamais insérer de
+    fausses transactions mock dans des données réelles via un appel direct à
+    l'endpoint (le frontend désactive déjà le bouton, mais l'API doit se
+    protéger elle-même)."""
+    if not banking_service.is_live():
+        raise HTTPException(
+            status_code=409,
+            detail="Synchronisation indisponible en mode démo (connecte tes identifiants Enable Banking)",
+        )
     return banking_service.sync_property(db, body.property_id)
 
 

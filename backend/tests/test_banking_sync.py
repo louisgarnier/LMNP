@@ -62,3 +62,21 @@ def test_sync_fx_shared_id_scoped_by_account(db_session):
     bs.sync_account(db_session, acc2)
     fx = db_session.query(Transaction).filter(Transaction.nom == "FX MOCK").all()
     assert len(fx) == 2                        # même external_id mais 2 account_id → 2 lignes distinctes
+
+
+def test_disconnect_after_sync_preserves_transactions(db_session):
+    """Finding 1 : connecter → synchroniser → déconnecter ne doit PAS violer la FK
+    transactions.account_id → bank_accounts.id. Les transactions doivent survivre
+    (account_id devient NULL), pas d'IntegrityError."""
+    prop, acc = _seed(db_session)
+    res = bs.sync_account(db_session, acc)
+    assert res["errors"] == []
+    n_before = db_session.query(Transaction).filter(Transaction.property_id == prop.id).count()
+    assert n_before >= 1
+
+    ok = bs.disconnect(db_session, acc.id)      # ne doit lever aucune IntegrityError
+    assert ok is True
+
+    txs = db_session.query(Transaction).filter(Transaction.property_id == prop.id).all()
+    assert len(txs) == n_before                 # aucune transaction perdue
+    assert all(t.account_id is None for t in txs)  # FK détachée, pas supprimée
