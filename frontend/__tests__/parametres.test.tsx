@@ -39,3 +39,85 @@ test('charge le statut au montage et déclenche la connexion à une banque', asy
   );
   await waitFor(() => expect(window.location.href).toBe('https://mock-eb.example/auth'));
 });
+
+function makeConnection(overrides: Partial<{
+  id: number;
+  bank_name: string;
+  account_name: string;
+  iban_masked: string;
+  currency: string;
+  bank_balance: number | null;
+  last_sync_at: string | null;
+  session_valid_until: string | null;
+  eb_account_uid: string;
+}> = {}) {
+  return {
+    id: 1,
+    bank_name: 'Crédit Agricole',
+    account_name: 'Compte courant',
+    iban_masked: 'FR76 **** **** **** 1234',
+    currency: 'EUR',
+    bank_balance: 1234.56,
+    last_sync_at: '2026-07-01T10:00:00Z',
+    session_valid_until: '2026-12-31T00:00:00Z',
+    eb_account_uid: 'uid-1',
+    ...overrides,
+  };
+}
+
+test('le bouton Synchroniser est désactivé en mode démo (status.live === false)', async () => {
+  const { bankingAPI } = require('@/api/client');
+  bankingAPI.connections.mockResolvedValueOnce([makeConnection()]);
+
+  render(<ParametresScreen />);
+
+  await waitFor(() => expect(screen.getByText('Mode démo')).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Synchroniser' })).toBeDisabled());
+  expect(screen.getByText('connecte tes credentials pour synchroniser')).toBeInTheDocument();
+});
+
+test('le bouton Synchroniser est actif quand le connecteur est en mode réel', async () => {
+  const { bankingAPI } = require('@/api/client');
+  bankingAPI.status.mockResolvedValueOnce({ live: true, message: 'Connecté' });
+  bankingAPI.connections.mockResolvedValueOnce([makeConnection()]);
+
+  render(<ParametresScreen />);
+
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Synchroniser' })).not.toBeDisabled());
+});
+
+test("l'alerte J-30 apparaît quand l'échéance du consentement est proche", async () => {
+  const { bankingAPI } = require('@/api/client');
+  const soon = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(); // dans 10 jours
+  bankingAPI.connections.mockResolvedValueOnce([makeConnection({ session_valid_until: soon })]);
+
+  render(<ParametresScreen />);
+
+  await waitFor(() => expect(screen.getByText('⚠️ consentement à renouveler')).toBeInTheDocument());
+});
+
+test("l'alerte J-30 n'apparaît pas quand l'échéance du consentement est lointaine", async () => {
+  const { bankingAPI } = require('@/api/client');
+  const far = new Date(Date.now() + 200 * 24 * 60 * 60 * 1000).toISOString(); // dans 200 jours
+  bankingAPI.connections.mockResolvedValueOnce([makeConnection({ session_valid_until: far })]);
+
+  render(<ParametresScreen />);
+
+  await waitFor(() => expect(screen.getByText('Compte(s) connecté(s)')).toBeInTheDocument());
+  expect(screen.queryByText('⚠️ consentement à renouveler')).not.toBeInTheDocument();
+});
+
+test('le bouton Déconnecter appelle bankingAPI.disconnect avec le bon account_id', async () => {
+  const { bankingAPI } = require('@/api/client');
+  bankingAPI.connections.mockResolvedValueOnce([makeConnection({ id: 42 })]);
+  bankingAPI.connections.mockResolvedValueOnce([]); // rechargement après déconnexion
+  bankingAPI.disconnect.mockResolvedValueOnce({ deleted: true });
+  window.confirm = jest.fn().mockReturnValue(true);
+
+  render(<ParametresScreen />);
+
+  await waitFor(() => expect(screen.getByText('Déconnecter')).toBeInTheDocument());
+  fireEvent.click(screen.getByText('Déconnecter'));
+
+  await waitFor(() => expect(bankingAPI.disconnect).toHaveBeenCalledWith(42));
+});

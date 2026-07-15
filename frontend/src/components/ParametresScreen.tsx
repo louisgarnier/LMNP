@@ -1,25 +1,62 @@
 /**
  * ParametresScreen — Onglet « Paramètres » (étape 5, connexion Enable Banking)
  *
- * Trois blocs :
+ * Blocs :
  *  - Statut du connecteur (mode réel / démo).
- *  - Connecter une banque : liste des ASPSP, un clic démarre le flux OAuth
- *    (redirection vers `authorization_url`).
  *  - Retour automatique : au montage, si l'URL contient
  *    `?eb_callback=1&code=...&state=...` (redirection Enable Banking), on
  *    échange le code contre une session + la liste des comptes disponibles,
  *    et l'utilisateur en sélectionne UN à rattacher à la propriété active.
- *
- * La carte détaillée par compte connecté (solde, dernière synchro, bouton
- * synchroniser, alerte J-30 avant expiration de session) est la Task 8 —
- * volontairement pas construite ici.
+ *  - Carte(s) compte(s) connecté(s) : nom, banque, IBAN masqué, solde banque,
+ *    dernière synchro, échéance du consentement (bandeau orange + bouton
+ *    renouveler si ≤ 30 jours), bouton Synchroniser (désactivé en mode démo —
+ *    garde anti-pollution contre les fausses transactions mock) et bouton
+ *    Déconnecter.
+ *  - Connecter une banque : liste des ASPSP, un clic démarre le flux OAuth
+ *    (redirection vers `authorization_url`).
  */
 
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { bankingAPI, BankingStatus, Aspsp, BankingAccountPreview } from '../api/client';
+import {
+  bankingAPI,
+  BankingStatus,
+  Aspsp,
+  BankingAccountPreview,
+  BankingConnection,
+  BankingSyncResult,
+} from '../api/client';
 import { useProperty } from '@/contexts/PropertyContext';
+
+const CONSENT_WARNING_DAYS = 30;
+
+/** Nombre de jours (arrondi au supérieur) entre maintenant et `dateStr` (peut être négatif si dépassé). */
+function daysUntil(dateStr: string | null): number | null {
+  if (!dateStr) return null;
+  const target = new Date(dateStr).getTime();
+  if (Number.isNaN(target)) return null;
+  return Math.ceil((target - Date.now()) / (24 * 60 * 60 * 1000));
+}
+
+function formatBalance(value: number | null): string {
+  if (value === null || value === undefined) return '—';
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value);
+}
+
+function formatDateTime(dateStr: string | null): string {
+  if (!dateStr) return 'jamais';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '—';
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('fr-FR', { dateStyle: 'medium' });
+}
 
 // Persiste le nom de la banque choisie le temps de l'aller-retour OAuth
 // (le retour Enable Banking ne renvoie que `code` + `state`, jamais le nom
@@ -51,6 +88,27 @@ export default function ParametresScreen() {
   const [selecting, setSelecting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  // Comptes bancaires rattachés à la propriété active (Task 8).
+  const [connections, setConnections] = useState<BankingConnection[]>([]);
+  const [connectionsLoading, setConnectionsLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResults, setSyncResults] = useState<Record<string, BankingSyncResult> | null>(null);
+  const [disconnectingId, setDisconnectingId] = useState<number | null>(null);
+
+  const loadConnections = async () => {
+    if (!propertyId || propertyId <= 0) return;
+    setConnectionsLoading(true);
+    try {
+      const conns = await bankingAPI.connections(propertyId);
+      setConnections(conns);
+    } catch (err: any) {
+      console.error('[ParametresScreen] loadConnections - Erreur:', err);
+      setError(err.message || 'Erreur lors du chargement des comptes connectés');
+    } finally {
+      setConnectionsLoading(false);
+    }
+  };
+
   const loadStatusAndBanks = async () => {
     setLoading(true);
     setError(null);
@@ -69,6 +127,11 @@ export default function ParametresScreen() {
   useEffect(() => {
     loadStatusAndBanks();
   }, []);
+
+  useEffect(() => {
+    loadConnections();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [propertyId]);
 
   // Retour automatique depuis Enable Banking : ?eb_callback=1&code=...&state=...
   useEffect(() => {
@@ -170,11 +233,47 @@ export default function ParametresScreen() {
       setPendingSession(null);
       setAvailableAccounts(null);
       setSelectedUid(null);
+      await loadConnections();
     } catch (err: any) {
       console.error('[ParametresScreen] handleSelectAccount - Erreur:', err);
       setError(err.message || 'Erreur lors du rattachement du compte');
     } finally {
       setSelecting(false);
+    }
+  };
+
+  const handleSync = async () => {
+    if (!propertyId || propertyId <= 0) return;
+    setSyncing(true);
+    setError(null);
+    setSuccessMsg(null);
+    try {
+      const results = await bankingAPI.sync({ property_id: propertyId });
+      setSyncResults(results);
+      await loadConnections();
+    } catch (err: any) {
+      console.error('[ParametresScreen] handleSync - Erreur:', err);
+      setError(err.message || 'Erreur lors de la synchronisation');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleDisconnect = async (accountId: number, label: string) => {
+    if (!window.confirm(`Déconnecter le compte « ${label} » ? Les transactions déjà importées seront conservées.`)) {
+      return;
+    }
+    setDisconnectingId(accountId);
+    setError(null);
+    try {
+      await bankingAPI.disconnect(accountId);
+      setSyncResults(null);
+      await loadConnections();
+    } catch (err: any) {
+      console.error('[ParametresScreen] handleDisconnect - Erreur:', err);
+      setError(err.message || 'Erreur lors de la déconnexion du compte');
+    } finally {
+      setDisconnectingId(null);
     }
   };
 
@@ -302,6 +401,163 @@ export default function ParametresScreen() {
                 {selecting ? '⏳ Rattachement…' : 'Rattacher ce compte'}
               </button>
             </>
+          )}
+        </div>
+      )}
+
+      {/* Carte(s) compte(s) connecté(s) */}
+      {!connectionsLoading && (
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+            <div style={{ fontSize: '15px', fontWeight: 600, color: '#1a1a1a' }}>Compte(s) connecté(s)</div>
+            <button
+              onClick={handleSync}
+              disabled={syncing || status?.live === false}
+              style={{
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: 550,
+                backgroundColor: syncing || status?.live === false ? '#ccc' : '#1e3a5f',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: syncing || status?.live === false ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {syncing ? '⏳ Synchronisation…' : 'Synchroniser'}
+            </button>
+          </div>
+
+          {status?.live === false && (
+            <div style={{ fontSize: '12px', color: '#b45309', marginBottom: '10px' }}>
+              connecte tes credentials pour synchroniser
+            </div>
+          )}
+
+          {syncResults && (
+            <div
+              role="alert"
+              style={{
+                padding: '10px 14px',
+                marginBottom: '10px',
+                backgroundColor: '#f0f9ff',
+                border: '1px solid #bae6fd',
+                borderRadius: '8px',
+                fontSize: '13px',
+                color: '#0c4a6e',
+              }}
+            >
+              {Object.values(syncResults).map((r) => {
+                const acc = connections.find((c) => c.id === r.account_id);
+                return (
+                  <div key={r.account_id} style={{ marginBottom: '4px' }}>
+                    <b>{acc?.account_name ?? `Compte #${r.account_id}`}</b> : {r.inserted} nouvelle(s),{' '}
+                    {r.deduplicated} déjà connue(s)
+                    {r.errors.length > 0 && (
+                      <span style={{ color: '#dc3545' }}> — ❌ {r.errors.join(' / ')}</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {connections.length === 0 ? (
+            <div style={{ color: '#6b7280', fontSize: '13px' }}>Aucun compte connecté pour ce bien.</div>
+          ) : (
+            connections.map((c) => {
+              const remaining = daysUntil(c.session_valid_until);
+              const needsRenewal = remaining !== null && remaining <= CONSENT_WARNING_DAYS;
+              return (
+                <div
+                  key={c.id}
+                  style={{ border: '1px solid #e5e5e5', borderRadius: '10px', padding: '16px', marginBottom: '10px' }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: '#1a1a1a' }}>
+                      {c.account_name} <span style={{ color: '#6b7280', fontWeight: 400 }}>· {c.bank_name}</span>
+                    </div>
+                    <button
+                      onClick={() => handleDisconnect(c.id, c.account_name || c.bank_name)}
+                      disabled={disconnectingId === c.id}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '12px',
+                        fontWeight: 550,
+                        backgroundColor: 'white',
+                        color: '#dc3545',
+                        border: '1px solid #fecaca',
+                        borderRadius: '8px',
+                        cursor: disconnectingId === c.id ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {disconnectingId === c.id ? '⏳ Déconnexion…' : 'Déconnecter'}
+                    </button>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: '#6b7280',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '2px',
+                    }}
+                  >
+                    <span>IBAN : {c.iban_masked}</span>
+                    <span>Solde banque : {formatBalance(c.bank_balance)}</span>
+                    <span>Dernière synchro : {formatDateTime(c.last_sync_at)}</span>
+                    <span>
+                      Consentement valable jusqu'au {formatDate(c.session_valid_until)}
+                      {remaining !== null && ` (${remaining >= 0 ? `${remaining} j` : 'expiré'})`}
+                    </span>
+                  </div>
+
+                  {needsRenewal && (
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        padding: '10px 12px',
+                        backgroundColor: '#fbf0e2',
+                        border: '1px solid #f5c98a',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '10px',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 550 }}>
+                        ⚠️ consentement à renouveler
+                      </span>
+                      <button
+                        onClick={() => handleConnect(c.bank_name)}
+                        disabled={connectingName === c.bank_name}
+                        style={{
+                          padding: '6px 12px',
+                          fontSize: '12px',
+                          fontWeight: 550,
+                          backgroundColor: '#b45309',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          cursor: connectingName === c.bank_name ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        {connectingName === c.bank_name ? '⏳ Connexion…' : 'Renouveler'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
       )}
