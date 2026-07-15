@@ -1,5 +1,5 @@
 from datetime import date
-from backend.database.models import Property, Transaction, Category, CategoryGroup, ClassificationRule
+from backend.database.models import Property, Transaction, Category, CategoryGroup, ClassificationRule, BankAccount
 from backend.api.services.ingestion_service import ingest_transactions
 
 
@@ -46,3 +46,41 @@ def test_ingest_dedup_external_id(db_session):
     rows2 = [{"date": date(2023, 2, 2), "quantite": 999.0, "nom": "AUTRE", "external_id": "EB-123"}]
     res = ingest_transactions(db_session, prop.id, None, rows2, "api")
     assert res["inserted"] == 0 and res["deduplicated"] == 1
+
+
+def test_ingest_dedup_intra_batch_fallback(db_session):
+    prop, cat = _seed_property_with_rule(db_session)
+    rows = [
+        {"date": date(2023, 1, 5), "quantite": 390.0, "nom": "LOYER MATERA", "external_id": None},
+        {"date": date(2023, 1, 5), "quantite": 390.0, "nom": "LOYER MATERA", "external_id": None},
+    ]
+    res = ingest_transactions(db_session, prop.id, None, rows, "csv")
+    assert res["inserted"] == 1
+    assert res["deduplicated"] == 1
+    assert db_session.query(Transaction).filter(Transaction.property_id == prop.id).count() == 1
+
+
+def test_ingest_dedup_intra_batch_external_id(db_session):
+    prop, cat = _seed_property_with_rule(db_session)
+    account = BankAccount(property_id=prop.id)
+    db_session.add(account); db_session.flush()
+    rows = [
+        {"date": date(2023, 2, 1), "quantite": 100.0, "nom": "VIR", "external_id": "EB-999"},
+        {"date": date(2023, 2, 1), "quantite": 100.0, "nom": "VIR", "external_id": "EB-999"},
+    ]
+    res = ingest_transactions(db_session, prop.id, account.id, rows, "api")
+    assert res["inserted"] == 1
+    assert res["deduplicated"] == 1
+    assert db_session.query(Transaction).filter(Transaction.account_id == account.id).count() == 1
+
+
+def test_ingest_returns_ids(db_session):
+    prop, cat = _seed_property_with_rule(db_session)
+    rows = [
+        {"date": date(2023, 3, 1), "quantite": 10.0, "nom": "A", "external_id": None},
+        {"date": date(2023, 3, 2), "quantite": 20.0, "nom": "B", "external_id": None},
+    ]
+    res = ingest_transactions(db_session, prop.id, None, rows, "csv")
+    assert len(res["ids"]) == 2
+    db_ids = {tx.id for tx in db_session.query(Transaction).filter(Transaction.property_id == prop.id).all()}
+    assert set(res["ids"]) == db_ids

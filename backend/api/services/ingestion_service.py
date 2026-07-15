@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from backend.database.models import Transaction
 from backend.api.services.enrichment_service import enrich_transaction
+from backend.api.services.amortization_service import recalculate_transaction_amortization
 from backend.api.utils.balance_utils import recalculate_all_balances
 
 logger = logging.getLogger(__name__)
@@ -35,15 +36,20 @@ def ingest_transactions(db: Session, property_id: int, account_id: Optional[int]
     (enrich_transaction/recalculate_all_balances committent déjà, comme dans l'import CSV)."""
     inserted, deduplicated, new_ids = 0, 0, []
     new_txs = []
+    seen_keys = set()   # dédoublonnage intra-lot : la DB (autoflush=False) ne voit pas les lignes du lot en cours
     for r in rows:
         nom = (r["nom"] or "").strip()
-        if _is_duplicate(db, property_id, account_id, r["date"], r["quantite"], nom, r.get("external_id")):
+        external_id = r.get("external_id")
+        local_key = ("ext", account_id, external_id) if external_id is not None \
+            else ("row", property_id, r["date"], r["quantite"], nom)
+        if local_key in seen_keys or _is_duplicate(db, property_id, account_id, r["date"], r["quantite"], nom, external_id):
             deduplicated += 1
             continue
+        seen_keys.add(local_key)
         tx = Transaction(
             property_id=property_id, account_id=account_id,
             date=r["date"], quantite=r["quantite"], nom=nom,
-            solde=0.0, source=source, external_id=r.get("external_id"),
+            solde=0.0, source=source, external_id=external_id,
             is_split_parent=False,
         )
         db.add(tx)
@@ -57,7 +63,6 @@ def ingest_transactions(db: Session, property_id: int, account_id: Optional[int]
         new_ids.append(tx.id)
         enrich_transaction(tx, db)              # pose category_id via règles étape 3
         try:
-            from backend.api.services.amortization_service import recalculate_transaction_amortization
             recalculate_transaction_amortization(db, tx.id)
         except Exception as e:                  # best-effort, identique à l'import CSV actuel
             logger.warning(f"[ingest] amortissement tx {tx.id} ignoré: {e}")
