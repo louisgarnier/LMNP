@@ -89,8 +89,15 @@ def validate(body: ValidateIn, db: Session = Depends(get_db)):
 @router.post("/inbox/validate-all")
 def validate_all(property_id: int, db: Session = Depends(get_db)):
     rules = _rules_for_property(db, property_id)
+    # Exclut les lignes parentes éclatées, symétriquement à list_inbox (Étape 4
+    # Task 4) : sans ce filtre, une parente masquée (category_id=NULL,
+    # is_split_parent=True) matcherait une règle et serait classée automatiquement
+    # -> elle réapparaîtrait dans le CR/bilan alors que ses enfants y sont déjà
+    # (double comptage).
     txs = (db.query(Transaction)
-           .filter(Transaction.property_id == property_id, Transaction.category_id.is_(None)).all())
+           .filter(Transaction.property_id == property_id,
+                   Transaction.category_id.is_(None),
+                   Transaction.is_split_parent == False).all())
     groups: dict[tuple, dict] = {}
     for t in txs:
         cat = _suggestion(db, t, rules)
