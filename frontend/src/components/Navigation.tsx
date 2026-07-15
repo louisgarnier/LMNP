@@ -14,6 +14,7 @@ const tabs = [
   { name: 'Boîte de réception', href: '/dashboard/transactions?tab=inbox' },
   { name: 'Import relevés', href: '/dashboard/transactions?tab=load_trades' },
   { name: 'Règles', href: '/dashboard/transactions?tab=rules' },
+  { name: 'Paramètres', href: '/dashboard/transactions?tab=parametres' },
 ];
 
 export default function Navigation() {
@@ -41,6 +42,8 @@ export default function Navigation() {
             } else if (tab.href.includes('tab=load_trades') && tabParam === 'load_trades') {
               isActive = true;
             } else if (tab.href.includes('tab=rules') && tabParam === 'rules') {
+              isActive = true;
+            } else if (tab.href.includes('tab=parametres') && tabParam === 'parametres') {
               isActive = true;
             }
             

@@ -2774,3 +2774,128 @@ export const inboxAPI = {
       { method: 'POST' }
     ),
 };
+
+// --- Enable Banking (connexion Open Banking, étape 5) ---
+export interface BankingStatus {
+  live: boolean;
+  message: string;
+}
+
+export interface Aspsp {
+  name: string;
+  country: string;
+}
+
+export interface BankingConnectResponse {
+  authorization_url: string;
+  state: string;
+}
+
+export interface BankingAccountPreview {
+  account_uid: string;
+  name: string;
+  iban_masked: string;
+  currency: string;
+}
+
+export interface BankingSessionResponse {
+  session_id: string;
+  session_valid_until: string;
+  property_id: number;
+  accounts: BankingAccountPreview[];
+}
+
+export interface BankingConnection {
+  id: number;
+  bank_name: string;
+  account_name: string;
+  iban_masked: string;
+  currency: string;
+  bank_balance: number | null;
+  last_sync_at: string | null;
+  session_valid_until: string | null;
+  eb_account_uid: string;
+}
+
+export interface BankingSelectAccountInput {
+  property_id: number;
+  account_uid: string;
+  session_id: string;
+  session_valid_until: string;
+  aspsp_name: string;
+  account_name: string;
+  iban_masked: string;
+  currency: string;
+}
+
+export interface BankingSyncResult {
+  account_id: number;
+  inserted: number;
+  deduplicated: number;
+  errors: string[];
+}
+
+export const bankingAPI = {
+  /**
+   * Statut du connecteur Enable Banking (mode réel vs démo).
+   */
+  status: (): Promise<BankingStatus> => fetchAPI<BankingStatus>('/api/banking/status'),
+
+  /**
+   * Liste des banques (ASPSP) disponibles pour un pays.
+   */
+  aspsps: (country: string = 'FR'): Promise<Aspsp[]> =>
+    fetchAPI<Aspsp[]>(`/api/banking/aspsps?country=${encodeURIComponent(country)}`),
+
+  /**
+   * Initie la connexion à une banque : renvoie l'URL d'autorisation à ouvrir.
+   */
+  connect: (body: { property_id: number; aspsp_name: string }): Promise<BankingConnectResponse> =>
+    fetchAPI<BankingConnectResponse>('/api/banking/connect', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Échange le code de retour OAuth contre une session + liste des comptes disponibles
+   * (aucun compte n'est rattaché à ce stade, l'utilisateur en sélectionne un ensuite).
+   */
+  createSession: (body: { code: string; state: string }): Promise<BankingSessionResponse> =>
+    fetchAPI<BankingSessionResponse>('/api/banking/sessions', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Rattache un compte sélectionné à la propriété (remplace le compte existant
+   * pour cette propriété s'il y en avait déjà un).
+   */
+  selectAccount: (body: BankingSelectAccountInput): Promise<BankingConnection> =>
+    fetchAPI<BankingConnection>('/api/banking/connections/select', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Liste les comptes bancaires rattachés à une propriété.
+   */
+  connections: (propertyId: number): Promise<BankingConnection[]> =>
+    fetchAPI<BankingConnection[]>(`/api/banking/connections?property_id=${propertyId}`),
+
+  /**
+   * Synchronise les transactions des comptes rattachés à une propriété.
+   */
+  sync: (body: { property_id: number }): Promise<Record<string, BankingSyncResult>> =>
+    fetchAPI<Record<string, BankingSyncResult>>('/api/banking/sync', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
+  /**
+   * Déconnecte un compte bancaire (les transactions déjà importées sont conservées).
+   */
+  disconnect: (accountId: number): Promise<{ deleted: boolean }> =>
+    fetchAPI<{ deleted: boolean }>(`/api/banking/connections/${accountId}`, {
+      method: 'DELETE',
+    }),
+};

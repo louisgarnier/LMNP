@@ -13,6 +13,7 @@ import ImportLog from '@/components/ImportLog';
 import TransactionsTable from '@/components/TransactionsTable';
 import InboxScreen from '@/components/InboxScreen';
 import RulesScreen from '@/components/RulesScreen';
+import ParametresScreen from '@/components/ParametresScreen';
 import { transactionsAPI, fileUploadAPI } from '@/api/client';
 import { useImportLog } from '@/contexts/ImportLogContext';
 import { useProperty } from '@/contexts/PropertyContext';
@@ -145,6 +146,8 @@ export default function TransactionsPage() {
         {tab === 'inbox' && <InboxScreen />}
 
         {tab === 'rules' && <RulesScreen />}
+
+        {tab === 'parametres' && <ParametresScreen />}
 
         {tab === 'load_trades' && (
           <div>
