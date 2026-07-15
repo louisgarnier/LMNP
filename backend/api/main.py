@@ -58,7 +58,7 @@ import traceback
 import time
 
 # Import routes
-from backend.api.routes import transactions, mappings, enrichment, analytics, pivot_configs, amortization, amortization_types, loan_payments, loan_configs, compte_resultat, bilan, properties, logs, prorata_forecast, rules, inbox
+from backend.api.routes import transactions, mappings, enrichment, analytics, pivot_configs, amortization, amortization_types, loan_payments, loan_configs, compte_resultat, bilan, properties, logs, prorata_forecast, rules, inbox, categories
 
 # Import middleware de logging
 from backend.api.middleware.logging_middleware import LoggingMiddleware
@@ -209,6 +209,7 @@ app.include_router(logs.router, prefix="/api", tags=["logs"])
 app.include_router(prorata_forecast.router, prefix="/api", tags=["prorata-forecast"])
 app.include_router(rules.router, prefix="/api", tags=["rules"])
 app.include_router(inbox.router, prefix="/api", tags=["inbox"])
+app.include_router(categories.router, prefix="/api", tags=["categories"])
 
 
 @app.on_event("startup")
