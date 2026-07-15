@@ -11,9 +11,9 @@ import { usePathname, useSearchParams } from 'next/navigation';
 
 const tabs = [
   { name: 'Toutes les transactions', href: '/dashboard/transactions' },
-  { name: 'Non classées', href: '/dashboard/transactions?filter=unclassified' },
-  { name: 'Load Trades/Mappings', href: '/dashboard/transactions?tab=load_trades' },
-  { name: 'Mapping', href: '/dashboard/transactions?tab=mapping' },
+  { name: 'Boîte de réception', href: '/dashboard/transactions?tab=inbox' },
+  { name: 'Import relevés', href: '/dashboard/transactions?tab=load_trades' },
+  { name: 'Règles', href: '/dashboard/transactions?tab=rules' },
 ];
 
 export default function Navigation() {
@@ -25,7 +25,6 @@ export default function Navigation() {
     return null;
   }
 
-  const filter = searchParams?.get('filter');
   const tabParam = searchParams?.get('tab');
 
   return (
@@ -35,13 +34,13 @@ export default function Navigation() {
           {tabs.map((tab) => {
             // Déterminer si l'onglet est actif
             let isActive = false;
-            if (tab.href === '/dashboard/transactions' && !filter && !tabParam) {
+            if (tab.href === '/dashboard/transactions' && !tabParam) {
               isActive = true; // "Toutes les transactions" par défaut
-            } else if (tab.href.includes('filter=unclassified') && filter === 'unclassified') {
+            } else if (tab.href.includes('tab=inbox') && tabParam === 'inbox') {
               isActive = true;
             } else if (tab.href.includes('tab=load_trades') && tabParam === 'load_trades') {
               isActive = true;
-            } else if (tab.href.includes('tab=mapping') && tabParam === 'mapping') {
+            } else if (tab.href.includes('tab=rules') && tabParam === 'rules') {
               isActive = true;
             }
             
