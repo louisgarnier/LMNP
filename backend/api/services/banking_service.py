@@ -6,6 +6,10 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+from sqlalchemy.orm import Session
+
+from backend.database.models import BankAccount
+
 logger = logging.getLogger(__name__)
 
 _API_BASE = "https://api.enablebanking.com"
@@ -162,6 +166,39 @@ def create_session(code: str, state: str) -> dict:
         "property_id": pid,
         "accounts": accounts,
     }
+
+
+def select_account(db: Session, property_id: int, account_uid: str, session_id: str,
+                   session_valid_until: str, aspsp_name: str, account_name: str,
+                   iban_masked: str, currency: str) -> BankAccount:
+    """Upsert UN compte bancaire par bien : relier un autre compte au même bien REMPLACE."""
+    existing = db.query(BankAccount).filter(BankAccount.property_id == property_id).first()
+    acc = existing or BankAccount(property_id=property_id)
+    acc.eb_account_uid = account_uid
+    acc.eb_session_id = session_id
+    acc.session_valid_until = date.fromisoformat(session_valid_until) if session_valid_until else None
+    acc.bank_name = aspsp_name
+    acc.account_name = account_name
+    acc.iban_masked = iban_masked
+    acc.currency = currency
+    if not existing:
+        db.add(acc)
+    db.commit()
+    db.refresh(acc)
+    return acc
+
+
+def list_connections(db: Session, property_id: int) -> list[BankAccount]:
+    return db.query(BankAccount).filter(BankAccount.property_id == property_id).all()
+
+
+def disconnect(db: Session, account_id: int) -> bool:
+    acc = db.get(BankAccount, account_id)
+    if not acc:
+        return False
+    db.delete(acc)
+    db.commit()
+    return True  # conserve les transactions (account_id nullable)
 
 
 def _mock_raw_transactions(account_uid: str) -> list[dict]:
