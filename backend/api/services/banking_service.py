@@ -201,6 +201,52 @@ def disconnect(db: Session, account_id: int) -> bool:
     return True  # conserve les transactions (account_id nullable)
 
 
+def _normalize(raw: dict) -> dict:
+    return {"date": raw["date"], "quantite": float(raw["quantite"]),
+            "nom": raw["nom"], "external_id": raw["external_id"]}
+
+
+def _fetch_raw(bank_account: BankAccount, since) -> list[dict]:
+    if not is_live():
+        return _mock_raw_transactions(bank_account.eb_account_uid)
+    # live : pagination continuation_key, fenêtre depuis `since` (last_sync_at), à implémenter au branchement réel
+    out, params = [], {"date_from": since.isoformat() if since else "2020-01-01"}
+    while True:
+        data = _get(f"/accounts/{bank_account.eb_account_uid}/transactions", params)
+        out.extend(data.get("transactions", []))
+        cont = data.get("continuation_key")
+        if not cont:
+            break
+        params["continuation_key"] = cont
+    return out
+
+
+def sync_account(db: Session, bank_account: BankAccount) -> dict:
+    """Synchronise UN compte bancaire : fetch → filtre pending → ingest_transactions
+    (dédoublonnage + classif + recalculs), isolé en SAVEPOINT pour ne pas bloquer les
+    autres comptes en cas d'échec. Retourne {account_id, inserted, deduplicated, errors}."""
+    from backend.api.services.ingestion_service import ingest_transactions
+
+    since = bank_account.last_sync_at.date() if bank_account.last_sync_at else None
+    raw = _fetch_raw(bank_account, since)
+    rows = [_normalize(r) for r in raw if r.get("status") != "pending"]   # pending filtré
+    try:
+        with db.begin_nested():                                          # SAVEPOINT par compte
+            res = ingest_transactions(db, bank_account.property_id, bank_account.id, rows, "api")
+            bank_account.last_sync_at = datetime.utcnow()
+        db.commit()
+        return {"account_id": bank_account.id, **res, "errors": []}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"[banking] sync compte {bank_account.id} échec: {e}")
+        return {"account_id": bank_account.id, "inserted": 0, "deduplicated": 0, "errors": [str(e)]}
+
+
+def sync_property(db: Session, property_id: int) -> dict:
+    accounts = db.query(BankAccount).filter(BankAccount.property_id == property_id).all()
+    return {a.id: sync_account(db, a) for a in accounts}
+
+
 def _mock_raw_transactions(account_uid: str) -> list[dict]:
     base = [
         {"external_id": f"{account_uid}-t1", "date": date(2026, 1, 5), "quantite": 390.0, "nom": "LOYER MOCK", "status": "booked"},
