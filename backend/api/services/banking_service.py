@@ -104,6 +104,66 @@ def list_aspsps(country: str = "FR") -> list[dict]:
     return data.get("aspsps", data.get("data", []))
 
 
+_pending_states: dict[str, int] = {}  # state -> property_id (mémoire process, mono-poste)
+
+
+def _register_state(state: str, property_id: int) -> None:
+    if len(_pending_states) > 128:
+        _pending_states.clear()
+    _pending_states[state] = property_id
+
+
+def _pop_state(state: str) -> Optional[int]:
+    return _pending_states.pop(state, None)
+
+
+def start_auth(property_id: int, aspsp_name: str, country: str = "FR") -> dict:
+    state = str(uuid.uuid4())
+    _register_state(state, property_id)
+    if not is_live():
+        return {"authorization_url": f"{_redirect_url()}&code=mock-code&state={state}", "state": state}
+    valid_until = (datetime.utcnow() + timedelta(days=180)).replace(microsecond=0).isoformat() + "Z"
+    body = {
+        "access": {"valid_until": valid_until},
+        "aspsp": {"name": aspsp_name, "country": country},
+        "state": state,
+        "redirect_url": _redirect_url(),
+        "psu_type": "personal",
+    }
+    data = _post("/auth", body)
+    return {"authorization_url": data["url"], "state": state}
+
+
+def create_session(code: str, state: str) -> dict:
+    pid = _pop_state(state)
+    if pid is None:
+        raise ValueError("state OAuth inconnu ou expiré")
+    valid_until = (date.today() + timedelta(days=180)).isoformat()
+    if not is_live():
+        return {
+            "session_id": f"mock-sess-{state[:8]}",
+            "session_valid_until": valid_until,
+            "property_id": pid,
+            "accounts": _MOCK_ACCOUNTS,
+        }
+    data = _post("/sessions", {"code": code})
+    accounts = [
+        {
+            "account_uid": a["uid"],
+            "name": a.get("name", ""),
+            "iban_masked": a.get("iban", ""),
+            "currency": a.get("currency", "EUR"),
+        }
+        for a in data.get("accounts", [])
+    ]
+    return {
+        "session_id": data["session_id"],
+        "session_valid_until": data.get("valid_until", valid_until),
+        "property_id": pid,
+        "accounts": accounts,
+    }
+
+
 def _mock_raw_transactions(account_uid: str) -> list[dict]:
     base = [
         {"external_id": f"{account_uid}-t1", "date": date(2026, 1, 5), "quantite": 390.0, "nom": "LOYER MOCK", "status": "booked"},
