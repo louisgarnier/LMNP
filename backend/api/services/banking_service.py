@@ -223,18 +223,19 @@ def _fetch_raw(bank_account: BankAccount, since) -> list[dict]:
 
 def sync_account(db: Session, bank_account: BankAccount) -> dict:
     """Synchronise UN compte bancaire : fetch → filtre pending → ingest_transactions
-    (dédoublonnage + classif + recalculs), isolé en SAVEPOINT pour ne pas bloquer les
-    autres comptes en cas d'échec. Retourne {account_id, inserted, deduplicated, errors}."""
+    (dédoublonnage + classif + recalculs). ingest_transactions committe déjà son propre
+    travail atomiquement (pas de SAVEPOINT nécessaire) ; l'isolation "un compte en échec
+    ne bloque pas les autres" est assurée par ce try/except par compte, appelé par
+    sync_property compte par compte. Retourne {account_id, inserted, deduplicated, errors}."""
     from backend.api.services.ingestion_service import ingest_transactions
 
     since = bank_account.last_sync_at.date() if bank_account.last_sync_at else None
-    raw = _fetch_raw(bank_account, since)
-    rows = [_normalize(r) for r in raw if r.get("status") != "pending"]   # pending filtré
     try:
-        with db.begin_nested():                                          # SAVEPOINT par compte
-            res = ingest_transactions(db, bank_account.property_id, bank_account.id, rows, "api")
-            bank_account.last_sync_at = datetime.utcnow()
-        db.commit()
+        raw = _fetch_raw(bank_account, since)
+        rows = [_normalize(r) for r in raw if r.get("status") != "pending"]   # pending filtré
+        res = ingest_transactions(db, bank_account.property_id, bank_account.id, rows, "api")
+        bank_account.last_sync_at = datetime.utcnow()
+        db.commit()                                                      # persiste last_sync_at
         return {"account_id": bank_account.id, **res, "errors": []}
     except Exception as e:
         db.rollback()

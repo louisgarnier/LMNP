@@ -13,11 +13,35 @@ def _seed(db_session):
 def test_sync_inserts_booked_ignores_pending(db_session):
     prop, acc = _seed(db_session)
     res = bs.sync_account(db_session, acc)
+    assert res["errors"] == []                # contrat de retour : pas d'erreur sur une synchro réussie
+    assert res["inserted"] >= 1
     txs = db_session.query(Transaction).filter(Transaction.property_id == prop.id).all()
     noms = {t.nom for t in txs}
     assert "LOYER MOCK" in noms
     assert "PENDING MOCK" not in noms          # pending filtré
     assert all(t.source == "api" for t in txs)
+
+
+def test_sync_persists_last_sync_at(db_session):
+    prop, acc = _seed(db_session)
+    assert acc.last_sync_at is None
+    bs.sync_account(db_session, acc)
+    db_session.refresh(acc)
+    assert acc.last_sync_at is not None        # incrémental live : doit survivre au commit
+
+
+def test_sync_account_failure_isolated(db_session, monkeypatch):
+    prop, acc = _seed(db_session)
+
+    def _boom(bank_account, since):
+        raise RuntimeError("panne API simulée")
+
+    monkeypatch.setattr(bs, "_fetch_raw", _boom)
+    res = bs.sync_account(db_session, acc)     # ne doit PAS lever
+    assert res["inserted"] == 0
+    assert res["errors"] != []
+    db_session.refresh(acc)
+    assert acc.last_sync_at is None            # rien persisté sur échec
 
 
 def test_sync_is_incremental_no_dup_on_second_run(db_session):
