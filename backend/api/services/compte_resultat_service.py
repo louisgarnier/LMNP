@@ -33,7 +33,6 @@ from backend.database.models import (
     LoanPayment,
     LoanConfig
 )
-from backend.api.services.prorata_service import apply_prorata, get_prorata_settings, get_forecast_configs
 from backend.api.services.category_service import NATURE_BY_LABEL
 
 # Logger configuration
@@ -532,8 +531,10 @@ def calculate_compte_resultat(
     """
     Calculer le compte de résultat complet pour une année et une propriété.
     
-    Si Pro Rata est activé (et skip_prorata=False), applique MAX(réel, prévu) pour les catégories configurables.
-    Les catégories calculées (amortissements, charges financières) gardent leurs valeurs réelles.
+    Le compte de résultat est TOUJOURS réel : aucune prévision n'est injectée
+    dans les montants (plus de règle MAX(réel, prévu)). Les prévisions sont
+    gérées côté affichage. `skip_prorata` ne pilote plus que le mode réalisé
+    vs prévisionnel du coût du financement (get_cout_financement).
     
     Args:
         db: Session de base de données
@@ -541,7 +542,7 @@ def calculate_compte_resultat(
         property_id: ID de la propriété
         mappings: Liste des mappings (optionnel, sera chargée depuis DB si non fournie)
         level_3_values: Liste des valeurs level_3 (optionnel, sera chargée depuis config si non fournie)
-        skip_prorata: Si True, ne pas appliquer le prorata même s'il est activé (pour référence data)
+        skip_prorata: pilote uniquement get_cout_financement (réalisé si True). N'affecte plus les produits/charges (toujours réels).
     
     Returns:
         Dictionnaire avec :
@@ -581,51 +582,15 @@ def calculate_compte_resultat(
         # La variable cout_financement reste positive pour le calcul du résultat net (soustraite plus bas).
         charges["Coût du financement (hors remboursement du capital)"] = -abs(cout_financement)
     
-    # ========== Pro Rata (Phase 11bis) ==========
-    # Vérifier si prorata est activé pour cette propriété
+    # ========== Prévisions (refonte) ==========
+    # Le compte de résultat est TOUJOURS réel : on n'injecte plus jamais de
+    # "prévu" dans les montants (fini la règle MAX(réel, prévu) qui polluait
+    # l'année en cours). Les prévisions — objectif de l'année en cours (badge)
+    # et années futures — sont ajoutées côté affichage (frontend), sans jamais
+    # modifier une valeur réelle. Le paramètre `skip_prorata` ne sert plus qu'à
+    # `get_cout_financement` (réalisé vs prévisionnel du coût du financement).
     prorata_applied = False
-    prorata_settings = get_prorata_settings(db, property_id)
-    
-    if prorata_settings and prorata_settings.prorata_enabled and not skip_prorata:
-        logger.info(f"[CompteResultatService] Pro Rata activé pour property_id={property_id}")
-        prorata_applied = True
-        
-        # Récupérer les forecast configs pour ajouter les catégories sans transactions
-        forecast_configs = get_forecast_configs(db, property_id, year, "compte_resultat")
-        
-        # Ajouter les catégories forecast qui n'ont pas de transactions (valeur réelle = 0)
-        # Déterminer si c'est un produit ou une charge basé sur le mapping
-        mapping_types = {m.category_name: m.type for m in mappings}
-        
-        for cat_name, planned_amount in forecast_configs.items():
-            if planned_amount != 0:
-                if cat_name not in produits and cat_name not in charges:
-                    # Catégorie avec prévision mais sans transaction
-                    mapping_type = mapping_types.get(cat_name)
-                    if mapping_type == "Produits d'exploitation":
-                        produits[cat_name] = 0.0
-                        logger.debug(f"[CompteResultatService] Ajout catégorie forecast (produit): {cat_name}")
-                    elif mapping_type == "Charges d'exploitation":
-                        charges[cat_name] = 0.0
-                        logger.debug(f"[CompteResultatService] Ajout catégorie forecast (charge): {cat_name}")
-                    else:
-                        # Par défaut, si pas de mapping, c'est probablement un produit si positif
-                        if planned_amount > 0:
-                            produits[cat_name] = 0.0
-                        else:
-                            charges[cat_name] = 0.0
-                        logger.debug(f"[CompteResultatService] Ajout catégorie forecast (auto): {cat_name}")
-        
-        # Appliquer prorata aux produits
-        produits_prorata = apply_prorata(db, property_id, year, "compte_resultat", produits)
-        produits = {cat: data['amount'] for cat, data in produits_prorata.items()}
-        
-        # Appliquer prorata aux charges
-        charges_prorata = apply_prorata(db, property_id, year, "compte_resultat", charges)
-        charges = {cat: data['amount'] for cat, data in charges_prorata.items()}
-        
-        logger.info(f"[CompteResultatService] Pro Rata appliqué - produits: {len(produits)}, charges: {len(charges)}")
-    
+
     # ========== Calcul des totaux ==========
     # IMPORTANT : Le frontend exclut les charges d'intérêt du total des charges d'exploitation
     total_produits = sum(produits.values())
