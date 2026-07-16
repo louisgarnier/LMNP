@@ -1,10 +1,11 @@
 """
-Service de calcul des amortissements avec convention 30/360.
+Service de calcul des amortissements — convention jours réels / 365.
 
 ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
 
 Ce service implémente la logique de calcul des amortissements :
-- Convention 30/360 pour le calcul des jours
+- Prorata temporis en jours calendaires RÉELS, base 365 (aligné sur le
+  tableau des immobilisations du comptable)
 - Répartition proportionnelle par année
 - Utilisation des AmortizationType pour le matching des transactions
 """
@@ -26,26 +27,22 @@ from backend.database.models import (
 logger = logging.getLogger(__name__)
 
 
-def calculate_30_360_days(start_date: date, end_date: date) -> int:
+def calculate_days(start_date: date, end_date: date) -> int:
     """
-    Calcule le nombre de jours entre deux dates selon la convention 30/360.
-    
-    Convention 30/360 :
-    - Chaque mois compte 30 jours
-    - Chaque année compte 360 jours
-    - Formule : (année2 - année1) * 360 + (mois2 - mois1) * 30 + (jour2 - jour1)
-    
+    Nombre de jours calendaires RÉELS entre deux dates (convention réel/365).
+
+    On compte les jours effectivement écoulés (end - start), comme le fait le
+    tableau des immobilisations du comptable. Ex. 04/09/2025 -> 31/12/2025 = 118
+    jours, soit 118/365 de l'annuité pour la première année d'amortissement.
+
     Args:
         start_date: Date de début
         end_date: Date de fin
-    
+
     Returns:
-        Nombre de jours selon la convention 30/360
+        Nombre de jours réels écoulés (end_date - start_date)
     """
-    days = (end_date.year - start_date.year) * 360
-    days += (end_date.month - start_date.month) * 30
-    days += end_date.day - start_date.day
-    return days
+    return (end_date - start_date).days
 
 
 def calculate_yearly_amounts(
@@ -59,7 +56,7 @@ def calculate_yearly_amounts(
     
     Logique SIMPLE :
     1. Annuité = abs(total_amount) / duration (ou annual_amount si fourni)
-    2. Année d'achat (première année) : prorata temporis avec convention 30/360
+    2. Année d'achat (première année) : prorata temporis en jours réels / 365
     3. Années complètes : annuité exacte
     4. Dernière année : solde restant (pour garantir somme exacte)
     
@@ -87,18 +84,18 @@ def calculate_yearly_amounts(
     end_year = exact_end_date.year
     
     yearly_amounts = {}
-    daily_amount = annual_amount / 360
-    
+    daily_amount = annual_amount / 365
+
     # Cas spécial : tout dans une seule année
     if start_date.year == end_year:
-        days_in_period = calculate_30_360_days(start_date, exact_end_date)
+        days_in_period = calculate_days(start_date, exact_end_date)
         if days_in_period > 0:
             yearly_amounts[start_date.year] = daily_amount * days_in_period
     else:
         # 1. PREMIÈRE ANNÉE (année d'achat) : partielle
         # Du start_date à la fin de l'année
         first_year_end = date(start_date.year, 12, 31)
-        days_in_first_year = calculate_30_360_days(start_date, first_year_end)
+        days_in_first_year = calculate_days(start_date, first_year_end)
         first_year_amount = daily_amount * days_in_first_year
         yearly_amounts[start_date.year] = first_year_amount
         
@@ -110,7 +107,7 @@ def calculate_yearly_amounts(
         # 3. DERNIÈRE ANNÉE : partielle aussi !
         # Du début de l'année jusqu'à la date de fin exacte
         last_year_start = date(end_year, 1, 1)
-        days_in_last_year = calculate_30_360_days(last_year_start, exact_end_date)
+        days_in_last_year = calculate_days(last_year_start, exact_end_date)
         last_year_amount = daily_amount * days_in_last_year
         yearly_amounts[end_year] = last_year_amount
         

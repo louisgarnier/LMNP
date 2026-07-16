@@ -21,7 +21,7 @@ from backend.database.models import (
     AmortizationResult
 )
 from backend.api.services.amortization_service import (
-    calculate_30_360_days,
+    calculate_days,
     calculate_yearly_amounts,
     recalculate_transaction_amortization,
     recalculate_all_amortizations,
@@ -29,33 +29,31 @@ from backend.api.services.amortization_service import (
 )
 
 
-def test_30_360_days_calculation():
-    """Test 1: Calcul convention 30/360."""
-    print("Test 1: Calcul convention 30/360...")
-    
-    # Test année complète
-    start = date(2024, 1, 1)
-    end = date(2024, 12, 31)
-    days = calculate_30_360_days(start, end)
-    assert days == 360, f"Attendu 360 jours, obtenu {days}"
-    print("  ✓ Année complète : 360 jours")
-    
-    # Test mois complet
-    start = date(2024, 1, 1)
-    end = date(2024, 1, 31)
-    days = calculate_30_360_days(start, end)
-    assert days == 30, f"Attendu 30 jours, obtenu {days}"
-    print("  ✓ Mois complet : 30 jours")
-    
-    # Test période partielle
-    start = date(2024, 1, 15)
-    end = date(2024, 3, 10)
-    days = calculate_30_360_days(start, end)
-    expected = (3 - 1) * 30 + (10 - 15)  # 2 mois * 30 + (10-15) jours
-    assert days == expected, f"Attendu {expected} jours, obtenu {days}"
-    print(f"  ✓ Période partielle : {days} jours")
-    
+def test_days_calculation():
+    """Test 1: Jours calendaires réels (convention réel/365)."""
+    print("Test 1: Jours réels...")
+
+    # Jours réellement écoulés (end - start)
+    assert calculate_days(date(2024, 1, 1), date(2024, 12, 31)) == 365  # 2024 bissextile
+    assert calculate_days(date(2025, 1, 1), date(2025, 12, 31)) == 364
+    assert calculate_days(date(2024, 1, 1), date(2024, 1, 31)) == 30
+    # Première année d'amortissement Capitaine Galinat : 04/09 -> 31/12/2025 = 118 j
+    assert calculate_days(date(2025, 9, 4), date(2025, 12, 31)) == 118
     print("  ✓ Test 1 réussi")
+
+
+def test_prorata_reel_365_colle_au_comptable():
+    """La 1re annuité en réel/365 reproduit le tableau du comptable au centime."""
+    # Structure/GO : 82 875 € / 50 ans, mise en service 04/09/2025.
+    ya = calculate_yearly_amounts(date(2025, 9, 4), -82875.0, 50.0)
+    assert round(ya[2025], 2) == -535.85  # tableau comptable : 535,85 €
+    assert round(ya[2026], 2) == -1657.50  # année pleine = 82875/50
+    # Équipements IGT : 33 150 € / 15 ans, 04/09/2025 -> 714,47 € en 2025
+    igt = calculate_yearly_amounts(date(2025, 9, 4), -33150.0, 15.0)
+    assert round(igt[2025], 2) == -714.47
+    # Travaux : 2 508 € / 10 ans, mise en service 14/10/2025 (78 j) -> 53,60 €
+    trav = calculate_yearly_amounts(date(2025, 10, 14), -2508.0, 10.0)
+    assert round(trav[2025], 2) == -53.60
 
 
 def test_proportional_distribution():
@@ -456,7 +454,8 @@ def main():
     print("=" * 60)
     
     try:
-        test_30_360_days_calculation()
+        test_days_calculation()
+        test_prorata_reel_365_colle_au_comptable()
         test_proportional_distribution()
         test_annual_amount_override()
         test_create_amortization_results()
