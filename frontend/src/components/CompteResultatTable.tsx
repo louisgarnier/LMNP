@@ -7,12 +7,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { compteResultatAPI, CompteResultatMapping, CompteResultatCalculateResponse, transactionsAPI, CompteResultatOverride, prorataAPI, ProRataSettings, AnnualForecastConfig } from '@/api/client';
+import { compteResultatAPI, CompteResultatMapping, CompteResultatCalculateResponse, transactionsAPI, prorataAPI, ProRataSettings, AnnualForecastConfig } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
 
 interface CompteResultatTableProps {
   refreshKey?: number; // Pour forcer le rechargement
-  isOverrideEnabled?: boolean; // Si true, afficher la ligne "Résultat exercice (Override)"
   onModeChange?: () => void; // Appelé quand on bascule Réel <-> Prévisionnel (pour rafraîchir la card)
 }
 
@@ -69,7 +68,7 @@ const CALCULATED_CATEGORIES = [
   "Coût du financement (hors remboursement du capital)",
 ];
 
-export default function CompteResultatTable({ refreshKey, isOverrideEnabled = false, onModeChange }: CompteResultatTableProps) {
+export default function CompteResultatTable({ refreshKey, onModeChange }: CompteResultatTableProps) {
   const { activeProperty } = useProperty();
   const [loading, setLoading] = useState(true);
   const [savingMode, setSavingMode] = useState(false);
@@ -77,11 +76,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   const [years, setYears] = useState<number[]>([]);
   const [mappings, setMappings] = useState<CompteResultatMapping[]>([]);
   const [data, setData] = useState<CompteResultatCalculateResponse | null>(null);
-  const [overrides, setOverrides] = useState<CompteResultatOverride[]>([]);
-  const [editingOverrideYear, setEditingOverrideYear] = useState<number | null>(null);
-  const [editingOverrideValue, setEditingOverrideValue] = useState<string>('');
-  const [savingOverride, setSavingOverride] = useState<number | null>(null);
-  
+
   // Forecast state
   const [forecastSettings, setForecastSettings] = useState<ProRataSettings | null>(null);
   const [forecastConfigs, setForecastConfigs] = useState<AnnualForecastConfig[]>([]);
@@ -156,7 +151,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
       loadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey, years.length, isOverrideEnabled, activeProperty?.id]);
+  }, [refreshKey, years.length, activeProperty?.id]);
 
   const loadData = async () => {
     if (years.length === 0) return;
@@ -227,21 +222,6 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
         setForecastSettings(null);
         setForecastConfigs([]);
         setFutureYearsData(null);
-      }
-      
-      // Charger les overrides si la fonctionnalité est activée
-      if (isOverrideEnabled) {
-        try {
-          const overridesResponse = await compteResultatAPI.getOverrides(activeProperty.id);
-          setOverrides(overridesResponse);
-        } catch (err: any) {
-          console.error('[CompteResultatTable] Erreur lors du chargement des overrides:', err);
-          // Ne pas bloquer l'affichage si les overrides ne peuvent pas être chargés
-          setOverrides([]);
-        }
-      } else {
-        // Si la fonctionnalité est désactivée, vider les overrides
-        setOverrides([]);
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement des données:', err);
@@ -606,135 +586,19 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
   const getResultatCumule = (year: number): number | null => {
     let cumul = 0;
     let hasAnyValue = false;
-    
+
     // Parcourir toutes les années jusqu'à l'année demandée
     for (const y of displayYears) {
       if (y > year) break; // Arrêter à l'année demandée
-      
-      // Utiliser override si disponible (années passées), sinon valeur calculée
-      let valeurAnnee = 0;
-      if (isOverrideEnabled && !isFutureYear(y)) {
-        const override = getOverrideValue(y);
-        if (override !== null) {
-          valeurAnnee = override;
-          hasAnyValue = true;
-        } else {
-          const calc = getResultatNet(y);
-          if (calc !== null) {
-            valeurAnnee = calc;
-            hasAnyValue = true;
-          }
-        }
-      } else {
-        const calc = getResultatNet(y);
-        if (calc !== null) {
-          valeurAnnee = calc;
-          hasAnyValue = true;
-        }
+
+      const calc = getResultatNet(y);
+      if (calc !== null) {
+        cumul += calc;
+        hasAnyValue = true;
       }
-      
-      cumul += valeurAnnee;
     }
-    
+
     return hasAnyValue ? cumul : null;
-  };
-
-  // Obtenir la valeur override pour une année (ou null si pas d'override)
-  const getOverrideValue = (year: number): number | null => {
-    const override = overrides.find(o => o.year === year);
-    return override ? override.override_value : null;
-  };
-
-  // Obtenir la valeur à afficher pour l'override (override si existe, sinon valeur calculée)
-  const getOverrideDisplayValue = (year: number): number | null => {
-    const overrideValue = getOverrideValue(year);
-    if (overrideValue !== null) return overrideValue;
-    return getResultatNet(year);
-  };
-
-  // Formater un nombre pour l'input (sans le symbole €, avec séparateurs)
-  const formatNumberForInput = (value: number | null): string => {
-    if (value === null) return '';
-    // Utiliser toLocaleString pour les séparateurs de milliers
-    return value.toLocaleString('fr-FR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
-  // Parser un string en nombre (gérer les séparateurs de milliers)
-  const parseNumberFromInput = (value: string): number | null => {
-    if (!value || value.trim() === '') return null;
-    // Remplacer les espaces (séparateurs de milliers) et virgules (décimales) par des points
-    const cleaned = value.replace(/\s/g, '').replace(',', '.');
-    const parsed = parseFloat(cleaned);
-    return isNaN(parsed) ? null : parsed;
-  };
-
-  // Sauvegarder l'override pour une année
-  const handleSaveOverride = async (year: number, value: number | null) => {
-    if (!activeProperty?.id || activeProperty.id <= 0) {
-      console.error('[CompteResultatTable] handleSaveOverride - Aucune propriété active');
-      return;
-    }
-    
-    try {
-      setSavingOverride(year);
-      console.log('[CompteResultatTable] handleSaveOverride - propertyId:', activeProperty.id, 'year:', year, 'value:', value);
-      
-      if (value === null || value === 0) {
-        // Si la valeur est vide ou 0, supprimer l'override
-        const existingOverride = overrides.find(o => o.year === year);
-        if (existingOverride) {
-          await compteResultatAPI.deleteOverride(activeProperty.id, year);
-          // Mettre à jour l'état local
-          setOverrides(prev => prev.filter(o => o.year !== year));
-        }
-      } else {
-        // Créer ou mettre à jour l'override
-        const savedOverride = await compteResultatAPI.createOrUpdateOverride(activeProperty.id, year, value);
-        // Mettre à jour l'état local
-        setOverrides(prev => {
-          const existing = prev.find(o => o.year === year);
-          if (existing) {
-            return prev.map(o => o.year === year ? savedOverride : o);
-          } else {
-            return [...prev, savedOverride];
-          }
-        });
-      }
-    } catch (err: any) {
-      console.error(`[CompteResultatTable] Erreur lors de la sauvegarde de l'override pour ${year}:`, err);
-      alert(`Erreur lors de la sauvegarde: ${err.message || 'Erreur inconnue'}`);
-    } finally {
-      setSavingOverride(null);
-      setEditingOverrideYear(null);
-      setEditingOverrideValue('');
-    }
-  };
-
-  // Gérer le changement de valeur dans l'input
-  const handleOverrideInputChange = (year: number, value: string) => {
-    setEditingOverrideValue(value);
-  };
-
-  // Gérer le blur de l'input (sauvegarde automatique)
-  const handleOverrideInputBlur = (year: number) => {
-    const parsedValue = parseNumberFromInput(editingOverrideValue);
-    handleSaveOverride(year, parsedValue);
-  };
-
-  // Gérer la touche Enter (sauvegarde automatique)
-  const handleOverrideInputKeyDown = (e: React.KeyboardEvent, year: number) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const parsedValue = parseNumberFromInput(editingOverrideValue);
-      handleSaveOverride(year, parsedValue);
-    } else if (e.key === 'Escape') {
-      // Annuler l'édition
-      setEditingOverrideYear(null);
-      setEditingOverrideValue('');
-    }
   };
 
   if (loading) {
@@ -1343,7 +1207,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
               );
             })()}
             
-            {/* Résultat de l'exercice / Résultat exercice (Override) */}
+            {/* Résultat de l'exercice (toujours le vrai calcul) */}
             <tr>
               <td
                 style={{
@@ -1354,99 +1218,23 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                   color: '#d946ef', // Magenta
                 }}
               >
-                {isOverrideEnabled ? 'Résultat exercice (Override)' : 'Résultat de l\'exercice'}
+                Résultat de l&apos;exercice
               </td>
-              {displayYears.map((year) => {
-                const isEditing = isOverrideEnabled && editingOverrideYear === year;
-                const overrideValue = isOverrideEnabled ? getOverrideValue(year) : null;
-                const displayValue = isOverrideEnabled ? getOverrideDisplayValue(year) : getResultatNet(year);
-                const isSaving = isOverrideEnabled && savingOverride === year;
-                const hasOverride = overrideValue !== null;
-                
-                return (
-                  <td
-                    key={year}
-                    style={getYearColumnStyle(year, {
-                      padding: '12px',
-                      textAlign: 'right',
-                      backgroundColor: '#e5e7eb',
-                      border: '1px solid #d1d5db',
-                      fontWeight: '700',
-                      color: '#d946ef', // Magenta
-                    })}
-                  >
-                    {isOverrideEnabled && isEditing ? (
-                      <input
-                        type="text"
-                        value={editingOverrideValue}
-                        onChange={(e) => handleOverrideInputChange(year, e.target.value)}
-                        onBlur={() => handleOverrideInputBlur(year)}
-                        onKeyDown={(e) => handleOverrideInputKeyDown(e, year)}
-                        disabled={isSaving}
-                        style={{
-                          width: '100%',
-                          textAlign: 'right',
-                          padding: '4px 8px',
-                          border: '1px solid #3b82f6',
-                          borderRadius: '4px',
-                          fontSize: '13px',
-                          fontFamily: 'inherit',
-                          backgroundColor: isSaving ? '#f3f4f6' : '#ffffff',
-                          cursor: isSaving ? 'not-allowed' : 'text',
-                          color: '#d946ef',
-                          fontWeight: '700',
-                        }}
-                        autoFocus
-                      />
-                    ) : isOverrideEnabled ? (
-                      <div
-                        onClick={() => {
-                          setEditingOverrideYear(year);
-                          setEditingOverrideValue(formatNumberForInput(displayValue));
-                        }}
-                        style={{
-                          cursor: 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          transition: 'all 0.2s',
-                          color: '#d946ef',
-                          fontWeight: '700',
-                          fontStyle: hasOverride ? 'italic' : 'normal',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = 'rgba(217, 70, 239, 0.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                        title="Cliquer pour éditer"
-                      >
-                        <div>
-                          {isSaving ? (
-                            <span style={{ color: '#6b7280', fontSize: '12px' }}>⏳ Sauvegarde...</span>
-                          ) : (
-                            formatAmount(displayValue)
-                          )}
-                        </div>
-                        {isOverrideEnabled && !isSaving && overrideValue !== null && (
-                          <div
-                            style={{
-                              fontSize: '10px',
-                              color: '#9ca3af',
-                              fontStyle: 'normal',
-                              marginTop: '2px',
-                            }}
-                          >
-                            *resultat overridé
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      formatAmount(displayValue)
-                    )}
-                  </td>
-                );
-              })}
+              {displayYears.map((year) => (
+                <td
+                  key={year}
+                  style={getYearColumnStyle(year, {
+                    padding: '12px',
+                    textAlign: 'right',
+                    backgroundColor: '#e5e7eb',
+                    border: '1px solid #d1d5db',
+                    fontWeight: '700',
+                    color: '#d946ef', // Magenta
+                  })}
+                >
+                  {formatAmount(getResultatNet(year))}
+                </td>
+              ))}
             </tr>
             
             {/* Résultat cumulé */}

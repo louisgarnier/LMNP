@@ -16,17 +16,14 @@ interface CompteResultatConfigCardProps {
   onConfigUpdated?: () => void;
   onLevel3Change?: (level3Values: string[]) => void;
   onLevel3ValuesLoaded?: (count: number) => void;
-  onOverrideEnabledChange?: (enabled: boolean) => void;
 }
 
 const STORAGE_KEY_COLLAPSED = 'compte_resultat_config_collapsed';
-const STORAGE_KEY_OVERRIDE_ENABLED = 'compte_resultat_override_enabled';
 
 export default function CompteResultatConfigCard({
   onConfigUpdated,
   onLevel3Change,
   onLevel3ValuesLoaded,
-  onOverrideEnabledChange,
 }: CompteResultatConfigCardProps) {
   const { activeProperty: activePropertyOrNull } = useProperty();
   // Narrowed non-null property: chaque appelant garde ses propres garde-fous runtime
@@ -68,8 +65,6 @@ export default function CompteResultatConfigCard({
   // État pour la réinitialisation
   const [isResetting, setIsResetting] = useState<boolean>(false);
   
-  // État pour la checkbox "Override Resultat"
-  const [isOverrideEnabled, setIsOverrideEnabled] = useState<boolean>(false);
   
   // Note: Le Type est maintenant stocké en backend dans le champ `type` du mapping
 
@@ -205,17 +200,6 @@ export default function CompteResultatConfigCard({
       const savedCollapsed = localStorage.getItem(STORAGE_KEY_COLLAPSED);
       if (savedCollapsed !== null) {
         setIsCollapsed(savedCollapsed === 'true');
-      }
-      
-      // Restaurer l'état override enabled depuis localStorage
-      const savedOverrideEnabled = localStorage.getItem(STORAGE_KEY_OVERRIDE_ENABLED);
-      if (savedOverrideEnabled !== null) {
-        const overrideEnabled = savedOverrideEnabled === 'true';
-        setIsOverrideEnabled(overrideEnabled);
-        // Notifier le parent si nécessaire
-        if (onOverrideEnabledChange) {
-          onOverrideEnabledChange(overrideEnabled);
-        }
       }
     } catch (err: any) {
       console.error('Erreur lors du chargement des valeurs level_3:', err);
@@ -738,71 +722,6 @@ export default function CompteResultatConfigCard({
         </div>
         {!isCollapsed && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Checkbox "Override Resultat" */}
-            <label
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: isOverrideEnabled ? '#1e3a5f' : '#6b7280',
-                cursor: 'pointer',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#f3f4f6';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
-              title={isOverrideEnabled ? "Cliquer pour désactiver" : "Cliquer pour activer"}
-            >
-              <input
-                type="checkbox"
-                checked={isOverrideEnabled}
-                onChange={async (e) => {
-                  const newValue = e.target.checked;
-                  
-                  // Si on désélectionne, supprimer tous les overrides en BDD
-                  if (!newValue && isOverrideEnabled) {
-                    const confirmMessage = 'Êtes-vous sûr de vouloir désactiver l\'override ?\n\nTous les overrides enregistrés seront supprimés.';
-                    if (!window.confirm(confirmMessage)) {
-                      return; // Annuler si l'utilisateur ne confirme pas
-                    }
-                    
-                    try {
-                      // Récupérer tous les overrides et les supprimer
-                      const allOverrides = await compteResultatAPI.getOverrides(activeProperty.id);
-                      const deletePromises = allOverrides.map(override =>
-                        compteResultatAPI.deleteOverride(activeProperty.id, override.year)
-                      );
-                      await Promise.all(deletePromises);
-                      console.log(`✅ ${allOverrides.length} override(s) supprimé(s)`);
-                    } catch (err: any) {
-                      console.error('Erreur lors de la suppression des overrides:', err);
-                      alert('Erreur lors de la suppression des overrides. Veuillez réessayer.');
-                      return; // Ne pas changer l'état si erreur
-                    }
-                  }
-                  
-                  setIsOverrideEnabled(newValue);
-                  localStorage.setItem(STORAGE_KEY_OVERRIDE_ENABLED, newValue ? 'true' : 'false');
-                  if (onOverrideEnabledChange) {
-                    onOverrideEnabledChange(newValue);
-                  }
-                }}
-                style={{
-                  width: '16px',
-                  height: '16px',
-                  cursor: 'pointer',
-                }}
-              />
-              <span>Override Resultat</span>
-            </label>
-            
             {mappings.length > 0 && (
               <button
                 type="button"
