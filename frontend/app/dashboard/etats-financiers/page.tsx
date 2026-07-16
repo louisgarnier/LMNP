@@ -743,7 +743,11 @@ export default function EtatsFinanciersPage() {
                 setCompteResultatRefreshKey(prev => prev + 1);
               }}
             />
-            <CompteResultatTable refreshKey={compteResultatRefreshKey} isOverrideEnabled={isOverrideEnabled} />
+            <CompteResultatTable
+              refreshKey={compteResultatRefreshKey}
+              isOverrideEnabled={isOverrideEnabled}
+              onModeChange={() => setCompteResultatRefreshKey(prev => prev + 1)}
+            />
             
             {/* Card Pro Rata & Forecast pour le Compte de Résultat */}
             <ProRataForecastCard

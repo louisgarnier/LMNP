@@ -62,28 +62,18 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
         setSettings(settingsData);
         setReferenceData(refData.categories);
         
-        // Initialiser localConfigs avec les valeurs existantes OU auto-remplir avec N-1
+        // Initialiser localConfigs UNIQUEMENT avec les valeurs déjà enregistrées.
+        // Plus aucun pré-remplissage automatique avec N-1 : l'objectif reste vide
+        // tant que l'utilisateur ne le saisit pas (ou clique "Réinitialiser sur N-1").
         const local: Record<string, { amount: number; rate: number }> = {};
-        const prorataEnabled = settingsData?.prorata_enabled || false;
-        
+
         refData.categories.forEach((cat: CategoryReferenceData) => {
           if (!cat.is_calculated) {
             const existing = configsData.find((c: AnnualForecastConfig) => c.level_1 === cat.level_1);
-            
-            // Si prorata activé ET pas de config existante → auto-remplir avec N-1
-            if (prorataEnabled && !existing && cat.real_previous_year !== null && cat.real_previous_year !== undefined) {
-              local[cat.level_1] = {
-                amount: cat.real_previous_year,
-                rate: 0, // Taux par défaut à 0%
-              };
-              console.log(`[ProRataCard] Auto-remplissage ${cat.level_1} avec N-1: ${cat.real_previous_year}`);
-            } else {
-              // Utiliser la config existante ou 0
-              local[cat.level_1] = {
-                amount: existing?.base_annual_amount || 0,
-                rate: (existing?.annual_growth_rate || 0) * 100,
-              };
-            }
+            local[cat.level_1] = {
+              amount: existing?.base_annual_amount || 0,
+              rate: (existing?.annual_growth_rate || 0) * 100,
+            };
           }
         });
         
@@ -281,41 +271,29 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
         </div>
       )}
       
-      {/* Checkboxes - Afficher seulement pour compte_resultat */}
-      {targetType === 'compte_resultat' && (
-        <div style={{ display: 'flex', gap: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={settings?.prorata_enabled || false}
-              onChange={(e) => handleSettingsChange('prorata_enabled', e.target.checked)}
-            />
-            <span>Activer prévisions année en cours ({year})</span>
-          </label>
-          
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={settings?.forecast_enabled || false}
-              onChange={(e) => handleSettingsChange('forecast_enabled', e.target.checked)}
-            />
-            <span>Projeter sur</span>
-            <input
-              type="number"
-              min="1"
-              max="10"
-              value={settings?.forecast_years || 3}
-              onChange={(e) => handleSettingsChange('forecast_years', parseInt(e.target.value) || 3)}
-              style={{ width: '50px', padding: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
-              disabled={!settings?.forecast_enabled}
-            />
-            <span>années futures</span>
-          </label>
+      {/* Réglage du nombre d'années futures.
+          Le mode Réel / Prévisionnel se pilote via l'interrupteur en haut du tableau
+          (forecast_enabled) — ce panneau n'apparaît qu'en mode Prévisionnel. */}
+      {targetType === 'compte_resultat' && settings?.forecast_enabled && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <span>Projeter sur</span>
+          <input
+            type="number"
+            min="1"
+            max="10"
+            value={settings?.forecast_years || 3}
+            onChange={(e) => handleSettingsChange('forecast_years', parseInt(e.target.value) || 3)}
+            style={{ width: '50px', padding: '4px', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+          <span>années futures</span>
+          <span style={{ marginLeft: '8px', fontSize: '12px', color: '#94a3b8' }}>
+            (la bascule Réel / Prévisionnel se fait via l'interrupteur en haut du tableau)
+          </span>
         </div>
       )}
       
-      {/* Tableau de configuration - toujours visible pour permettre la saisie */}
-      {(settings?.prorata_enabled || settings?.forecast_enabled || referenceData.length === 0) && (
+      {/* Tableau de configuration - visible uniquement en mode Prévisionnel */}
+      {settings?.forecast_enabled && (
         <>
           {/* Bouton pré-remplir - seulement pour compte_resultat */}
           {referenceData.length > 0 && targetType === 'compte_resultat' && (
@@ -332,7 +310,7 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
                   fontSize: '13px',
                 }}
               >
-                🔄 Réinitialiser projections {year - 1}
+                🔄 Réinitialiser les objectifs sur {year - 1}
               </button>
             </div>
           )}
@@ -399,7 +377,7 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
                     </>
                   )}
                   <th style={{ padding: '10px', textAlign: 'right', borderBottom: '2px solid #e5e7eb', width: '150px' }}>
-                    Prévu {year} (€)
+                    Objectif {year} (€)
                   </th>
                   {referenceData.length > 0 && (
                     <th style={{ padding: '10px', textAlign: 'right', borderBottom: '2px solid #e5e7eb', width: '90px' }}>
@@ -794,16 +772,17 @@ export default function ProRataForecastCard({ targetType, year, sectionTitle, on
         </>
       )}
       
-      {/* Message si ni prorata ni forecast activé */}
-      {!settings?.prorata_enabled && !settings?.forecast_enabled && referenceData.length > 0 && (
-        <div style={{ 
-          padding: '16px', 
-          backgroundColor: '#f3f4f6', 
+      {/* Message en mode Réel : le panneau de réglage est masqué */}
+      {!settings?.forecast_enabled && (
+        <div style={{
+          padding: '16px',
+          backgroundColor: '#f3f4f6',
           borderRadius: '6px',
           color: '#6b7280',
           textAlign: 'center'
         }}>
-          Activez les prévisions pour configurer les montants annuels prévisionnels.
+          📷 Mode Réel : seuls tes chiffres réels sont affichés. Bascule sur 🔮 Prévisionnel
+          (interrupteur en haut du tableau) pour configurer objectifs et projections.
         </div>
       )}
         </>

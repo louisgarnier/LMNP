@@ -13,6 +13,7 @@ import { useProperty } from '@/contexts/PropertyContext';
 interface CompteResultatTableProps {
   refreshKey?: number; // Pour forcer le rechargement
   isOverrideEnabled?: boolean; // Si true, afficher la ligne "Résultat exercice (Override)"
+  onModeChange?: () => void; // Appelé quand on bascule Réel <-> Prévisionnel (pour rafraîchir la card)
 }
 
 // Catégories comptables prédéfinies (ordre fixe, groupées par type)
@@ -68,9 +69,10 @@ const CALCULATED_CATEGORIES = [
   "Coût du financement (hors remboursement du capital)",
 ];
 
-export default function CompteResultatTable({ refreshKey, isOverrideEnabled = false }: CompteResultatTableProps) {
+export default function CompteResultatTable({ refreshKey, isOverrideEnabled = false, onModeChange }: CompteResultatTableProps) {
   const { activeProperty } = useProperty();
   const [loading, setLoading] = useState(true);
+  const [savingMode, setSavingMode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [years, setYears] = useState<number[]>([]);
   const [mappings, setMappings] = useState<CompteResultatMapping[]>([]);
@@ -183,10 +185,10 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
         setForecastSettings(settings);
         console.log('[CompteResultatTable] Forecast settings:', settings);
         
-        // Si prorata ou forecast est activé, charger les données de référence
+        // Mode Prévisionnel : charger les données de référence (objectifs + % réalisé)
         const currentYear = new Date().getFullYear();
-        
-        if (settings.prorata_enabled || settings.forecast_enabled) {
+
+        if (settings.forecast_enabled) {
           // Charger les configs
           const configs = await prorataAPI.getConfigs(activeProperty.id, currentYear, 'compte_resultat');
           setForecastConfigs(configs);
@@ -248,6 +250,25 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
       setLoading(false);
     }
   };
+
+  // Basculer entre le mode Réel (photo réelle) et Prévisionnel (objectif + années futures).
+  // Persisté par appartement via forecast_enabled ; ne touche jamais les montants réels.
+  const setForecastMode = async (enabled: boolean) => {
+    if (!activeProperty?.id || savingMode) return;
+    if (forecastSettings?.forecast_enabled === enabled) return;
+    setSavingMode(true);
+    try {
+      const updated = await prorataAPI.updateSettings(activeProperty.id, { forecast_enabled: enabled });
+      setForecastSettings(updated); // retour visuel immédiat sur l'interrupteur
+      onModeChange?.();             // rafraîchit la card de réglage (et recharge le tableau)
+    } catch (err: any) {
+      console.error('[CompteResultatTable] Erreur bascule mode:', err);
+      alert('Erreur lors du changement de mode');
+    } finally {
+      setSavingMode(false);
+    }
+  };
+  const isForecastMode = !!forecastSettings?.forecast_enabled;
 
   // Déterminer quelles catégories afficher
   // - Catégories spéciales : toujours affichées
@@ -768,9 +789,46 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
       }}
     >
-      <h3 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: '600', color: '#111827' }}>
-        Compte de résultat
-      </h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px', margin: '0 0 20px 0' }}>
+        <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#111827' }}>
+          Compte de résultat
+        </h3>
+        {/* Interrupteur Réel / Prévisionnel */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div role="group" aria-label="Mode d'affichage" style={{ display: 'inline-flex', gap: '4px', padding: '4px', backgroundColor: '#f1f5f9', border: '1px solid #e5e7eb', borderRadius: '10px', opacity: savingMode ? 0.6 : 1 }}>
+            {([
+              { key: false, label: '📷 Réel' },
+              { key: true, label: '🔮 Prévisionnel' },
+            ] as const).map(({ key, label }) => {
+              const active = isForecastMode === key;
+              return (
+                <button
+                  key={String(key)}
+                  type="button"
+                  disabled={savingMode}
+                  onClick={() => setForecastMode(key)}
+                  style={{
+                    border: 0,
+                    background: active ? '#ffffff' : 'transparent',
+                    color: active ? '#2563eb' : '#64748b',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                    padding: '7px 14px',
+                    borderRadius: '7px',
+                    cursor: savingMode ? 'wait' : 'pointer',
+                    boxShadow: active ? '0 1px 2px rgba(15,23,42,0.15)' : 'none',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <span style={{ fontSize: '12px', color: '#94a3b8' }}>
+            {isForecastMode ? 'objectif + années futures' : 'photo réelle de tes transactions'}
+          </span>
+        </div>
+      </div>
       <div style={{ overflowX: 'auto' }}>
         <table
           style={{
@@ -871,7 +929,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                       const isCurrentYear = isCurrentYearColumn(year);
                       const percentage = isCurrentYear ? getPercentageRealized(category) : null;
                       
-                      const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
+                      const cellStyle = isCurrentYear && forecastSettings?.forecast_enabled
                         ? getCurrentYearCellStyle(category, {
                             padding: '12px',
                             textAlign: 'right',
@@ -889,7 +947,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                       return (
                         <td key={year} style={cellStyle}>
                           {formatAmount(amount)}
-                          {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
+                          {isCurrentYear && percentage !== null && forecastSettings?.forecast_enabled && (
                             <div style={{ 
                               fontSize: '10px', 
                               color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
@@ -1005,7 +1063,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                             const isCurrentYear = isCurrentYearColumn(year);
                             const percentage = isCurrentYear ? getPercentageRealized(category) : null;
                             
-                            const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
+                            const cellStyle = isCurrentYear && forecastSettings?.forecast_enabled
                               ? getCurrentYearCellStyle(category, {
                                   padding: '12px',
                                   textAlign: 'right',
@@ -1023,7 +1081,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                             return (
                               <td key={year} style={cellStyle}>
                                 {formatAmount(amount)}
-                                {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
+                                {isCurrentYear && percentage !== null && forecastSettings?.forecast_enabled && (
                                   <div style={{ 
                                     fontSize: '10px', 
                                     color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
@@ -1075,7 +1133,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                         const categoryName = 'Impôts et taxes';
                         const percentage = isCurrentYear ? getPercentageRealized(categoryName) : null;
                         
-                        const cellStyle = isCurrentYear && forecastSettings?.prorata_enabled
+                        const cellStyle = isCurrentYear && forecastSettings?.forecast_enabled
                           ? getCurrentYearCellStyle(categoryName, {
                               padding: '12px',
                               textAlign: 'right',
@@ -1095,7 +1153,7 @@ export default function CompteResultatTable({ refreshKey, isOverrideEnabled = fa
                         return (
                           <td key={year} style={cellStyle}>
                             {formatAmount(total !== 0 ? total : null)}
-                            {isCurrentYear && percentage !== null && forecastSettings?.prorata_enabled && (
+                            {isCurrentYear && percentage !== null && forecastSettings?.forecast_enabled && (
                               <div style={{ 
                                 fontSize: '10px', 
                                 color: percentage >= 100 ? '#16a34a' : percentage >= 50 ? '#ea580c' : '#dc2626',
