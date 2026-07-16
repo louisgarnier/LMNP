@@ -101,6 +101,7 @@ export default function ParametresScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [connectingName, setConnectingName] = useState<string | null>(null);
+  const [aspspFilter, setAspspFilter] = useState('');
 
   // Retour automatique : session en attente de sélection d'un compte.
   const [callbackProcessing, setCallbackProcessing] = useState(false);
@@ -612,8 +613,26 @@ export default function ParametresScreen() {
         ) : aspsps.length === 0 ? (
           <div style={{ color: '#6b7280', fontSize: '13px' }}>Aucune banque disponible.</div>
         ) : (
+          <>
+          <input
+            type="text"
+            value={aspspFilter}
+            onChange={(e) => setAspspFilter(e.target.value)}
+            placeholder="🔍 Rechercher ta banque (ex : LCL, Crédit Mutuel…)"
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              fontSize: '13px',
+              border: '1px solid #e5e5e5',
+              borderRadius: '8px',
+              marginBottom: '10px',
+              boxSizing: 'border-box',
+            }}
+          />
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {aspsps.map((b) => (
+            {aspsps
+              .filter((b) => b.name.toLowerCase().includes(aspspFilter.toLowerCase()))
+              .map((b) => (
               <button
                 key={b.name}
                 onClick={() => handleConnect(b.name)}
@@ -633,6 +652,7 @@ export default function ParametresScreen() {
               </button>
             ))}
           </div>
+          </>
         )}
       </div>
     </div>

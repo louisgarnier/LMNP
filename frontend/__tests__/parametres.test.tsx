@@ -180,3 +180,19 @@ describe('ebCallbackTarget (chemin propre /eb-callback → onglet Paramètres)',
     );
   });
 });
+
+test('le champ de recherche filtre la liste des banques', async () => {
+  const { bankingAPI } = require('@/api/client');
+  render(<ParametresScreen />);
+
+  // Les deux banques du mock sont visibles au départ.
+  await waitFor(() => expect(screen.getByText('Crédit Agricole')).toBeInTheDocument());
+  expect(screen.getByText('BNP Paribas')).toBeInTheDocument();
+
+  // On tape "BNP" → seule BNP reste.
+  const search = screen.getByPlaceholderText(/Rechercher ta banque/i);
+  fireEvent.change(search, { target: { value: 'BNP' } });
+
+  expect(screen.getByText('BNP Paribas')).toBeInTheDocument();
+  expect(screen.queryByText('Crédit Agricole')).not.toBeInTheDocument();
+});
