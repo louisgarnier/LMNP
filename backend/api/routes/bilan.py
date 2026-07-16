@@ -433,7 +433,7 @@ async def calculate_bilan_multiple_years_endpoint(
     from backend.api.services.compte_resultat_service import calculate_compte_resultat
     compte_resultat_cache = {}
     for year in year_list:
-        compte_resultat_cache[year] = calculate_compte_resultat(db, year, property_id=property_id)
+        compte_resultat_cache[year] = calculate_compte_resultat(db, year, property_id=property_id, skip_prorata=True)
 
     # Calculer le bilan pour chaque année (en réutilisant le cache CR)
     results = {}
@@ -540,7 +540,7 @@ async def get_bilan(
 
     # Mémoïsation du compte de résultat (portée requête) partagée entre années
     from backend.api.services.compte_resultat_service import calculate_compte_resultat
-    cr_cache = {y: calculate_compte_resultat(db, y, property_id=property_id) for y in selected_years}
+    cr_cache = {y: calculate_compte_resultat(db, y, property_id=property_id, skip_prorata=True) for y in selected_years}
 
     # Construire les lignes (une par catégorie, comme l'ancienne table de cache)
     data_rows = []

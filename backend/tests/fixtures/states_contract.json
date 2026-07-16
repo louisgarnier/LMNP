@@ -77,7 +77,7 @@
         "category_name": "Charges d'entretien et de réparation"
       },
       {
-        "amount": 1800.0,
+        "amount": -1800.0,
         "annee": 2023,
         "category_name": "Coût du financement (hors remboursement du capital)"
       },
@@ -97,7 +97,7 @@
         "category_name": "Charges d'entretien et de réparation"
       },
       {
-        "amount": 1800.0,
+        "amount": -1800.0,
         "annee": 2024,
         "category_name": "Coût du financement (hors remboursement du capital)"
       },

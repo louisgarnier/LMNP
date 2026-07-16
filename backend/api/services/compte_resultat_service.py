@@ -568,7 +568,9 @@ def calculate_compte_resultat(
     
     cout_financement = get_cout_financement(db, year, property_id)
     if cout_financement != 0.0:
-        charges["Coût du financement (hors remboursement du capital)"] = cout_financement
+        # Affiché en NÉGATIF (c'est une charge), comme les autres charges.
+        # La variable cout_financement reste positive pour le calcul du résultat net (soustraite plus bas).
+        charges["Coût du financement (hors remboursement du capital)"] = -abs(cout_financement)
     
     # ========== Pro Rata (Phase 11bis) ==========
     # Vérifier si prorata est activé pour cette propriété
