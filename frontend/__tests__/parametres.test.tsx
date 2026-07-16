@@ -157,3 +157,26 @@ describe('localBounceTarget (retour tunnel → localhost)', () => {
     expect(localBounceTarget('127.0.0.1', path, search)).toBeNull();
   });
 });
+
+describe('ebCallbackTarget (chemin propre /eb-callback → onglet Paramètres)', () => {
+  test('reforme l\'URL Paramètres locale en gardant code+state de la banque', () => {
+    const { ebCallbackTarget } = require('@/components/ParametresScreen');
+    expect(ebCallbackTarget('?code=ABC&state=XYZ')).toBe(
+      'http://localhost:3000/dashboard/transactions?tab=parametres&eb_callback=1&code=ABC&state=XYZ',
+    );
+  });
+
+  test('sans query (retour vide) → onglet Paramètres seul', () => {
+    const { ebCallbackTarget } = require('@/components/ParametresScreen');
+    expect(ebCallbackTarget('')).toBe(
+      'http://localhost:3000/dashboard/transactions?tab=parametres&eb_callback=1',
+    );
+  });
+
+  test('propage aussi un éventuel error= renvoyé par la banque', () => {
+    const { ebCallbackTarget } = require('@/components/ParametresScreen');
+    expect(ebCallbackTarget('?error=access_denied')).toBe(
+      'http://localhost:3000/dashboard/transactions?tab=parametres&eb_callback=1&error=access_denied',
+    );
+  });
+});

@@ -80,6 +80,18 @@ export function localBounceTarget(
   return `http://localhost:3000${pathname}${search}`;
 }
 
+// Enable Banking refuse d'enregistrer une URL de retour contenant des `?param`.
+// On enregistre donc un chemin propre (/eb-callback) ; la banque y ajoute
+// ?code=…&state=… au retour. Cette page reforme ensuite l'URL attendue par
+// ParametresScreen (onglet Paramètres + eb_callback=1) sur l'origine locale.
+// `search` = le query string reçu de la banque (ex "?code=A&state=B").
+export function ebCallbackTarget(search: string): string {
+  const bankParams = search.startsWith('?') ? search.slice(1) : search;
+  const base =
+    'http://localhost:3000/dashboard/transactions?tab=parametres&eb_callback=1';
+  return bankParams ? `${base}&${bankParams}` : base;
+}
+
 export default function ParametresScreen() {
   const { activeProperty } = useProperty();
   const propertyId = activeProperty?.id ?? null;

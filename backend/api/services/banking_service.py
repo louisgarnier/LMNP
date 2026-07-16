@@ -64,9 +64,12 @@ def _key_path() -> Path:
 
 
 def _redirect_url() -> str:
+    # Chemin PROPRE sans query params : Enable Banking refuse d'enregistrer une
+    # URL de retour contenant des `?param`. La banque ajoute ?code&state au
+    # retour ; la page /eb-callback rebascule ensuite vers l'onglet Paramètres.
     return os.getenv(
         "ENABLE_BANKING_REDIRECT_URL",
-        "http://localhost:3000/dashboard/transactions?tab=parametres&eb_callback=1",
+        "http://localhost:3000/eb-callback",
     )
 
 
