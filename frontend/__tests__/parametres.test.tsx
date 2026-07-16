@@ -1,5 +1,5 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import ParametresScreen from '@/components/ParametresScreen';
+import ParametresScreen, { localBounceTarget } from '@/components/ParametresScreen';
 
 jest.mock('@/contexts/PropertyContext', () => ({ useProperty: () => ({ activeProperty: { id: 25 } }) }));
 jest.mock('@/api/client', () => ({
@@ -137,4 +137,23 @@ test('le bouton Déconnecter appelle bankingAPI.disconnect avec le bon account_i
   fireEvent.click(screen.getByText('Déconnecter'));
 
   await waitFor(() => expect(bankingAPI.disconnect).toHaveBeenCalledWith(42));
+});
+
+describe('localBounceTarget (retour tunnel → localhost)', () => {
+  const path = '/dashboard/transactions';
+  const search = '?tab=parametres&eb_callback=1&code=ABC&state=XYZ';
+
+  test('host public (tunnel) → rebond vers localhost en gardant code+state', () => {
+    expect(localBounceTarget('lmnp-louis.ngrok-free.app', path, search)).toBe(
+      `http://localhost:3000${path}${search}`,
+    );
+  });
+
+  test('déjà en localhost → pas de rebond (null)', () => {
+    expect(localBounceTarget('localhost', path, search)).toBeNull();
+  });
+
+  test('déjà en 127.0.0.1 → pas de rebond (null)', () => {
+    expect(localBounceTarget('127.0.0.1', path, search)).toBeNull();
+  });
 });

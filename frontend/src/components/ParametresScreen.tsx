@@ -65,6 +65,21 @@ const PENDING_KEY = 'eb_pending_connect';
 
 type PendingConnect = { state: string; aspsp_name: string };
 
+// Le retour de banque exige une adresse https publique (tunnel), mais l'échange
+// du code doit se faire depuis l'origine locale : même origine que le clic de
+// départ (donc le sessionStorage du nom de banque est retrouvé) et pas d'appel
+// https→http bloqué par le navigateur. Si la page de retour est ouverte via le
+// tunnel (host ≠ localhost), on rebondit vers localhost en gardant code+state.
+// Retourne l'URL localhost cible, ou null si on est déjà en local.
+export function localBounceTarget(
+  hostname: string,
+  pathname: string,
+  search: string,
+): string | null {
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return null;
+  return `http://localhost:3000${pathname}${search}`;
+}
+
 export default function ParametresScreen() {
   const { activeProperty } = useProperty();
   const propertyId = activeProperty?.id ?? null;
@@ -138,6 +153,19 @@ export default function ParametresScreen() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     if (params.get('eb_callback') !== '1') return;
+
+    // Ouvert via le tunnel (host public) ? On rebondit vers localhost en gardant
+    // code+state : l'échange se fera depuis l'origine locale (voir localBounceTarget).
+    const bounce = localBounceTarget(
+      window.location.hostname,
+      window.location.pathname,
+      window.location.search,
+    );
+    if (bounce) {
+      window.location.replace(bounce);
+      return;
+    }
+
     const code = params.get('code');
     const state = params.get('state');
 
