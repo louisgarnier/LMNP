@@ -18,7 +18,7 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   bankingAPI,
   BankingStatus,
@@ -102,6 +102,8 @@ export default function ParametresScreen() {
   const [error, setError] = useState<string | null>(null);
   const [connectingName, setConnectingName] = useState<string | null>(null);
   const [aspspFilter, setAspspFilter] = useState('');
+  // Empêche le double-échange du code (StrictMode dev exécute l'effet 2×).
+  const exchangeStartedRef = useRef(false);
 
   // Retour automatique : session en attente de sélection d'un compte.
   const [callbackProcessing, setCallbackProcessing] = useState(false);
@@ -187,13 +189,18 @@ export default function ParametresScreen() {
 
     if (!code || !state) return;
 
-    let alive = true;
+    // Dédoublonnage : en dev, React (StrictMode) exécute l'effet DEUX fois.
+    // Le code d'autorisation est à usage unique — on ne doit lancer l'échange
+    // qu'une seule fois, et surtout NE PAS jeter son résultat (l'ancien garde
+    // `alive=false` du cleanup StrictMode bloquait l'écran sur « Récupération… »).
+    if (exchangeStartedRef.current) return;
+    exchangeStartedRef.current = true;
+
     setCallbackProcessing(true);
     setError(null);
     (async () => {
       try {
         const res = await bankingAPI.createSession({ code, state });
-        if (!alive) return;
 
         let aspspName = '';
         try {
@@ -215,12 +222,10 @@ export default function ParametresScreen() {
         setAvailableAccounts(res.accounts);
         setSelectedUid(res.accounts.length === 1 ? res.accounts[0].account_uid : null);
       } catch (err: any) {
-        if (alive) {
-          console.error('[ParametresScreen] createSession - Erreur:', err);
-          setError(err.message || 'Erreur lors de la récupération des comptes');
-        }
+        console.error('[ParametresScreen] createSession - Erreur:', err);
+        setError(err.message || 'Erreur lors de la récupération des comptes');
       } finally {
-        if (alive) setCallbackProcessing(false);
+        setCallbackProcessing(false);
         try {
           window.sessionStorage.removeItem(PENDING_KEY);
         } catch {
@@ -228,9 +233,6 @@ export default function ParametresScreen() {
         }
       }
     })();
-    return () => {
-      alive = false;
-    };
   }, []);
 
   const handleConnect = async (aspspName: string) => {

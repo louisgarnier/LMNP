@@ -196,3 +196,35 @@ test('le champ de recherche filtre la liste des banques', async () => {
   expect(screen.getByText('BNP Paribas')).toBeInTheDocument();
   expect(screen.queryByText('Crédit Agricole')).not.toBeInTheDocument();
 });
+
+test('retour Enable Banking : échange le code UNE fois (StrictMode) et affiche la sélection de compte', async () => {
+  const { bankingAPI } = require('@/api/client');
+  (window as any).location = {
+    href: '',
+    pathname: '/dashboard/transactions',
+    search: '?tab=parametres&eb_callback=1&code=ABC&state=XYZ',
+    hostname: 'localhost',
+    replace: jest.fn(),
+  };
+  bankingAPI.createSession.mockResolvedValue({
+    session_id: 'sess-1',
+    session_valid_until: '2026-12-31T00:00:00Z',
+    property_id: 25,
+    accounts: [
+      { account_uid: 'uid-1', name: 'Compte courant', iban_masked: 'FR76****1234', currency: 'EUR' },
+    ],
+  });
+
+  const { StrictMode } = require('react');
+  render(
+    <StrictMode>
+      <ParametresScreen />
+    </StrictMode>,
+  );
+
+  // Le compte remonté par la banque s'affiche → le spinner « Récupération… » est bien débloqué.
+  await waitFor(() => expect(screen.getByText('Rattacher ce compte')).toBeInTheDocument());
+  // Code d'autorisation à usage unique : échangé exactement une fois malgré le double-rendu.
+  expect(bankingAPI.createSession).toHaveBeenCalledTimes(1);
+  expect(bankingAPI.createSession).toHaveBeenCalledWith({ code: 'ABC', state: 'XYZ' });
+});
