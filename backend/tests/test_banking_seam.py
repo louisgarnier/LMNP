@@ -20,8 +20,8 @@ def test_mock_transactions_include_shared_fx_id():
     # deux comptes différents partageant le même external_id (piège FX)
     a = bs._mock_raw_transactions(bs._MOCK_ACCOUNTS[0]["account_uid"])
     b = bs._mock_raw_transactions(bs._MOCK_ACCOUNTS[1]["account_uid"])
-    ids_a = {t["external_id"] for t in a}
-    ids_b = {t["external_id"] for t in b}
+    ids_a = {t["entry_reference"] for t in a}
+    ids_b = {t["entry_reference"] for t in b}
     assert ids_a & ids_b, "au moins un external_id partagé entre 2 comptes (test dédoublonnage composite)"
 
 
@@ -64,3 +64,31 @@ def test_env_triggers_live_mode(monkeypatch, tmp_path):
         pytest.skip("pyjwt non installé dans cet environnement")
     assert bs.is_live() is True
     assert bs.status()["live"] is True
+
+
+def test_normalize_real_enable_banking_shape():
+    """Format réel Berlin Group : montant positif + credit_debit_indicator pour le signe."""
+    from datetime import date
+    dbit = bs._normalize({
+        "entry_reference": "eb-123",
+        "transaction_amount": {"currency": "EUR", "amount": "128.08"},
+        "credit_debit_indicator": "DBIT",
+        "status": "BOOK",
+        "booking_date": "2026-07-15",
+        "remittance_information": ["PRELVT SEPA RECU\nCAPITAINE GALINAT"],
+        "transaction_id": None,
+    })
+    assert dbit["quantite"] == -128.08          # DBIT = sortie → négatif
+    assert dbit["date"] == date(2026, 7, 15)    # booking_date parsée en objet date
+    assert dbit["external_id"] == "eb-123"      # entry_reference (transaction_id null)
+    assert "\n" not in dbit["nom"] and "CAPITAINE GALINAT" in dbit["nom"]
+
+    crdt = bs._normalize({
+        "entry_reference": "eb-456",
+        "transaction_amount": {"currency": "EUR", "amount": "390.00"},
+        "credit_debit_indicator": "CRDT",
+        "status": "BOOK",
+        "booking_date": "2026-07-10",
+        "remittance_information": ["VIREMENT LOYER"],
+    })
+    assert crdt["quantite"] == 390.0            # CRDT = entrée → positif

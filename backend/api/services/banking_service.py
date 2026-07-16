@@ -43,6 +43,11 @@ def _load_dotenv_once() -> None:
     if getattr(_load_dotenv_once, "_done", False):
         return
     _load_dotenv_once._done = True
+    # Déterminisme des tests : sous pytest, on n'injecte JAMAIS le .env du poste
+    # (sinon is_live() deviendrait vrai et les tests « mock » taperaient l'API réelle).
+    import sys
+    if "pytest" in sys.modules:
+        return
     env_path = Path(__file__).resolve().parents[3] / ".env"
     try:
         for key, value in _parse_env_file(env_path).items():
@@ -252,15 +257,38 @@ def disconnect(db: Session, account_id: int) -> bool:
 
 
 def _normalize(raw: dict) -> dict:
-    return {"date": raw["date"], "quantite": float(raw["quantite"]),
-            "nom": raw["nom"], "external_id": raw["external_id"]}
+    """Convertit une transaction Enable Banking (format réel Berlin Group) vers
+    le format attendu par ingest_transactions.
+
+    Format réel : montant TOUJOURS positif dans transaction_amount.amount (chaîne),
+    signe porté par credit_debit_indicator (DBIT = sortie → négatif, CRDT = entrée),
+    libellé dans remittance_information (liste), date dans booking_date, identifiant
+    unique dans entry_reference (transaction_id souvent null chez LCL)."""
+    amt = raw.get("transaction_amount") or {}
+    quantite = float(amt.get("amount") or 0)
+    if raw.get("credit_debit_indicator") == "DBIT":
+        quantite = -quantite
+
+    remittance = raw.get("remittance_information") or []
+    if isinstance(remittance, str):
+        remittance = [remittance]
+    nom = " ".join(str(x) for x in remittance).replace("\n", " ").strip()
+
+    raw_date = raw.get("booking_date") or raw.get("value_date") or raw.get("transaction_date")
+    tx_date = date.fromisoformat(raw_date) if isinstance(raw_date, str) else raw_date
+
+    external_id = raw.get("entry_reference") or raw.get("transaction_id") or None
+    return {"date": tx_date, "quantite": quantite, "nom": nom, "external_id": external_id}
 
 
 def _fetch_raw(bank_account: BankAccount, since) -> list[dict]:
     if not is_live():
         return _mock_raw_transactions(bank_account.eb_account_uid)
-    # live : pagination continuation_key, fenêtre depuis `since` (last_sync_at), à implémenter au branchement réel
-    out, params = [], {"date_from": since.isoformat() if since else "2020-01-01"}
+    # PSD2 : l'accès aux transactions est limité à ~90 jours d'historique (au-delà
+    # LCL renvoie 422 WRONG_TRANSACTIONS_PERIOD). On plafonne date_from à J-89.
+    earliest = date.today() - timedelta(days=89)
+    start = since if (since and since > earliest) else earliest
+    out, params = [], {"date_from": start.isoformat()}
     while True:
         data = _get(f"/accounts/{bank_account.eb_account_uid}/transactions", params)
         out.extend(data.get("transactions", []))
@@ -282,7 +310,9 @@ def sync_account(db: Session, bank_account: BankAccount) -> dict:
     since = bank_account.last_sync_at.date() if bank_account.last_sync_at else None
     try:
         raw = _fetch_raw(bank_account, since)
-        rows = [_normalize(r) for r in raw if r.get("status") != "pending"]   # pending filtré
+        # On n'importe que les écritures comptabilisées (status BOOK) ; on écarte
+        # le prévisionnel/en attente (PDNG) et le rejeté (RJCT) — non définitifs.
+        rows = [_normalize(r) for r in raw if r.get("status") == "BOOK"]
         res = ingest_transactions(db, bank_account.property_id, bank_account.id, rows, "api")
         bank_account.last_sync_at = datetime.utcnow()
         db.commit()                                                      # persiste last_sync_at
@@ -299,10 +329,20 @@ def sync_property(db: Session, property_id: int) -> dict:
 
 
 def _mock_raw_transactions(account_uid: str) -> list[dict]:
-    base = [
-        {"external_id": f"{account_uid}-t1", "date": date(2026, 1, 5), "quantite": 390.0, "nom": "LOYER MOCK", "status": "booked"},
-        {"external_id": f"{account_uid}-t2", "date": date(2026, 1, 6), "quantite": -60.0, "nom": "CHARGES MOCK", "status": "booked"},
-        {"external_id": "fx-shared-777", "date": date(2026, 1, 7), "quantite": 12.5, "nom": "FX MOCK", "status": "booked"},  # partagé entre comptes
-        {"external_id": f"{account_uid}-p1", "date": date(2026, 1, 8), "quantite": -9.9, "nom": "PENDING MOCK", "status": "pending"},
+    """Transactions de démo au FORMAT RÉEL Enable Banking (mêmes clés que LCL),
+    pour que _normalize soit exercé de façon identique en mock et en live."""
+    def tx(ref: str, day: str, amount: float, indicator: str, label: str, status: str = "BOOK") -> dict:
+        return {
+            "entry_reference": ref,
+            "transaction_amount": {"currency": "EUR", "amount": f"{abs(amount):.2f}"},
+            "credit_debit_indicator": indicator,  # CRDT = entrée (+), DBIT = sortie (-)
+            "status": status,
+            "booking_date": day,
+            "remittance_information": [label],
+        }
+    return [
+        tx(f"{account_uid}-t1", "2026-01-05", 390.0, "CRDT", "LOYER MOCK"),
+        tx(f"{account_uid}-t2", "2026-01-06", 60.0, "DBIT", "CHARGES MOCK"),
+        tx("fx-shared-777", "2026-01-07", 12.5, "CRDT", "FX MOCK"),  # external_id partagé entre comptes
+        tx(f"{account_uid}-p1", "2026-01-08", 9.9, "DBIT", "PENDING MOCK", status="PDNG"),  # écarté (non BOOK)
     ]
-    return base
