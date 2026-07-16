@@ -92,3 +92,38 @@ def test_normalize_real_enable_banking_shape():
         "remittance_information": ["VIREMENT LOYER"],
     })
     assert crdt["quantite"] == 390.0            # CRDT = entrée → positif
+
+
+def test_clean_remittance_extrait_le_libelle_metier():
+    """Le libellé LCL réel = ligne 2 (métier), pas la ligne 1 (type) ni les références."""
+    # Loyer : doit retomber EXACTEMENT sur le libellé du CSV -> matche les règles.
+    assert bs._clean_remittance(
+        ["VIREMENT INSTANTANE\n\nVIR INST Gwenael Le Bourhis &\nEnvoye depuis Revolut\n\n\nIPR000313685138"]
+    ) == "VIR INST Gwenael Le Bourhis &"
+    # Prêt : jette DOSSIER NO / PM ET la date finale (libellé stable tous mois).
+    assert bs._clean_remittance(
+        ["PRET IMMOBILIER ECH\n\nPRET IMMOBILIER ECH 13/07/26\nDOSSIER NO 5008900I01QH11AH\nPM15008900I01QH11AH01130726\n\n"]
+    ) == "PRET IMMOBILIER ECH"
+    # SEPA : jette ICS / RUM / SDR.
+    assert bs._clean_remittance(
+        ["PRELVT SEPA RECU D/O CONFRERE\n\nPRLV SEPA 17D CAPITAINE GALINAT\nICS.FR63ZZZ820D90\n.RUM.W0269C000052642N00\n0010115\nSDR619498426964"]
+    ) == "PRLV SEPA 17D CAPITAINE GALINAT"
+    # Une seule ligne significative -> on la garde.
+    assert bs._clean_remittance(["LOYER MOCK"]) == "LOYER MOCK"
+    # Vide -> chaîne vide (pas d'exception).
+    assert bs._clean_remittance([]) == ""
+    assert bs._clean_remittance(None) == ""
+
+
+def test_clean_remittance_retire_la_date_finale():
+    """Les libellés récurrents avec date perdent la date finale (règle unique tous mois)."""
+    assert bs._clean_remittance(
+        ["PRET IMMOBILIER ECH\n\nPRET IMMOBILIER ECH 13/07/26\nDOSSIER NO 5008900\nPM150089\n\n"]
+    ) == "PRET IMMOBILIER ECH"
+    assert bs._clean_remittance(
+        ["PRET IMMOBILIER ECH\n\nPRET IMMOBILIER ECH 04/05/26\nDOSSIER NO 5008900\n\n"]
+    ) == "PRET IMMOBILIER ECH"
+    # une date au MILIEU n'est pas retirée (seulement en fin)
+    assert bs._clean_remittance(["X\n\nFACTURE 12/03/25 SOLDE"]) == "FACTURE 12/03/25 SOLDE"
+    # pas de date -> inchangé
+    assert bs._clean_remittance(["X\n\nVIR INST Gwenael Le Bourhis &"]) == "VIR INST Gwenael Le Bourhis &"

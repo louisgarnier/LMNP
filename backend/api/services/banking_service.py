@@ -1,5 +1,6 @@
 """Client Enable Banking (mock/live). Étape 5. Toute insertion passe par ingest_transactions."""
 import os
+import re
 import uuid
 import logging
 from datetime import date, datetime, timedelta
@@ -256,6 +257,35 @@ def disconnect(db: Session, account_id: int) -> bool:
     return True  # conserve les transactions (account_id nullable)
 
 
+def _clean_remittance(remittance) -> str:
+    """Extrait le libellé métier d'un remittance_information Enable Banking (LCL).
+
+    Structure LCL observée (une chaîne à retours à la ligne) :
+        ligne 1  = TYPE bancaire        (ex "VIREMENT INSTANTANE", "PRET IMMOBILIER ECH")
+        ligne 2  = LIBELLÉ MÉTIER       (ex "VIR INST Gwenael Le Bourhis &")  <-- ce que
+                                         les CSV LCL conservaient, donc ce que les règles
+                                         de classement connaissent.
+        lignes + = références uniques   (IPR…, DOSSIER NO…, ICS…, .RUM…, SDR…) → à jeter,
+                                         car différentes à chaque transaction (sinon aucune
+                                         règle ne matche et tout tombe en boîte de réception).
+
+    On garde donc la 2e ligne non vide si elle existe, sinon la 1re.
+    """
+    if isinstance(remittance, str):
+        remittance = [remittance]
+    text = "\n".join(str(x) for x in (remittance or []))
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    if not lines:
+        return ""
+    label = lines[1] if len(lines) >= 2 else lines[0]
+    # Retire une date en fin de libellé (JJ/MM/AA[AA]) pour stabiliser les
+    # libellés récurrents : "PRET IMMOBILIER ECH 13/07/26" -> "PRET IMMOBILIER ECH".
+    # Une seule règle couvre alors tous les mois ; la date reste portée par le
+    # champ `date` de la transaction.
+    label = re.sub(r"\s+\d{2}/\d{2}/\d{2,4}\s*$", "", label).strip()
+    return label
+
+
 def _normalize(raw: dict) -> dict:
     """Convertit une transaction Enable Banking (format réel Berlin Group) vers
     le format attendu par ingest_transactions.
@@ -269,10 +299,7 @@ def _normalize(raw: dict) -> dict:
     if raw.get("credit_debit_indicator") == "DBIT":
         quantite = -quantite
 
-    remittance = raw.get("remittance_information") or []
-    if isinstance(remittance, str):
-        remittance = [remittance]
-    nom = " ".join(str(x) for x in remittance).replace("\n", " ").strip()
+    nom = _clean_remittance(raw.get("remittance_information"))
 
     raw_date = raw.get("booking_date") or raw.get("value_date") or raw.get("transaction_date")
     tx_date = date.fromisoformat(raw_date) if isinstance(raw_date, str) else raw_date
