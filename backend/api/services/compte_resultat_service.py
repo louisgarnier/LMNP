@@ -459,29 +459,38 @@ def get_amortissements(db: Session, year: int, property_id: int) -> float:
     return result if result is not None else 0.0
 
 
-def get_cout_financement(db: Session, year: int, property_id: int) -> float:
+def get_cout_financement(db: Session, year: int, property_id: int, realized: bool = False) -> float:
     """
     Calculer le coût du financement (intérêts + assurance) pour une année.
-    
+
     Logique :
     - Récupérer tous les crédits configurés pour la propriété
     - Filtrer loan_payments par année et property_id
     - Gérer le cas d'un seul crédit ou plusieurs crédits
     - Sommer interest + insurance de tous les crédits
-    
+
     Args:
         db: Session de base de données
         year: Année à calculer
         property_id: ID de la propriété
-    
+        realized: si True (bilan = photo réelle), plafonne au dernier vrai
+            mouvement bancaire (n'inclut pas les échéances théoriques futures de
+            l'année en cours). Si False (CR prévisionnel), année pleine.
+
     Returns:
         Total du coût du financement (interest + insurance) pour l'année
     """
-    logger.info(f"[CompteResultatService] get_cout_financement - year={year}, property_id={property_id}")
-    
+    logger.info(f"[CompteResultatService] get_cout_financement - year={year}, property_id={property_id}, realized={realized}")
+
     # Date de début et fin de l'année
     start_date = date(year, 1, 1)
     end_date = date(year, 12, 31)
+    if realized:
+        last_tx_date = db.query(func.max(Transaction.date)).filter(
+            Transaction.property_id == property_id
+        ).scalar()
+        if last_tx_date is not None and last_tx_date < end_date:
+            end_date = last_tx_date
     
     # Récupérer les crédits configurés pour la propriété
     loan_configs = db.query(LoanConfig).filter(
@@ -566,7 +575,7 @@ def calculate_compte_resultat(
     if amortissements != 0.0:
         charges["Charges d'amortissements"] = amortissements
     
-    cout_financement = get_cout_financement(db, year, property_id)
+    cout_financement = get_cout_financement(db, year, property_id, realized=skip_prorata)
     if cout_financement != 0.0:
         # Affiché en NÉGATIF (c'est une charge), comme les autres charges.
         # La variable cout_financement reste positive pour le calcul du résultat net (soustraite plus bas).

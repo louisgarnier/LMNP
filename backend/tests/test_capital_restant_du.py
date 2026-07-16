@@ -96,6 +96,18 @@ def _setup_loan_with_late_start_date(db_session):
                 capital_paid_2021 += capital_installment
             capital_paid_up_to_2023 += capital_installment
 
+    # Activité bancaire réelle jusqu'à fin 2023 : sans cela, le plafonnement
+    # "photo réelle" du bilan (ne compter que les échéances jusqu'au dernier vrai
+    # mouvement bancaire) exclurait les paiements 2021-2023 comme non encore
+    # réalisés. On modélise donc une transaction courante fin 2023.
+    db_session.add(Transaction(
+        property_id=prop.id,
+        date=date(2023, 12, 31),
+        quantite=-50.0,
+        nom="charge courante 2023",
+        solde=0.0,
+    ))
+
     db_session.commit()
 
     return prop.id, credit_amount, capital_paid_up_to_2023

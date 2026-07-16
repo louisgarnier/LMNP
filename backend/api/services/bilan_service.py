@@ -521,9 +521,17 @@ def calculate_capital_restant_du(
     """
     logger.info(f"[BilanService] calculate_capital_restant_du - year={year}, property_id={property_id}")
     
-    # Date de fin de l'année
+    # Date de fin de l'année, PLAFONNÉE au dernier vrai mouvement bancaire de la
+    # propriété (bilan = photo réelle). L'échéancier théorique va jusqu'en 2046,
+    # mais on ne compte comme "remboursé" que les échéances réellement passées,
+    # sinon l'année en cours (partielle) déséquilibrerait le bilan.
     end_date = date(year, 12, 31)
-    
+    last_tx_date = db.query(func.max(Transaction.date)).filter(
+        Transaction.property_id == property_id
+    ).scalar()
+    if last_tx_date is not None and last_tx_date < end_date:
+        end_date = last_tx_date
+
     # Récupérer tous les crédits actifs pour cette propriété : un crédit est
     # considéré actif pour l'année N s'il a au moins un LoanPayment daté au
     # plus tard le 31/12/N. `LoanConfig.loan_start_date` n'est PAS fiable
