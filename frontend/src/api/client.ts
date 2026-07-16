@@ -2135,13 +2135,13 @@ export const compteResultatAPI = {
   /**
    * Calcule les montants du compte de résultat pour plusieurs années et une propriété
    */
-  calculate: async (propertyId: number, years: number[]): Promise<CompteResultatCalculateResponse> => {
+  calculate: async (propertyId: number, years: number[], realized: boolean = false): Promise<CompteResultatCalculateResponse> => {
     if (!propertyId || propertyId <= 0) {
       throw new Error('[compteResultatAPI] calculate: propertyId invalide');
     }
-    console.log('[API] compteResultatAPI.calculate - propertyId:', propertyId, 'years:', years);
+    console.log('[API] compteResultatAPI.calculate - propertyId:', propertyId, 'years:', years, 'realized:', realized);
     const yearsParam = years.join(',');
-    return fetchAPI<CompteResultatCalculateResponse>(`/api/compte-resultat/calculate?property_id=${propertyId}&years=${yearsParam}`);
+    return fetchAPI<CompteResultatCalculateResponse>(`/api/compte-resultat/calculate?property_id=${propertyId}&years=${yearsParam}&realized=${realized}`);
   },
 
   /**

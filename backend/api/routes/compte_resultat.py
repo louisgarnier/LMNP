@@ -251,15 +251,19 @@ async def delete_compte_resultat_mapping(
 async def calculate_compte_resultat_endpoint(
     property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
     years: str = Query(..., description="Années à calculer (séparées par des virgules, ex: '2021,2022,2023')"),
+    realized: bool = Query(False, description="True = coût du financement réalisé à ce jour (photo réelle, cohérent avec le bilan) ; False = coût plein an (prévisionnel)"),
     db: Session = Depends(get_db)
 ):
     """
     Calculer les montants pour plusieurs années (basé sur les mappings configurés).
 
+    `realized=True` : le coût du financement est plafonné à la dernière transaction
+    réelle (photo réelle, identique au bilan). `realized=False` : coût plein an.
+
     Returns:
         Dictionnaire avec les montants par catégorie et année
     """
-    logger.info(f"[CompteResultat] GET /api/compte-resultat/calculate - property_id={property_id}, years={years}")
+    logger.info(f"[CompteResultat] GET /api/compte-resultat/calculate - property_id={property_id}, years={years}, realized={realized}")
 
     validate_property_id(db, property_id, "CompteResultat")
 
@@ -273,7 +277,7 @@ async def calculate_compte_resultat_endpoint(
     level_3_values = get_level_3_values(db, property_id)
 
     for year in year_list:
-        result = calculate_compte_resultat(db, year, property_id, mappings, level_3_values)
+        result = calculate_compte_resultat(db, year, property_id, mappings, level_3_values, skip_prorata=realized)
         results[year] = result
 
     logger.info(f"[CompteResultat] Calcul terminé pour {len(year_list)} années, property_id={property_id}")

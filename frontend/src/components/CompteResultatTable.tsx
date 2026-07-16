@@ -165,25 +165,35 @@ export default function CompteResultatTable({ refreshKey, onModeChange }: Compte
     try {
       setLoading(true);
       setError(null);
-      
+
       // Charger les mappings
       const mappingsResponse = await compteResultatAPI.getMappings(activeProperty.id);
       setMappings(mappingsResponse.items || []);
-      
-      // Charger les données calculées
-      const calculateResponse = await compteResultatAPI.calculate(activeProperty.id, years);
-      setData(calculateResponse);
-      
-      // Charger les forecast settings
+
+      // Lire le mode AVANT de calculer : en mode Réel, on veut le coût du
+      // financement RÉALISÉ (photo réelle, cohérent avec le bilan) ; en mode
+      // Prévisionnel, le coût plein an.
+      let settings: ProRataSettings | null = null;
       try {
-        const settings = await prorataAPI.getSettings(activeProperty.id);
-        setForecastSettings(settings);
+        settings = await prorataAPI.getSettings(activeProperty.id);
+      } catch (err: any) {
+        console.error('[CompteResultatTable] Erreur getSettings:', err);
+      }
+      setForecastSettings(settings);
+      const forecastOn = !!settings?.forecast_enabled;
+
+      // Charger les données calculées (réalisé si mode Réel)
+      const calculateResponse = await compteResultatAPI.calculate(activeProperty.id, years, !forecastOn);
+      setData(calculateResponse);
+
+      // Suite : objectifs / % réalisé / années futures (mode Prévisionnel)
+      try {
         console.log('[CompteResultatTable] Forecast settings:', settings);
-        
+
         // Mode Prévisionnel : charger les données de référence (objectifs + % réalisé)
         const currentYear = new Date().getFullYear();
 
-        if (settings.forecast_enabled) {
+        if (settings?.forecast_enabled) {
           // Charger les configs
           const configs = await prorataAPI.getConfigs(activeProperty.id, currentYear, 'compte_resultat');
           setForecastConfigs(configs);
@@ -207,7 +217,7 @@ export default function CompteResultatTable({ refreshKey, onModeChange }: Compte
         }
         
         // Si forecast multi-années est activé, calculer les années futures
-        if (settings.forecast_enabled && settings.forecast_years > 0) {
+        if (settings?.forecast_enabled && settings.forecast_years > 0) {
           const futureYears = Array.from({ length: settings.forecast_years }, (_, i) => currentYear + i + 1);
           console.log('[CompteResultatTable] Calculating future years:', futureYears);
           
@@ -419,71 +429,56 @@ export default function CompteResultatTable({ refreshKey, onModeChange }: Compte
     };
   };
 
-  // Obtenir le montant projeté pour une catégorie configurable
-  const getProjectedAmount = (category: string, year: number): number | null => {
+  // Une colonne "prévision" = mode Prévisionnel ET année en cours ou future.
+  // Ces colonnes affichent l'objectif projeté (au lieu du réel) pour les
+  // catégories configurables. En mode Réel, aucune colonne n'est "prévision".
+  const isPlanColumn = (year: number): boolean =>
+    !!forecastSettings?.forecast_enabled && year >= currentYear;
+
+  // Montant "objectif" projeté pour une catégorie configurable.
+  // yearsAhead = 0 pour l'année en cours (objectif de base), >0 pour le futur
+  // (objectif de base × (1 + taux)^n). null si aucun objectif saisi (base 0).
+  const getPlannedAmount = (category: string, year: number): number | null => {
     const config = forecastConfigs.find(c => c.level_1 === category);
-    if (!config) return null;
-    
-    const yearsAhead = year - currentYear;
-    if (yearsAhead <= 0) return null;
-    
-    // Le taux est stocké en décimal dans la DB (ex: 0.02 pour 2%)
-    const rate = config.annual_growth_rate;
-    const projectedAmount = config.base_annual_amount * Math.pow(1 + rate, yearsAhead);
-    
-    console.log(`[CR Table] Projection ${category} ${year}: base=${config.base_annual_amount}, rate=${rate}, years=${yearsAhead} => ${projectedAmount}`);
-    
-    return projectedAmount;
+    if (!config || !config.base_annual_amount) return null;
+    const yearsAhead = Math.max(0, year - currentYear);
+    const rate = config.annual_growth_rate; // décimal (0.02 = 2%)
+    return config.base_annual_amount * Math.pow(1 + rate, yearsAhead);
   };
 
   // Fonction pour obtenir le montant d'une catégorie pour une année donnée
   const getAmount = (category: string, year: number, type: 'Produits d\'exploitation' | 'Charges d\'exploitation'): number | null => {
     const isCalculated = CALCULATED_CATEGORIES.includes(category);
     const isFuture = isFutureYear(year);
-    
-    // Pour les années futures
-    if (isFuture) {
-      // Catégories calculées (amortissements, intérêts) → utiliser les vraies valeurs du backend
-      if (isCalculated && futureYearsData?.results[year]) {
-        const yearData = futureYearsData.results[year];
-        if (category === "Charges d'amortissements") {
-          return yearData.amortissements !== 0 ? Math.abs(yearData.amortissements) : null;
-        }
-        if (category === "Coût du financement (hors remboursement du capital)") {
-          const cout = yearData.cout_financement;
-          return cout !== null && cout !== undefined && cout !== 0 ? Math.abs(cout) : null;
-        }
+
+    // Catégories calculées (amortissements, coût du financement) → toujours les
+    // vraies valeurs du backend (jamais un objectif).
+    if (isCalculated) {
+      const yearData = isFuture ? futureYearsData?.results[year] : data?.results[year];
+      if (!yearData) return null;
+      if (category === "Charges d'amortissements") {
+        return yearData.amortissements !== 0 ? Math.abs(yearData.amortissements) : null;
       }
-      
-      // Catégories configurables → utiliser la projection
-      if (!isCalculated) {
-        const projected = getProjectedAmount(category, year);
-        return projected !== null ? Math.abs(projected) : null;
+      if (category === "Coût du financement (hors remboursement du capital)") {
+        const cout = yearData.cout_financement;
+        return cout !== null && cout !== undefined && cout !== 0 ? Math.abs(cout) : null;
       }
-      
       return null;
     }
-    
-    // Pour les années passées/courantes, utiliser les données réelles
-    if (!data || !data.results[year]) {
-      return null;
+
+    // Colonnes "prévision" (mode Prévisionnel, année en cours ou futures) →
+    // afficher l'objectif projeté. Repli sur le réel pour l'année en cours si
+    // aucun objectif n'est saisi ; rien pour les années futures.
+    if (isPlanColumn(year)) {
+      const planned = getPlannedAmount(category, year);
+      if (planned !== null) return Math.abs(planned);
+      if (isFuture) return null;
+      // année en cours sans objectif → on retombe sur le réel ci-dessous
     }
-    
+
+    // Colonnes réelles (années passées, ou mode Réel)
+    if (!data || !data.results[year]) return null;
     const yearData = data.results[year];
-    
-    // Catégories spéciales
-    if (category === "Charges d'amortissements") {
-      return yearData.amortissements !== 0 ? Math.abs(yearData.amortissements) : null;
-    }
-    if (category === "Coût du financement (hors remboursement du capital)") {
-      const cout = yearData.cout_financement;
-      if (cout === null || cout === undefined || cout === 0) {
-        return null;
-      }
-      return Math.abs(cout);
-    }
-    
-    // Catégories normales
     if (type === 'Produits d\'exploitation') {
       return yearData.produits[category] ?? null;
     } else {
@@ -566,17 +561,17 @@ export default function CompteResultatTable({ refreshKey, onModeChange }: Compte
   };
 
   const getResultatNet = (year: number): number | null => {
-    // Utiliser la valeur resultat_net du backend (cohérent avec le Bilan)
-    // Pour les années futures, recalculer côté frontend
-    if (isFutureYear(year)) {
+    // Colonnes "prévision" (mode Prévisionnel, année en cours ou futures) :
+    // recalculer côté frontend à partir des objectifs affichés.
+    if (isPlanColumn(year)) {
       const resultatExploitation = getResultatExploitation(year);
       const chargesInteret = getTotalChargesInteret(year);
       if (resultatExploitation === null && chargesInteret === null) return null;
       const resultat = (resultatExploitation ?? 0) - (chargesInteret ?? 0);
       return resultat !== 0 ? resultat : null;
     }
-    
-    // Pour les années passées/courantes, utiliser la valeur du backend
+
+    // Colonnes réelles : valeur du backend (cohérente avec le Bilan)
     if (!data || !data.results[year]) return null;
     const resultatNet = data.results[year].resultat_net;
     return resultatNet !== 0 ? resultatNet : null;
