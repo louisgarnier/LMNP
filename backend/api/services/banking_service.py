@@ -15,6 +15,46 @@ logger = logging.getLogger(__name__)
 _API_BASE = "https://api.enablebanking.com"
 
 
+def _parse_env_file(path: Path) -> dict:
+    """Lit un fichier .env (KEY=value, # commentaires, quotes optionnelles) → dict.
+
+    Fonction pure : ne touche pas os.environ. Fichier absent → dict vide.
+    """
+    result: dict = {}
+    if not path.is_file():
+        return result
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key:
+            result[key] = value
+    return result
+
+
+def _load_dotenv_once() -> None:
+    """Charge le .env racine dans os.environ (sans dépendance, sans écraser l'existant).
+
+    Idempotent : ne relit le fichier qu'une fois par process.
+    """
+    if getattr(_load_dotenv_once, "_done", False):
+        return
+    _load_dotenv_once._done = True
+    env_path = Path(__file__).resolve().parents[3] / ".env"
+    try:
+        for key, value in _parse_env_file(env_path).items():
+            if key not in os.environ:
+                os.environ[key] = value
+    except Exception as exc:  # pragma: no cover - le mode démo reste le repli sûr
+        logger.warning("⚠️ [Banking] lecture .env impossible: %s", exc)
+
+
+_load_dotenv_once()
+
+
 def _app_id() -> str:
     return os.getenv("ENABLE_BANKING_APP_ID", "")
 
