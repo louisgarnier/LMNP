@@ -1,0 +1,30 @@
+{
+  "annee": 2021,
+  "source": "BILAN LOUIS GARNIER 2021 (1).PDF",
+  "cabinet": "BUDIZ",
+  "unite": "euros entiers",
+  "biens_inclus": [25],
+  "compte_resultat": {
+    "produits": 0,
+    "autres_charges_externes": 22959,
+    "impots_et_taxes": 281,
+    "dotations_amortissements": 332,
+    "charges_financieres": 257,
+    "resultat_comptable": -23829
+  },
+  "bilan": {
+    "immobilisations_brut": 165000,
+    "amortissements_cumules": 332,
+    "actif_total": 201390,
+    "capital_individuel": 24103,
+    "resultat_exercice": -23829,
+    "emprunt_capital_restant_du": 201116,
+    "passif_total": 201390
+  },
+  "fiscal": {
+    "amortissements_reintegres": 332,
+    "deficit_reportable_de_lannee": 23497,
+    "stock_deficit_reportable_fin": 23497,
+    "resultat_fiscal_imposable": 0
+  }
+}
