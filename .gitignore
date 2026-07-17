@@ -38,6 +38,12 @@ out/
 secrets/
 *.pem
 
+# Documents personnels / fiscaux (liasses fiscales, bilans nominatifs, relevés,
+# pièces des appartements). 2,7 Mo de PDF avec nom et chiffres réels : ces
+# fichiers servent de RÉFÉRENCE de travail en local et n'ont rien à faire dans
+# un dépôt distant. Vérifié le 17/07 : jamais commités à ce jour.
+docs/files/
+
 # Database
 *.db
 *.sqlite
