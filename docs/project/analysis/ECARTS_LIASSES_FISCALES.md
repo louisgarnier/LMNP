@@ -110,13 +110,31 @@ d'associé** (flux neutre). Après reclassement :
 
 ---
 
+## ✅ Exercice 2023 : résultat fiscal imposable vérifié à 0 (contrôle manuel BILAN 2023)
+
+Lu dans `BILAN 2023 LOUIS GARNIER.PDF` (liasse CERFA 2033, régime réel simplifié) :
+- Résultat comptable (bénéfice) : **4 077 €** (case 310 du 2033-B, = case 136 du bilan 2033-A).
+- Résultat fiscal avant imputation des déficits antérieurs (case 352) : **4 077 €**, aucune réintégration.
+- Déficits antérieurs reportables (case 360 du 2033-B et case 982 du 2033-D) : **23 497 €** — un déficit reportable figure donc bien à la liasse.
+- Résultat fiscal après imputation des déficits (cases 370/372 du 2033-B) et « Bénéfice imposable » (cases 1/4 du CERFA 2031) : **vierges** (aucun chiffre imprimé), et aucun montant en case VII « Impôts sur les bénéfices ». Conforme à un résultat fiscal imposable de **0** — les liasses françaises n'impriment pas de « 0 » explicite sur les cases nulles.
+
+→ **Confirmé** : résultat fiscal imposable 2023 = 0, comme le calcule le moteur (`resultat_fiscal_imposable` = 0.0). Le moteur impute 4 061,59 € du bénéfice contre le déficit 2021 reporté ; l'écart avec le résultat comptable liasse (4 077 €, soit 15,41 € de plus) reste à expliquer mais ne remet pas en cause l'imposable nul.
+
+⚠️ **Point d'attention relevé sur la liasse elle-même** (non lié au moteur) : sur le
+2033-D, la case 983 « Déficits imputés » est vierge et la case 984 « Déficits
+reportables » reste à 23 497 € — identique à la case 982 (stock de début
+d'exercice) — alors que le bénéfice de 4 077 € a bien annulé le résultat
+imposable. Le cabinet semble ne pas avoir réduit le stock de déficit reportable
+malgré l'imputation. À signaler au cabinet, sans impact sur l'imposable 2023
+(0 confirmé), mais potentiellement sur le stock de déficit reporté aux
+exercices suivants dans leurs déclarations papier.
+
 ## 🔎 Reste à vérifier
 
-- **Exercices 2021, 2022, 2023** (Evry seul) — non contrôlés à ce jour.
-  Documents : `BILAN LOUIS GARNIER 2021 (1).PDF`, `BILAN LOUIS GARNIER 2022 (1).PDF`,
-  `BILAN 2023 LOUIS GARNIER.PDF`.
+- **Exercices 2021, 2022** (Evry seul) — non contrôlés à ce jour.
+  Documents : `BILAN LOUIS GARNIER 2021 (1).PDF`, `BILAN LOUIS GARNIER 2022 (1).PDF`.
 - Le **report à nouveau** entre exercices : un écart sur un exercice se propage
-  mécaniquement aux suivants. À contrôler une fois 2021-2023 vérifiés.
+  mécaniquement aux suivants. À contrôler une fois 2021-2022 vérifiés.
 
 ---
 
