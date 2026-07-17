@@ -244,10 +244,20 @@ def extract_property(property_id: int) -> dict:
     return property_data
 
 
+def extract_fiscal() -> dict:
+    """Extrait le bloc fiscal, au niveau ENTITÉ (pas par propriété) : un
+    seul appel à /api/fiscal/timeline, dont on ne garde que `results`
+    (les années sont déjà les clés de ce dict), normalisé/arrondi comme
+    les blocs par propriété (round_floats trie aussi les clés)."""
+    response = http_get("/api/fiscal/timeline", {})
+    return round_floats(response["results"])
+
+
 def build_dataset() -> dict:
     dataset = {}
     for property_id in PROPERTIES:
         dataset[str(property_id)] = extract_property(property_id)
+    dataset["fiscal"] = extract_fiscal()
     return dataset
 
 
@@ -316,11 +326,13 @@ def cmd_extract(tag: str) -> int:
         json.dump(dataset, f, indent=2, sort_keys=True, ensure_ascii=False)
         f.write("\n")
 
-    combo_count = sum(len(years) for years in dataset.values())
+    combo_count = sum(len(dataset[str(pid)]) for pid in PROPERTIES)
     print(f"[golden_master] Extraction terminée -> {out_path}")
     print(f"[golden_master] {combo_count} combinaison(s) propriété x année extraite(s).")
-    for property_id, years in dataset.items():
+    for property_id in PROPERTIES:
+        years = dataset[str(property_id)]
         print(f"  - propriété {property_id}: années {sorted(years.keys())}")
+    print(f"  - fiscal (entité): années {sorted(dataset['fiscal'].keys())}")
     return 0
 
 
