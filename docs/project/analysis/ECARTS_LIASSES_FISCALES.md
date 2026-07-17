@@ -129,12 +129,54 @@ malgré l'imputation. À signaler au cabinet, sans impact sur l'imposable 2023
 (0 confirmé), mais potentiellement sur le stock de déficit reporté aux
 exercices suivants dans leurs déclarations papier.
 
+## ⚠️ Exercice 2021 (Evry seul) — écart de données appli/cabinet (~600 €)
+
+Lu dans `BILAN LOUIS GARNIER 2021 (1).PDF` :
+- Résultat comptable : **−23 829 €** (l'appli calcule −24 729, écart ~900).
+- Dotations aux amortissements : **332 €** (l'appli calcule 632, écart ~300).
+- Déficit reportable (résultat fiscal) : **23 497 €** (l'appli calcule 24 097, écart ~600).
+- Produits d'exploitation : **0** (Evry acquis en août 2021, pas encore de loyers).
+- Immobilisations brutes : **165 000 €** (terrain 49 500 + construction 115 500) —
+  PAS 237 691 : les travaux et le mobilier ont été immobilisés APRÈS 2021.
+  ⇒ le contrôle de composition (immo = case 028) doit se faire **année par année**.
+
+Écart à investiguer : l'appli amortit ~300 € de plus et porte ~900 € de charges de
+plus qu'en 2021 déclaré. Imposable 0 des deux côtés.
+
+## ✅ Exercice 2022 (Evry seul) — valide la mécanique de réintégration
+
+Lu dans `BILAN LOUIS GARNIER 2022 (1).PDF` :
+- Résultat comptable : **−4 218 €** (l'appli calcule −4 410, écart ~200).
+- Dotations aux amortissements : **9 750 €** (l'appli calcule 10 351, écart ~600).
+- **Amortissements excédentaires réintégrés : 4 218 €** — le résultat avant
+  amortissement (5 532 €) absorbe une partie de l'amortissement, l'excédent est
+  reporté. **Le moteur applique exactement cette règle.** ✓
+- Produits d'exploitation : 18 203 € (loyers 4 875 + transfert de charges 13 328).
+- Résultat fiscal imposable : **0**.
+
+## ❗ Divergence de trajectoire du STOCK de déficit reportable (appli vs cabinet)
+
+| Fin d'exercice | Déficit reportable — appli (recalculé) | Déficit reportable — liasse (déposé) |
+|---|---|---|
+| 2021 | 24 097 | 23 497 |
+| 2022 | 24 097 | 23 497 |
+| 2023 | **20 035** (bénéfice 2023 imputé) | **23 497** ❗ (non réduit — anomalie 2033-D) |
+| 2024 | 25 514 | ~28 976 |
+| 2025 | 36 515 | ~39 913 |
+
+**Point majeur pour le cabinet :** en 2023, le bénéfice a annulé le résultat
+imposable (0 des deux côtés), mais le cabinet **n'a pas réduit le stock de déficit
+reportable** (case 984 du 2033-D restée à 23 497 = case 982 d'ouverture). L'appli,
+elle, impute correctement les ~4 062 € de bénéfice sur le déficit. Résultat : le
+stock de déficit du cabinet est **surévalué d'environ 3 500 €** à partir de 2023,
+ce qui repousserait à tort l'année où Louis deviendra imposable.
+
 ## 🔎 Reste à vérifier
 
-- **Exercices 2021, 2022** (Evry seul) — non contrôlés à ce jour.
-  Documents : `BILAN LOUIS GARNIER 2021 (1).PDF`, `BILAN LOUIS GARNIER 2022 (1).PDF`.
-- Le **report à nouveau** entre exercices : un écart sur un exercice se propage
-  mécaniquement aux suivants. À contrôler une fois 2021-2022 vérifiés.
+- Origine des écarts de données appli/cabinet 2021-2022 (~200-900 € par ligne) :
+  différence de prorata d'amortissement de première année, périmètre des charges.
+- Le **report à nouveau** entre exercices propage ces écarts ; la carte de
+  réconciliation (sous-projet 3) les affichera année par année.
 
 ---
 
