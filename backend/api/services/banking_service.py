@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 _API_BASE = "https://api.enablebanking.com"
 
+# Borne basse quand un compte n'a jamais été synchronisé : on demande tout ce que
+# la banque accepte de donner (voir _fetch_raw), pas une fenêtre arbitraire.
+_EARLIEST_HISTORY = date(2020, 1, 1)
+
 
 def _parse_env_file(path: Path) -> dict:
     """Lit un fichier .env (KEY=value, # commentaires, quotes optionnelles) → dict.
@@ -66,7 +70,14 @@ def _app_id() -> str:
 
 
 def _key_path() -> Path:
-    return Path(os.getenv("ENABLE_BANKING_PRIVATE_KEY_PATH", "./secrets/eb_private.pem"))
+    # Résolu depuis la racine du projet, jamais depuis le CWD : le backend se
+    # lance aussi bien depuis backend/ (cf. START_SERVERS.md) que depuis la
+    # racine, et un chemin relatif au CWD faisait basculer l'app en mode démo
+    # sans le dire, coupant l'ingestion réelle.
+    raw = Path(os.getenv("ENABLE_BANKING_PRIVATE_KEY_PATH", "./secrets/eb_private.pem"))
+    if raw.is_absolute():
+        return raw
+    return (Path(__file__).resolve().parents[3] / raw).resolve()
 
 
 def _redirect_url() -> str:
@@ -258,9 +269,12 @@ def disconnect(db: Session, account_id: int) -> bool:
 
 
 def _clean_remittance(remittance) -> str:
-    """Extrait le libellé métier d'un remittance_information Enable Banking (LCL).
+    """Extrait le libellé métier d'un remittance_information Enable Banking.
 
-    Structure LCL observée (une chaîne à retours à la ligne) :
+    Les deux banques rangent l'information à l'INVERSE, et la forme de la donnée
+    les distingue — inutile de coder le nom de la banque en dur :
+
+    LCL — UN seul élément, bloc à retours à la ligne :
         ligne 1  = TYPE bancaire        (ex "VIREMENT INSTANTANE", "PRET IMMOBILIER ECH")
         ligne 2  = LIBELLÉ MÉTIER       (ex "VIR INST Gwenael Le Bourhis &")  <-- ce que
                                          les CSV LCL conservaient, donc ce que les règles
@@ -268,16 +282,34 @@ def _clean_remittance(remittance) -> str:
         lignes + = références uniques   (IPR…, DOSSIER NO…, ICS…, .RUM…, SDR…) → à jeter,
                                          car différentes à chaque transaction (sinon aucune
                                          règle ne matche et tout tombe en boîte de réception).
+        → on garde la 2e ligne non vide si elle existe, sinon la 1re.
 
-    On garde donc la 2e ligne non vide si elle existe, sinon la 1re.
+    Crédit Mutuel — PLUSIEURS éléments, champs déjà découpés :
+        élément 0 = LIBELLÉ MÉTIER      (ex "VIR MATERA", "PRLV SEPA FREE TELECOM",
+                                         tronqué à 31 car. par la banque — exactement
+                                         ce que contiennent les exports CSV, donc les règles)
+        élément 1 = référence unique    (E2EID-…, FHD-…, I0000…) → à jeter
+        éléments+ = complément libre    (ex "LOYER - APPARTEMENT - ETAGE 8")
+        → on garde le 1er élément.
+
+    Un élément unique d'une seule ligne (ex "ECH PRET CAP+IN 08922 213949 04") retombe
+    correctement dans les deux cas.
     """
     if isinstance(remittance, str):
         remittance = [remittance]
-    text = "\n".join(str(x) for x in (remittance or []))
-    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
-    if not lines:
+    parts = [str(x) for x in (remittance or [])]
+    if len(parts) > 1:
+        # Champs pré-découpés (Crédit Mutuel) : le libellé métier est le premier.
+        lines = [p.strip() for p in parts if p.strip()]
+        label = lines[0] if lines else ""
+    else:
+        # Bloc unique multi-lignes (LCL) : le libellé métier est la 2e ligne.
+        lines = [ln.strip() for ln in "\n".join(parts).split("\n") if ln.strip()]
+        if not lines:
+            return ""
+        label = lines[1] if len(lines) >= 2 else lines[0]
+    if not label:
         return ""
-    label = lines[1] if len(lines) >= 2 else lines[0]
     # Retire une date en fin de libellé (JJ/MM/AA[AA]) pour stabiliser les
     # libellés récurrents : "PRET IMMOBILIER ECH 13/07/26" -> "PRET IMMOBILIER ECH".
     # Une seule règle couvre alors tous les mois ; la date reste portée par le
@@ -311,13 +343,28 @@ def _normalize(raw: dict) -> dict:
 def _fetch_raw(bank_account: BankAccount, since) -> list[dict]:
     if not is_live():
         return _mock_raw_transactions(bank_account.eb_account_uid)
-    # PSD2 : l'accès aux transactions est limité à ~90 jours d'historique (au-delà
-    # LCL renvoie 422 WRONG_TRANSACTIONS_PERIOD). On plafonne date_from à J-89.
-    earliest = date.today() - timedelta(days=89)
-    start = since if (since and since > earliest) else earliest
+    # La profondeur d'historique dépend de la BANQUE, pas de PSD2 : LCL refuse
+    # au-delà de ~90 jours (422 WRONG_TRANSACTIONS_PERIOD) mais le Crédit Mutuel
+    # sert tout. On demande donc large et on ne se plafonne à J-89 QUE sur refus —
+    # plafonner d'office faisait jeter 39 des 64 transactions du compte d'Evry.
+    start = since or _EARLIEST_HISTORY
+    try:
+        return _fetch_pages(bank_account.eb_account_uid, start)
+    except Exception as exc:
+        fallback = date.today() - timedelta(days=89)
+        if start >= fallback:
+            raise
+        logger.warning(
+            "⚠️ [Banking] %s refuse l'historique depuis %s (%s) — repli sur %s",
+            bank_account.bank_name, start, str(exc)[:80], fallback,
+        )
+        return _fetch_pages(bank_account.eb_account_uid, fallback)
+
+
+def _fetch_pages(account_uid: str, start: date) -> list[dict]:
     out, params = [], {"date_from": start.isoformat()}
     while True:
-        data = _get(f"/accounts/{bank_account.eb_account_uid}/transactions", params)
+        data = _get(f"/accounts/{account_uid}/transactions", params)
         out.extend(data.get("transactions", []))
         cont = data.get("continuation_key")
         if not cont:

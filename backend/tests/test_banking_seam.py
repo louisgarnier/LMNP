@@ -1,4 +1,10 @@
 import os
+from datetime import date, timedelta
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
 from backend.api.services import banking_service as bs
 
 
@@ -127,3 +133,94 @@ def test_clean_remittance_retire_la_date_finale():
     assert bs._clean_remittance(["X\n\nFACTURE 12/03/25 SOLDE"]) == "FACTURE 12/03/25 SOLDE"
     # pas de date -> inchangé
     assert bs._clean_remittance(["X\n\nVIR INST Gwenael Le Bourhis &"]) == "VIR INST Gwenael Le Bourhis &"
+
+
+def test_clean_remittance_credit_mutuel_champs_pre_decoupes():
+    """Crédit Mutuel envoie des champs DÉJÀ découpés : le libellé métier est le 1er.
+
+    Régression : l'heuristique « ligne 2 » est propre à LCL, qui envoie UN seul
+    élément multi-lignes (ligne 1 = type, ligne 2 = libellé). Le Crédit Mutuel
+    envoie PLUSIEURS éléments (élément 0 = libellé, élément 1 = référence unique
+    E2EID/FHD/I…). Prendre la ligne 2 y ramenait la référence — différente à
+    chaque transaction — donc plus aucune règle ne matchait (3/25 classées).
+    """
+    # Loyer Matera : le libellé est l'élément 0, pas la référence E2EID.
+    assert bs._clean_remittance(
+        ["VIR MATERA", "E2EID-25602760", "LOYER - APPARTEMENT - ETAGE 8 - 110", " PLACE DES MIROIRS"]
+    ) == "VIR MATERA"
+    # Prélèvements : le libellé (tronqué à 31 car. par la banque) matche les
+    # règles historiques bâties sur les exports CSV.
+    assert bs._clean_remittance(
+        ["PRLV SEPA FREE TELECOM", "FHD-1484243903", "FREE HAUTDEBIT 1484243903"]
+    ) == "PRLV SEPA FREE TELECOM"
+    assert bs._clean_remittance(
+        ["PRLV SEPA MACIF PRODUCTION-MACI", "I0000714951398014477067076", "-PRELEV 0306072026  01447706707"]
+    ) == "PRLV SEPA MACIF PRODUCTION-MACI"
+    # Virement interne : 2 éléments, le 2e est une référence.
+    assert bs._clean_remittance(
+        ["VIR C/C EUROCOMPTE CONFORT", "CH3W26180W003286"]
+    ) == "VIR C/C EUROCOMPTE CONFORT"
+    # Échéance de prêt : un seul élément, une seule ligne -> inchangé.
+    assert bs._clean_remittance(
+        ["ECH PRET CAP+IN 08922 213949 04"]
+    ) == "ECH PRET CAP+IN 08922 213949 04"
+
+
+def test_relative_key_path_resolves_from_repo_root_not_cwd(tmp_path, monkeypatch):
+    """Le chemin relatif de la clé doit se résoudre depuis la racine du projet.
+
+    Régression : le backend se lance depuis backend/ (cf. START_SERVERS.md), donc
+    un `./secrets/eb_private.pem` relatif au CWD pointait sur backend/secrets/ —
+    introuvable — et l'app basculait silencieusement en mode démo, coupant
+    l'ingestion réelle Enable Banking.
+    """
+    repo_root = Path(bs.__file__).resolve().parents[3]
+    key = repo_root / "secrets" / "eb_private.pem"
+    if not key.is_file():
+        pytest.skip("secrets/eb_private.pem absent de ce poste")
+
+    monkeypatch.setenv("ENABLE_BANKING_PRIVATE_KEY_PATH", "./secrets/eb_private.pem")
+    monkeypatch.chdir(tmp_path)  # simule un lancement depuis n'importe quel dossier
+
+    assert bs._key_path().is_file(), (
+        f"clé introuvable depuis cwd={tmp_path} : "
+        f"_key_path() a résolu {bs._key_path()}"
+    )
+
+
+def test_fetch_raw_tente_tout_l_historique_et_retombe_a_90j_si_refus(monkeypatch):
+    """On demande tout l'historique ; on ne se plafonne à J-89 que si la banque refuse.
+
+    Régression : le plafond J-89 était codé en dur à cause de LCL (422
+    WRONG_TRANSACTIONS_PERIOD au-delà de ~90 jours). Le Crédit Mutuel, lui,
+    accepte tout l'historique — le plafond lui faisait jeter 39 des 64
+    transactions disponibles, laissant un trou de 4 mois dans le compte d'Evry.
+    """
+    acc = SimpleNamespace(eb_account_uid="uid-1", bank_name="Banque Test")
+    monkeypatch.setattr(bs, "is_live", lambda: True)
+
+    # Banque généreuse (Crédit Mutuel) : la date demandée est respectée.
+    calls = []
+
+    def generous(path, params):
+        calls.append(params["date_from"])
+        return {"transactions": [{"id": "a"}]}
+
+    monkeypatch.setattr(bs, "_get", generous)
+    bs._fetch_raw(acc, date(2026, 1, 1))
+    assert calls == ["2026-01-01"], "la date demandée doit être respectée si la banque l'accepte"
+
+    # Banque restrictive (LCL) : 422 -> on retente plafonné à J-89, sans planter.
+    calls.clear()
+
+    def restrictive(path, params):
+        calls.append(params["date_from"])
+        if len(calls) == 1:
+            raise RuntimeError("422 Client Error: WRONG_TRANSACTIONS_PERIOD")
+        return {"transactions": [{"id": "b"}]}
+
+    monkeypatch.setattr(bs, "_get", restrictive)
+    out = bs._fetch_raw(acc, date(2026, 1, 1))
+    assert len(calls) == 2, "un refus doit déclencher UNE nouvelle tentative"
+    assert calls[1] == (date.today() - timedelta(days=89)).isoformat()
+    assert out == [{"id": "b"}], "les transactions de la tentative de repli sont retournées"
