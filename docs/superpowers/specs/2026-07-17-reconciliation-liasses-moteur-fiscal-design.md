@@ -50,6 +50,25 @@ Détail dans `docs/project/analysis/ECARTS_LIASSES_FISCALES.md`.
 **Conclusion** : sur la partie la plus technique (échéanciers de crédit,
 amortissements), l'application est démontrée plus fiable que le cabinet.
 
+## 2 bis. Couverture — CHAQUE année, sans exception
+
+Le traitement s'applique à **tous les exercices, un par un** : 2021, 2022, 2023,
+2024, 2025, 2026 — et chaque année future. Aucune année n'est agrégée, résumée
+ou sautée.
+
+- Le **moteur fiscal** recalcule chronologiquement **depuis 2021** : c'est
+  obligatoire, car les stocks de reports (déficit, amortissements) d'une année
+  dépendent de toutes les précédentes. On ne peut pas calculer 2025 sans avoir
+  calculé 2021→2024 d'abord.
+- La **page d'accueil** affiche **une carte par exercice**.
+- La **carte détail** existe **pour chaque année**, avec sa propre colonne par
+  bien, son propre écart, son propre bas de tableau fiscal.
+- Le **fichier de référence liasse** est saisi **par année** (un JSON par
+  exercice).
+
+C'est le fil conducteur de tout le projet : rien n'est global-toutes-années ;
+tout est décliné année par année.
+
 ## 3. Décomposition en trois sous-projets
 
 Le moteur fiscal n'existe pas aujourd'hui : l'application s'arrête au **résultat
