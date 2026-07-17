@@ -7,11 +7,16 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
 import { ImportLogProvider } from '@/contexts/ImportLogContext';
 import { useProperty } from '@/contexts/PropertyContext';
+
+// Pages GLOBALES (niveau entité, tous biens confondus) : elles ne dépendent
+// d'aucun appartement actif et ne doivent donc PAS être redirigées vers l'accueil
+// quand aucun bien n'est sélectionné.
+const GLOBAL_ROUTES = ['/dashboard/liasse-fiscale'];
 
 export default function DashboardLayout({
   children,
@@ -19,21 +24,17 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { activeProperty, loading, isRestoring } = useProperty();
+  const isGlobalRoute = GLOBAL_ROUTES.some((r) => pathname?.startsWith(r));
 
-  // Redirect to home if no property is selected
-  // IMPORTANT: Wait for loading to complete AND check if property was restored from localStorage
-  // Don't redirect if we're still restoring from localStorage
+  // Redirect to home if no property is selected — sauf sur une page globale.
   useEffect(() => {
-    // Only redirect if:
-    // 1. Loading is complete (not loading)
-    // 2. Not currently restoring from localStorage
-    // 3. No property is active
-    if (!loading && !isRestoring && !activeProperty) {
+    if (!loading && !isRestoring && !activeProperty && !isGlobalRoute) {
       console.log('[DashboardLayout] Aucune propriété active, redirection vers page d\'accueil');
       router.push('/');
     }
-  }, [activeProperty, loading, isRestoring, router]);
+  }, [activeProperty, loading, isRestoring, router, isGlobalRoute]);
 
   // Show loading while checking property
   if (loading) {
@@ -46,8 +47,8 @@ export default function DashboardLayout({
     );
   }
 
-  // Don't render if no property (will redirect)
-  if (!activeProperty) {
+  // Don't render if no property (will redirect) — sauf page globale.
+  if (!activeProperty && !isGlobalRoute) {
     return null;
   }
 
