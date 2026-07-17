@@ -23,8 +23,10 @@
   },
   "fiscal": {
     "amortissements_reintegres": 20338,
-    "deficit_reportable_de_lannee": 10937,
+    "deficit_reportable_de_lannee": 10936.85,
+    "stock_deficit_reportable_fin": 39912.96,
     "resultat_fiscal_imposable": 0,
-    "note": "Charges financieres sous-evaluees de 63,68 EUR (erreur cabinet, cf ECARTS). Deficit reel appli = 11001."
+    "source_stock": "aide_au_report (2025).pdf : résultat fiscal -10936,85 ; déficit report année précédente (fin 2024) -28976,11 ; cumul fin 2025 = 39912,96",
+    "note": "Charges financieres sous-evaluees de 63,68 EUR (erreur cabinet, cf ECARTS). Deficit reel appli = 11001. Stock cabinet surevalue de ~3462 depuis l'anomalie 2023."
   }
 }

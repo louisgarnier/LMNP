@@ -24,7 +24,9 @@
   },
   "fiscal": {
     "amortissements_reintegres": 14553,
-    "deficit_reportable_de_lannee": 5479,
-    "resultat_fiscal_imposable": 0
+    "deficit_reportable_de_lannee": 5479.11,
+    "stock_deficit_reportable_fin": 28976.11,
+    "resultat_fiscal_imposable": 0,
+    "source_stock": "aide_au_report (2024).pdf : résultat fiscal -5479,11 ; déficit report année précédente (fin 2023) -23497,00 ; cumul fin 2024 = 28976,11"
   }
 }

@@ -36,19 +36,23 @@ def test_les_5_liasses_sont_chargees():
     assert liasses[2024]["biens_inclus"] == [25, 15]
 
 
-def test_2024_reconcilie_sans_ecart():
-    # 2024 colle au comptable (aux arrondis euros entiers près) : 0 écart.
+def test_2024_annee_conforme_mais_stock_deficit_herite_de_l_anomalie():
+    # Les chiffres PROPRES à 2024 collent au cabinet (produits, résultat,
+    # amortissements, déficit de l'exercice, imposable) aux arrondis près.
     db = _ROSession()
     try:
         r = reconcile(db)[2024]
     finally:
         db.close()
-    assert r["nb_ecarts"] == 0
-    # Aucune ligne en écart (ok=False). Certaines lignes ne sont pas comparées
-    # (ok=None, ex. déficit reportable cumulé que la liasse 2024 n'imprime pas) :
-    # c'est admis, seul False signale un vrai écart.
-    for ligne in r["lignes"]:
-        assert ligne["ok"] is not False, f"{ligne['poste']} en écart: {ligne['ecart']}"
+    for poste in ("Produits", "Résultat comptable", "Amortissements",
+                  "Déficit de l'exercice", "Résultat fiscal imposable"):
+        ligne = next(l for l in r["lignes"] if l["poste"] == poste)
+        assert ligne["ok"] is True, f"{poste} en écart: {ligne['ecart']}"
+    # MAIS le déficit reportable cumulé hérite de l'anomalie 2023 (~-3462) :
+    # l'appli a imputé le bénéfice 2023, pas le cabinet (source aide_au_report).
+    cumul = next(l for l in r["lignes"] if l["poste"] == "Déficit reportable (cumulé)")
+    assert cumul["ok"] is False
+    assert cumul["ecart"] == pytest.approx(-3461.90, abs=1.0)
 
 
 def test_2025_pointe_l_erreur_interets_du_cabinet(rec):
