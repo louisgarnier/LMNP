@@ -72,3 +72,26 @@ def test_toutes_les_annees_ont_un_imposable_conforme(rec):
                          if l["poste"] == "Résultat fiscal imposable")
         assert imposable["ok"]
         assert imposable["app"] == pytest.approx(0.0, abs=0.01)
+
+
+def test_detail_par_bien_2025_somme_egale_total(rec):
+    # Les lignes comptables sont ventilées par bien ; la somme = total appli.
+    produits = next(l for l in rec[2025]["lignes"] if l["poste"] == "Produits")
+    assert produits["par_bien"] is not None
+    assert set(produits["par_bien"]) == {25, 15, 26}
+    assert round(sum(produits["par_bien"].values()), 2) == produits["app"]
+    # Ligne fiscale = entité, pas de ventilation.
+    deficit = next(l for l in rec[2025]["lignes"] if l["poste"] == "Déficit de l'exercice")
+    assert deficit["par_bien"] is None
+
+
+def test_2026_est_un_brouillon_sans_liasse(rec):
+    # L'exercice en cours (2026) apparaît en brouillon : chiffres appli, pas de
+    # liasse ni d'écart.
+    assert 2026 in rec
+    r = rec[2026]
+    assert r["brouillon"] is True
+    assert r["nb_ecarts"] == 0
+    for ligne in r["lignes"]:
+        assert ligne["liasse"] is None
+        assert ligne["ecart"] is None
