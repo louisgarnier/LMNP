@@ -171,6 +171,26 @@ elle, impute correctement les ~4 062 € de bénéfice sur le déficit. Résulta
 stock de déficit du cabinet est **surévalué d'environ 3 500 €** à partir de 2023,
 ce qui repousserait à tort l'année où Louis deviendra imposable.
 
+## 🔬 Explication des écarts par les FEC (comptabilité officielle 2021-2023)
+
+Les FEC (Fichiers des Écritures Comptables) fournis par Louis expliquent les écarts.
+
+**Écarts ~600 € (2021-2022) = date des travaux.** L'appli immobilise les travaux au
+**01/12/2021** (date de la transaction), le cabinet en **2022**. L'amortissement démarre
+donc un an plus tôt côté appli → surplus en 2021-2022 qui **converge en 2023** (amort
+identique au centime : 11 119). Ni erreur de l'appli ni du cabinet — une date de mise
+en service différente. Résultats comptables officiels (FEC) : 2021 −23 828,65
+(amort 331,53) ; 2022 −4 218,02 (amort 9 750,45) ; 2023 +4 076,58 (amort 11 119,16).
+
+**Divergence du déficit 2023 (−3 462 €) = ordre d'imputation.** En 2023, bénéfice fiscal
++4 077. Le cabinet l'a neutralisé en imputant l'**amortissement reporté** (ligne
+« déductions diverses 4 077 » de la liasse), **conservant le déficit à 23 497**. L'appli
+impute le **déficit d'abord** (ordre recommandé : le déficit expire à 10 ans, pas
+l'amortissement). Ce n'est pas une faute nette — un choix d'ordre, un peu moins prudent.
+Le TOTAL à déduire est quasi identique des deux méthodes (~75-76 k€) ; seule la
+répartition entre les deux « tirelires » diffère. **Point à poser au cabinet**, sans
+urgence (aucun impôt payé en trop ; correction de 2023 non prioritaire).
+
 ## 🔎 Reste à vérifier
 
 - Origine des écarts de données appli/cabinet 2021-2022 (~200-900 € par ligne) :

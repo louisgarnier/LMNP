@@ -1,0 +1,109 @@
+<div class="mockup">
+  <div class="mockup-header">
+    <h2 style="margin:0">Deux versions, côte à côte — position fin 2025</h2>
+    <div class="subtitle" style="margin-top:4px">À gauche : ce que l'application calcule seule. À droite : la réalité officielle (comptable), qu'on adopterait.</div>
+  </div>
+
+  <div class="mockup-body" style="background:#f4f5f7;padding:24px">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+
+      <!-- ══════ VERSION APP ══════ -->
+      <div style="background:#fff;border:1px solid #dfe1e6;border-radius:8px;padding:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <div style="font-size:14px;font-weight:700;color:#172b4d">Version « application »</div>
+          <span style="font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:3px;background:#deebff;color:#0747a6">calcul propre</span>
+        </div>
+        <div style="font-size:11px;color:#5e6c84;margin-bottom:14px">Ordre recommandé : le déficit (qui expire) est imputé d'abord.</div>
+
+        <div style="border:1px solid #ffd8d0;border-radius:6px;padding:10px 12px;margin-bottom:8px;background:#fff8f6">
+          <div style="font-size:11px;color:#5e6c84;text-transform:uppercase;font-weight:600">Déficit reportable</div>
+          <div style="font-size:20px;font-weight:700;color:#172b4d">36 515 €</div>
+        </div>
+        <div style="border:1px solid #d0e0ff;border-radius:6px;padding:10px 12px;margin-bottom:8px;background:#f6f9ff">
+          <div style="font-size:11px;color:#5e6c84;text-transform:uppercase;font-weight:600">Amortissements reportés</div>
+          <div style="font-size:20px;font-weight:700;color:#172b4d">39 933 €</div>
+        </div>
+        <div style="border-radius:6px;padding:10px 12px;background:#172b4d;color:#fff">
+          <div style="font-size:11px;color:#b3bac5;text-transform:uppercase;font-weight:600">Total à déduire</div>
+          <div style="font-size:20px;font-weight:700">76 448 €</div>
+        </div>
+      </div>
+
+      <!-- ══════ VERSION OFFICIELLE ══════ -->
+      <div style="background:#fff;border:1px solid #dfe1e6;border-radius:8px;padding:16px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <div style="font-size:14px;font-weight:700;color:#172b4d">Version « officielle »</div>
+          <span style="font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 6px;border-radius:3px;background:#d3f9d8;color:#2b8a3e">déposée au fisc</span>
+        </div>
+        <div style="font-size:11px;color:#5e6c84;margin-bottom:14px">Choix du comptable : amortissements imputés d'abord, déficit conservé.</div>
+
+        <div style="border:1px solid #ffd8d0;border-radius:6px;padding:10px 12px;margin-bottom:8px;background:#fff8f6">
+          <div style="font-size:11px;color:#5e6c84;text-transform:uppercase;font-weight:600">Déficit reportable</div>
+          <div style="font-size:20px;font-weight:700;color:#172b4d">39 913 €</div>
+          <div style="font-size:10px;color:#2b8a3e">+3 398 vs app · source aide au report ✓</div>
+        </div>
+        <div style="border:1px solid #d0e0ff;border-radius:6px;padding:10px 12px;margin-bottom:8px;background:#f6f9ff">
+          <div style="font-size:11px;color:#5e6c84;text-transform:uppercase;font-weight:600">Amortissements reportés</div>
+          <div style="font-size:20px;font-weight:700;color:#172b4d">≈ 35 364 €</div>
+          <div style="font-size:10px;color:#e8590c">−4 569 vs app · reconstitué (non publié)</div>
+        </div>
+        <div style="border-radius:6px;padding:10px 12px;background:#172b4d;color:#fff">
+          <div style="font-size:11px;color:#b3bac5;text-transform:uppercase;font-weight:600">Total à déduire</div>
+          <div style="font-size:20px;font-weight:700">≈ 75 277 €</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Synthèse -->
+    <div style="background:#fffbe6;border:1px solid #ffe58f;border-radius:6px;padding:12px 14px;margin-top:16px;font-size:12px;color:#7a5900;line-height:1.6">
+      <b>L'essentiel :</b> le total à déduire est quasi identique (~75-76 k€, écart ~1 200 €). La vraie différence,
+      c'est la <b>répartition</b> : le comptable a mis <b>plus dans le déficit</b> (39 913) et moins dans les amortissements,
+      l'application l'inverse. Le déficit <b>expire en 10 ans</b>, pas les amortissements — donc en garder plus dans le
+      déficit (choix comptable) est légèrement plus risqué, mais l'enjeu est faible tant que tu redeviens bénéficiaire avant 2031.
+    </div>
+
+    <!-- Trajectoire côte à côte -->
+    <div style="font-size:13px;font-weight:700;color:#172b4d;margin:18px 0 8px">Trajectoire année par année</div>
+    <div style="background:#fff;border:1px solid #dfe1e6;border-radius:6px;overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:640px">
+        <thead>
+          <tr style="background:#f4f5f7;color:#5e6c84;font-size:10px;text-transform:uppercase">
+            <th style="padding:8px;text-align:left" rowspan="2">Année</th>
+            <th style="padding:8px;text-align:center;border-left:2px solid #bf2600;background:#fff5f4" colspan="2">Déficit reportable</th>
+            <th style="padding:8px;text-align:center;border-left:2px solid #0052cc;background:#f4f8ff" colspan="2">Amort. reportés</th>
+          </tr>
+          <tr style="background:#f4f5f7;color:#5e6c84;font-size:10px;text-transform:uppercase">
+            <th style="padding:6px 8px;text-align:right;border-left:2px solid #bf2600;background:#fff5f4">App</th>
+            <th style="padding:6px 8px;text-align:right;background:#fff5f4;font-weight:700;color:#2b8a3e">Officiel</th>
+            <th style="padding:6px 8px;text-align:right;border-left:2px solid #0052cc;background:#f4f8ff">App</th>
+            <th style="padding:6px 8px;text-align:right;background:#f4f8ff;font-weight:700;color:#2b8a3e">Officiel</th>
+          </tr>
+        </thead>
+        <tbody style="color:#172b4d">
+          <tr style="border-top:1px solid #f4f5f7"><td style="padding:6px 8px;font-weight:700">2021</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #bf2600;background:#fff5f4;color:#97a0af">24 097</td><td style="padding:6px 8px;text-align:right;background:#fff5f4;font-weight:600">23 497</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #0052cc;background:#f4f8ff;color:#97a0af">632</td><td style="padding:6px 8px;text-align:right;background:#f4f8ff;font-weight:600">332</td></tr>
+          <tr style="border-top:1px solid #f4f5f7"><td style="padding:6px 8px;font-weight:700">2022</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #bf2600;background:#fff5f4;color:#97a0af">24 097</td><td style="padding:6px 8px;text-align:right;background:#fff5f4;font-weight:600">23 497</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #0052cc;background:#f4f8ff;color:#97a0af">5 043</td><td style="padding:6px 8px;text-align:right;background:#f4f8ff;font-weight:600">4 550</td></tr>
+          <tr style="border-top:1px solid #f4f5f7;background:#fffdf7"><td style="padding:6px 8px;font-weight:700">2023</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #bf2600;background:#fff5f4;color:#97a0af">20 035</td><td style="padding:6px 8px;text-align:right;background:#fff5f4;font-weight:600">23 497</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #0052cc;background:#f4f8ff;color:#97a0af">5 043</td><td style="padding:6px 8px;text-align:right;background:#f4f8ff;font-weight:600">473</td></tr>
+          <tr style="border-top:1px solid #f4f5f7"><td style="padding:6px 8px;font-weight:700">2024</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #bf2600;background:#fff5f4;color:#97a0af">25 514</td><td style="padding:6px 8px;text-align:right;background:#fff5f4;font-weight:600">28 976</td>
+            <td style="padding:6px 8px;text-align:right;border-left:2px solid #0052cc;background:#f4f8ff;color:#97a0af">19 596</td><td style="padding:6px 8px;text-align:right;background:#f4f8ff;font-weight:600">15 026</td></tr>
+          <tr style="border-top:2px solid #172b4d;background:#f7f9ff"><td style="padding:8px;font-weight:700">2025 <span style="font-size:9px;font-weight:700;text-transform:uppercase;padding:1px 5px;border-radius:3px;background:#d3f9d8;color:#2b8a3e">reprise</span></td>
+            <td style="padding:8px;text-align:right;border-left:2px solid #bf2600;background:#fff5f4;color:#97a0af">36 515</td><td style="padding:8px;text-align:right;background:#fff5f4;font-weight:700">39 913</td>
+            <td style="padding:8px;text-align:right;border-left:2px solid #0052cc;background:#f4f8ff;color:#97a0af">39 933</td><td style="padding:8px;text-align:right;background:#f4f8ff;font-weight:700">≈ 35 364</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:16px;padding:12px 14px;background:#fff;border:1px solid #dfe1e6;border-left:3px solid #0052cc;border-radius:4px;font-size:12px;color:#5e6c84;line-height:1.6">
+      <b>Ta décision :</b> on adopte la version <b>officielle</b> (droite) comme point de reprise pour 2026 — c'est ce dont on a parlé.
+      La version « application » (gauche) reste visible pour info, pour comprendre les choix. Ça te va comme présentation à deux colonnes ?
+    </div>
+
+  </div>
+</div>
