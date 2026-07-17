@@ -541,32 +541,6 @@ class CompteResultatConfigResponse(CompteResultatConfigBase):
 
 # Compte de résultat override models
 
-class CompteResultatOverrideBase(BaseModel):
-    """Base model for compte de résultat override."""
-    year: int = Field(..., description="Année du compte de résultat")
-    override_value: float = Field(..., description="Valeur override du résultat de l'exercice")
-
-
-class CompteResultatOverrideCreate(CompteResultatOverrideBase):
-    """Model for creating a compte de résultat override."""
-    property_id: int = Field(..., description="ID de la propriété (obligatoire)")
-
-
-class CompteResultatOverrideUpdate(BaseModel):
-    """Model for updating a compte de résultat override."""
-    override_value: Optional[float] = None
-
-
-class CompteResultatOverrideResponse(CompteResultatOverrideBase):
-    """Model for compte de résultat override response."""
-    id: int
-    created_at: datetime
-    updated_at: datetime
-
-    class Config:
-        from_attributes = True
-
-
 # Bilan models
 
 class BilanMappingBase(BaseModel):

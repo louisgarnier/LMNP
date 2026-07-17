@@ -37,7 +37,6 @@ class Property(Base):
     # Compte de résultat
     compte_resultat_mappings = relationship("CompteResultatMapping", back_populates="property", cascade="all, delete-orphan")
     compte_resultat_config = relationship("CompteResultatConfig", back_populates="property", cascade="all, delete-orphan")
-    compte_resultat_overrides = relationship("CompteResultatOverride", back_populates="property", cascade="all, delete-orphan")
     # Bilan
     bilan_mappings = relationship("BilanMapping", back_populates="property", cascade="all, delete-orphan")
     bilan_config = relationship("BilanConfig", back_populates="property", cascade="all, delete-orphan")
@@ -429,26 +428,6 @@ class CompteResultatConfig(Base):
     )
 
 
-class CompteResultatOverride(Base):
-    """Override manuel du résultat de l'exercice par année."""
-    __tablename__ = "compte_resultat_override"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    property_id = Column(Integer, ForeignKey("properties.id", ondelete="CASCADE"), nullable=False, index=True)
-    year = Column(Integer, nullable=False, index=True)  # Année du compte de résultat (unique par property_id)
-    override_value = Column(EuroCents, nullable=False)  # Valeur override du résultat de l'exercice (centimes en base)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
-    # Relations
-    property = relationship("Property", back_populates="compte_resultat_overrides")
-    
-    # Index pour recherches fréquentes - contrainte unique (year, property_id)
-    __table_args__ = (
-        Index('idx_compte_resultat_override_year', 'year'),
-        Index('idx_compte_resultat_override_property_id', 'property_id'),
-        Index('idx_compte_resultat_override_year_property', 'year', 'property_id', unique=True),
-    )
 
 
 class BilanMapping(Base):

@@ -18,7 +18,6 @@ from backend.database import get_db
 from backend.database.models import (
     CompteResultatMapping,
     CompteResultatConfig,
-    CompteResultatOverride,
     Transaction,
 )
 from backend.api.models import (
@@ -30,9 +29,6 @@ from backend.api.models import (
     CompteResultatDataListResponse,
     CompteResultatConfigResponse,
     CompteResultatConfigUpdate,
-    CompteResultatOverrideCreate,
-    CompteResultatOverrideUpdate,
-    CompteResultatOverrideResponse
 )
 from backend.api.services.compte_resultat_service import (
     get_mappings,
@@ -432,156 +428,3 @@ async def update_compte_resultat_config(
         updated_at=config.updated_at
     )
 
-
-# ========== Override Endpoints ==========
-
-@router.get("/compte-resultat/override", response_model=List[CompteResultatOverrideResponse])
-async def get_all_overrides(
-    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Récupérer tous les overrides du résultat de l'exercice pour une propriété.
-    """
-    logger.info(f"[CompteResultat] GET /api/compte-resultat/override - property_id={property_id}")
-
-    validate_property_id(db, property_id, "CompteResultat")
-
-    overrides = db.query(CompteResultatOverride).filter(
-        CompteResultatOverride.property_id == property_id
-    ).order_by(CompteResultatOverride.year).all()
-
-    logger.info(f"[CompteResultat] Retourné {len(overrides)} overrides pour property_id={property_id}")
-
-    return [
-        CompteResultatOverrideResponse(
-            id=o.id,
-            year=o.year,
-            override_value=o.override_value,
-            created_at=o.created_at,
-            updated_at=o.updated_at
-        )
-        for o in overrides
-    ]
-
-
-@router.get("/compte-resultat/override/{year}", response_model=CompteResultatOverrideResponse)
-async def get_override_by_year(
-    year: int,
-    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Récupérer l'override pour une année spécifique et une propriété.
-    """
-    logger.info(f"[CompteResultat] GET /api/compte-resultat/override/{year} - property_id={property_id}")
-
-    validate_property_id(db, property_id, "CompteResultat")
-
-    override = db.query(CompteResultatOverride).filter(
-        CompteResultatOverride.year == year,
-        CompteResultatOverride.property_id == property_id
-    ).first()
-
-    if not override:
-        logger.error(f"[CompteResultat] Override non trouvé pour year={year}, property_id={property_id}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"Aucun override trouvé pour l'année {year} et cette propriété"
-        )
-
-    return CompteResultatOverrideResponse(
-        id=override.id,
-        year=override.year,
-        override_value=override.override_value,
-        created_at=override.created_at,
-        updated_at=override.updated_at
-    )
-
-
-@router.post("/compte-resultat/override", response_model=CompteResultatOverrideResponse, status_code=201)
-async def create_or_update_override(
-    override: CompteResultatOverrideCreate,
-    db: Session = Depends(get_db)
-):
-    """
-    Créer ou mettre à jour un override pour une année et une propriété (upsert).
-    """
-    logger.info(f"[CompteResultat] POST /api/compte-resultat/override - property_id={override.property_id}, year={override.year}")
-
-    validate_property_id(db, override.property_id, "CompteResultat")
-
-    # Vérifier si un override existe déjà pour cette année et cette propriété
-    existing = db.query(CompteResultatOverride).filter(
-        CompteResultatOverride.year == override.year,
-        CompteResultatOverride.property_id == override.property_id
-    ).first()
-
-    if existing:
-        # Mettre à jour l'override existant
-        existing.override_value = override.override_value
-        db.commit()
-        db.refresh(existing)
-
-        logger.info(f"[CompteResultat] Override mis à jour pour year={existing.year}, property_id={override.property_id}")
-
-        return CompteResultatOverrideResponse(
-            id=existing.id,
-            year=existing.year,
-            override_value=existing.override_value,
-            created_at=existing.created_at,
-            updated_at=existing.updated_at
-        )
-    else:
-        # Créer un nouvel override
-        new_override = CompteResultatOverride(
-            property_id=override.property_id,
-            year=override.year,
-            override_value=override.override_value
-        )
-        db.add(new_override)
-        db.commit()
-        db.refresh(new_override)
-
-        logger.info(f"[CompteResultat] Override créé pour year={new_override.year}, property_id={override.property_id}")
-
-        return CompteResultatOverrideResponse(
-            id=new_override.id,
-            year=new_override.year,
-            override_value=new_override.override_value,
-            created_at=new_override.created_at,
-            updated_at=new_override.updated_at
-        )
-
-
-@router.delete("/compte-resultat/override/{year}", status_code=204)
-async def delete_override(
-    year: int,
-    property_id: int = Query(..., description="ID de la propriété (obligatoire)"),
-    db: Session = Depends(get_db)
-):
-    """
-    Supprimer l'override pour une année et une propriété.
-    """
-    logger.info(f"[CompteResultat] DELETE /api/compte-resultat/override/{year} - property_id={property_id}")
-
-    validate_property_id(db, property_id, "CompteResultat")
-
-    override = db.query(CompteResultatOverride).filter(
-        CompteResultatOverride.year == year,
-        CompteResultatOverride.property_id == property_id
-    ).first()
-
-    if not override:
-        logger.error(f"[CompteResultat] Override non trouvé pour year={year}, property_id={property_id}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"Aucun override trouvé pour l'année {year} et cette propriété"
-        )
-
-    db.delete(override)
-    db.commit()
-
-    logger.info(f"[CompteResultat] Override supprimé pour year={year}, property_id={property_id}")
-
-    return None

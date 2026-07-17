@@ -29,7 +29,6 @@ from backend.database.models import (
     AmortizationResult,
     LoanPayment,
     LoanConfig,
-    CompteResultatOverride
 )
 from backend.api.services.compte_resultat_service import calculate_compte_resultat
 from backend.api.services.category_service import (
@@ -383,34 +382,26 @@ def calculate_resultat_exercice(
 ) -> float:
     """
     Calculer le résultat de l'exercice pour une année et une propriété.
-    
-    Logique :
-    - Chercher un override pour l'année et la propriété (si existe, l'utiliser)
-    - Sinon : utiliser le résultat net du compte de résultat
-    
+
+    Le résultat est TOUJOURS calculé depuis le compte de résultat : la fonction
+    Override (résultat forçable) a été retirée du frontend par le commit 3345ea9,
+    et son dernier reliquat backend — une recherche dans `compte_resultat_override`
+    en tête de cette fonction — a été retiré ici. La table était à 0 ligne, donc
+    la recherche renvoyait toujours None et le calcul retombait déjà sur cette
+    branche : aucun changement de comportement (golden master v8 → 0 différence).
+
     Args:
         db: Session de base de données
         year: Année à calculer
         property_id: ID de la propriété
         compte_resultat_view_id: ID de la vue compte de résultat (optionnel, non utilisé pour l'instant)
-    
+
     Returns:
         Résultat de l'exercice (bénéfice positif, perte négative)
     """
     logger.info(f"[BilanService] calculate_resultat_exercice - year={year}, property_id={property_id}")
-    
-    # Chercher un override pour l'année et la propriété
-    override = db.query(CompteResultatOverride).filter(
-        and_(
-            CompteResultatOverride.year == year,
-            CompteResultatOverride.property_id == property_id
-        )
-    ).first()
-    
-    if override:
-        return override.override_value
 
-    # Sinon, calculer depuis le compte de résultat (mémoïsé par année si dispo)
+    # Calcul depuis le compte de résultat (mémoïsé par année si dispo)
     if cr_cache is not None and year in cr_cache:
         compte_resultat = cr_cache[year]
     else:
@@ -456,40 +447,21 @@ def calculate_report_a_nouveau(
     if year <= first_year:
         return 0.0
     
-    # OPTIMISATION: Calculer tous les résultats en une seule fois au lieu de boucler
-    # Récupérer tous les overrides d'un coup pour cette propriété
-    overrides = db.query(CompteResultatOverride).filter(
-        and_(
-            CompteResultatOverride.property_id == property_id,
-            CompteResultatOverride.year >= first_year,
-            CompteResultatOverride.year < year
-        )
-    ).all()
-    override_dict = {o.year: o.override_value for o in overrides}
-    
-    # Calculer les années qui n'ont pas d'override
+    # Somme des résultats de toutes les années précédentes. La branche
+    # « override » (résultat forçable) qui court-circuitait certaines années a
+    # été retirée avec la fonction Override (cf. commit 3345ea9 côté frontend) :
+    # la table était à 0 ligne, donc aucune année n'était court-circuitée et
+    # toutes passaient déjà par ce calcul.
     total = 0.0
-    years_to_calculate = []
     for prev_year in range(first_year, year):
-        if prev_year in override_dict:
-            total += override_dict[prev_year]
+        if cr_cache is not None and prev_year in cr_cache:
+            compte_resultat = cr_cache[prev_year]
         else:
-            years_to_calculate.append(prev_year)
-    
-    # Calculer les années sans override en une seule fois si possible
-    if years_to_calculate:
-        # Pour chaque année, calculer le compte de résultat
-        # Note: On pourrait optimiser davantage en calculant toutes les années en une fois
-        # mais pour l'instant, on garde la logique simple
-        for prev_year in years_to_calculate:
-            if cr_cache is not None and prev_year in cr_cache:
-                compte_resultat = cr_cache[prev_year]
-            else:
-                compte_resultat = calculate_compte_resultat(db, prev_year, property_id=property_id, skip_prorata=True)
-                if cr_cache is not None:
-                    cr_cache[prev_year] = compte_resultat
-            total += compte_resultat.get("resultat_net", 0.0)
-    
+            compte_resultat = calculate_compte_resultat(db, prev_year, property_id=property_id, skip_prorata=True)
+            if cr_cache is not None:
+                cr_cache[prev_year] = compte_resultat
+        total += compte_resultat.get("resultat_net", 0.0)
+
     return total
 
 
