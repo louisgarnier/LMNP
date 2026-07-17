@@ -44,8 +44,11 @@ def test_2024_reconcilie_sans_ecart():
     finally:
         db.close()
     assert r["nb_ecarts"] == 0
+    # Aucune ligne en écart (ok=False). Certaines lignes ne sont pas comparées
+    # (ok=None, ex. déficit reportable cumulé que la liasse 2024 n'imprime pas) :
+    # c'est admis, seul False signale un vrai écart.
     for ligne in r["lignes"]:
-        assert ligne["ok"], f"{ligne['poste']} inattendu: écart {ligne['ecart']}"
+        assert ligne["ok"] is not False, f"{ligne['poste']} en écart: {ligne['ecart']}"
 
 
 def test_2025_pointe_l_erreur_interets_du_cabinet(rec):

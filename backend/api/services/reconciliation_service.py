@@ -135,6 +135,9 @@ def reconcile(db, directory=None):
                 _ligne("Amortissements", amort_bien, cr["dotations_amortissements"]),
                 _ligne_entite("Déficit de l'exercice", fisc.get("deficit_annee", 0.0),
                               fis.get("deficit_reportable_de_lannee", 0)),
+                _ligne_entite("Déficit reportable (cumulé)",
+                              fisc.get("stock_deficit_fin", 0.0),
+                              fis.get("stock_deficit_reportable_fin")),
                 _ligne_entite("Résultat fiscal imposable",
                               fisc.get("resultat_fiscal_imposable", 0.0),
                               fis["resultat_fiscal_imposable"]),
@@ -148,6 +151,8 @@ def reconcile(db, directory=None):
                 _ligne("Résultat comptable", resultat_bien, None),
                 _ligne("Amortissements", amort_bien, None),
                 _ligne_entite("Déficit de l'exercice", fisc.get("deficit_annee", 0.0), None),
+                _ligne_entite("Déficit reportable (cumulé)",
+                              fisc.get("stock_deficit_fin", 0.0), None),
                 _ligne_entite("Résultat fiscal imposable",
                               fisc.get("resultat_fiscal_imposable", 0.0), None),
             ]
