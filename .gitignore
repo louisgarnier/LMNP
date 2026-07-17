@@ -28,6 +28,11 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+# Toute copie/sauvegarde d'un .env : une copie contient les mêmes secrets que
+# l'original (constaté le 17/07 : .env.bak-20260716 n'était couvert par aucune
+# règle et serait entré dans l'historique au premier `git add -A`).
+.env.*
+!.env.example
 
 # Secrets Enable Banking
 secrets/
