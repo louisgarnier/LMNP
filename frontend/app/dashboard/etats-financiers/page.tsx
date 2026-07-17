@@ -18,6 +18,7 @@ import CompteResultatTable from '@/components/CompteResultatTable';
 import BilanConfigCard from '@/components/BilanConfigCard';
 import BilanTable from '@/components/BilanTable';
 import BilanForecastCard from '@/components/BilanForecastCard';
+import { readCreditFlag, writeCreditFlag } from '@/utils/creditFlag';
 import ProRataForecastCard from '@/components/ProRataForecastCard';
 import { loanConfigsAPI, LoanConfig, LoanConfigCreate, loanPaymentsAPI, transactionsAPI } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
@@ -540,21 +541,22 @@ export default function EtatsFinanciersPage() {
   // Déterminer l'onglet actif (par défaut: compte-resultat)
   const activeTab = tabParam || 'compte-resultat';
 
-  // Charger l'état de la checkbox depuis localStorage au montage
+  // Charger l'état de la checkbox depuis localStorage — PAR BIEN.
+  // Se recharge à chaque changement de propriété : le drapeau appartient au bien,
+  // pas à l'écran (voir src/utils/creditFlag.ts).
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('etats_financiers_has_credit');
-      setHasCredit(saved === 'true');
+      setHasCredit(readCreditFlag(activeProperty?.id));
       setMounted(true);
     }
-  }, []);
+  }, [activeProperty?.id]);
 
   // Sauvegarder l'état de la checkbox dans localStorage
   const handleCreditCheckboxChange = async (checked: boolean) => {
     if (checked) {
       // Activer la checkbox : onglet Crédit apparaît immédiatement
       setHasCredit(true);
-      localStorage.setItem('etats_financiers_has_credit', 'true');
+      writeCreditFlag(activeProperty?.id, true);
     } else {
       // Désactiver la checkbox : demander confirmation
       if (!activeProperty?.id || activeProperty.id <= 0) {
@@ -590,7 +592,7 @@ export default function EtatsFinanciersPage() {
           
           // Mettre à jour l'état
           setHasCredit(false);
-          localStorage.setItem('etats_financiers_has_credit', 'false');
+          writeCreditFlag(activeProperty?.id, false);
           
           // Si on était sur l'onglet Crédit, rediriger vers Compte de résultat
           if (activeTab === 'credit') {

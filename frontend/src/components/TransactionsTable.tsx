@@ -160,6 +160,14 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     }
   }, [appliedFilterDate, appliedFilterNom, appliedFilterLevel1, appliedFilterLevel2, appliedFilterLevel3, appliedFilterQuantite, appliedFilterSolde]);
 
+  // Réinitialiser la page à 1 quand la propriété change.
+  // Effet dédié : ce reset ne doit surtout pas vivre dans l'effet de chargement,
+  // qui dépend de `page` — il s'y déclencherait à chaque changement de page et
+  // ramènerait aussitôt sur la page 1.
+  useEffect(() => {
+    setPage(1);
+  }, [activeProperty?.id]);
+
   // Recharger depuis l'API quand page, tri, date range, filtres ou propriété changent
   useEffect(() => {
     console.log('[TransactionsTable] useEffect déclenché - activeProperty:', activeProperty);
@@ -175,8 +183,6 @@ export default function TransactionsTable({ onDelete, unclassifiedOnly = false, 
     if (activeProperty && activeProperty.id && activeProperty.id > 0) {
       console.log('[TransactionsTable] useEffect - ✅ Property valide, chargement des transactions');
       loadTransactions();
-      // Réinitialiser la page à 1 quand la propriété change
-      setPage(1);
     } else {
       console.warn('[TransactionsTable] useEffect - ❌ PROPERTY INVALIDE, vidage des transactions:', {
         activeProperty,
