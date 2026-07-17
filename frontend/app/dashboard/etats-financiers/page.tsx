@@ -9,9 +9,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import LoanConfigCard from '@/components/LoanConfigCard';
 import LoanConfigSingleCard from '@/components/LoanConfigSingleCard';
-import LoanPaymentFileUpload from '@/components/LoanPaymentFileUpload';
 import LoanPaymentTable from '@/components/LoanPaymentTable';
 import CompteResultatConfigCard from '@/components/CompteResultatConfigCard';
 import CompteResultatTable from '@/components/CompteResultatTable';
