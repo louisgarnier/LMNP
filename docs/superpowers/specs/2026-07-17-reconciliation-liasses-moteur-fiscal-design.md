@@ -210,6 +210,26 @@ colonnes Liasse/Écart — la carte affiche les chiffres de l'appli comme brouil
 à transmettre au comptable. Une fois la liasse chargée, les colonnes de contrôle
 apparaissent, cible = 0 écart.
 
+**Commentaires d'écart (piste d'audit)** — deux natures distinctes :
+- **Localisation automatique** : l'appli détecte seule où est l'écart (ligne,
+  bien, montant). Ex. 2025 → « intérêts colloc, +63,68 » sans intervention.
+- **Note manuelle** : Louis écrit la cause une fois comprise (« le comptable a
+  repris le mauvais tableau d'amortissement »). Note attachée à l'exercice,
+  stockée, affichée sur la carte, et **exportable** pour le courrier au comptable
+  (alimente `ECARTS_LIASSES_FISCALES.md`).
+
+⚠️ Précision issue du cadrage : l'application CALCULE le fiscal, elle ne recopie
+pas la liasse. Donc une ligne fiscale peut diverger de la liasse dans le bon
+sens — ex. 2025, déficit reportable **11 001 (appli, correct)** vs **10 937
+(liasse, erreur cabinet de 64 €)**. Cette ligne s'affichera en écart, pas en ✓ :
+c'est voulu, l'appli corrige, elle ne recopie pas.
+
+**Vocabulaire fiscal (corrigé du raccourci de l'Excel de Louis)** — la carte
+distingue trois notions, là où l'Excel écrivait « résultat fiscal 10 938 » :
+- **Résultat fiscal imposable** : 0 sur les années passées (aucun impôt dû)
+- **Déficit reportable** (stock, millésimé) : ex. 11 001 pour 2025 + cumul
+- **Amortissements reportés** (stock) : ex. 20 338 pour 2025 + cumul
+
 ## 7. Cycle cible (à partir de 2026)
 
 ```
