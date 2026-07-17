@@ -17,6 +17,7 @@ from backend.database.connection import get_db
 from backend.database.models import Transaction, ClassificationRule
 from backend.api.services.enrichment_service import _rules_for_property
 from backend.api.services.classification_engine import derive_prefix_pattern
+from backend.api.services.inbox_suggestion import propose_rule, suggest_category
 
 router = APIRouter()
 
@@ -31,6 +32,25 @@ class ValidateIn(BaseModel):
     transaction_id: int
     category_id: int
     rule: RuleSpec | None = None
+
+
+def _historique(db, property_id) -> list[tuple[str, int]]:
+    """Libellés déjà classés du bien — la matière première des suggestions.
+
+    C'est l'HISTORIQUE, pas le libellé isolé, qui porte l'information : les
+    libellés de virement sont saisis à la main et varient chaque mois (le mois,
+    l'ordre des mots, la référence). Voir inbox_suggestion.py.
+    """
+    return [
+        (t.nom, t.category_id)
+        for t in db.query(Transaction)
+        .filter(
+            Transaction.property_id == property_id,
+            Transaction.category_id.isnot(None),
+            Transaction.is_split_parent == False,  # noqa: E712
+        )
+        .all()
+    ]
 
 
 def _suggestion(db, tx, rules):
@@ -62,11 +82,38 @@ def list_inbox(property_id: int, db: Session = Depends(get_db)):
            .filter(Transaction.property_id == property_id, Transaction.category_id.is_(None),
                    Transaction.is_split_parent == False)
            .order_by(Transaction.date).all())
+    historique = _historique(db, property_id)
     for t in txs:
-        pattern, match_type = derive_prefix_pattern(t.nom)
+        # Catégorie suggérée : d'abord une règle (exacte par construction), sinon
+        # la ressemblance avec l'historique. Rien n'est classé automatiquement —
+        # décision de Louis 2026-07-17 : « je refuse le moindre risque ».
+        cat = _suggestion(db, t, rules)
+        if cat is None:
+            cat = suggest_category(t.nom, historique)
+
+        # Règle proposée : le motif le plus court couvrant le plus de
+        # transactions de la catégorie SANS jamais en capturer une autre.
+        # Remplace derive_prefix_pattern, qui repliait sur (libellé complet,
+        # "exact") dès que le libellé ne finissait pas par une référence — d'où
+        # les 272 règles jetables de la base.
+        proposed = propose_rule(t.nom, cat, historique) if cat is not None else None
+        if proposed is None:
+            # Repli : l'ancienne heuristique, qui retire les identifiants de FIN
+            # de libellé. Utile quand l'historique est trop maigre pour dégager un
+            # motif (bien neuf, catégorie inédite).
+            # On ne retient QUE le cas "prefix" — c'est-à-dire quand elle a
+            # réellement généralisé en retirant une référence. Son autre repli,
+            # (libellé complet, "exact"), est précisément la machine à annuaire :
+            # une règle qui ne matchera plus jamais rien. Mieux vaut ne rien
+            # proposer et laisser Louis classer, que polluer la base d'une 373e
+            # règle jetable.
+            pattern, match_type = derive_prefix_pattern(t.nom)
+            if match_type == "prefix":
+                proposed = {"pattern": pattern, "match_type": "prefix",
+                            "matches": None, "conflicts": []}
         items.append({"transaction_id": t.id, "nom": t.nom, "date": t.date.isoformat(),
-                      "montant": t.quantite, "suggestion": {"category_id": _suggestion(db, t, rules)},
-                      "proposed_rule": {"pattern": pattern, "match_type": match_type}})
+                      "montant": t.quantite, "suggestion": {"category_id": cat},
+                      "proposed_rule": proposed})
     return {"items": items}
 
 
@@ -81,7 +128,13 @@ def validate(body: ValidateIn, db: Session = Depends(get_db)):
                                   match_type=body.rule.match_type,
                                   category_id=body.category_id,
                                   property_id=body.rule.property_id if body.rule.property_id is not None else tx.property_id,
-                                  priority=0, source="auto_from_inbox"))
+                                  priority=0, source="auto_from_inbox",
+                                  # ⚠️ Sans strict_ratio=False, la garde des 70 %
+                                  # (classification_engine l.22-23) rejetterait tout
+                                  # motif court : « GESTION » vaut 22 % de la longueur
+                                  # de « VIR INST GESTION FEVRIER 26 - LG ». C'est
+                                  # cette garde qui fabriquait l'annuaire.
+                                  strict_ratio=False))
     db.commit()
     return {"transaction_id": tx.id, "category_id": tx.category_id}
 
