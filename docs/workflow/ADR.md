@@ -352,13 +352,45 @@ Objectif étape 3 §5 : les unifier en **une** table `classification_rules` +
    égalité ; le moteur charge `règles du bien + globales`.
 
 **Statut :** cœur livré et vérifié (non-régression 0, golden 0, 91 tests).
-**Différé (décision assumée par l'agent, sur les faits) :** suppression des
-tables/routes/code legacy (`mappings`/`allowed_mappings`/`mapping_imports`) —
-`allowed_mappings` reste une **whitelist de validation VIVANTE**
-(`validate_mapping` interroge la table pour la classification manuelle), donc
-son retrait est un refactor à faire **avec le plan frontend** (les écrans
-inbox+éditeur remplaceront l'UI mapping en un seul geste). Les 2 écrans =
-plan séparé après maquette, consommant `/api/inbox` + `/api/rules`.
+
+**~~Différé :~~ RÉSOLU le 2026-07-17 — la justification ci-dessous était FAUSSE.**
+
+> ~~Différé (décision assumée par l'agent, sur les faits) : suppression des
+> tables/routes/code legacy (`mappings`/`allowed_mappings`/`mapping_imports`) —
+> `allowed_mappings` reste une **whitelist de validation VIVANTE**
+> (`validate_mapping` interroge la table pour la classification manuelle), donc
+> son retrait est un refactor à faire **avec le plan frontend**.~~
+
+Audit du 17/07/2026 : **les deux moitiés de cette justification étaient fausses.**
+
+1. `validate_mapping` n'interrogeait **plus** `allowed_mappings` depuis l'étape 3
+   — il déléguait à `resolve_category` (référentiel `categories` /
+   `category_groups`). Son propre docstring le disait.
+2. `validate_mapping` n'avait **aucun appelant en production** :
+   `grep -rn "\bvalidate_mapping\b" backend --include=*.py | grep -v /tests/`
+   → sa seule `def`. Le module `mapping_obligatoire_service` entier était mort.
+
+Ce différé bloquait donc un nettoyage **pour rien**, et se serait auto-entretenu
+tant que personne ne re-vérifiait le fait au lieu de relire la conclusion.
+
+**Fait le 17/07 :**
+- `mapping_obligatoire_service.py` supprimé (commit `0d5cc8f`)
+- tables `allowed_mappings` (168 lignes) et `mapping_imports` (3) droppées
+  (commit `e12c608`, migration `drop_legacy_allowed_mappings_and_imports.py`)
+- `mappingsAPI` + `enrichmentAPI` supprimés du client — 528 lignes qui
+  appelaient des routes **inexistantes** (commit `e675828`)
+
+**Reste différé, et pour une raison VALIDE celle-là :** la table `mappings`
+(366 lignes) et sa classe ORM `Mapping`. `models.py:118-130` documente le choix :
+`backend/scripts/migrate_mappings_to_rules.py` (« script étape-3 protégé, jamais
+à supprimer ») et son test live lisent cette table comme source de migration.
+Tant que ce consommateur vit, la table reste. Leur retrait est une décision
+produit (Task 10), pas un nettoyage technique.
+
+**Leçon.** Une justification technique dans un ADR se périme comme du code. Ici
+elle est restée vraie ~4 jours, puis a survécu des semaines à sa propre
+péremption parce qu'on relisait la conclusion sans re-vérifier le fait. Re-tester
+l'affirmation (un `grep`) coûtait 10 secondes.
 
 ---
 
