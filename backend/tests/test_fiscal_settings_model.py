@@ -12,3 +12,8 @@ def test_fiscal_settings_defauts():
     cols = {c.name for c in FiscalSettings.__table__.columns}
     assert {"id", "deficit_report_years", "amort_report_years",
             "created_at", "updated_at"} <= cols
+
+    cols_by_name = FiscalSettings.__table__.columns
+    assert cols_by_name["deficit_report_years"].nullable is False
+    assert cols_by_name["deficit_report_years"].default.arg == 10
+    assert cols_by_name["amort_report_years"].nullable is True
