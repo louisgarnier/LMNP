@@ -12,6 +12,11 @@ déficits antérieurs (plus anciens en premier), puis amortissements reportés.
 """
 import logging
 
+from sqlalchemy import func
+
+from backend.database.models import Transaction, Property, FiscalSettings
+from backend.api.services.compte_resultat_service import calculate_compte_resultat
+
 logger = logging.getLogger(__name__)
 
 _EPS = 0.005  # seuil de purge des lignes de stock résiduelles (< 0,5 centime)
@@ -104,3 +109,49 @@ def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years
         }
 
     return results
+
+
+def entity_year_range(db):
+    """Années de la première à la dernière transaction (entité), incluses."""
+    dmin = db.query(func.min(Transaction.date)).scalar()
+    dmax = db.query(func.max(Transaction.date)).scalar()
+    if dmin is None or dmax is None:
+        return []
+    y0 = dmin.year if hasattr(dmin, "year") else int(str(dmin)[:4])
+    y1 = dmax.year if hasattr(dmax, "year") else int(str(dmax)[:4])
+    return list(range(y0, y1 + 1))
+
+
+def entity_year_inputs(db, year):
+    """Somme resultat_net et amortissements de TOUS les biens pour l'année.
+
+    Aucun bien codé en dur : on parcourt la table properties. Un bien sans
+    activité l'année donnée contribue 0 (calculate_compte_resultat renvoie 0).
+    """
+    resultat_comptable = 0.0
+    amortissements = 0.0
+    for prop in db.query(Property).all():
+        cr = calculate_compte_resultat(db, year, property_id=prop.id)
+        resultat_comptable += cr.get("resultat_net", 0.0)
+        amortissements += abs(cr.get("amortissements", 0.0))
+    return {"year": year, "resultat_comptable": resultat_comptable,
+            "amortissements": amortissements}
+
+
+def _read_settings(db):
+    s = db.query(FiscalSettings).first()
+    if s is None:
+        return 10, None
+    return s.deficit_report_years, s.amort_report_years
+
+
+def get_fiscal_timeline(db):
+    """Déroule le moteur sur toute la plage d'années, réglages lus en base."""
+    deficit_years, amort_years = _read_settings(db)
+    years_data = [entity_year_inputs(db, y) for y in entity_year_range(db)]
+    return compute_fiscal_timeline(years_data, deficit_years, amort_years)
+
+
+def get_fiscal(db, year):
+    """Résultat fiscal d'un exercice. Lève KeyError si hors plage."""
+    return get_fiscal_timeline(db)[year]
