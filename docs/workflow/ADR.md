@@ -359,3 +359,75 @@ tables/routes/code legacy (`mappings`/`allowed_mappings`/`mapping_imports`) —
 son retrait est un refactor à faire **avec le plan frontend** (les écrans
 inbox+éditeur remplaceront l'UI mapping en un seul geste). Les 2 écrans =
 plan séparé après maquette, consommant `/api/inbox` + `/api/rules`.
+
+---
+
+## ADR — Le solde bancaire se CALCULE, il ne s'importe pas (2026-07-17)
+
+**Contexte.** Le solde Marseille affichait 1 702,63 € contre 2 900,21 € à la
+banque. Deux options ont été envisagées pour réconcilier :
+
+- **(A)** Remapper la colonne `Solde` des CSV sources à l'ingestion (elle
+  contient bien le solde bancaire réel, vérifié au centime contre les relevés
+  Crédit Mutuel), et/ou marquer d'un drapeau les lignes « hors banque » à
+  exclure du cumul.
+- **(B)** Ne rien changer au calcul : le solde reste la somme de toutes les
+  transactions depuis zéro, et l'écart est traité comme ce qu'il est — un défaut
+  de DONNÉES.
+
+**Décision : (B).** Tranchée par Louis : « le solde doit toujours venir des
+transactions… une après l'autre ça somme, puis il doit au final matcher avec la
+banque… en aucun cas être importé ».
+
+**Justification.** Un solde importé est un chiffre que rien ne contrôle : il
+masque les transactions manquantes ou dupliquées au lieu de les révéler. Un solde
+calculé qui doit retomber sur le relevé est, lui, une **assertion vérifiable** —
+c'est précisément ce qui a permis de localiser les deux anomalies (une
+contrepartie compte courant manquante, un doublon CSV/API) au lieu de les
+enterrer sous un chiffre importé. `balance_utils.recalculate_all_balances`
+implémente déjà (B) correctement et reste inchangé.
+
+**Corollaire à respecter.** Toute écriture qui ne passe pas par le compte
+bancaire (achat notaire, immobilisation, dépense payée par l'associé) DOIT avoir
+sa contrepartie en compte courant d'associé, pour que le bloc nette à zéro et
+n'écarte pas le cumul. C'est la convention déjà appliquée par le bloc d'ouverture
+Marseille (18/01 + 12/03/2024 : +4 915 / -4 915 → cumul 0,00 € au 12/03).
+
+**Conséquence.** Le contrat d'ingestion est verrouillé : la colonne `Solde` des
+CSV n'est PAS mappée (`csv_utils.py`) et ne doit pas le devenir. Elle reste un
+document de contrôle humain, utile pour réconcilier — pas une source.
+
+**Vérification.** `backend/tests/test_solde_marseille_golden.py` réconcilie le
+cumul avec 9 relevés bancaires réels (2024 → 2026), en lecture seule sur la prod.
+
+---
+
+## ADR — L'amortissement reste en année pleine en mode Réel (2026-07-17)
+
+**Constat.** `compte_resultat_service.get_amortissements()` (l.432-458) ne reçoit
+pas le drapeau `realized` et n'a aucun filtre de date. Un compte de résultat
+« Réel » au 17/07/2026 embarque donc **12 mois de dotation** alors que loyers,
+charges et intérêts d'emprunt, eux, sont bien coupés à la date d'arrêté (7 mois).
+Sur Marseille : 6 157,28 € dotés au lieu de 3 591,75 € au prorata, soit un
+résultat en cours d'année **plus mauvais de 2 565 €** que la réalité.
+
+**Décision : NE PAS proratiser.** Tranchée par Louis le 2026-07-17, contre l'avis
+de l'agent (qui recommandait le prorata des deux côtés pour la cohérence).
+
+**Justification retenue.** L'amortissement se constate à la CLÔTURE : l'année
+pleine est la vision comptable, celle qui fera foi et celle que retiendra le
+comptable de Louis. Faire diverger l'écran de cette vision créerait un écart
+inexplicable au moment de la déclaration.
+
+**Conséquence assumée.** Le compte de résultat « Réel » en cours d'année est un
+état MIXTE : produits et charges à la date d'arrêté, dotation en année pleine. Il
+sous-estime le résultat de la dotation non encore courue (~5/12 en juillet). Il
+devient exact au 31/12. **Ne pas “corriger” cet écart sans l'accord de Louis** —
+c'est une décision, pas un oubli.
+
+**Piège technique si la décision est un jour revue.** La dotation figure des DEUX
+côtés du bilan : à l'actif (« Amortissements cumulés », via `amortization_results`)
+et au passif (via le résultat de l'exercice). Elles se compensent, d'où l'équilibre.
+Proratiser le seul compte de résultat **casserait le bilan de 5/12 de la dotation**
+(2 565 € sur Marseille en juillet). Les deux côtés doivent bouger ensemble, et
+`test_solde_marseille_golden.py` le verrouille.

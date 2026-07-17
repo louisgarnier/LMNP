@@ -672,6 +672,117 @@ restent en base : encombrement hérité, non traité.
 
 ---
 
+## 🔁 `setPage(1)` dans un `useEffect` qui dépend de `page` → pagination inutilisable (2026-07-17)
+
+**Symptôme (rapporté par Louis) :** « je peux pas aller sur la deuxième page… ça saute ».
+
+**Preuve, avant toute lecture de code** — `logs/frontend_2026-07-17.log`, session réelle :
+
+```
+06:57:30.799  skip=200&limit=200   ← clic « Suivante »
+06:57:30.819  skip=0&limit=200     ← 20 ms plus tard, retour page 1
+06:57:37.570  skip=200&limit=200   ← 8 autres tentatives, même paire
+06:57:37.593  skip=0&limit=200
+...
+```
+
+La page 2 était **demandée et reçue** : le bug n'était pas côté API, mais un retour
+immédiat à la page 1 côté état React.
+
+**Cause racine :** `TransactionsTable.tsx` — l'effet de chargement dépendait de `page`
+(ligne 196) et appelait `setPage(1)` dans son corps (ligne 179). Le commentaire disait
+« quand la propriété change », mais un `useEffect` se déclenche à **chaque** changement
+de ses dépendances, `page` incluse. Boucle : clic page 2 → effet → fetch page 2 →
+`setPage(1)` → effet → fetch page 1. La page 1 était un point fixe : impossible d'en sortir.
+
+**Correctif :** sortir le reset dans un effet dédié à la seule propriété.
+
+```js
+useEffect(() => { setPage(1); }, [activeProperty?.id]);
+```
+
+**Règle de prévention :** un `setX(...)` dans un `useEffect` qui a `x` dans ses
+dépendances est presque toujours un bug. Si un reset ne doit répondre qu'à **un** signal,
+il lui faut son propre effet, avec ce seul signal en dépendance — pas une condition
+à l'intérieur d'un effet aux dépendances plus larges.
+
+**Piège de diagnostic :** ne pas conclure « pas de bug, la donnée arrive » en voyant la
+bonne requête partir. Ici la requête page 2 partait bien à chaque clic. Il fallait lire la
+requête **suivante**, 20 ms plus tard, pour voir le retour arrière.
+
+**Régression couverte :** `frontend/__tests__/pagination.test.tsx` — vérifie que le dernier
+`getAll` après un clic « Suivante » porte bien `skip=50`, et que « Page 2 sur 3 » s'affiche.
+
+---
+
+## 💶 Solde Marseille désaccordé de 1 197,58 € — deux anomalies de DONNÉES (2026-07-17)
+
+**Symptôme :** l'app affichait 1 702,63 € pour Marseille, la banque 2 900,21 €.
+
+**Fausse piste (2 hypothèses successives, toutes deux fausses) :**
+1. « La colonne `Solde` du CSV est le solde bancaire réel, l'ingestion l'écrase
+   par un cumul » → proposition d'importer la colonne. **Rejeté par Louis** : « le
+   solde doit toujours venir des transactions… en aucun cas être importé ».
+2. « Solde vide dans le CSV = ligne hors banque, à exclure du cumul » → **faux** :
+   les immobilisations du 12/03/2024 ont aussi un solde vide et sont bien
+   comptées. Un solde vide veut seulement dire « solde intermédiaire non noté ».
+
+**La règle réelle**, et elle était déjà juste : le solde SOMME toutes les
+transactions, une après l'autre, depuis zéro, et doit retomber sur le relevé.
+`balance_utils.recalculate_all_balances` n'était PAS en cause. Toute écriture
+hors banque a sa CONTREPARTIE en compte courant d'associé, si bien que le bloc
+nette à zéro et n'écarte pas le cumul (bloc notaire 18/01 + 12/03/2024 :
++4 915 / -4 915 → cumul 0,00 € au 12/03, compte pas encore alimenté).
+
+**Méthode qui a tranché** (à réutiliser) : sommer toutes les lignes du CSV source
+et comparer à la colonne `Solde` tenue par Louis, point par point. 79 points de
+contrôle sur 2024 → **78 tombent au centime, 1 décroche**, de -850,30 €, ligne 35.
+Un seul saut = une seule anomalie, localisée sans lire une ligne de code.
+
+**Anomalie 1 — contrepartie manquante (850,30 €).** Les 5 achats d'équipement du
+11/07/2024 (bricorama ×2, electro depot, mr bricolage, boitié clefs) ont été payés
+par Louis de sa poche. Leur contrepartie en compte courant d'associé n'a jamais
+été saisie → le cumul a décroché de 850,30 € pendant deux ans, et la créance de
+Louis sur le bien n'existait nulle part.
+
+**Anomalie 2 — doublon au recouvrement CSV/API (347,28 €).** Voir le détail dans
+le docstring de `backend/scripts/fix_solde_marseille.py`. `export-202601191420.csv`
+(exporté le 19/01 à 14h20) contenait déjà les opérations du 19/01, et la synchro
+Enable Banking a démarré le 19/01. L'index `idx_tx_account_external_unique` ne
+porte que sur `(account_id, external_id)` : les lignes CSV n'ayant ni l'un ni
+l'autre, la collision passe au travers.
+
+**Règle de prévention :** à la bascule d'un bien du CSV vers Enable Banking,
+vérifier que les fenêtres ne se recouvrent pas :
+`max(date) WHERE source='csv'` doit être `<` `min(date) WHERE source='api'`.
+Evry (15/01 → 16/01) et Marseille colloc (16/04 → 04/05) sont sains.
+
+**Piège de conception à ne pas refaire :** ne PAS écrire de test « toute écriture
+hors banque a sa contrepartie » basé sur les groupes comptables. Les catégories
+n'encodent pas le caractère bancaire d'une ligne — une immobilisation peut être
+payée par le compte (AMEUBLEA) comme hors compte (bricorama), et le groupe Dettes
+mélange un vrai déblocage de prêt bancaire avec le prêt versé en compte courant.
+Aucune somme par groupe ne vaut zéro. Le seul garde-fou générique valable, ce sont
+les relevés bancaires.
+
+**Piège d'unités :** `Transaction.quantite` vaut des CENTIMES en SQL brut mais des
+EUROS via l'ORM (`EuroCents`, backend/database/money.py). Un `--dry-run` a évité de
+créer un apport de 8,50 € au lieu de 850,30 €. Toujours prévoir un `--dry-run` sur
+un script d'écriture en base.
+
+**Piège de datation :** le relevé date à l'OPÉRATION, le CSV de Louis à la VALEUR —
+un jour d'écart sur les échéances de prêt (ECH PRET mai 2024 : op. 04/05, valeur
+05/05, et le « Solde au 05/05 » l'inclut). Un premier jet du golden a échoué de
++851,96 € **à cause du test**, pas de l'app. Vérifier chaque date de contrôle
+empiriquement avant de la figer.
+
+**Correctif :** `backend/scripts/fix_solde_marseille.py` (idempotent, `--dry-run`).
+**Régression couverte :** `backend/tests/test_solde_marseille_golden.py` —
+9 relevés bancaires réels de 2024 à 2026, + absence de doublon CSV/API, + présence
+de la contrepartie du 11/07/2024.
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet
@@ -680,5 +791,5 @@ restent en base : encombrement hérité, non traité.
 
 ---
 
-**Dernière mise à jour :** 2026-07-17 (règles = annuaire — loyers Matera Evry)
+**Dernière mise à jour :** 2026-07-17 (solde Marseille réconcilié avec la banque : 2 900,21 €)
 **Cas d'étude :** Quarantaine tests / contamination base de production
