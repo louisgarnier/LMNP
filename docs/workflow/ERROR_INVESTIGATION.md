@@ -620,6 +620,58 @@ seulement le contenu de la table, aurait fait échouer les tests dès l'origine.
 
 ---
 
+## 🧾 Classement : les règles sont un ANNUAIRE, pas des règles (2026-07-17)
+
+**Symptôme :** 31 loyers Matera d'Evry (11 140,59 €) en non-classé après le
+branchement du Crédit Mutuel, alors que « le classement marchait ».
+
+**Cause immédiate :** les 16 règles de loyer embarquent la référence unique du
+virement (`VIR MATERA E2EID-23469349`). Une référence ne se répète jamais →
+chaque règle n'a pu matcher qu'une fois, et le libellé stable (`VIR MATERA`)
+n'avait aucune règle. Corrigé par une règle `exact` + rattrapage ciblé
+(`backend/scripts/fix_regle_matera_evry.py`).
+
+**Cause de fond, mesurée sur les 369 `classification_rules` :**
+
+| Règles matchant 2+ transactions (vraies règles) | 61 |
+|---|---|
+| Règles matchant 1 seule transaction (jetables) | **273** |
+| Règles ne matchant rien | 35 |
+
+La migration `mappings` → `classification_rules` (Étape 3) a recopié 1:1 des
+mappings qui étaient déjà des libellés complets uniques (ex. 9 variantes de
+`PRLV SEPA FREE TELECOM FREE HAUTDEBIT <n°>` au lieu d'UNE règle
+`PRLV SEPA FREE TELECOM`). Le moteur ressemble à un système de règles mais
+fonctionne comme un annuaire : une entrée par transaction déjà vue.
+
+**Pourquoi ça n'a jamais explosé avant :** invisible tant qu'on importait du CSV
+historique — chaque ancienne transaction a son étiquette sur mesure, donc « tout
+est classé », et un rechargement à zéro re-classerait tout. Le défaut n'apparaît
+QUE sur un libellé INÉDIT, donc depuis Enable Banking en réel.
+
+**Règles de prévention :**
+1. Ne jamais conclure « le classement marche » depuis un import CSV ni depuis un
+   compteur de non-classées : ça ne teste que l'annuaire. Tester avec un libellé
+   bancaire inédit.
+2. Un test sur `_clean_remittance` (décodage du libellé) ne prouve RIEN sur le
+   classement. **Tester la catégorie en bout de chaîne** — cf.
+   `test_vir_matera_seul_est_classe_en_loyer`. C'est précisément le trou qui a
+   laissé passer cette régression : 13 tests verts sur le décodage, 0 sur la
+   catégorie.
+3. Avant de brancher une nouvelle banque, auditer les motifs du bien :
+   `grep -E 'E2EID|FHD-|I0{3,}|\d{6,}'` sur `pattern`. Un motif contenant une
+   référence est mort-né.
+4. **`enrich_all_transactions(db, property_id)` re-classe TOUT** et remet à NULL
+   ce qu'aucune règle ne rattrape → écrase les classements manuels. Pour un
+   rattrapage, ne toucher que les `category_id IS NULL`, et contrôler contre une
+   sauvegarde d'avant (« 0 classement existant modifié »).
+
+**Statut :** Evry à 0 non-classée. Le LCL (Marseille) n'est PAS affecté — ses
+libellés sont des préfixes stables, sans référence. Les 273 règles jetables
+restent en base : encombrement hérité, non traité.
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet
@@ -628,5 +680,5 @@ seulement le contenu de la table, aurait fait échouer les tests dès l'origine.
 
 ---
 
-**Dernière mise à jour :** 2026-07-16 (correctif CRITICAL sync_account — begin_nested)
+**Dernière mise à jour :** 2026-07-17 (règles = annuaire — loyers Matera Evry)
 **Cas d'étude :** Quarantaine tests / contamination base de production
