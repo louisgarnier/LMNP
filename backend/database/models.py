@@ -553,3 +553,18 @@ class AnnualForecastConfig(Base):
         Index('idx_forecast_config_property_year_level1_type', 'property_id', 'year', 'level_1', 'target_type', unique=True),
     )
 
+
+class FiscalSettings(Base):
+    """Réglages fiscaux globaux à l'entité (une seule ligne).
+
+    Durées de report configurables. amort_report_years NULL = report illimité
+    (défaut légal LMNP pour les amortissements réputés différés).
+    """
+    __tablename__ = "fiscal_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    deficit_report_years = Column(Integer, default=10, nullable=False)
+    amort_report_years = Column(Integer, nullable=True)  # NULL = illimité
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
