@@ -815,3 +815,33 @@ class ReferenceDataResponse(BaseModel):
     categories: List[CategoryReferenceData]
     year: int
     target_type: str
+
+
+# ── Fiscal ──
+class FiscalYearResponse(BaseModel):
+    year: int
+    resultat_comptable: float
+    amortissements: float
+    r_ha: float
+    amort_deductible: float
+    amort_differe_annee: float
+    deficit_annee: float
+    imputation_deficits: float
+    imputation_amorts: float
+    resultat_fiscal_imposable: float
+    stock_deficit_fin: float
+    stock_amort_fin: float
+
+
+class FiscalSettingsResponse(BaseModel):
+    deficit_report_years: int
+    amort_report_years: Optional[int] = None  # None = illimité
+
+    class Config:
+        from_attributes = True
+
+
+class FiscalSettingsUpdate(BaseModel):
+    deficit_report_years: Optional[int] = Field(None, ge=1, le=50)
+    amort_report_years: Optional[int] = Field(None, ge=1, le=99)
+    amort_illimite: Optional[bool] = None  # True => amort_report_years = NULL
