@@ -1,0 +1,31 @@
+{
+  "annee": 2023,
+  "source": "BILAN 2023 LOUIS GARNIER.PDF",
+  "cabinet": "BUDIZ",
+  "unite": "euros entiers",
+  "biens_inclus": [25],
+  "compte_resultat": {
+    "produits": 27870,
+    "autres_charges_externes": 8581,
+    "impots_et_taxes": 1632,
+    "dotations_amortissements": 11119,
+    "charges_financieres": 2462,
+    "resultat_comptable": 4077
+  },
+  "bilan": {
+    "immobilisations_brut": 237691,
+    "amortissements_cumules": 21201,
+    "actif_total": 222044,
+    "capital_individuel": 304,
+    "resultat_exercice": 4077,
+    "emprunt_capital_restant_du": 217664,
+    "passif_total": 222044
+  },
+  "fiscal": {
+    "amortissements_reintegres": 0,
+    "deficit_reportable_de_lannee": 0,
+    "stock_deficit_reportable_fin": 23497,
+    "resultat_fiscal_imposable": 0,
+    "note": "Bénéfice 4077 neutralisé (imposable 0). Anomalie 2033-D: stock déficit non réduit malgré le bénéfice — devrait descendre à ~19420. Voir ECARTS_LIASSES_FISCALES.md."
+  }
+}

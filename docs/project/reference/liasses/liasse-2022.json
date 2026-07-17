@@ -1,0 +1,30 @@
+{
+  "annee": 2022,
+  "source": "BILAN LOUIS GARNIER 2022 (1).PDF",
+  "cabinet": "BUDIZ",
+  "unite": "euros entiers",
+  "biens_inclus": [25],
+  "compte_resultat": {
+    "produits": 18203,
+    "autres_charges_externes": 8209,
+    "impots_et_taxes": 2010,
+    "dotations_amortissements": 9750,
+    "charges_financieres": 2451,
+    "resultat_comptable": -4218
+  },
+  "bilan": {
+    "immobilisations_brut": 237691,
+    "amortissements_cumules": 10082,
+    "actif_total": 243319,
+    "capital_individuel": 18537,
+    "resultat_exercice": -4218,
+    "emprunt_capital_restant_du": 229000,
+    "passif_total": 243319
+  },
+  "fiscal": {
+    "amortissements_reintegres": 4218,
+    "deficit_reportable_de_lannee": 0,
+    "stock_deficit_reportable_fin": 23497,
+    "resultat_fiscal_imposable": 0
+  }
+}

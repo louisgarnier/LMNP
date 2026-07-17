@@ -1,0 +1,30 @@
+{
+  "annee": 2024,
+  "source": "liasse_fiscale_2024_louisgarnier_06_05_2025.pdf",
+  "cabinet": "TELEDEC (CERFA 2031/2033)",
+  "depose_le": "2025-05-06",
+  "unite": "euros entiers",
+  "biens_inclus": [25, 15],
+  "compte_resultat": {
+    "produits": 29782,
+    "autres_charges_externes": 26371,
+    "impots_et_taxes": 2764,
+    "dotations_amortissements": 14553,
+    "charges_financieres": 6066,
+    "charges_exceptionnelles": 60,
+    "resultat_comptable": -20032
+  },
+  "bilan": {
+    "immobilisations_brut": 358445,
+    "amortissements_cumules": 35753,
+    "actif_total": 322692,
+    "capital_individuel": 342724,
+    "resultat_exercice": -20032,
+    "passif_total": 322692
+  },
+  "fiscal": {
+    "amortissements_reintegres": 14553,
+    "deficit_reportable_de_lannee": 5479,
+    "resultat_fiscal_imposable": 0
+  }
+}

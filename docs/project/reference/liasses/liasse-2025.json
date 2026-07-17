@@ -1,0 +1,30 @@
+{
+  "annee": 2025,
+  "source": "liasse_fiscale_25.pdf",
+  "cabinet": "TELEDEC (CERFA 2031/2033)",
+  "unite": "euros entiers",
+  "biens_inclus": [25, 15, 26],
+  "compte_resultat": {
+    "produits": 42709,
+    "autres_charges_externes": 40278,
+    "impots_et_taxes": 4490,
+    "dotations_amortissements": 20338,
+    "charges_financieres": 8878,
+    "resultat_comptable": -31274
+  },
+  "bilan": {
+    "immobilisations_brut": 559455,
+    "amortissements_cumules": 56090,
+    "actif_total": 503365,
+    "capital_individuel": 339639,
+    "resultat_exercice": -31274,
+    "emprunt_capital_restant_du": 195000,
+    "passif_total": 503365
+  },
+  "fiscal": {
+    "amortissements_reintegres": 20338,
+    "deficit_reportable_de_lannee": 10937,
+    "resultat_fiscal_imposable": 0,
+    "note": "Charges financieres sous-evaluees de 63,68 EUR (erreur cabinet, cf ECARTS). Deficit reel appli = 11001."
+  }
+}
