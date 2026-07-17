@@ -94,3 +94,54 @@ def test_put_settings_modifie_la_duree():
         assert r.json()["deficit_report_years"] == 8
     finally:
         app.dependency_overrides.clear()
+
+
+def test_put_settings_amort_illimite():
+    mem = create_engine("sqlite:///:memory:",
+                        connect_args={"check_same_thread": False},
+                        poolclass=StaticPool)
+    Base.metadata.create_all(mem, tables=[FiscalSettings.__table__])
+    MemSession = sessionmaker(bind=mem)
+    seed = MemSession()
+    seed.add(FiscalSettings(deficit_report_years=10, amort_report_years=15))
+    seed.commit()
+    seed.close()
+
+    def _mem_db():
+        db = MemSession()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _mem_db
+    try:
+        r = client.put("/api/fiscal/settings", json={"amort_illimite": True})
+        assert r.status_code == 200
+        assert r.json()["amort_report_years"] is None
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_settings_cree_defaut_si_absent():
+    mem = create_engine("sqlite:///:memory:",
+                        connect_args={"check_same_thread": False},
+                        poolclass=StaticPool)
+    Base.metadata.create_all(mem, tables=[FiscalSettings.__table__])
+    MemSession = sessionmaker(bind=mem)
+
+    def _mem_db():
+        db = MemSession()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = _mem_db
+    try:
+        r = client.get("/api/fiscal/settings")
+        assert r.status_code == 200
+        assert r.json()["deficit_report_years"] == 10
+        assert r.json()["amort_report_years"] is None
+    finally:
+        app.dependency_overrides.clear()
