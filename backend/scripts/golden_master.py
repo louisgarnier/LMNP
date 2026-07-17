@@ -29,6 +29,7 @@ Aucune dépendance externe : uniquement la bibliothèque standard (urllib).
 """
 
 import argparse
+import datetime
 import json
 import sys
 import urllib.error
@@ -248,9 +249,21 @@ def extract_fiscal() -> dict:
     """Extrait le bloc fiscal, au niveau ENTITÉ (pas par propriété) : un
     seul appel à /api/fiscal/timeline, dont on ne garde que `results`
     (les années sont déjà les clés de ce dict), normalisé/arrondi comme
-    les blocs par propriété (round_floats trie aussi les clés)."""
+    les blocs par propriété (round_floats trie aussi les clés).
+
+    On exclut l'exercice courant (et tout exercice futur) du gel : il est
+    encore ouvert, donc son résultat change à chaque nouvelle transaction
+    saisie, ce qui ferait déclencher le garde-fou de régression à chaque
+    fois sans qu'il y ait de vraie régression. Seuls les exercices clos
+    sont figés."""
     response = http_get("/api/fiscal/timeline", {})
-    return round_floats(response["results"])
+    current_year = datetime.date.today().year
+    closed_years = {
+        year: values
+        for year, values in response["results"].items()
+        if int(year) < current_year
+    }
+    return round_floats(closed_years)
 
 
 def build_dataset() -> dict:

@@ -2256,20 +2256,6 @@
       "stock_amort_fin": 39933.18,
       "stock_deficit_fin": 36514.84,
       "year": 2025
-    },
-    "2026": {
-      "amort_deductible": 7810.33,
-      "amort_differe_annee": 19257.4,
-      "amortissements": 27067.73,
-      "deficit_annee": 0.0,
-      "imputation_amorts": 0.0,
-      "imputation_deficits": 0.0,
-      "r_ha": 7810.33,
-      "resultat_comptable": -19257.4,
-      "resultat_fiscal_imposable": 0.0,
-      "stock_amort_fin": 59190.58,
-      "stock_deficit_fin": 36514.84,
-      "year": 2026
     }
   }
 }

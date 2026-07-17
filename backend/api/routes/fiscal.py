@@ -29,7 +29,7 @@ def fiscal_timeline(db: Session = Depends(get_db)):
 
 @router.get("/fiscal/settings", response_model=FiscalSettingsResponse)
 def get_settings(db: Session = Depends(get_db)):
-    s = db.query(FiscalSettings).first()
+    s = db.query(FiscalSettings).order_by(FiscalSettings.id).first()
     if s is None:
         s = FiscalSettings(deficit_report_years=10, amort_report_years=None)
         db.add(s); db.commit(); db.refresh(s)
@@ -38,7 +38,7 @@ def get_settings(db: Session = Depends(get_db)):
 
 @router.put("/fiscal/settings", response_model=FiscalSettingsResponse)
 def put_settings(body: FiscalSettingsUpdate, db: Session = Depends(get_db)):
-    s = db.query(FiscalSettings).first()
+    s = db.query(FiscalSettings).order_by(FiscalSettings.id).first()
     if s is None:
         s = FiscalSettings(); db.add(s)
     if body.deficit_report_years is not None:

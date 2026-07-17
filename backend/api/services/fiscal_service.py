@@ -139,7 +139,7 @@ def entity_year_inputs(db, year):
 
 
 def _read_settings(db):
-    s = db.query(FiscalSettings).first()
+    s = db.query(FiscalSettings).order_by(FiscalSettings.id).first()
     if s is None:
         return 10, None
     return s.deficit_report_years, s.amort_report_years
