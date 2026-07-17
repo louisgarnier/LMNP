@@ -41,6 +41,27 @@ def test_tie_on_max_length_returns_none():
     assert find_matching_rule(label, rules) is None
 
 
+def test_vir_matera_seul_est_classe_en_loyer():
+    """Les loyers Matera d'Evry arrivent du Crédit Mutuel libellés 'VIR MATERA' nu.
+
+    Régression : les règles historiques embarquent la référence unique du
+    virement ('VIR MATERA E2EID-23469349'). Une référence ne se répète jamais,
+    donc aucune ne peut matcher le libellé nu — les 31 loyers tombaient en
+    non-classé. Il faut une règle 'exact' sur le libellé stable.
+    """
+    e2eid_rules = [_rule(f"VIR MATERA E2EID-{ref}", "prefix", category_id=14)
+                   for ref in ("23469349", "23395524", "22602150")]
+    # Sans la règle stable : les règles à référence ne rattrapent rien.
+    assert find_matching_rule("VIR MATERA", e2eid_rules) is None
+    # Avec elle : classé en 14 (Encaissement locataire et CAF).
+    rules = e2eid_rules + [_rule("VIR MATERA", "exact", category_id=14)]
+    got = find_matching_rule("VIR MATERA", rules)
+    assert got is not None and got.category_id == 14
+    # La règle 'exact' ne déborde pas sur un libellé plus long (ex. un futur
+    # 'VIR MATERA REMBOURSEMENT' doit rester à trancher à la main).
+    assert find_matching_rule("VIR MATERA REMBOURSEMENT", rules) is None
+
+
 def test_property_rule_beats_global_on_tie():
     prop = _rule("EDF", "exact", category_id=5, property_id=25)
     glob = _rule("EDF", "exact", category_id=6, property_id=None)
