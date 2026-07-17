@@ -7,6 +7,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.database.models import BankAccount, Transaction
@@ -18,6 +19,13 @@ _API_BASE = "https://api.enablebanking.com"
 # Borne basse quand un compte n'a jamais été synchronisé : on demande tout ce que
 # la banque accepte de donner (voir _fetch_raw), pas une fenêtre arbitraire.
 _EARLIEST_HISTORY = date(2020, 1, 1)
+
+# Profondeur de la fenêtre glissante redemandée à CHAQUE synchro. 90 jours, car
+# c'est la limite que les banques servent sans broncher (LCL refuse au-delà :
+# 422 WRONG_TRANSACTIONS_PERIOD). Redemander large est sans risque — l'anti-doublon
+# (account_id, external_id) écarte ce qu'on a déjà — et c'est ce qui permet à un
+# trou dans l'historique de se reboucher tout seul.
+_LOOKBACK_DAYS = 90
 
 
 def _parse_env_file(path: Path) -> dict:
@@ -373,6 +381,58 @@ def _fetch_pages(account_uid: str, start: date) -> list[dict]:
     return out
 
 
+def _since_for(db: Session, bank_account: BankAccount):
+    """Date à partir de laquelle redemander l'historique à la banque.
+
+    FENÊTRE GLISSANTE, jamais l'horloge de la dernière synchro.
+
+    Historique de la décision (2026-07-17) :
+    - `since = last_sync_at` rendait toute suppression IRRÉVERSIBLE : supprimer
+      juin/juillet puis resynchroniser redemandait « depuis aujourd'hui » et les
+      transactions ne revenaient jamais. Un demi-échec de synchro faisait avancer
+      last_sync_at malgré tout — les transactions manquantes étaient perdues.
+    - `since = dernière transaction en base` (1re tentative) ne règle que le trou
+      en FIN d'historique. Sur un trou AU MILIEU — juin supprimé mais une écriture
+      du 17/07 subsistante — la fenêtre repart du 17/07 et saute par-dessus le
+      trou. Constaté en conditions réelles le 2026-07-17.
+
+    D'où la fenêtre glissante : on redemande systématiquement les
+    `_LOOKBACK_DAYS` derniers jours et on laisse l'anti-doublon
+    `(account_id, external_id)` écarter ce qu'on a déjà. Un trou se rebouche
+    alors où qu'il soit, sans intervention.
+
+    Deux garde-fous :
+
+    1. Ne JAMAIS remonter avant le dernier import CSV du bien. Les lignes CSV
+       n'ont ni `account_id` ni `external_id` : l'anti-doublon est aveugle sur
+       elles (bug du 19/01/2026, 347,28 € comptés deux fois). Sans ce plancher,
+       une fenêtre qui les recouvre dupliquerait tout l'historique importé.
+    2. Compte réellement neuf (aucune transaction) → None : première synchro, on
+       prend tout l'historique disponible ; il n'y a rien à dupliquer.
+    """
+    a_des_donnees = (
+        db.query(Transaction.id)
+        .filter(Transaction.property_id == bank_account.property_id)
+        .first()
+        is not None
+    )
+    if not a_des_donnees:
+        return None  # première synchro : tout l'historique
+
+    fenetre = date.today() - timedelta(days=_LOOKBACK_DAYS)
+    dernier_csv = (
+        db.query(func.max(Transaction.date))
+        .filter(
+            Transaction.property_id == bank_account.property_id,
+            Transaction.account_id.is_(None),  # lignes CSV : pas d'external_id
+        )
+        .scalar()
+    )
+    if dernier_csv is not None:
+        return max(fenetre, dernier_csv)
+    return fenetre
+
+
 def sync_account(db: Session, bank_account: BankAccount) -> dict:
     """Synchronise UN compte bancaire : fetch → filtre pending → ingest_transactions
     (dédoublonnage + classif + recalculs). ingest_transactions committe déjà son propre
@@ -381,7 +441,16 @@ def sync_account(db: Session, bank_account: BankAccount) -> dict:
     sync_property compte par compte. Retourne {account_id, inserted, deduplicated, errors}."""
     from backend.api.services.ingestion_service import ingest_transactions
 
-    since = bank_account.last_sync_at.date() if bank_account.last_sync_at else None
+    since = _since_for(db, bank_account)
+    # Trace de la fenêtre réellement demandée. Le 2026-07-17, un correctif de
+    # cette fonction a été livré sans que le serveur (lancé sans --reload) ne le
+    # charge : les tests étaient verts, l'app tournait sur l'ancien code, et la
+    # resynchro n'a rien ramené. On journalise donc la fenêtre à chaque synchro —
+    # c'est le seul moyen de vérifier après coup ce qui a VRAIMENT été demandé.
+    logger.info(
+        "📥 [Banking] sync compte %s (%s) — fenêtre demandée depuis %s",
+        bank_account.id, bank_account.bank_name, since or "origine (première synchro)",
+    )
     try:
         raw = _fetch_raw(bank_account, since)
         # On n'importe que les écritures comptabilisées (status BOOK) ; on écarte
