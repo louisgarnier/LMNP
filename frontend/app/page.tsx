@@ -14,9 +14,6 @@ import { useProperty } from '@/contexts/PropertyContext';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-// Mapping id de bien -> nom court, utilisé pour la liste "biens inclus" par exercice.
-const BIENS: Record<number, string> = { 25: 'Evry', 15: 'Marseille abnb', 26: 'Marseille colloc' };
-
 interface Ligne {
   poste: string;
   par_bien: Record<string, number> | null;
@@ -37,10 +34,6 @@ interface AnneeRec {
 interface RecResponse {
   annees: number[];
   results: Record<string, AnneeRec>;
-}
-
-function findLigne(lignes: Ligne[], poste: string): Ligne | undefined {
-  return lignes.find((l) => l.poste === poste);
 }
 
 function formatEuro(v: number | null | undefined): string {
@@ -67,8 +60,6 @@ export default function HomePage() {
 
   // Bloc fiscal global (section 2)
   const [recon, setRecon] = useState<RecResponse | null>(null);
-  const [reconLoading, setReconLoading] = useState(true);
-  const [reconError, setReconError] = useState(false);
 
   // Résultat {CY} par appartement (section 1)
   const [resultats, setResultats] = useState<Record<number, number | null>>({});
@@ -76,7 +67,7 @@ export default function HomePage() {
   const cy = recon && recon.annees.length > 0 ? Math.max(...recon.annees) : null;
 
   // Charge la réconciliation globale -> sert à déterminer l'exercice en cours (CY)
-  // et alimente le récap par exercice de la section 2.
+  // pour libeller le résultat des cartes appartement.
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_BASE_URL}/api/reconciliation`)
@@ -87,12 +78,7 @@ export default function HomePage() {
       .then((data: RecResponse) => {
         if (!cancelled) setRecon(data);
       })
-      .catch(() => {
-        if (!cancelled) setReconError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setReconLoading(false);
-      });
+      .catch(() => { /* réconciliation indisponible -> cy null -> cartes en "—" */ });
     return () => {
       cancelled = true;
     };
@@ -257,8 +243,6 @@ export default function HomePage() {
       </div>
     );
   }
-
-  const sortedAnnees = recon ? [...recon.annees].sort((a, b) => b - a) : [];
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f4f5f7', color: '#172b4d' }}>
@@ -471,11 +455,35 @@ export default function HomePage() {
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+        {/* Entrée principale : Vision globale */}
+        <Link
+          href="/dashboard/liasse-fiscale"
+          style={{
+            display: 'block',
+            backgroundColor: '#fff',
+            border: '1px solid #dfe1e6',
+            borderLeft: '3px solid #0052cc',
+            borderRadius: '8px',
+            padding: '16px 18px',
+            cursor: 'pointer',
+            textDecoration: 'none',
+            marginBottom: '12px',
+            transition: 'box-shadow .12s',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(9,30,66,.12)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+        >
+          <div style={{ fontSize: '15px', fontWeight: 700, color: '#172b4d' }}>Vision globale →</div>
+          <div style={{ fontSize: '12px', color: '#5e6c84', marginTop: '4px', lineHeight: 1.5 }}>
+            Résultat par appartement + entité, les deux tirelires (déficit &amp; amortissements reportés), et le choix d&apos;imputation par année.
+          </div>
+        </Link>
+
+        {/* Deux vues secondaires */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
           {[
-            { title: 'Vision globale →', desc: "Résultat par appartement + entité, les deux tirelires, et le choix d'imputation par année.", href: '/dashboard/liasse-fiscale' },
-            { title: 'Chaîne année par année →', desc: 'Le détail du calcul : résultat comptable → résultat fiscal → déficit & amortissements reportés. App vs Officiel.', href: '/dashboard/liasse-fiscale/chaine' },
-            { title: 'Détail par appartement →', desc: 'Compte de résultat groupé par appartement, comparé à la liasse déposée, par exercice.', href: '/dashboard/liasse-fiscale/detail' },
+            { title: 'Voir le détail par appartement →', desc: 'Compte de résultat groupé par appartement, comparé à la liasse déposée, par exercice.', href: '/dashboard/liasse-fiscale/detail' },
+            { title: 'Voir la chaîne fiscale année par année →', desc: 'Résultat comptable → résultat fiscal → déficit & amortissements reportés. App vs Officiel.', href: '/dashboard/liasse-fiscale/chaine' },
           ].map((entry) => (
             <Link
               key={entry.href}
@@ -484,108 +492,19 @@ export default function HomePage() {
                 display: 'block',
                 backgroundColor: '#fff',
                 border: '1px solid #dfe1e6',
-                borderLeft: '3px solid #0052cc',
                 borderRadius: '8px',
                 padding: '14px 16px',
                 cursor: 'pointer',
                 textDecoration: 'none',
                 transition: 'box-shadow .12s',
               }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(9,30,66,.12)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = 'none';
-              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(9,30,66,.12)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
             >
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#172b4d' }}>{entry.title}</div>
               <div style={{ fontSize: '11px', color: '#5e6c84', marginTop: '3px', lineHeight: 1.45 }}>{entry.desc}</div>
             </Link>
           ))}
-        </div>
-
-        <div style={{ backgroundColor: '#fff', border: '1px solid #dfe1e6', borderRadius: '8px', overflow: 'hidden' }}>
-          {reconLoading && (
-            <div style={{ padding: '14px', fontSize: '12px', color: '#5e6c84' }}>Chargement de la réconciliation…</div>
-          )}
-          {!reconLoading && reconError && (
-            <div style={{ padding: '14px', fontSize: '12px', color: '#bf2600' }}>Impossible de charger la réconciliation.</div>
-          )}
-          {!reconLoading && !reconError && recon && sortedAnnees.length === 0 && (
-            <div style={{ padding: '14px', fontSize: '12px', color: '#5e6c84' }}>Aucun exercice à afficher.</div>
-          )}
-          {!reconLoading && !reconError && recon && sortedAnnees.map((annee, idx) => {
-            const yearData = recon.results[String(annee)];
-            if (!yearData) return null;
-            const biensLabel = yearData.biens_inclus.map((id) => BIENS[id] ?? `#${id}`).join(' · ');
-            const resultatLigne = findLigne(yearData.lignes, 'Résultat comptable');
-            const appVal = resultatLigne?.app ?? null;
-            const liasseVal = resultatLigne?.liasse ?? null;
-
-            let badgeLabel: string;
-            let badgeBg: string;
-            let badgeColor: string;
-            if (yearData.brouillon) {
-              badgeLabel = 'brouillon';
-              badgeBg = '#deebff';
-              badgeColor = '#0747a6';
-            } else if (yearData.nb_ecarts === 0) {
-              badgeLabel = '✓ conforme';
-              badgeBg = '#e3fcef';
-              badgeColor = '#006644';
-            } else {
-              badgeLabel = `${yearData.nb_ecarts} écart(s)`;
-              badgeBg = '#ffebe6';
-              badgeColor = '#bf2600';
-            }
-
-            return (
-              <div
-                key={annee}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '11px 14px',
-                  borderBottom: idx === sortedAnnees.length - 1 ? 'none' : '1px solid #f4f5f7',
-                  cursor: 'pointer',
-                  backgroundColor: annee === cy ? '#f7f9ff' : 'transparent',
-                }}
-                onMouseEnter={(e) => {
-                  if (annee !== cy) e.currentTarget.style.backgroundColor = '#f7f9ff';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = annee === cy ? '#f7f9ff' : 'transparent';
-                }}
-                onClick={() => router.push('/dashboard/liasse-fiscale')}
-              >
-                <div style={{ width: '52px', fontSize: '14px', fontWeight: 700 }}>{annee}</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px' }}>{biensLabel || '—'}</div>
-                </div>
-                <div style={{ width: '150px', textAlign: 'right' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, color: euroColor(appVal) }}>{formatEuro(appVal)}</div>
-                  {!yearData.brouillon && (
-                    <div style={{ fontSize: '12px', color: '#5e6c84' }}>liasse : {formatEuro(liasseVal)}</div>
-                  )}
-                </div>
-                <div style={{ width: '150px', textAlign: 'right' }}>
-                  <span
-                    style={{
-                      fontSize: '9px',
-                      fontWeight: 700,
-                      textTransform: 'uppercase',
-                      padding: '2px 6px',
-                      borderRadius: '3px',
-                      backgroundColor: badgeBg,
-                      color: badgeColor,
-                    }}
-                  >
-                    {badgeLabel}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
         </div>
       </div>
     </div>
