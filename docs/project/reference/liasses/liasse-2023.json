@@ -26,6 +26,7 @@
     "deficit_reportable_de_lannee": 0,
     "stock_deficit_reportable_fin": 23497,
     "resultat_fiscal_imposable": 0,
+    "stock_amort_reporte_reconstitue": 473,
     "note": "Bénéfice 4077 neutralisé (imposable 0). Anomalie 2033-D: stock déficit non réduit malgré le bénéfice — devrait descendre à ~19420. Voir ECARTS_LIASSES_FISCALES.md."
   }
 }

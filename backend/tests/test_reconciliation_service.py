@@ -139,6 +139,15 @@ def test_reconcile_expose_cr_par_bien(rec):
     assert "charges_externes" in rec[2025]["cr_par_bien"][25]
 
 
+def test_amort_reporte_cumule_compare(rec):
+    l = next(x for x in rec[2025]["lignes"] if x["poste"] == "Amortissements reportés (cumulé)")
+    assert l["par_bien"] is None            # entité, pas de ventilation
+    assert l["app"] == pytest.approx(39933, abs=1.0)
+    assert l["liasse"] == pytest.approx(35364, abs=1.0)
+    assert l["ecart"] == pytest.approx(4569, abs=1.0)
+    assert l["ok"] is False
+
+
 def test_2026_est_un_brouillon_sans_liasse(rec):
     # L'exercice en cours (2026) apparaît en brouillon : chiffres appli, pas de
     # liasse ni d'écart.
