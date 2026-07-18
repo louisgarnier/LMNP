@@ -10,6 +10,7 @@ import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Header from '@/components/Header';
 import Navigation from '@/components/Navigation';
+import GlobalFiscalHeader from '@/components/GlobalFiscalHeader';
 import { ImportLogProvider } from '@/contexts/ImportLogContext';
 import { useProperty } from '@/contexts/PropertyContext';
 
@@ -55,8 +56,14 @@ export default function DashboardLayout({
   return (
     <ImportLogProvider>
       <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb' }}>
-        <Header />
-        <Navigation />
+        {isGlobalRoute ? (
+          <GlobalFiscalHeader />
+        ) : (
+          <>
+            <Header />
+            <Navigation />
+          </>
+        )}
         <main>
           {children}
         </main>
