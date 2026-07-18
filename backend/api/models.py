@@ -845,3 +845,7 @@ class FiscalSettingsUpdate(BaseModel):
     deficit_report_years: Optional[int] = Field(None, ge=1, le=50)
     amort_report_years: Optional[int] = Field(None, ge=1, le=99)
     amort_illimite: Optional[bool] = None  # True => amort_report_years = NULL
+
+
+class ImputationChoiceUpdate(BaseModel):
+    mode: str  # 'deficit' | 'amort'
