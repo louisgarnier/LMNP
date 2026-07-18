@@ -1,7 +1,7 @@
 """Assemble la « chaîne fiscale » année par année : valeurs App (moteur) +
 Officiel (liasses déposées) + écart, pour les 3 étapes (résultat fiscal,
 tirelire déficit, tirelire amortissements). Niveau entité."""
-from backend.api.services.fiscal_service import get_fiscal_timeline, entity_year_range
+from backend.api.services.fiscal_service import get_fiscal_timeline
 from backend.api.services.reconciliation_service import load_liasses
 
 _EPS = 0.005
@@ -33,8 +33,8 @@ def build_chain(db):
         deficit_off = fisc.get("stock_deficit_reportable_fin") if li else None
         amort_off = fisc.get("stock_amort_reporte_reconstitue") if li else None
         if li:
-            drl = fisc.get("deficit_reportable_de_lannee", 0.0)
-            rf_off = -drl if drl else 0.0
+            rf_off = (li["compte_resultat"]["resultat_comptable"]
+                      + fisc.get("amortissements_reintegres", 0.0))
         else:
             rf_off = None
 

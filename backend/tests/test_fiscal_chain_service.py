@@ -49,3 +49,11 @@ def test_2026_brouillon_sans_officiel(chain):
     assert l["brouillon"] is True
     assert l["deficit_fin_officiel"] is None
     assert l["deficit_ecart"] is None
+
+
+def test_2023_resultat_fiscal_app_et_officiel(chain):
+    # 2023 est bénéficiaire : rappel officiel du résultat fiscal = +4077
+    # (résultat comptable + amort réintégrés), pas 0.
+    l = chain["chain"][2023]
+    assert l["resultat_fiscal_officiel"] == pytest.approx(4077, abs=1.0)
+    assert l["resultat_fiscal_app"] == pytest.approx(4062, abs=3.0)

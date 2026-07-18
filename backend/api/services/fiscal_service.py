@@ -14,7 +14,7 @@ import logging
 
 from sqlalchemy import func
 
-from backend.database.models import Transaction, Property, FiscalSettings
+from backend.database.models import Transaction, Property, FiscalSettings, FiscalImputationChoice
 from backend.api.services.compte_resultat_service import calculate_compte_resultat
 
 logger = logging.getLogger(__name__)
@@ -158,7 +158,6 @@ def _read_settings(db):
 
 def read_imputation_choices(db):
     """{year: mode} depuis la table, pour les modes non-défaut uniquement."""
-    from backend.database.models import FiscalImputationChoice
     rows = db.query(FiscalImputationChoice).all()
     return {r.year: r.mode for r in rows}
 
