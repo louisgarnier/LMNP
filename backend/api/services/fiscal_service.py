@@ -156,11 +156,20 @@ def _read_settings(db):
     return s.deficit_report_years, s.amort_report_years
 
 
+def read_imputation_choices(db):
+    """{year: mode} depuis la table, pour les modes non-défaut uniquement."""
+    from backend.database.models import FiscalImputationChoice
+    rows = db.query(FiscalImputationChoice).all()
+    return {r.year: r.mode for r in rows}
+
+
 def get_fiscal_timeline(db):
     """Déroule le moteur sur toute la plage d'années, réglages lus en base."""
     deficit_years, amort_years = _read_settings(db)
     years_data = [entity_year_inputs(db, y) for y in entity_year_range(db)]
-    return compute_fiscal_timeline(years_data, deficit_years, amort_years)
+    choices = read_imputation_choices(db)
+    return compute_fiscal_timeline(years_data, deficit_years, amort_years,
+                                   imputation_choices=choices)
 
 
 def get_fiscal(db, year):
