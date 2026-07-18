@@ -40,13 +40,14 @@ export default function DetailPage() {
   const [data, setData] = useState<RecResponse | null>(null);
   const [year, setYear] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [realized, setRealized] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/reconciliation`)
+    fetch(`${API_BASE_URL}/api/reconciliation?realized=${realized}`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((d: RecResponse) => { setData(d); setYear(d.annees[d.annees.length - 1]); })
+      .then((d: RecResponse) => { setData(d); setYear((prev) => prev ?? d.annees[d.annees.length - 1]); })
       .catch((e) => setError(String(e)));
-  }, []);
+  }, [realized]);
 
   if (error)
     return <div style={{ padding: 24, color: '#bf2600' }}>Erreur : {error}</div>;
@@ -73,6 +74,35 @@ export default function DetailPage() {
       </h1>
       <div style={{ marginTop: 4, fontSize: 12, color: '#5e6c84' }}>
         Compte de résultat par appartement · App / Liasse / Écart sur les postes comparables
+      </div>
+
+      <div
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12 }}
+        title="Ne change que l'année en cours (2026) : Réel = coût du financement à ce jour ; Prévisionnel = plein an."
+      >
+        <span style={{ fontSize: 12, color: '#5e6c84' }}>Base 2026 :</span>
+        <button
+          type="button"
+          onClick={() => setRealized(true)}
+          style={
+            realized
+              ? { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#0052cc', color: '#fff', border: '1px solid #0052cc' }
+              : { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#fff', color: '#5e6c84', border: '1px solid #dfe1e6' }
+          }
+        >
+          Réel
+        </button>
+        <button
+          type="button"
+          onClick={() => setRealized(false)}
+          style={
+            !realized
+              ? { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#0052cc', color: '#fff', border: '1px solid #0052cc' }
+              : { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#fff', color: '#5e6c84', border: '1px solid #dfe1e6' }
+          }
+        >
+          Prévisionnel
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 6, margin: '14px 0' }}>

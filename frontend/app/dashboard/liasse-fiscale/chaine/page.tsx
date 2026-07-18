@@ -114,19 +114,20 @@ export default function ChaineFiscalePage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<number | null>(null);
   const [putError, setPutError] = useState<string | null>(null);
+  const [realized, setRealized] = useState(true);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/fiscal/chaine`)
+    fetch(`${API_BASE_URL}/api/fiscal/chaine?realized=${realized}`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then((d: ChaineResponse) => setData(d))
       .catch((e) => setError(String(e)));
-  }, []);
+  }, [realized]);
 
   async function handleModeChange(year: number, mode: Mode) {
     setSaving(year);
     setPutError(null);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/fiscal/imputation/${year}`, {
+      const res = await fetch(`${API_BASE_URL}/api/fiscal/imputation/${year}?realized=${realized}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode }),
@@ -164,6 +165,35 @@ export default function ChaineFiscalePage() {
         (déficit reportable · amortissements reportés). Colonne <b>App</b> = ce que l&apos;appli calcule ·
         colonne <b>Officiel</b> = ce qui a été déposé en liasse.
       </p>
+
+      <div
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12 }}
+        title="Ne change que l'année en cours (2026) : Réel = coût du financement à ce jour ; Prévisionnel = plein an."
+      >
+        <span style={{ fontSize: 12, color: '#5e6c84' }}>Base 2026 :</span>
+        <button
+          type="button"
+          onClick={() => setRealized(true)}
+          style={
+            realized
+              ? { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#0052cc', color: '#fff', border: '1px solid #0052cc' }
+              : { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#fff', color: '#5e6c84', border: '1px solid #dfe1e6' }
+          }
+        >
+          Réel
+        </button>
+        <button
+          type="button"
+          onClick={() => setRealized(false)}
+          style={
+            !realized
+              ? { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#0052cc', color: '#fff', border: '1px solid #0052cc' }
+              : { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#fff', color: '#5e6c84', border: '1px solid #dfe1e6' }
+          }
+        >
+          Prévisionnel
+        </button>
+      </div>
 
       {putError && (
         <div style={{ marginTop: 12, padding: '8px 12px', background: '#fff6f5', border: '1px solid #bf2600', borderRadius: 4, color: '#bf2600', fontSize: 12 }}>
