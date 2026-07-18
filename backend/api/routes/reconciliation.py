@@ -1,5 +1,5 @@
 """Route de réconciliation appli vs liasses déposées."""
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from backend.database.connection import get_db
@@ -9,7 +9,10 @@ router = APIRouter()
 
 
 @router.get("/reconciliation")
-def get_reconciliation(db: Session = Depends(get_db)):
+def get_reconciliation(
+    realized: bool = Query(True, description="True = Réel (coût financement à ce jour, défaut) ; False = Prévisionnel (plein an). N'affecte que l'année en cours."),
+    db: Session = Depends(get_db),
+):
     """Réconciliation par exercice : appli (calculé) vs liasse (déposé) vs écart.
 
     Retourne `{"annees": [...], "results": {annee: {...}}}`. Chaque exercice
@@ -19,5 +22,5 @@ def get_reconciliation(db: Session = Depends(get_db)):
     reportés, résultat fiscal imposable), `cr_par_bien` (CR groupé par
     appartement), `stock_deficit_appli` et `nb_ecarts`.
     """
-    results = reconcile(db)
+    results = reconcile(db, realized=realized)
     return {"annees": sorted(results.keys()), "results": results}

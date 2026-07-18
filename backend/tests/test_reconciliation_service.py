@@ -23,9 +23,11 @@ _ROSession = sessionmaker(bind=_ro_engine)
 
 @pytest.fixture
 def rec():
+    # imputation_choices={} => défaut déficit-d'abord pour toutes les années,
+    # indépendant de tout choix persisté en base (déterministe).
     db = _ROSession()
     try:
-        yield reconcile(db)
+        yield reconcile(db, imputation_choices={})
     finally:
         db.close()
 
@@ -41,7 +43,7 @@ def test_2024_annee_conforme_mais_stock_deficit_herite_de_l_anomalie():
     # amortissements, déficit de l'exercice, imposable) aux arrondis près.
     db = _ROSession()
     try:
-        r = reconcile(db)[2024]
+        r = reconcile(db, imputation_choices={})[2024]
     finally:
         db.close()
     for poste in ("Produits", "Résultat comptable", "Amortissements",

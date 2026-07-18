@@ -42,12 +42,15 @@ def load_liasses(directory=None):
     return out
 
 
-def _per_bien_cr(db, year):
+def _per_bien_cr(db, year, realized=True):
     """{pid: {produits, charges_externes, impots, amortissements, interets, resultat}}
     pour les biens ACTIFS l'année. Charges/impôts/intérêts/amortissements en
     valeur NÉGATIVE (comme des charges). Aucun bien codé en dur : parcourt
     db.query(Property). Un bien sans activité (aucune transaction cette année)
     est omis pour ne pas afficher de colonne à 0.
+
+    `realized=True` (défaut) = Réel (coût financement à ce jour) ; False =
+    Prévisionnel (plein an). N'affecte que l'année en cours.
     """
     # catégories de charges NON externes (traitées à part)
     IMPOTS = "Impôts et taxes"
@@ -55,7 +58,8 @@ def _per_bien_cr(db, year):
     FIN = "Coût du financement (hors remboursement du capital)"
     out = {}
     for prop in db.query(Property).all():
-        cr = calculate_compte_resultat(db, year, property_id=prop.id)
+        cr = calculate_compte_resultat(db, year, property_id=prop.id,
+                                       skip_prorata=realized)
         produits = cr.get("total_produits", 0.0)
         resultat = cr.get("resultat_net", 0.0)
         charges = cr.get("charges", {})
@@ -117,15 +121,20 @@ def _ligne_entite(poste, app_val, liasse_val):
             "liasse": liasse_val, "ecart": ecart, "ok": abs(ecart) <= _TOLERANCE}
 
 
-def reconcile(db, directory=None):
+def reconcile(db, directory=None, realized=True, imputation_choices=None):
     """Réconciliation par exercice, du plus ancien au plus récent.
 
     Chaque année : lignes comptables ventilées par bien + total, lignes fiscales
     au total, contrôle de composition, stock de déficit, nb_ecarts. Les exercices
     sans liasse (année en cours) sont marqués `brouillon`.
+
+    `realized=True` (défaut) = Réel (coût financement à ce jour, cohérent avec le
+    bilan) ; False = Prévisionnel (plein an). N'affecte que l'année en cours ;
+    années closes identiques (conformité aux liasses préservée).
     """
     liasses = load_liasses(directory)
-    timeline = get_fiscal_timeline(db)
+    timeline = get_fiscal_timeline(db, realized=realized,
+                                   imputation_choices=imputation_choices)
     annees = entity_year_range(db)
     out = {}
 
@@ -134,7 +143,7 @@ def reconcile(db, directory=None):
         brouillon = liasse is None
         fisc = timeline.get(year, {})
 
-        cr_bien = _per_bien_cr(db, year)
+        cr_bien = _per_bien_cr(db, year, realized=realized)
         immo_bien = _per_bien_immo(db, year)
         produits_bien = {pid: v["produits"] for pid, v in cr_bien.items()}
         cext_bien = {pid: v["charges_externes"] for pid, v in cr_bien.items()}

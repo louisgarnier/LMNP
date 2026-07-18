@@ -7,8 +7,11 @@ from backend.api.services.reconciliation_service import load_liasses
 _EPS = 0.005
 
 
-def build_chain(db):
-    tl = get_fiscal_timeline(db)
+def build_chain(db, realized=True, imputation_choices=None):
+    # realized=True (défaut) = Réel (coût financement à ce jour) ; False = Prévisionnel
+    # (plein an). N'affecte que l'année en cours ; années closes identiques.
+    # imputation_choices : None => lus en base ; dict explicite pour tests déterministes.
+    tl = get_fiscal_timeline(db, realized=realized, imputation_choices=imputation_choices)
     liasses = load_liasses()
     years = sorted(tl.keys())
 

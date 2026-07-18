@@ -16,9 +16,11 @@ _ROSession = sessionmaker(bind=_ro)
 
 @pytest.fixture
 def chain():
+    # imputation_choices={} => défaut déficit-d'abord, déterministe (indépendant
+    # de tout choix d'imputation persisté en base).
     db = _ROSession()
     try:
-        yield build_chain(db)
+        yield build_chain(db, imputation_choices={})
     finally:
         db.close()
 
@@ -57,3 +59,36 @@ def test_2023_resultat_fiscal_app_et_officiel(chain):
     l = chain["chain"][2023]
     assert l["resultat_fiscal_officiel"] == pytest.approx(4077, abs=1.0)
     assert l["resultat_fiscal_app"] == pytest.approx(4062, abs=3.0)
+
+
+def test_realized_naffecte_que_lannee_en_cours():
+    # Réel vs Prévisionnel : résultat comptable identique sur toutes les années
+    # CLOSES, différent uniquement sur l'année en cours (2026).
+    db = _ROSession()
+    try:
+        reel = build_chain(db, realized=True, imputation_choices={})
+        prev = build_chain(db, realized=False, imputation_choices={})
+    finally:
+        db.close()
+    for y in (2021, 2022, 2023, 2024, 2025):
+        assert reel["chain"][y]["resultat_comptable"] == pytest.approx(
+            prev["chain"][y]["resultat_comptable"], abs=0.5), f"{y} devrait être identique Réel/Prévisionnel"
+    # 2026 en cours : le Réel plafonne le coût du financement -> résultat distinct.
+    assert abs(reel["chain"][2026]["resultat_comptable"]
+               - prev["chain"][2026]["resultat_comptable"]) > 1.0
+
+
+def test_imputation_override_bascule_les_tirelires_2023():
+    # L'override d'imputation pilote la chaîne indépendamment de l'état persisté.
+    db = _ROSession()
+    try:
+        deficit = build_chain(db, imputation_choices={})
+        amort = build_chain(db, imputation_choices={2023: "amort"})
+    finally:
+        db.close()
+    # déficit-d'abord : le bénéfice 2023 vide la tirelire déficit (~20035).
+    assert deficit["chain"][2023]["deficit_fin_app"] == pytest.approx(20035, abs=2.0)
+    assert deficit["chain"][2023]["mode"] == "deficit"
+    # amort-d'abord : la tirelire déficit reste haute (~24097).
+    assert amort["chain"][2023]["deficit_fin_app"] == pytest.approx(24097, abs=2.0)
+    assert amort["chain"][2023]["mode"] == "amort"

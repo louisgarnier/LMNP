@@ -57,14 +57,22 @@ def put_settings(body: FiscalSettingsUpdate, db: Session = Depends(get_db)):
 
 
 @router.get("/fiscal/chaine")
-def fiscal_chaine(db: Session = Depends(get_db)):
-    out = build_chain(db)
+def fiscal_chaine(
+    realized: bool = Query(True, description="True = Réel (défaut) ; False = Prévisionnel (plein an). N'affecte que l'année en cours."),
+    db: Session = Depends(get_db),
+):
+    out = build_chain(db, realized=realized)
     out["reprise"] = _REPRISE
     return out
 
 
 @router.put("/fiscal/imputation/{year}")
-def put_imputation(year: int, body: ImputationChoiceUpdate, db: Session = Depends(get_db)):
+def put_imputation(
+    year: int,
+    body: ImputationChoiceUpdate,
+    realized: bool = Query(True, description="Base du recalcul renvoyé (True = Réel, défaut ; False = Prévisionnel)."),
+    db: Session = Depends(get_db),
+):
     if body.mode not in _MODES:
         raise HTTPException(400, f"mode invalide: {body.mode}")
     row = db.query(FiscalImputationChoice).filter_by(year=year).first()
@@ -74,6 +82,6 @@ def put_imputation(year: int, body: ImputationChoiceUpdate, db: Session = Depend
     else:
         row.mode = body.mode
     db.commit()
-    out = build_chain(db)
+    out = build_chain(db, realized=realized)
     out["reprise"] = _REPRISE
     return out

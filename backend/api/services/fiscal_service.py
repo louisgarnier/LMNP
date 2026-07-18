@@ -133,16 +133,21 @@ def entity_year_range(db):
     return list(range(y0, y1 + 1))
 
 
-def entity_year_inputs(db, year):
+def entity_year_inputs(db, year, realized=True):
     """Somme resultat_net et amortissements de TOUS les biens pour l'année.
 
     Aucun bien codé en dur : on parcourt la table properties. Un bien sans
     activité l'année donnée contribue 0 (calculate_compte_resultat renvoie 0).
+
+    `realized=True` (défaut) : coût du financement plafonné au réalisé à ce jour
+    (Réel, cohérent avec le bilan). `realized=False` : coût plein an
+    (Prévisionnel). Sans effet sur une année close (réel = plein an).
     """
     resultat_comptable = 0.0
     amortissements = 0.0
     for prop in db.query(Property).all():
-        cr = calculate_compte_resultat(db, year, property_id=prop.id)
+        cr = calculate_compte_resultat(db, year, property_id=prop.id,
+                                       skip_prorata=realized)
         resultat_comptable += cr.get("resultat_net", 0.0)
         amortissements += abs(cr.get("amortissements", 0.0))
     return {"year": year, "resultat_comptable": resultat_comptable,
@@ -162,11 +167,21 @@ def read_imputation_choices(db):
     return {r.year: r.mode for r in rows}
 
 
-def get_fiscal_timeline(db):
-    """Déroule le moteur sur toute la plage d'années, réglages lus en base."""
+def get_fiscal_timeline(db, realized=True, imputation_choices=None):
+    """Déroule le moteur sur toute la plage d'années, réglages lus en base.
+
+    `realized` (défaut True = Réel) est propagé au calcul de chaque exercice
+    (cf. entity_year_inputs). N'affecte que l'année en cours ; années closes
+    identiques.
+
+    `imputation_choices` : None (défaut) => choix par année lus en base ; sinon
+    dict {year: mode} explicite (utile pour des calculs déterministes, ex. tests,
+    indépendants de l'état persisté).
+    """
     deficit_years, amort_years = _read_settings(db)
-    years_data = [entity_year_inputs(db, y) for y in entity_year_range(db)]
-    choices = read_imputation_choices(db)
+    years_data = [entity_year_inputs(db, y, realized=realized)
+                  for y in entity_year_range(db)]
+    choices = read_imputation_choices(db) if imputation_choices is None else imputation_choices
     return compute_fiscal_timeline(years_data, deficit_years, amort_years,
                                    imputation_choices=choices)
 
