@@ -111,3 +111,19 @@ imposable, immobilisations brutes, biens_inclus.
 **Décision confirmée sur l'imputation** : c'est un CHOIX PAR ANNÉE bénéficiaire, stocké,
 qui pilote le moteur (ordre d'imputation déficit-d'abord vs amort-d'abord). Le moteur
 fiscal actuel fait déficit-d'abord en dur → il faudra le rendre paramétrable par année.
+
+---
+## MAJ 2026-07-18 (3) — ne pas oublier : REFONTE PAGE D'ACCUEIL
+
+Fait partie du sous-projet 3. Maquette du 1er jour récupérée : `accueil.html`
+(+ `detail-2025.html`). La page d'accueil (`frontend/app/page.tsx`) doit être
+refondue en 2 sections :
+1. **Appartements** : une carte par bien (solde bancaire réel + résultat de l'exercice
+   + pastille boîte de réception), au lieu de "Créé le ...".
+2. **Liasse fiscale / données globales** : point d'entrée vers les vues position fiscale
+   (Maquettes 1 & 2). C'est ce qui RÉSOUT le problème de positionnement remonté par Louis
+   (« l'onglet Liasse fiscale apparaît comme si j'étais dans une propriété ») — la liasse
+   vit dans le contexte GLOBAL (accueil), pas dans le menu par-propriété.
+
+`app/page.tsx` porte un avertissement "toujours vérifier avec l'utilisateur avant de
+modifier". Vérifier qu'aucune autre session ne le touche avant d'y toucher.
