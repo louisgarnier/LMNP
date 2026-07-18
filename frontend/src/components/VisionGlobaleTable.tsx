@@ -114,47 +114,47 @@ export default function VisionGlobaleTable() {
 
   return (
     <>
-      <div style={{ background: '#fff', border: '1px solid #dfe1e6', borderRadius: 6, overflowX: 'auto', marginTop: 16 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 1150 }}>
+      <div style={{ background: '#fff', border: '1px solid #dfe1e6', borderRadius: 6, overflowX: 'hidden', marginTop: 16 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 10, tableLayout: 'fixed' }}>
           <thead>
             <tr style={{ background: '#eceef1', color: '#5e6c84', fontSize: 9, textTransform: 'uppercase' }}>
-              <th style={{ padding: '7px 6px', textAlign: 'left' }} rowSpan={2}>Année</th>
+              <th style={{ padding: '4px 3px', textAlign: 'left' }} rowSpan={2}>Année</th>
               <th
-                style={{ padding: '7px 6px', textAlign: 'center', background: '#f1f3f5', borderLeft: '2px solid #868e96' }}
+                style={{ padding: '4px 3px', textAlign: 'center', background: '#f1f3f5', borderLeft: '2px solid #868e96' }}
                 colSpan={2}
               >
                 Liasse (vérif officielle)
               </th>
               <th
-                style={{ padding: '7px 6px', textAlign: 'center', borderLeft: '2px solid #172b4d' }}
+                style={{ padding: '4px 3px', textAlign: 'center', borderLeft: '2px solid #172b4d' }}
                 colSpan={BIEN_IDS.length + 1}
               >
                 Résultat comptable par appartement
               </th>
               <th
-                style={{ padding: '7px 6px', textAlign: 'center', borderLeft: '2px solid #bf2600', background: '#fff5f4' }}
+                style={{ padding: '4px 3px', textAlign: 'center', borderLeft: '2px solid #bf2600', background: '#fff5f4' }}
                 colSpan={2}
               >
                 Tirelires app
               </th>
               <th
-                style={{ padding: '7px 6px', textAlign: 'center', borderLeft: '2px solid #0052cc', background: '#f4f8ff' }}
+                style={{ padding: '4px 3px', textAlign: 'center', borderLeft: '2px solid #0052cc', background: '#f4f8ff' }}
                 rowSpan={2}
               >
                 Imputer<br />en priorité
               </th>
             </tr>
             <tr style={{ background: '#eceef1', color: '#5e6c84', fontSize: 9, textTransform: 'uppercase' }}>
-              <th style={{ padding: '5px 6px', textAlign: 'right', background: '#f1f3f5', borderLeft: '2px solid #868e96' }}>Déficit</th>
-              <th style={{ padding: '5px 6px', textAlign: 'right', background: '#f1f3f5' }}>Amort</th>
+              <th style={{ padding: '3px 3px', textAlign: 'right', background: '#f1f3f5', borderLeft: '2px solid #868e96' }}>Déficit</th>
+              <th style={{ padding: '3px 3px', textAlign: 'right', background: '#f1f3f5' }}>Amort</th>
               {BIEN_IDS.map((b, i) => (
-                <th key={b} style={{ padding: '5px 6px', textAlign: 'right', borderLeft: i === 0 ? '2px solid #172b4d' : undefined }}>
+                <th key={b} style={{ padding: '3px 3px', textAlign: 'right', borderLeft: i === 0 ? '2px solid #172b4d' : undefined }}>
                   {BIENS[b]}
                 </th>
               ))}
-              <th style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 700, color: '#172b4d' }}>Entité</th>
-              <th style={{ padding: '5px 6px', textAlign: 'right', borderLeft: '2px solid #bf2600', background: '#fff5f4' }}>Déficit</th>
-              <th style={{ padding: '5px 6px', textAlign: 'right', background: '#fff5f4' }}>Amort</th>
+              <th style={{ padding: '3px 3px', textAlign: 'right', fontWeight: 700, color: '#172b4d' }}>Entité</th>
+              <th style={{ padding: '3px 3px', textAlign: 'right', borderLeft: '2px solid #bf2600', background: '#fff5f4' }}>Déficit</th>
+              <th style={{ padding: '3px 3px', textAlign: 'right', background: '#fff5f4' }}>Amort</th>
             </tr>
           </thead>
           <tbody style={{ color: '#172b4d' }}>
@@ -171,7 +171,7 @@ export default function VisionGlobaleTable() {
 
               return (
                 <tr key={an} style={{ borderTop: '1px solid #f4f5f7', background: r.brouillon ? '#eef3ff' : undefined }}>
-                  <td style={{ padding: 6, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                  <td style={{ padding: '4px 3px', fontWeight: 700 }}>
                     {an}
                     {r.brouillon && (
                       <span
@@ -184,10 +184,10 @@ export default function VisionGlobaleTable() {
                       </span>
                     )}
                   </td>
-                  <td style={{ padding: 6, textAlign: 'right', background: '#f8f9fa', borderLeft: '2px solid #868e96', color: '#495057' }}>
+                  <td style={{ padding: '4px 3px', textAlign: 'right', background: '#f8f9fa', borderLeft: '2px solid #868e96', color: '#495057' }}>
                     {r.brouillon ? '— pas de liasse' : deficitCum?.liasse != null ? eur(deficitCum.liasse) : '—'}
                   </td>
-                  <td style={{ padding: 6, textAlign: 'right', background: '#f8f9fa', color: '#495057' }}>
+                  <td style={{ padding: '4px 3px', textAlign: 'right', background: '#f8f9fa', color: '#495057' }}>
                     {r.brouillon ? '—' : amortCum?.liasse != null ? eur(amortCum.liasse) : '—'}
                   </td>
                   {BIEN_IDS.map((b, i) => {
@@ -197,7 +197,7 @@ export default function VisionGlobaleTable() {
                       <td
                         key={b}
                         style={{
-                          padding: 6, textAlign: 'right', borderLeft: i === 0 ? '2px solid #172b4d' : undefined,
+                          padding: '4px 3px', textAlign: 'right', borderLeft: i === 0 ? '2px solid #172b4d' : undefined,
                           color: !included || v === undefined ? '#c1c7d0' : v > 0 ? '#006644' : '#172b4d',
                         }}
                       >
@@ -205,17 +205,17 @@ export default function VisionGlobaleTable() {
                       </td>
                     );
                   })}
-                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 700, color: resultatEntite > 0 ? '#006644' : '#172b4d' }}>
+                  <td style={{ padding: '4px 3px', textAlign: 'right', fontWeight: 700, color: resultatEntite > 0 ? '#006644' : '#172b4d' }}>
                     {eurSigned(resultatEntite)}
                   </td>
-                  <td style={{ padding: 6, textAlign: 'right', borderLeft: '2px solid #bf2600', background: '#fff5f4', fontWeight: 600 }}>
+                  <td style={{ padding: '4px 3px', textAlign: 'right', borderLeft: '2px solid #bf2600', background: '#fff5f4', fontWeight: 600 }}>
                     {eur(deficitCum?.app ?? 0)}
                   </td>
-                  <td style={{ padding: 6, textAlign: 'right', background: '#fff5f4' }}>
+                  <td style={{ padding: '4px 3px', textAlign: 'right', background: '#fff5f4' }}>
                     {eur(amortCum?.app ?? 0)}
                   </td>
                   <td
-                    style={{ padding: 6, textAlign: 'center', borderLeft: '2px solid #0052cc', background: '#f4f8ff' }}
+                    style={{ padding: '4px 3px', textAlign: 'center', borderLeft: '2px solid #0052cc', background: '#f4f8ff' }}
                     title="Choix d'imputation par année (déficit d'abord = prudent ; amort d'abord = méthode du comptable)"
                   >
                     {profitable ? (
@@ -223,7 +223,7 @@ export default function VisionGlobaleTable() {
                         value={mode}
                         disabled={saving === an}
                         onChange={(e) => changeMode(an, e.target.value as 'deficit' | 'amort')}
-                        style={{ fontSize: 10, padding: '2px 4px', border: '1px solid #0052cc', borderRadius: 4, background: '#fff', color: '#172b4d', cursor: 'pointer' }}
+                        style={{ fontSize: 9, padding: '2px 2px', border: '1px solid #0052cc', borderRadius: 4, background: '#fff', color: '#172b4d', cursor: 'pointer', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}
                       >
                         <option value="deficit">Déficit (reco)</option>
                         <option value="amort">Amort (comptable)</option>
