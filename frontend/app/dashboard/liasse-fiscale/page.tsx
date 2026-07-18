@@ -4,15 +4,17 @@
  * Vue globale par année : liasse déposée (vérif officielle, à gauche),
  * résultat comptable par appartement + entité (au milieu), tirelires
  * calculées par l'application — déficit et amortissements reportés
- * cumulés (à droite). La colonne "Imputer en priorité" est en lecture
- * seule : le choix d'imputation par année est un plan suivant. Détail
- * par appartement (Maquette 2) : /dashboard/liasse-fiscale/detail.
- * Données : GET /api/reconciliation.
+ * cumulés (à droite). La colonne "Imputer en priorité" est FONCTIONNELLE :
+ * elle pilote le même choix backend que la page "chaîne année par année"
+ * (PUT /api/fiscal/imputation/{year}) ; changer le menu recalcule les
+ * tirelires. Détail par appartement (Maquette 2) : /liasse-fiscale/detail.
+ * Données : GET /api/reconciliation + GET /api/fiscal/chaine (mode + année
+ * bénéficiaire, source unique partagée avec la page chaîne).
  */
 'use client';
 
 import Link from 'next/link';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const BIENS: Record<number, string> = { 25: 'Evry', 15: 'Marseille abnb', 26: 'Marseille colloc' };
@@ -42,24 +44,71 @@ interface RecResponse {
   results: Record<string, AnneeRec>;
 }
 
+// De /api/fiscal/chaine : on ne consomme ici que le mode et le flag bénéficiaire
+// (source de vérité unique du choix d'imputation, partagée avec la page chaîne).
+interface ChaineLigne {
+  profitable: boolean;
+  mode: 'deficit' | 'amort';
+  resultat_fiscal_app: number;
+}
+interface ChaineResponse {
+  years: number[];
+  chain: Record<string, ChaineLigne>;
+}
+
 function findLigne(lignes: Ligne[], poste: string): Ligne | undefined {
   return lignes.find((l) => l.poste === poste);
 }
 
 export default function LiasseFiscalePage() {
   const [data, setData] = useState<RecResponse | null>(null);
+  const [chaine, setChaine] = useState<ChaineResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState<number | null>(null);
+
+  const loadReconciliation = useCallback(async () => {
+    const r = await fetch(`${API_BASE_URL}/api/reconciliation`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return (await r.json()) as RecResponse;
+  }, []);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/api/reconciliation`)
-      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((d: RecResponse) => setData(d))
+    Promise.all([
+      loadReconciliation(),
+      fetch(`${API_BASE_URL}/api/fiscal/chaine`).then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json() as Promise<ChaineResponse>;
+      }),
+    ])
+      .then(([rec, ch]) => { setData(rec); setChaine(ch); })
       .catch((e) => setError(String(e)));
-  }, []);
+  }, [loadReconciliation]);
+
+  // Change le choix d'imputation d'une année : PUT (renvoie la chaîne recalculée)
+  // puis re-fetch de la réconciliation, car les tirelires cumulées changent.
+  async function changeMode(year: number, mode: 'deficit' | 'amort') {
+    setSaving(year);
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/fiscal/imputation/${year}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const updatedChaine = (await res.json()) as ChaineResponse;
+      const rec = await loadReconciliation();
+      setChaine(updatedChaine);
+      setData(rec);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setSaving(null);
+    }
+  }
 
   if (error)
     return <div style={{ padding: 24, color: '#bf2600' }}>Impossible de charger : {error}. Backend sur {API_BASE_URL} ?</div>;
-  if (!data) return <div style={{ padding: 24, color: '#5e6c84' }}>Chargement…</div>;
+  if (!data || !chaine) return <div style={{ padding: 24, color: '#5e6c84' }}>Chargement…</div>;
 
   const annees = [...data.annees].sort((a, b) => a - b); // plus ancien en haut
 
@@ -127,12 +176,13 @@ export default function LiasseFiscalePage() {
             {annees.map((an) => {
               const r = data.results[String(an)];
               const resultat = findLigne(r.lignes, 'Résultat comptable');
-              const deficitExercice = findLigne(r.lignes, "Déficit de l'exercice");
               const deficitCum = findLigne(r.lignes, 'Déficit reportable (cumulé)');
               const amortCum = findLigne(r.lignes, 'Amortissements reportés (cumulé)');
               const resultatEntite = resultat?.app ?? 0;
-              // Heuristique "année bénéficiaire" : rien à reporter sur l'exercice ET résultat entité positif.
-              const profitable = !r.brouillon && (deficitExercice?.app ?? 0) === 0 && resultatEntite > 0;
+              // Année bénéficiaire + mode courant : source unique = /api/fiscal/chaine.
+              const c = chaine.chain[String(an)];
+              const profitable = c?.profitable ?? false;
+              const mode = c?.mode ?? 'deficit';
 
               return (
                 <tr key={an} style={{ borderTop: '1px solid #f4f5f7', background: r.brouillon ? '#eef3ff' : undefined }}>
@@ -181,17 +231,20 @@ export default function LiasseFiscalePage() {
                   </td>
                   <td
                     style={{ padding: 6, textAlign: 'center', borderLeft: '2px solid #0052cc', background: '#f4f8ff' }}
-                    title="Choix d'imputation par année : configurable bientôt"
+                    title="Choix d'imputation par année (déficit d'abord = prudent ; amort d'abord = méthode du comptable)"
                   >
                     {profitable ? (
                       <select
-                        disabled
-                        style={{ fontSize: 10, padding: '2px 4px', border: '1px solid #0052cc', borderRadius: 4, background: '#fff', color: '#172b4d' }}
+                        value={mode}
+                        disabled={saving === an}
+                        onChange={(e) => changeMode(an, e.target.value as 'deficit' | 'amort')}
+                        style={{ fontSize: 10, padding: '2px 4px', border: '1px solid #0052cc', borderRadius: 4, background: '#fff', color: '#172b4d', cursor: 'pointer' }}
                       >
-                        <option>Déficit (reco)</option>
+                        <option value="deficit">Déficit (reco)</option>
+                        <option value="amort">Amort (comptable)</option>
                       </select>
                     ) : (
-                      <span style={{ color: '#c1c7d0' }}>— perte</span>
+                      <span style={{ color: '#c1c7d0' }}>—</span>
                     )}
                   </td>
                 </tr>
@@ -222,9 +275,9 @@ export default function LiasseFiscalePage() {
           borderRadius: 4, fontSize: 12, color: '#5e6c84', lineHeight: 1.6,
         }}
       >
-        La colonne « Imputer en priorité » n&apos;apparaît que sur les années de bénéfice. Le choix (déficit d&apos;abord
-        ou amortissement d&apos;abord) sera configurable dans une prochaine évolution — pour l&apos;instant
-        l&apos;application impute toujours le déficit en priorité.
+        La colonne « Imputer en priorité » n&apos;apparaît que sur les années de bénéfice. Le menu est le
+        <b> même choix</b> que sur la page « chaîne année par année » : le changer ici recalcule les tirelires
+        (déficit d&apos;abord = prudent, le déficit expire à 10 ans ; amort d&apos;abord = méthode du comptable).
       </div>
     </div>
   );
