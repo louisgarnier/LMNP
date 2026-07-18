@@ -1,6 +1,6 @@
 /**
  * Home page - Property selection
- * 
+ *
  * ⚠️ Before making changes, read: ../../docs/workflow/BEST_PRACTICES.md
  * Always check with the user before modifying this file.
  */
@@ -9,7 +9,51 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useProperty } from '@/contexts/PropertyContext';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// Mapping id de bien -> nom court, utilisé pour la liste "biens inclus" par exercice.
+const BIENS: Record<number, string> = { 25: 'Evry', 15: 'Marseille abnb', 26: 'Marseille colloc' };
+
+interface Ligne {
+  poste: string;
+  par_bien: Record<string, number> | null;
+  app: number;
+  liasse: number | null;
+  ecart: number | null;
+  ok: boolean | null;
+}
+
+interface AnneeRec {
+  annee: number;
+  brouillon: boolean;
+  biens_inclus: number[];
+  lignes: Ligne[];
+  nb_ecarts: number;
+}
+
+interface RecResponse {
+  annees: number[];
+  results: Record<string, AnneeRec>;
+}
+
+function findLigne(lignes: Ligne[], poste: string): Ligne | undefined {
+  return lignes.find((l) => l.poste === poste);
+}
+
+function formatEuro(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '—';
+  return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+}
+
+function euroColor(v: number | null | undefined): string {
+  if (v === null || v === undefined || Number.isNaN(v)) return '#5e6c84';
+  if (v < 0) return '#bf2600';
+  if (v > 0) return '#006644';
+  return '#172b4d';
+}
 
 export default function HomePage() {
   const router = useRouter();
@@ -21,13 +65,64 @@ export default function HomePage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; propertyId: number; propertyName: string } | null>(null);
 
-  // Redirect to dashboard if property is already selected
-  // Wait for loading to complete before checking activeProperty
+  // Bloc fiscal global (section 2)
+  const [recon, setRecon] = useState<RecResponse | null>(null);
+  const [reconLoading, setReconLoading] = useState(true);
+  const [reconError, setReconError] = useState(false);
+
+  // Résultat {CY} par appartement (section 1)
+  const [resultats, setResultats] = useState<Record<number, number | null>>({});
+
+  const cy = recon && recon.annees.length > 0 ? Math.max(...recon.annees) : null;
+
+  // Charge la réconciliation globale -> sert à déterminer l'exercice en cours (CY)
+  // et alimente le récap par exercice de la section 2.
   useEffect(() => {
-    if (!loading && activeProperty) {
-      router.push('/dashboard');
-    }
-  }, [activeProperty, loading, router]);
+    let cancelled = false;
+    fetch(`${API_BASE_URL}/api/reconciliation`)
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
+      .then((data: RecResponse) => {
+        if (!cancelled) setRecon(data);
+      })
+      .catch(() => {
+        if (!cancelled) setReconError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setReconLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Une fois CY connu, charge le résultat net réalisé de l'exercice en cours pour chaque appartement.
+  const propertyIdsKey = properties.map((p) => p.id).join(',');
+  useEffect(() => {
+    if (cy === null || properties.length === 0) return;
+    let cancelled = false;
+    Promise.all(
+      properties.map(async (p) => {
+        try {
+          const r = await fetch(`${API_BASE_URL}/api/compte-resultat/calculate?property_id=${p.id}&years=${cy}&realized=true`);
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const data = await r.json();
+          const resultatNet = data?.results?.[String(cy)]?.resultat_net;
+          return [p.id, typeof resultatNet === 'number' ? resultatNet : null] as const;
+        } catch {
+          return [p.id, null] as const;
+        }
+      })
+    ).then((entries) => {
+      if (!cancelled) setResultats(Object.fromEntries(entries));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cy, propertyIdsKey]);
 
   const handleSelectProperty = (propertyId: number) => {
     const property = properties.find(p => p.id === propertyId);
@@ -80,7 +175,7 @@ export default function HomePage() {
       setDeletingId(propertyId);
       setContextMenu(null); // Fermer le menu contextuel
       await deleteProperty(propertyId);
-      
+
       // Si la propriété supprimée était la propriété active, la désélectionner
       if (activeProperty?.id === propertyId) {
         setActiveProperty(null);
@@ -163,136 +258,77 @@ export default function HomePage() {
     );
   }
 
+  const sortedAnnees = recon ? [...recon.annees].sort((a, b) => b - a) : [];
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', padding: '40px 20px' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <h1 style={{ fontSize: '32px', fontWeight: 'bold', color: '#1f2937', marginBottom: '8px' }}>
-            LMNP - Gestion Comptable
-          </h1>
-          <p style={{ fontSize: '16px', color: '#6b7280' }}>
-            Sélectionnez une propriété pour commencer
-          </p>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f4f5f7', color: '#172b4d' }}>
+      <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #dfe1e6', padding: '16px 0', marginBottom: '24px' }}>
+        <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 20px' }}>
+          <div style={{ fontSize: '17px', fontWeight: 700, color: '#172b4d' }}>LMNP — Gestion comptable</div>
+          <div style={{ fontSize: '12px', color: '#5e6c84', marginTop: '2px' }}>
+            {cy !== null ? `Exercice en cours ${cy}` : 'Sélectionnez ou créez un appartement pour commencer'}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: '1080px', margin: '0 auto', padding: '0 20px 60px' }}>
+
+        {/* ═══════════ SECTION 1 : APPARTEMENTS ═══════════ */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#172b4d' }}>Appartements</div>
+            <div style={{ fontSize: '12px', color: '#5e6c84', marginTop: '2px' }}>
+              Cliquez un appartement pour entrer dans son espace (transactions, amortissements…)
+            </div>
+          </div>
+          <div
+            style={{ fontSize: '12px', color: '#0052cc', cursor: 'pointer' }}
+            onClick={() => setIsCreating(true)}
+          >
+            + Ajouter un appartement
+          </div>
         </div>
 
         {!isCreating ? (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '40px' }}>
-              {properties.map((property) => (
-                <div
-                  key={property.id}
-                  style={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '8px',
-                    padding: '24px',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
-                    position: 'relative',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#3b82f6';
-                    e.currentTarget.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#e5e7eb';
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onContextMenu={(e) => handleContextMenu(e, property.id, property.name)}
-                >
-                  <div
-                    onClick={() => handleSelectProperty(property.id)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <h3 style={{ fontSize: '20px', fontWeight: '600', color: '#1f2937', marginBottom: '8px' }}>
-                      {property.name}
-                    </h3>
-                    {property.address && (
-                      <p style={{ fontSize: '14px', color: '#6b7280', marginBottom: '12px' }}>
-                        {property.address}
-                      </p>
-                    )}
-                    <p style={{ fontSize: '12px', color: '#9ca3af' }}>
-                      Créé le {new Date(property.created_at).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {/* Menu contextuel */}
-            {contextMenu && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '12px', marginBottom: '34px' }}>
+            {properties.map((property) => (
               <div
+                key={property.id}
                 style={{
-                  position: 'fixed',
-                  top: contextMenu.y,
-                  left: contextMenu.x,
-                  backgroundColor: 'white',
-                  border: '1px solid #e5e7eb',
+                  backgroundColor: '#fff',
+                  border: '1px solid #dfe1e6',
                   borderRadius: '8px',
-                  boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-                  zIndex: 1000,
-                  minWidth: '200px',
-                  padding: '4px 0',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <button
-                  onClick={() => handleDeleteProperty(contextMenu.propertyId, contextMenu.propertyName)}
-                  disabled={deletingId === contextMenu.propertyId}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px',
-                    textAlign: 'left',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: deletingId === contextMenu.propertyId ? '#9ca3af' : '#dc2626',
-                    cursor: deletingId === contextMenu.propertyId ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '500',
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (deletingId !== contextMenu.propertyId) {
-                      e.currentTarget.style.backgroundColor = '#fef2f2';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent';
-                  }}
-                >
-                  {deletingId === contextMenu.propertyId ? 'Suppression...' : '🗑️ Supprimer'}
-                </button>
-              </div>
-            )}
-
-            <div style={{ textAlign: 'center' }}>
-              <button
-                onClick={() => setIsCreating(true)}
-                style={{
-                  backgroundColor: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  padding: '12px 24px',
-                  fontSize: '16px',
-                  fontWeight: '500',
+                  padding: '14px',
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s',
+                  transition: 'box-shadow .12s',
+                  position: 'relative',
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#2563eb';
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(9,30,66,.12)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#3b82f6';
+                  e.currentTarget.style.boxShadow = 'none';
                 }}
+                onContextMenu={(e) => handleContextMenu(e, property.id, property.name)}
+                onClick={() => handleSelectProperty(property.id)}
               >
-                + Créer une nouvelle propriété
-              </button>
-            </div>
-          </>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#172b4d' }}>{property.name}</div>
+                {property.address && (
+                  <div style={{ fontSize: '12px', color: '#5e6c84', marginTop: '2px' }}>{property.address}</div>
+                )}
+                <div style={{ borderTop: '1px solid #f4f5f7', margin: '10px 0' }} />
+                {/* TODO V2: solde depuis la banque */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px' }}>
+                  <span style={{ color: '#5e6c84' }}>Résultat {cy ?? '—'}</span>
+                  <span style={{ color: euroColor(resultats[property.id]), fontWeight: 600 }}>
+                    {property.id in resultats ? formatEuro(resultats[property.id]) : '—'}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
         ) : (
-          <div style={{ maxWidth: '500px', margin: '0 auto', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '32px' }}>
+          <div style={{ maxWidth: '500px', margin: '0 auto 34px', backgroundColor: 'white', border: '1px solid #dfe1e6', borderRadius: '8px', padding: '32px' }}>
             <h2 style={{ fontSize: '24px', fontWeight: '600', color: '#1f2937', marginBottom: '24px' }}>
               Créer une nouvelle propriété
             </h2>
@@ -375,9 +411,183 @@ export default function HomePage() {
             </div>
           </div>
         )}
+
+        {/* Menu contextuel */}
+        {contextMenu && (
+          <div
+            style={{
+              position: 'fixed',
+              top: contextMenu.y,
+              left: contextMenu.x,
+              backgroundColor: 'white',
+              border: '1px solid #e5e7eb',
+              borderRadius: '8px',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+              zIndex: 1000,
+              minWidth: '200px',
+              padding: '4px 0',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => handleDeleteProperty(contextMenu.propertyId, contextMenu.propertyName)}
+              disabled={deletingId === contextMenu.propertyId}
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                textAlign: 'left',
+                border: 'none',
+                backgroundColor: 'transparent',
+                color: deletingId === contextMenu.propertyId ? '#9ca3af' : '#dc2626',
+                cursor: deletingId === contextMenu.propertyId ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: '500',
+                transition: 'background-color 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                if (deletingId !== contextMenu.propertyId) {
+                  e.currentTarget.style.backgroundColor = '#fef2f2';
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+            >
+              {deletingId === contextMenu.propertyId ? 'Suppression...' : '🗑️ Supprimer'}
+            </button>
+          </div>
+        )}
+
+        {/* ═══════════ SECTION 2 : LIASSE FISCALE / DONNÉES GLOBALES ═══════════ */}
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
+          <div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#172b4d' }}>Liasse fiscale · données globales</div>
+            <div style={{ fontSize: '12px', color: '#5e6c84', marginTop: '2px' }}>
+              Tous appartements confondus — hors du contexte d'un appartement. C'est ici que vit la fiscalité.
+            </div>
+          </div>
+          <span style={{ fontSize: '12px', color: '#0052cc', cursor: 'pointer' }}>
+            Charger une liasse
+          </span>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+          {[
+            { title: 'Vision globale →', desc: "Résultat par appartement + entité, les deux tirelires, et le choix d'imputation par année.", href: '/dashboard/liasse-fiscale' },
+            { title: 'Chaîne année par année →', desc: 'Le détail du calcul : résultat comptable → résultat fiscal → déficit & amortissements reportés. App vs Officiel.', href: '/dashboard/liasse-fiscale/chaine' },
+            { title: 'Détail par appartement →', desc: 'Compte de résultat groupé par appartement, comparé à la liasse déposée, par exercice.', href: '/dashboard/liasse-fiscale/detail' },
+          ].map((entry) => (
+            <Link
+              key={entry.href}
+              href={entry.href}
+              style={{
+                display: 'block',
+                backgroundColor: '#fff',
+                border: '1px solid #dfe1e6',
+                borderLeft: '3px solid #0052cc',
+                borderRadius: '8px',
+                padding: '14px 16px',
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'box-shadow .12s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.boxShadow = '0 2px 8px rgba(9,30,66,.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#172b4d' }}>{entry.title}</div>
+              <div style={{ fontSize: '11px', color: '#5e6c84', marginTop: '3px', lineHeight: 1.45 }}>{entry.desc}</div>
+            </Link>
+          ))}
+        </div>
+
+        <div style={{ backgroundColor: '#fff', border: '1px solid #dfe1e6', borderRadius: '8px', overflow: 'hidden' }}>
+          {reconLoading && (
+            <div style={{ padding: '14px', fontSize: '12px', color: '#5e6c84' }}>Chargement de la réconciliation…</div>
+          )}
+          {!reconLoading && reconError && (
+            <div style={{ padding: '14px', fontSize: '12px', color: '#bf2600' }}>Impossible de charger la réconciliation.</div>
+          )}
+          {!reconLoading && !reconError && recon && sortedAnnees.length === 0 && (
+            <div style={{ padding: '14px', fontSize: '12px', color: '#5e6c84' }}>Aucun exercice à afficher.</div>
+          )}
+          {!reconLoading && !reconError && recon && sortedAnnees.map((annee, idx) => {
+            const yearData = recon.results[String(annee)];
+            if (!yearData) return null;
+            const biensLabel = yearData.biens_inclus.map((id) => BIENS[id] ?? `#${id}`).join(' · ');
+            const resultatLigne = findLigne(yearData.lignes, 'Résultat comptable');
+            const appVal = resultatLigne?.app ?? null;
+            const liasseVal = resultatLigne?.liasse ?? null;
+
+            let badgeLabel: string;
+            let badgeBg: string;
+            let badgeColor: string;
+            if (yearData.brouillon) {
+              badgeLabel = 'brouillon';
+              badgeBg = '#deebff';
+              badgeColor = '#0747a6';
+            } else if (yearData.nb_ecarts === 0) {
+              badgeLabel = '✓ conforme';
+              badgeBg = '#e3fcef';
+              badgeColor = '#006644';
+            } else {
+              badgeLabel = `${yearData.nb_ecarts} écart(s)`;
+              badgeBg = '#ffebe6';
+              badgeColor = '#bf2600';
+            }
+
+            return (
+              <div
+                key={annee}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '11px 14px',
+                  borderBottom: idx === sortedAnnees.length - 1 ? 'none' : '1px solid #f4f5f7',
+                  cursor: 'pointer',
+                  backgroundColor: annee === cy ? '#f7f9ff' : 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (annee !== cy) e.currentTarget.style.backgroundColor = '#f7f9ff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = annee === cy ? '#f7f9ff' : 'transparent';
+                }}
+                onClick={() => router.push('/dashboard/liasse-fiscale')}
+              >
+                <div style={{ width: '52px', fontSize: '14px', fontWeight: 700 }}>{annee}</div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12px' }}>{biensLabel || '—'}</div>
+                </div>
+                <div style={{ width: '150px', textAlign: 'right' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: euroColor(appVal) }}>{formatEuro(appVal)}</div>
+                  {!yearData.brouillon && (
+                    <div style={{ fontSize: '12px', color: '#5e6c84' }}>liasse : {formatEuro(liasseVal)}</div>
+                  )}
+                </div>
+                <div style={{ width: '150px', textAlign: 'right' }}>
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      padding: '2px 6px',
+                      borderRadius: '3px',
+                      backgroundColor: badgeBg,
+                      color: badgeColor,
+                    }}
+                  >
+                    {badgeLabel}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 }
-
-
