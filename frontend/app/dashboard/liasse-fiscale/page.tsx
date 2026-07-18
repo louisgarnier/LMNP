@@ -1,16 +1,27 @@
 /**
- * Liasse fiscale — réconciliation appli vs liasses déposées (vue globale/entité).
+ * Position fiscale — vision globale (Maquette 1).
  *
- * L'application CALCULE la fiscalité (source de vérité), la liasse déposée sert
- * de CONTRÔLE. Détail par appartement (comme le tableur de Louis) + total + liasse
- * + écart. L'année en cours apparaît en brouillon. Données : GET /api/reconciliation.
+ * Vue globale par année : liasse déposée (vérif officielle, à gauche),
+ * résultat comptable par appartement + entité (au milieu), tirelires
+ * calculées par l'application — déficit et amortissements reportés
+ * cumulés (à droite). La colonne "Imputer en priorité" est en lecture
+ * seule : le choix d'imputation par année est un plan suivant. Détail
+ * par appartement (Maquette 2) : /dashboard/liasse-fiscale/detail.
+ * Données : GET /api/reconciliation.
  */
 'use client';
 
+import Link from 'next/link';
 import { useState, useEffect } from 'react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 const BIENS: Record<number, string> = { 25: 'Evry', 15: 'Marseille abnb', 26: 'Marseille colloc' };
+// Ordre fixe (Object.keys trierait les clés numériques par valeur, pas par insertion).
+const BIEN_IDS = [25, 15, 26];
+
+const eur = (n: number) =>
+  n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + ' €';
+const eurSigned = (n: number) => (n > 0 ? '+' : '') + eur(n);
 
 interface Ligne {
   poste: string;
@@ -24,32 +35,25 @@ interface AnneeRec {
   annee: number;
   brouillon: boolean;
   biens_inclus: number[];
-  composition: Ligne;
   lignes: Ligne[];
-  stock_deficit_appli: number;
-  nb_ecarts: number;
 }
 interface RecResponse {
   annees: number[];
   results: Record<string, AnneeRec>;
 }
 
-const eur = (n: number) =>
-  n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+function findLigne(lignes: Ligne[], poste: string): Ligne | undefined {
+  return lignes.find((l) => l.poste === poste);
+}
 
 export default function LiasseFiscalePage() {
   const [data, setData] = useState<RecResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<number | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/reconciliation`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then((d: RecResponse) => {
-        setData(d);
-        const firstEcart = [...d.annees].reverse().find((a) => d.results[String(a)].nb_ecarts > 0);
-        setOpen(firstEcart ?? d.annees[d.annees.length - 1] ?? null);
-      })
+      .then((d: RecResponse) => setData(d))
       .catch((e) => setError(String(e)));
   }, []);
 
@@ -57,105 +61,167 @@ export default function LiasseFiscalePage() {
     return <div style={{ padding: 24, color: '#bf2600' }}>Impossible de charger : {error}. Backend sur {API_BASE_URL} ?</div>;
   if (!data) return <div style={{ padding: 24, color: '#5e6c84' }}>Chargement…</div>;
 
-  const annees = [...data.annees].sort((a, b) => b - a);
+  const annees = [...data.annees].sort((a, b) => a - b); // plus ancien en haut
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>
-      <h1 style={{ fontSize: 20, fontWeight: 700, color: '#172b4d', margin: 0 }}>Liasse fiscale — données globales</h1>
+    <div style={{ padding: 24, maxWidth: 1300, margin: '0 auto' }}>
+      <Link
+        href="/dashboard/liasse-fiscale/detail"
+        style={{ fontSize: 12, color: '#0052cc', cursor: 'pointer', marginBottom: 6, display: 'inline-block' }}
+      >
+        Voir le détail par appartement →
+      </Link>
+      <h1 style={{ fontSize: 20, fontWeight: 700, color: '#172b4d', margin: 0 }}>Position fiscale — vision globale</h1>
       <p style={{ fontSize: 13, color: '#5e6c84', marginTop: 6, lineHeight: 1.5 }}>
-        Vue de l&apos;entière activité (tous appartements). Chaque exercice est calculé par l&apos;application à
-        partir des relevés bancaires, puis confronté à la liasse déposée. Les lignes sont détaillées par
-        appartement : la somme des biens = le total. Un écart signale une divergence à vérifier.
+        Liasse déposée = vérif officielle (gauche) · résultat comptable par appartement et entité (milieu) ·
+        tirelires calculées par l&apos;application — déficit et amortissements reportés cumulés (droite).
       </p>
 
-      <div style={{ background: '#fff', border: '1px solid #dfe1e6', borderRadius: 6, overflow: 'hidden', marginTop: 16 }}>
-        {annees.map((an) => {
-          const r = data.results[String(an)];
-          const isOpen = open === an;
-          const biens = r.biens_inclus;
-          const compare = !r.brouillon;
-          return (
-            <div key={an} style={{ borderBottom: '1px solid #f4f5f7' }}>
-              {/* En-tête d'exercice */}
-              <div onClick={() => setOpen(isOpen ? null : an)}
-                style={{ display: 'flex', alignItems: 'center', padding: '12px 14px', cursor: 'pointer', background: isOpen ? '#f7f9ff' : '#fff' }}>
-                <div style={{ width: 56, fontSize: 15, fontWeight: 700, color: '#172b4d' }}>{an}</div>
-                <div style={{ flex: 1, fontSize: 12, color: '#5e6c84' }}>
-                  {biens.map((b) => BIENS[b] ?? `Bien ${b}`).join(' · ')}
-                </div>
-                <div style={{ width: 210, textAlign: 'right' }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, textTransform: 'uppercase', padding: '3px 7px', borderRadius: 3,
-                    background: r.brouillon ? '#deebff' : r.nb_ecarts === 0 ? '#e3fcef' : '#ffebe6',
-                    color: r.brouillon ? '#0747a6' : r.nb_ecarts === 0 ? '#006644' : '#bf2600',
-                  }}>
-                    {r.brouillon ? 'brouillon · exercice en cours' : r.nb_ecarts === 0 ? '✓ conforme' : `${r.nb_ecarts} écart${r.nb_ecarts > 1 ? 's' : ''}`}
-                  </span>
-                </div>
-              </div>
+      <div style={{ background: '#fff', border: '1px solid #dfe1e6', borderRadius: 6, overflowX: 'auto', marginTop: 16 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 1150 }}>
+          <thead>
+            <tr style={{ background: '#eceef1', color: '#5e6c84', fontSize: 9, textTransform: 'uppercase' }}>
+              <th style={{ padding: '7px 6px', textAlign: 'left' }} rowSpan={2}>Année</th>
+              <th
+                style={{ padding: '7px 6px', textAlign: 'center', background: '#f1f3f5', borderLeft: '2px solid #868e96' }}
+                colSpan={2}
+              >
+                Liasse (vérif officielle)
+              </th>
+              <th
+                style={{ padding: '7px 6px', textAlign: 'center', borderLeft: '2px solid #172b4d' }}
+                colSpan={BIEN_IDS.length + 1}
+              >
+                Résultat comptable par appartement
+              </th>
+              <th
+                style={{ padding: '7px 6px', textAlign: 'center', borderLeft: '2px solid #bf2600', background: '#fff5f4' }}
+                colSpan={2}
+              >
+                Tirelires app
+              </th>
+              <th
+                style={{ padding: '7px 6px', textAlign: 'center', borderLeft: '2px solid #0052cc', background: '#f4f8ff' }}
+                rowSpan={2}
+              >
+                Imputer<br />en priorité
+              </th>
+            </tr>
+            <tr style={{ background: '#eceef1', color: '#5e6c84', fontSize: 9, textTransform: 'uppercase' }}>
+              <th style={{ padding: '5px 6px', textAlign: 'right', background: '#f1f3f5', borderLeft: '2px solid #868e96' }}>Déficit</th>
+              <th style={{ padding: '5px 6px', textAlign: 'right', background: '#f1f3f5' }}>Amort</th>
+              {BIEN_IDS.map((b, i) => (
+                <th key={b} style={{ padding: '5px 6px', textAlign: 'right', borderLeft: i === 0 ? '2px solid #172b4d' : undefined }}>
+                  {BIENS[b]}
+                </th>
+              ))}
+              <th style={{ padding: '5px 6px', textAlign: 'right', fontWeight: 700, color: '#172b4d' }}>Entité</th>
+              <th style={{ padding: '5px 6px', textAlign: 'right', borderLeft: '2px solid #bf2600', background: '#fff5f4' }}>Déficit</th>
+              <th style={{ padding: '5px 6px', textAlign: 'right', background: '#fff5f4' }}>Amort</th>
+            </tr>
+          </thead>
+          <tbody style={{ color: '#172b4d' }}>
+            {annees.map((an) => {
+              const r = data.results[String(an)];
+              const resultat = findLigne(r.lignes, 'Résultat comptable');
+              const deficitExercice = findLigne(r.lignes, "Déficit de l'exercice");
+              const deficitCum = findLigne(r.lignes, 'Déficit reportable (cumulé)');
+              const amortCum = findLigne(r.lignes, 'Amortissements reportés (cumulé)');
+              const resultatEntite = resultat?.app ?? 0;
+              // Heuristique "année bénéficiaire" : rien à reporter sur l'exercice ET résultat entité positif.
+              const profitable = !r.brouillon && (deficitExercice?.app ?? 0) === 0 && resultatEntite > 0;
 
-              {/* Détail */}
-              {isOpen && (
-                <div style={{ padding: '4px 14px 16px', overflowX: 'auto' }}>
-                  {r.brouillon && (
-                    <div style={{ background: '#deebff', border: '1px solid #b3d4ff', borderRadius: 4, padding: '8px 12px', margin: '8px 0', fontSize: 12, color: '#0747a6' }}>
-                      Exercice en cours, pas encore de liasse. Ces chiffres sont ceux que l&apos;application calcule —
-                      à transmettre au comptable. Ils évoluent tant que l&apos;année n&apos;est pas close.
-                    </div>
-                  )}
-                  {!r.composition.ok && r.composition.ecart !== null && (
-                    <div style={{ background: '#fffbe6', border: '1px solid #ffe58f', borderRadius: 4, padding: '8px 12px', margin: '8px 0', fontSize: 12, color: '#7a5900' }}>
-                      Composition : {eur(r.composition.app)} d&apos;immobilisations côté appli fin {an}, {eur(r.composition.liasse!)} liasse
-                      (écart {eur(r.composition.ecart)}). Un bien ou des travaux ne sont pas datés de la même année de part et d&apos;autre.
-                    </div>
-                  )}
+              return (
+                <tr key={an} style={{ borderTop: '1px solid #f4f5f7', background: r.brouillon ? '#eef3ff' : undefined }}>
+                  <td style={{ padding: 6, fontWeight: 700, whiteSpace: 'nowrap' }}>
+                    {an}
+                    {r.brouillon && (
+                      <span
+                        style={{
+                          fontSize: 8, fontWeight: 700, textTransform: 'uppercase', padding: '1px 4px', borderRadius: 3,
+                          background: '#deebff', color: '#0747a6', marginLeft: 6,
+                        }}
+                      >
+                        brouillon
+                      </span>
+                    )}
+                  </td>
+                  <td style={{ padding: 6, textAlign: 'right', background: '#f8f9fa', borderLeft: '2px solid #868e96', color: '#495057' }}>
+                    {r.brouillon ? '— pas de liasse' : deficitCum?.liasse != null ? eur(deficitCum.liasse) : '—'}
+                  </td>
+                  <td style={{ padding: 6, textAlign: 'right', background: '#f8f9fa', color: '#495057' }}>
+                    {r.brouillon ? '—' : amortCum?.liasse != null ? eur(amortCum.liasse) : '—'}
+                  </td>
+                  {BIEN_IDS.map((b, i) => {
+                    const included = r.biens_inclus.includes(b);
+                    const v = resultat?.par_bien?.[String(b)];
+                    return (
+                      <td
+                        key={b}
+                        style={{
+                          padding: 6, textAlign: 'right', borderLeft: i === 0 ? '2px solid #172b4d' : undefined,
+                          color: !included || v === undefined ? '#c1c7d0' : v > 0 ? '#006644' : '#172b4d',
+                        }}
+                      >
+                        {included && v !== undefined ? eurSigned(v) : '—'}
+                      </td>
+                    );
+                  })}
+                  <td style={{ padding: 6, textAlign: 'right', fontWeight: 700, color: resultatEntite > 0 ? '#006644' : '#172b4d' }}>
+                    {eurSigned(resultatEntite)}
+                  </td>
+                  <td style={{ padding: 6, textAlign: 'right', borderLeft: '2px solid #bf2600', background: '#fff5f4', fontWeight: 600 }}>
+                    {eur(deficitCum?.app ?? 0)}
+                  </td>
+                  <td style={{ padding: 6, textAlign: 'right', background: '#fff5f4' }}>
+                    {eur(amortCum?.app ?? 0)}
+                  </td>
+                  <td
+                    style={{ padding: 6, textAlign: 'center', borderLeft: '2px solid #0052cc', background: '#f4f8ff' }}
+                    title="Choix d'imputation par année : configurable bientôt"
+                  >
+                    {profitable ? (
+                      <select
+                        disabled
+                        style={{ fontSize: 10, padding: '2px 4px', border: '1px solid #0052cc', borderRadius: 4, background: '#fff', color: '#172b4d' }}
+                      >
+                        <option>Déficit (reco)</option>
+                      </select>
+                    ) : (
+                      <span style={{ color: '#c1c7d0' }}>— perte</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 640 }}>
-                    <thead>
-                      <tr style={{ color: '#5e6c84', fontSize: 11, textTransform: 'uppercase' }}>
-                        <th style={{ textAlign: 'left', padding: '8px 8px', fontWeight: 600 }}>Poste</th>
-                        {biens.map((b) => (
-                          <th key={b} style={{ textAlign: 'right', padding: '8px 8px', fontWeight: 600 }}>{BIENS[b] ?? `Bien ${b}`}</th>
-                        ))}
-                        <th style={{ textAlign: 'right', padding: '8px 8px', fontWeight: 600, borderLeft: '2px solid #dfe1e6' }}>Total appli</th>
-                        {compare && <th style={{ textAlign: 'right', padding: '8px 8px', fontWeight: 600 }}>Liasse</th>}
-                        {compare && <th style={{ textAlign: 'right', padding: '8px 8px', fontWeight: 600 }}>Écart</th>}
-                      </tr>
-                    </thead>
-                    <tbody style={{ color: '#172b4d' }}>
-                      {r.lignes.map((l) => {
-                        const isEcart = l.ok === false;
-                        return (
-                          <tr key={l.poste} style={{ background: isEcart ? '#fff4f2' : '#fff' }}>
-                            <td style={{ padding: '7px 8px', fontWeight: isEcart ? 600 : 400 }}>{l.poste}</td>
-                            {biens.map((b) => (
-                              <td key={b} style={{ textAlign: 'right', padding: '7px 8px', color: l.par_bien ? '#172b4d' : '#97a0af' }}>
-                                {l.par_bien ? (l.par_bien[String(b)] !== undefined ? eur(l.par_bien[String(b)]) : '—') : (b === biens[0] ? 'entité →' : '')}
-                              </td>
-                            ))}
-                            <td style={{ textAlign: 'right', padding: '7px 8px', fontWeight: 600, borderLeft: '2px solid #dfe1e6' }}>{eur(l.app)}</td>
-                            {compare && <td style={{ textAlign: 'right', padding: '7px 8px', color: '#5e6c84' }}>{l.liasse !== null ? eur(l.liasse) : '—'}</td>}
-                            {compare && (
-                              <td style={{ textAlign: 'right', padding: '7px 8px', fontWeight: 700, color: isEcart ? '#bf2600' : '#006644' }}>
-                                {l.ok ? '✓' : (l.ecart !== null ? eur(l.ecart) : '')}
-                              </td>
-                            )}
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+      <div style={{ marginTop: 12, display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 11, color: '#5e6c84' }}>
+        <div>
+          <span style={{ display: 'inline-block', width: 12, height: 12, background: '#f1f3f5', border: '1px solid #868e96', verticalAlign: 'middle' }} />{' '}
+          Liasse = officiel, en lecture seule (vérif)
+        </div>
+        <div>
+          <span style={{ display: 'inline-block', width: 12, height: 12, background: '#fff5f4', border: '1px solid #bf2600', verticalAlign: 'middle' }} />{' '}
+          Tirelires calculées par l&apos;app
+        </div>
+        <div>
+          <span style={{ display: 'inline-block', width: 12, height: 12, background: '#f4f8ff', border: '1px solid #0052cc', verticalAlign: 'middle' }} />{' '}
+          Choix d&apos;imputation (années bénéficiaires)
+        </div>
+      </div>
 
-                  <div style={{ marginTop: 8, fontSize: 11, color: '#5e6c84', fontStyle: 'italic' }}>
-                    Stock de déficit reportable (cumulé, entité) : {eur(r.stock_deficit_appli)}. Résultat fiscal imposable 0 €
-                    — aucun impôt dû tant que ce stock n&apos;est pas épuisé. Le déficit et les amortissements reportés sont
-                    des stocks d&apos;entité, non ventilables par bien.
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
+      <div
+        style={{
+          marginTop: 16, padding: '12px 14px', background: '#fff', border: '1px solid #dfe1e6', borderLeft: '3px solid #0052cc',
+          borderRadius: 4, fontSize: 12, color: '#5e6c84', lineHeight: 1.6,
+        }}
+      >
+        La colonne « Imputer en priorité » n&apos;apparaît que sur les années de bénéfice. Le choix (déficit d&apos;abord
+        ou amortissement d&apos;abord) sera configurable dans une prochaine évolution — pour l&apos;instant
+        l&apos;application impute toujours le déficit en priorité.
       </div>
     </div>
   );
