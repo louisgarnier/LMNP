@@ -11,6 +11,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useProperty } from '@/contexts/PropertyContext';
+import VisionGlobaleTable from '@/components/VisionGlobaleTable';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -455,32 +456,8 @@ export default function HomePage() {
           </span>
         </div>
 
-        {/* Entrée principale : Vision globale */}
-        <Link
-          href="/dashboard/liasse-fiscale"
-          style={{
-            display: 'block',
-            backgroundColor: '#fff',
-            border: '1px solid #dfe1e6',
-            borderLeft: '3px solid #0052cc',
-            borderRadius: '8px',
-            padding: '16px 18px',
-            cursor: 'pointer',
-            textDecoration: 'none',
-            marginBottom: '12px',
-            transition: 'box-shadow .12s',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(9,30,66,.12)'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
-        >
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#172b4d' }}>Vision globale →</div>
-          <div style={{ fontSize: '12px', color: '#5e6c84', marginTop: '4px', lineHeight: 1.5 }}>
-            Résultat par appartement + entité, les deux tirelires (déficit &amp; amortissements reportés), et le choix d&apos;imputation par année.
-          </div>
-        </Link>
-
-        {/* Deux vues secondaires */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px' }}>
+        {/* Deux vues secondaires (détail par appartement / chaîne année par année) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '12px' }}>
           {[
             { title: 'Voir le détail par appartement →', desc: 'Compte de résultat groupé par appartement, comparé à la liasse déposée, par exercice.', href: '/dashboard/liasse-fiscale/detail' },
             { title: 'Voir la chaîne fiscale année par année →', desc: 'Résultat comptable → résultat fiscal → déficit & amortissements reportés. App vs Officiel.', href: '/dashboard/liasse-fiscale/chaine' },
@@ -506,6 +483,9 @@ export default function HomePage() {
             </Link>
           ))}
         </div>
+
+        {/* Vision globale : tableau fiscal embarqué directement */}
+        <VisionGlobaleTable />
       </div>
     </div>
   );
