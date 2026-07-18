@@ -92,6 +92,53 @@ def test_detail_par_bien_2025_somme_egale_total(rec):
     assert deficit["par_bien"] is None
 
 
+def test_per_bien_cr_groupe_les_charges():
+    from backend.api.services.reconciliation_service import _per_bien_cr
+    db = _ROSession()
+    try:
+        cr = _per_bien_cr(db, 2025)
+    finally:
+        db.close()
+    evry = cr[25]
+    # clés attendues
+    assert set(evry) == {"produits", "charges_externes", "impots", "amortissements", "interets", "resultat"}
+    # 2025 Evry (valeurs réelles connues, signe charges = négatif)
+    assert evry["produits"] == pytest.approx(23803.02, abs=1.0)
+    assert evry["impots"] == pytest.approx(-2323, abs=1.0)
+    assert evry["amortissements"] == pytest.approx(-11119, abs=1.0)
+    assert evry["interets"] == pytest.approx(-2489, abs=1.0)
+    # charges externes = toutes charges hors impôts/amort/intérêts
+    assert evry["charges_externes"] == pytest.approx(-11263, abs=2.0)
+    # cohérence : produits + charges_externes + impots + amortissements + interets == resultat
+    somme = (evry["produits"] + evry["charges_externes"] + evry["impots"]
+             + evry["amortissements"] + evry["interets"])
+    assert somme == pytest.approx(evry["resultat"], abs=0.5)
+
+
+def test_lignes_groupees_2025_signe_et_ecart(rec):
+    lignes = {l["poste"]: l for l in rec[2025]["lignes"]}
+    assert set(lignes) >= {"Produits", "Charges externes", "Impôts et taxes",
+                           "Amortissements", "Intérêts d'emprunt", "Résultat comptable",
+                           "Déficit reportable (cumulé)", "Amortissements reportés (cumulé)"}
+    # charges externes : app négatif, comparé à −liasse, écart ~0
+    ce = lignes["Charges externes"]
+    assert ce["app"] == pytest.approx(-40278, abs=2.0)
+    assert ce["liasse"] == pytest.approx(-40278, abs=2.0)
+    assert ce["ok"] is True
+    # intérêts : l'erreur cabinet de 64 €
+    it = lignes["Intérêts d'emprunt"]
+    assert it["ok"] is False
+    assert abs(it["ecart"]) == pytest.approx(64, abs=2.0)
+    # somme par bien = total app sur chaque ligne comptable
+    for poste in ("Produits", "Charges externes", "Résultat comptable"):
+        l = lignes[poste]
+        assert round(sum(l["par_bien"].values()), 2) == pytest.approx(l["app"], abs=0.5)
+
+
+def test_reconcile_expose_cr_par_bien(rec):
+    assert "charges_externes" in rec[2025]["cr_par_bien"][25]
+
+
 def test_2026_est_un_brouillon_sans_liasse(rec):
     # L'exercice en cours (2026) apparaît en brouillon : chiffres appli, pas de
     # liasse ni d'écart.

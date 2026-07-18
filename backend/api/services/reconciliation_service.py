@@ -43,20 +43,36 @@ def load_liasses(directory=None):
 
 
 def _per_bien_cr(db, year):
-    """{pid: {produits, resultat, amortissements}} pour les biens ACTIFS l'année.
-
-    Aucun bien codé en dur : parcourt db.query(Property). Un bien sans activité
-    (aucune transaction cette année) est omis pour ne pas afficher de colonne à 0.
+    """{pid: {produits, charges_externes, impots, amortissements, interets, resultat}}
+    pour les biens ACTIFS l'année. Charges/impôts/intérêts/amortissements en
+    valeur NÉGATIVE (comme des charges). Aucun bien codé en dur : parcourt
+    db.query(Property). Un bien sans activité (aucune transaction cette année)
+    est omis pour ne pas afficher de colonne à 0.
     """
+    # catégories de charges NON externes (traitées à part)
+    IMPOTS = "Impôts et taxes"
+    AMORT = "Charges d'amortissements"
+    FIN = "Coût du financement (hors remboursement du capital)"
     out = {}
     for prop in db.query(Property).all():
         cr = calculate_compte_resultat(db, year, property_id=prop.id)
-        p = cr.get("total_produits", 0.0)
-        rn = cr.get("resultat_net", 0.0)
-        am = abs(cr.get("amortissements", 0.0))
-        if abs(p) > _EPS or abs(rn) > _EPS or abs(am) > _EPS:
-            out[prop.id] = {"produits": round(p, 2), "resultat": round(rn, 2),
-                            "amortissements": round(am, 2)}
+        produits = cr.get("total_produits", 0.0)
+        resultat = cr.get("resultat_net", 0.0)
+        charges = cr.get("charges", {})
+        impots = charges.get(IMPOTS, 0.0)
+        amort = -abs(cr.get("amortissements", 0.0))
+        interets = -abs(cr.get("cout_financement", 0.0))
+        charges_externes = sum(v for k, v in charges.items()
+                               if k not in (IMPOTS, AMORT, FIN))
+        if (abs(produits) > _EPS or abs(resultat) > _EPS or abs(amort) > _EPS):
+            out[prop.id] = {
+                "produits": round(produits, 2),
+                "charges_externes": round(charges_externes, 2),
+                "impots": round(impots, 2),
+                "amortissements": round(amort, 2),
+                "interets": round(interets, 2),
+                "resultat": round(resultat, 2),
+            }
     return out
 
 
@@ -121,8 +137,11 @@ def reconcile(db, directory=None):
         cr_bien = _per_bien_cr(db, year)
         immo_bien = _per_bien_immo(db, year)
         produits_bien = {pid: v["produits"] for pid, v in cr_bien.items()}
+        cext_bien = {pid: v["charges_externes"] for pid, v in cr_bien.items()}
+        impots_bien = {pid: v["impots"] for pid, v in cr_bien.items()}
+        amort_bien_neg = {pid: v["amortissements"] for pid, v in cr_bien.items()}  # négatif
+        interets_bien = {pid: v["interets"] for pid, v in cr_bien.items()}
         resultat_bien = {pid: v["resultat"] for pid, v in cr_bien.items()}
-        amort_bien = {pid: v["amortissements"] for pid, v in cr_bien.items()}
 
         if liasse:
             cr = liasse["compte_resultat"]
@@ -131,13 +150,19 @@ def reconcile(db, directory=None):
             biens = liasse["biens_inclus"]
             lignes = [
                 _ligne("Produits", produits_bien, cr["produits"]),
+                _ligne("Charges externes", cext_bien, -cr["autres_charges_externes"]),
+                _ligne("Impôts et taxes", impots_bien, -cr["impots_et_taxes"]),
+                _ligne("Amortissements", amort_bien_neg, -cr["dotations_amortissements"]),
+                _ligne("Intérêts d'emprunt", interets_bien, -cr["charges_financieres"]),
                 _ligne("Résultat comptable", resultat_bien, cr["resultat_comptable"]),
-                _ligne("Amortissements", amort_bien, cr["dotations_amortissements"]),
                 _ligne_entite("Déficit de l'exercice", fisc.get("deficit_annee", 0.0),
                               fis.get("deficit_reportable_de_lannee", 0)),
                 _ligne_entite("Déficit reportable (cumulé)",
                               fisc.get("stock_deficit_fin", 0.0),
                               fis.get("stock_deficit_reportable_fin")),
+                _ligne_entite("Amortissements reportés (cumulé)",
+                              fisc.get("stock_amort_fin", 0.0),
+                              fis.get("stock_amort_reporte_reconstitue")),
                 _ligne_entite("Résultat fiscal imposable",
                               fisc.get("resultat_fiscal_imposable", 0.0),
                               fis["resultat_fiscal_imposable"]),
@@ -148,11 +173,16 @@ def reconcile(db, directory=None):
             biens = sorted(cr_bien.keys())
             lignes = [
                 _ligne("Produits", produits_bien, None),
+                _ligne("Charges externes", cext_bien, None),
+                _ligne("Impôts et taxes", impots_bien, None),
+                _ligne("Amortissements", amort_bien_neg, None),
+                _ligne("Intérêts d'emprunt", interets_bien, None),
                 _ligne("Résultat comptable", resultat_bien, None),
-                _ligne("Amortissements", amort_bien, None),
                 _ligne_entite("Déficit de l'exercice", fisc.get("deficit_annee", 0.0), None),
                 _ligne_entite("Déficit reportable (cumulé)",
                               fisc.get("stock_deficit_fin", 0.0), None),
+                _ligne_entite("Amortissements reportés (cumulé)",
+                              fisc.get("stock_amort_fin", 0.0), None),
                 _ligne_entite("Résultat fiscal imposable",
                               fisc.get("resultat_fiscal_imposable", 0.0), None),
             ]
@@ -166,6 +196,7 @@ def reconcile(db, directory=None):
             "annee": year,
             "brouillon": brouillon,
             "biens_inclus": biens,
+            "cr_par_bien": cr_bien,
             "composition": composition,
             "lignes": lignes,
             "stock_deficit_appli": round(fisc.get("stock_deficit_fin", 0.0), 2),
