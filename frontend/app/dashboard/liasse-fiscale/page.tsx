@@ -71,6 +71,9 @@ export default function LiasseFiscalePage() {
       >
         Voir le détail par appartement →
       </Link>
+      <Link href="/dashboard/liasse-fiscale/chaine" style={{ fontSize: 12, color: '#0052cc', marginLeft: 16 }}>
+        Voir la chaîne fiscale année par année →
+      </Link>
       <h1 style={{ fontSize: 20, fontWeight: 700, color: '#172b4d', margin: 0 }}>Position fiscale — vision globale</h1>
       <p style={{ fontSize: 13, color: '#5e6c84', marginTop: 6, lineHeight: 1.5 }}>
         Liasse déposée = vérif officielle (gauche) · résultat comptable par appartement et entité (milieu) ·
