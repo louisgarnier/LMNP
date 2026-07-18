@@ -568,3 +568,18 @@ class FiscalSettings(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
+
+class FiscalImputationChoice(Base):
+    """Choix d'ordre d'imputation d'un bénéfice, par exercice.
+
+    mode = 'deficit' (déficit antérieur d'abord, défaut recommandé) ou
+    'amort' (amortissements reportés d'abord, méthode du comptable). Une seule
+    ligne par année ; absence de ligne = 'deficit'.
+    """
+    __tablename__ = "fiscal_imputation_choices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    year = Column(Integer, unique=True, nullable=False, index=True)
+    mode = Column(String(10), nullable=False, default="deficit")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
