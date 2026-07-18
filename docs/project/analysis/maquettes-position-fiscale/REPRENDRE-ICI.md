@@ -79,3 +79,35 @@ Chiffres officiels des FEC (résultat comptable / amort) :
 - `appartements/aide_au_report (2024).pdf.pdf`, `aide_au_report (2025).pdf` → déficit reportable officiel cumulé
 - FEC : `~/Downloads/Re_ demande admin fiscale (2)/917800823FEC{2021,2022,2023}1231.txt`
 - Liasses 2021-2025 déjà saisies dans `docs/project/reference/liasses/liasse-*.json`
+
+---
+## MAJ 2026-07-18 (2) — maquettes affinées + 2 nouveaux besoins
+
+**Maquettes finales validées par Louis** (dans ce dossier) :
+- `maquette1-globale.html` — VISION GLOBALE : liasse (vérif) à gauche en gris, résultat
+  par appartement au milieu, tirelires app à droite, + **colonne "Imputer en priorité"
+  (menu déroulant PAR ANNÉE, uniquement les années bénéficiaires)** : "Déficit (reco)"
+  vs "Amort (comptable)". Changer le menu **recalcule automatiquement** les tirelires et
+  les cumulés suivants. Permet d'aligner l'app sur le comptable OU de garder la méthode
+  prudente, et de montrer au comptable l'impact chiffré.
+- `maquette2-detaillee.html` — DÉTAIL PAR APPARTEMENT : compte de résultat par appart,
+  **niveau groupé** (Produits, Charges externes [total, PAS le sous-détail], Impôts,
+  Amortissements, Intérêts, Résultat), colonnes App / Liasse / Écart, sélecteur d'année.
+- `maquette-docs-liasse.html` — PIÈCES & CHARGEMENT (voir besoins ci-dessous).
+
+**2 nouveaux besoins (validés) :**
+1. **Pièces jointes par année** : rattacher + retélécharger les docs officiels (liasse,
+   aide au report, FEC) sur chaque exercice. Un coffre par année.
+2. **Charger une liasse pour une année en cours (ex. 2026)** : téléverser le PDF (archive)
+   + **saisie manuelle des ~10 chiffres clés** (option (a) confirmée — PAS d'extraction PDF
+   auto, fragile). À l'enregistrement, crée `liasse-2026.json` → 2026 passe de "brouillon"
+   à année comparée automatiquement (la réconciliation itère déjà les fichiers de référence).
+
+**Champs du formulaire de chargement** (= structure liasse-*.json) : produits, charges
+externes, impôts et taxes, dotations amortissements, charges financières, résultat
+comptable, déficit reportable de l'année, déficit reportable cumulé, résultat fiscal
+imposable, immobilisations brutes, biens_inclus.
+
+**Décision confirmée sur l'imputation** : c'est un CHOIX PAR ANNÉE bénéficiaire, stocké,
+qui pilote le moteur (ordre d'imputation déficit-d'abord vs amort-d'abord). Le moteur
+fiscal actuel fait déficit-d'abord en dur → il faudra le rendre paramétrable par année.
