@@ -65,32 +65,31 @@ export default function LiasseFiscalePage() {
   const [chaine, setChaine] = useState<ChaineResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<number | null>(null);
-  const [realized, setRealized] = useState(true);
 
   const loadReconciliation = useCallback(async () => {
-    const r = await fetch(`${API_BASE_URL}/api/reconciliation?realized=${realized}`);
+    const r = await fetch(`${API_BASE_URL}/api/reconciliation`);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return (await r.json()) as RecResponse;
-  }, [realized]);
+  }, []);
 
   useEffect(() => {
     Promise.all([
       loadReconciliation(),
-      fetch(`${API_BASE_URL}/api/fiscal/chaine?realized=${realized}`).then((r) => {
+      fetch(`${API_BASE_URL}/api/fiscal/chaine`).then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<ChaineResponse>;
       }),
     ])
       .then(([rec, ch]) => { setData(rec); setChaine(ch); })
       .catch((e) => setError(String(e)));
-  }, [loadReconciliation, realized]);
+  }, [loadReconciliation]);
 
   // Change le choix d'imputation d'une année : PUT (renvoie la chaîne recalculée)
   // puis re-fetch de la réconciliation, car les tirelires cumulées changent.
   async function changeMode(year: number, mode: 'deficit' | 'amort') {
     setSaving(year);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/fiscal/imputation/${year}?realized=${realized}`, {
+      const res = await fetch(`${API_BASE_URL}/api/fiscal/imputation/${year}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode }),
@@ -129,35 +128,6 @@ export default function LiasseFiscalePage() {
         Liasse déposée = vérif officielle (gauche) · résultat comptable par appartement et entité (milieu) ·
         tirelires calculées par l&apos;application — déficit et amortissements reportés cumulés (droite).
       </p>
-
-      <div
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 8, marginTop: 12 }}
-        title="Ne change que l'année en cours (2026) : Réel = coût du financement à ce jour ; Prévisionnel = plein an."
-      >
-        <span style={{ fontSize: 12, color: '#5e6c84' }}>Base 2026 :</span>
-        <button
-          type="button"
-          onClick={() => setRealized(true)}
-          style={
-            realized
-              ? { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#0052cc', color: '#fff', border: '1px solid #0052cc' }
-              : { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#fff', color: '#5e6c84', border: '1px solid #dfe1e6' }
-          }
-        >
-          Réel
-        </button>
-        <button
-          type="button"
-          onClick={() => setRealized(false)}
-          style={
-            !realized
-              ? { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#0052cc', color: '#fff', border: '1px solid #0052cc' }
-              : { fontSize: 12, padding: '4px 10px', borderRadius: 4, cursor: 'pointer', background: '#fff', color: '#5e6c84', border: '1px solid #dfe1e6' }
-          }
-        >
-          Prévisionnel
-        </button>
-      </div>
 
       <div style={{ background: '#fff', border: '1px solid #dfe1e6', borderRadius: 6, overflowX: 'auto', marginTop: 16 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, minWidth: 1150 }}>
