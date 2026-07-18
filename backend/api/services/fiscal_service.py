@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 _EPS = 0.005  # seuil de purge des lignes de stock résiduelles (< 0,5 centime)
 
 
-def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years):
+def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years,
+                            imputation_choices=None):
     """Déroule l'algorithme fiscal sur une suite chronologique d'exercices.
 
     Args:
@@ -32,10 +33,15 @@ def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years
         deficit_report_years: durée de report du déficit (années). Un déficit
             millésimé Y est imputable jusqu'à Y + deficit_report_years inclus.
         amort_report_years: durée de report des amortissements, ou None = illimité.
+        imputation_choices: dict {year: 'deficit'|'amort'} — ordre d'imputation
+            d'un bénéfice pour l'année. 'deficit' (défaut) impute les déficits
+            antérieurs d'abord ; 'amort' impute les amortissements reportés
+            d'abord. Sans effet sur une année non bénéficiaire.
 
     Returns:
         dict {year: résultat de l'exercice} — voir clés ci-dessous.
     """
+    imputation_choices = imputation_choices or {}
     deficits = []  # [ [year, remaining], ... ] millésimés, FIFO
     amorts = []    # [ [year, remaining], ... ] millésimés, FIFO
     results = {}
@@ -59,24 +65,28 @@ def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years
         imputation_amorts = 0.0
         deficit_annee = 0.0
 
+        mode = imputation_choices.get(year, "deficit")
         if result_after > _EPS:
             profit = result_after
-            # 1) imputer les déficits antérieurs, plus anciens d'abord
-            for d in sorted(deficits, key=lambda x: x[0]):
-                if profit <= _EPS:
-                    break
-                take = min(d[1], profit)
-                d[1] -= take
-                profit -= take
-                imputation_deficits += take
-            # 2) imputer les amortissements reportés antérieurs, plus anciens d'abord
-            for a in sorted(amorts, key=lambda x: x[0]):
-                if profit <= _EPS:
-                    break
-                take = min(a[1], profit)
-                a[1] -= take
-                profit -= take
-                imputation_amorts += take
+
+            def _impute(stock):
+                nonlocal profit
+                taken = 0.0
+                for item in sorted(stock, key=lambda x: x[0]):
+                    if profit <= _EPS:
+                        break
+                    take = min(item[1], profit)
+                    item[1] -= take
+                    profit -= take
+                    taken += take
+                return taken
+
+            if mode == "amort":
+                imputation_amorts = _impute(amorts)
+                imputation_deficits = _impute(deficits)
+            else:
+                imputation_deficits = _impute(deficits)
+                imputation_amorts = _impute(amorts)
             resultat_fiscal_imposable = max(0.0, profit)
         else:
             # Déficit de l'exercice (hors amortissement de l'année déjà écarté).
@@ -104,6 +114,7 @@ def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years
             "imputation_deficits": imputation_deficits,
             "imputation_amorts": imputation_amorts,
             "resultat_fiscal_imposable": resultat_fiscal_imposable,
+            "imputation_mode": mode,
             "stock_deficit_fin": sum(d[1] for d in deficits),
             "stock_amort_fin": sum(a[1] for a in amorts),
         }
