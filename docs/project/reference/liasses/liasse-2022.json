@@ -3,7 +3,9 @@
   "source": "BILAN LOUIS GARNIER 2022 (1).PDF",
   "cabinet": "BUDIZ",
   "unite": "euros entiers",
-  "biens_inclus": [25],
+  "biens_inclus": [
+    25
+  ],
   "compte_resultat": {
     "produits": 18203,
     "autres_charges_externes": 8209,
@@ -27,5 +29,59 @@
     "stock_deficit_reportable_fin": 23497,
     "resultat_fiscal_imposable": 0,
     "stock_amort_reporte_reconstitue": 4550
+  },
+  "ecarts_expliques": {
+    "cr": {
+      "Résultat comptable": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre donc un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente. Converge en 2023, où l'amortissement est identique au centime."
+      },
+      "Amortissements": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre donc un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente. Converge en 2023, où l'amortissement est identique au centime."
+      },
+      "Produits": {
+        "statut": "difference_date",
+        "cause": "Le cabinet rattache à l'exercice (comptabilité d'engagement), l'application date à la transaction bancaire (trésorerie). Décomposé au centime : transferts de charges identiques (13 327,92 vs 13 328) ; l'écart porte entièrement sur les loyers — 4 762,99 encaissés (app) vs 4 875 rattachés (cabinet), soit 112 EUR de loyer à cheval sur l'exercice."
+      },
+      "Charges externes": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet excluait l'assurance emprunteur des charges financières en 2021-2023 (liasse = intérêts seuls), l'application l'y inclut. Le cabinet rattache à l'exercice (comptabilité d'engagement), l'application date à la transaction bancaire (trésorerie). Le cabinet y range l'assurance (307,58) et les ~550 EUR de charges 2021 décalées sur 2022. Résidu inexpliqué : ~29 EUR."
+      },
+      "Intérêts d'emprunt": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet excluait l'assurance emprunteur des charges financières en 2021-2023 (liasse = intérêts seuls), l'application l'y inclut. Au centime : liasse 2 451 = intérêts seuls 2 451,40 ; assurance 307,58 = l'écart."
+      },
+      "Déficit reportable (cumulé)": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      },
+      "Amortissements reportés (cumulé)": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      }
+    },
+    "bilan": {
+      "030": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      },
+      "110": {
+        "statut": "difference_presentation",
+        "cause": "L'application fait figurer les disponibilités et les cautions reçues que la liasse ne détaille pas. Différence de périmètre, pas de calcul : l'actif et le passif de l'application s'équilibrent au centime."
+      },
+      "120": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet regroupe dans cette seule case les apports personnels, le report à nouveau et le résultat, que l'application détaille en trois lignes. Différence de présentation — comparer les sous-totaux pour voir où l'argent est rangé."
+      },
+      "136": {
+        "statut": "difference_date",
+        "cause": "Composite : produits −112,09 + charges +827,43 + assurance −307,98 + amortissement des travaux −600,49 = −193,13 ≈ l'écart constaté."
+      },
+      "180": {
+        "statut": "difference_presentation",
+        "cause": "L'application fait figurer les disponibilités et les cautions reçues que la liasse ne détaille pas. Différence de périmètre, pas de calcul : l'actif et le passif de l'application s'équilibrent au centime."
+      }
+    }
   }
 }

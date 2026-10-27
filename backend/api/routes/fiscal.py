@@ -11,10 +11,14 @@ from backend.api.services.fiscal_service import (
     get_fiscal, get_fiscal_timeline, entity_year_range,
 )
 from backend.api.services.fiscal_chain_service import build_chain
+from backend.api.services.fiscal_repartition_service import repartition
+from backend.api.services.bilan_entite_service import bilan_cerfa
 
 router = APIRouter()
 
-_REPRISE = {"annee": 2025, "deficit": 39913, "amort": 35364}
+# Pas de constante de « reprise » : l'application chaîne depuis le premier
+# exercice à partir des transactions. Cf. ADR « L'application est la source de
+# vérité fiscale ; la liasse est un contrôle » (2026-07-29).
 _MODES = {"deficit", "amort"}
 
 
@@ -61,9 +65,7 @@ def fiscal_chaine(
     realized: bool = Query(True, description="True = Réel (défaut) ; False = Prévisionnel (plein an). N'affecte que l'année en cours."),
     db: Session = Depends(get_db),
 ):
-    out = build_chain(db, realized=realized)
-    out["reprise"] = _REPRISE
-    return out
+    return build_chain(db, realized=realized)
 
 
 @router.put("/fiscal/imputation/{year}")
@@ -82,6 +84,24 @@ def put_imputation(
     else:
         row.mode = body.mode
     db.commit()
-    out = build_chain(db, realized=realized)
-    out["reprise"] = _REPRISE
-    return out
+    return build_chain(db, realized=realized)
+
+
+@router.get("/fiscal/repartition")
+def fiscal_repartition(
+    jusqua: int = Query(None, description="N'agréger que les exercices <= cette année (défaut : tous)."),
+    realized: bool = Query(True, description="True = Réel (défaut) ; False = Prévisionnel."),
+    db: Session = Depends(get_db),
+):
+    """Ventile total amorti / déjà déduit / encore en tirelire, appartement par appartement."""
+    return repartition(db, jusqua=jusqua, realized=realized)
+
+
+@router.get("/fiscal/bilan-cerfa")
+def fiscal_bilan_cerfa(
+    year: int = Query(..., description="Exercice à présenter."),
+    realized: bool = Query(True, description="True = Réel (défaut) ; False = Prévisionnel."),
+    db: Session = Depends(get_db),
+):
+    """Bilan 2033-A de l'entité : ce que l'application calcule, face à la liasse déposée."""
+    return bilan_cerfa(db, year, realized=realized)

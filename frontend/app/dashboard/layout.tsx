@@ -17,7 +17,7 @@ import { useProperty } from '@/contexts/PropertyContext';
 // Pages GLOBALES (niveau entité, tous biens confondus) : elles ne dépendent
 // d'aucun appartement actif et ne doivent donc PAS être redirigées vers l'accueil
 // quand aucun bien n'est sélectionné.
-const GLOBAL_ROUTES = ['/dashboard/liasse-fiscale'];
+const GLOBAL_ROUTES = ['/dashboard/position-fiscale'];
 
 export default function DashboardLayout({
   children,

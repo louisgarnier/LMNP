@@ -463,3 +463,107 @@ et au passif (via le résultat de l'exercice). Elles se compensent, d'où l'équ
 Proratiser le seul compte de résultat **casserait le bilan de 5/12 de la dotation**
 (2 565 € sur Marseille en juillet). Les deux côtés doivent bouger ensemble, et
 `test_solde_marseille_golden.py` le verrouille.
+
+---
+
+## L'assurance emprunteur compte dans le crédit annuel (2026-07-28)
+
+**Décision de Louis.** Le « crédit annuel » de la projection du solde bancaire
+inclut **capital + intérêts + assurance**.
+
+**Pourquoi.** La formule projette une TRÉSORERIE :
+`solde prévu = réel N-1 + CR prévisionnel − crédit annuel + variation CCA`.
+L'assurance emprunteur est prélevée sur le compte avec la mensualité. L'exclure
+sous-estimerait la sortie de cash d'environ **270 €/an et par bien**.
+
+**Contexte de la décision.** En vérifiant le correctif du bug de pagination, le
+total Evry 2026 est ressorti à **14 068,02 €** alors que le plan du 2026-07-10
+attendait **13 798,44 €**. L'écart de 269,58 € est exactement l'assurance : la
+valeur du plan était capital + intérêts seuls, vraisemblablement recopiée d'un
+tableau d'amortissement en oubliant la colonne assurance. **Le code avait raison,
+c'est la valeur de référence du plan qui était incomplète.**
+
+**Verrouillage.** `frontend/__tests__/creditAnnuel.test.ts` — le test
+« l'assurance est incluse dans le total » échoue si quelqu'un la retire lors d'un
+futur nettoyage. Les références obsolètes sont annotées dans
+`AUDIT_EVRY_VS_MARSEILLE_2026-07-17.md` §8 et `bilanProjection.test.ts`.
+
+**À ne pas refaire.** Ne pas « corriger » le calcul pour retomber sur 13 798,44 :
+ce chiffre est faux pour une projection de trésorerie.
+
+---
+
+## Pas de projection sur le bilan (2026-07-28)
+
+**Décision de Louis, rappelée le 2026-07-28** : *« il n'y aura pas de projection
+sur les bilans on a dit »*. Elle n'avait jamais été écrite ici — d'où cet ADR.
+
+**Le bilan est un état ARRÊTÉ**, pas un outil de prévision. On ne projette pas
+une colonne « année en cours estimée » à côté des exercices clos.
+
+**Pourquoi c'était bancal de toute façon.** La projection remplaçait le compte
+bancaire **à l'actif** sans jamais toucher au passif, qui gardait le résultat
+réel. Les deux colonnes ne décrivaient plus la même année, et le bilan projeté ne
+s'équilibrait pas (écart résiduel mesuré : **−3 452,79 €**, soit −1,92 %). Voir
+`AUDIT_EVRY_VS_MARSEILLE_2026-07-17.md` §8.
+
+**État constaté au moment de la décision** : `prorata_enabled = 0` sur les
+**trois** biens (table `prorata_settings`). La projection était donc déjà éteinte
+partout et n'affichait rien. Il s'agit de code mort, pas d'une fonctionnalité
+active à retirer.
+
+**Périmètre.** Ne concerne QUE l'onglet Bilan. Le prévisionnel du **compte de
+résultat** (`ProRataForecastCard`, drapeau `forecast_enabled`) est une autre
+fonctionnalité et n'est pas visé.
+
+**Conséquence sur l'ADR précédent.** La décision « l'assurance emprunteur compte
+dans le crédit annuel » (même date, ci-dessus) portait sur cette projection. Elle
+devient **sans objet** si le code est retiré. La règle de fond reste juste — une
+sortie de trésorerie inclut l'assurance — si le besoin réapparaît ailleurs.
+
+---
+
+## L'application est la source de vérité fiscale ; la liasse est un contrôle (2026-07-29)
+
+**Décision de Louis.** L'application détient la réalité — les transactions bancaires
+réelles, rapprochées au centime. Le cabinet ne produit pas la vérité : il met en forme,
+une fois par an, les informations que Louis lui fournit.
+
+**Le cycle, dans cet ordre :**
+
+```
+APP (réalité : transactions)
+  │  ① export des éléments dont le cabinet a besoin
+  ▼
+CABINET  ── établit la liasse une fois par an
+  │  ② la liasse déposée revient
+  ▼
+APP  ── on la charge → elle CONFIRME que les chiffres concordent
+```
+
+Le cabinet doit donc **retomber sur les chiffres de l'application**. Un écart n'est plus
+un signal de corriger l'appli : c'est un point à soulever avec le cabinet.
+
+**Ce que ça remplace.** L'ADR du 2026-07-18 (« on ADOPTE la position officielle du
+cabinet comme réalité/reprise ») était justifié tant que l'appli ne couvrait pas
+l'historique. Ce n'est plus le cas : `build_chain()` calcule la chaîne complète depuis
+2021 à partir des transactions, sans lire aucune liasse. **Cette décision est donc
+remise à l'endroit, pas contredite** — la reprise officielle n'était qu'un échafaudage.
+
+**Conséquences techniques :**
+1. `_REPRISE` (`backend/api/routes/fiscal.py:17`) — constante en dur
+   `{"annee":2025,"deficit":39913,"amort":35364}` — **à supprimer**. Le moteur n'en a
+   pas besoin ; elle ne sert qu'à un affichage. Sa valeur amort était d'ailleurs déjà
+   fausse (35 363 au SUIV39C).
+2. Dans les écrans, la colonne **App devient la référence**, la colonne Liasse un
+   contrôle. Un exercice sans liasse affiche quand même sa position.
+3. **NOUVEAU BESOIN — export vers le cabinet** : produire depuis l'appli les éléments
+   dont le cabinet a besoin pour établir la liasse. Rien n'existe (seuls
+   `/api/transactions/export` et les imports de transactions/échéanciers sont en place).
+4. **NOUVEAU BESOIN — chargement d'une liasse** : aujourd'hui les liasses sont des JSON
+   transcrits **à la main** dans `docs/project/reference/liasses/`, lus par
+   `reconciliation_service.load_liasses()`. Il faut pouvoir charger la liasse de l'année
+   depuis l'interface, sans passer par un fichier édité manuellement.
+
+**Règle à retenir.** Aucun chiffre affiché par l'application ne doit provenir d'une
+liasse. La liasse n'alimente que la colonne de contrôle et le calcul d'écart.

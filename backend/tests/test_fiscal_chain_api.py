@@ -23,7 +23,19 @@ def test_get_chaine_expose_years_et_chain(client):
     r = client.get("/api/fiscal/chaine")
     assert r.status_code == 200
     body = r.json()
-    assert "years" in body and "chain" in body and "reprise" in body
+    assert "years" in body and "chain" in body
+
+
+def test_la_chaine_ne_porte_plus_de_reprise_codee_en_dur(client):
+    """L'application chaîne depuis le premier exercice à partir des transactions.
+
+    La constante `_REPRISE` (position officielle du cabinet fin 2025) a été
+    supprimée le 2026-07-29 : aucun chiffre affiché ne doit provenir d'une
+    liasse. Cf. ADR « L'application est la source de vérité fiscale ; la liasse
+    est un contrôle ».
+    """
+    body = client.get("/api/fiscal/chaine").json()
+    assert "reprise" not in body
 
 
 def test_put_imputation_rejette_mode_invalide(client):

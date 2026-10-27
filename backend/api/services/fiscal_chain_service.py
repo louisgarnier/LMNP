@@ -18,8 +18,10 @@ def build_chain(db, realized=True, imputation_choices=None):
     chain = {}
     prev_deficit = 0.0
     prev_amort = 0.0
+    cumul_amorti = 0.0
     for y in years:
         r = tl[y]
+        cumul_amorti += r["amortissements"]
         beneficiaire = (r["imputation_deficits"] + r["imputation_amorts"]
                         + r["resultat_fiscal_imposable"]) > _EPS
         if beneficiaire:
@@ -52,6 +54,9 @@ def build_chain(db, realized=True, imputation_choices=None):
             "amort_deductible": round(r["amort_deductible"], 2),
             "amort_mis_de_cote": round(r["amort_differe_annee"], 2),
             "resultat_fiscal_app": round(resultat_fiscal_app, 2),
+            # Base imposable de l'exercice (0 tant que les tirelires absorbent le
+            # bénéfice). L'écran en fait un cumul : il n'a rien à écrire en dur.
+            "resultat_fiscal_imposable": round(r["resultat_fiscal_imposable"], 2),
             "resultat_fiscal_officiel": (round(rf_off, 2) if rf_off is not None else None),
             "deficit_depart": round(prev_deficit, 2),
             "deficit_mouvement": round(deficit_fin - prev_deficit, 2),
@@ -63,6 +68,17 @@ def build_chain(db, realized=True, imputation_choices=None):
             "amort_fin_app": round(amort_fin, 2),
             "amort_fin_officiel": amort_off,
             "amort_ecart": (round(amort_fin - amort_off, 2) if amort_off is not None else None),
+            # Les trois chiffres de la tirelire amortissements : total amorti =
+            # déjà déduit + encore en tirelire. Le « déjà déduit » est le chiffre
+            # qui compte à la revente (cf. TIRELIRES-FISCALES-EXPLICATION.md).
+            "amort_total_cumul": round(cumul_amorti, 2),
+            "amort_deduit_cumul": round(r["amort_deduit_cumul"], 2),
+            # Millésimes vivants + péremption, du plus urgent au plus lointain.
+            "deficit_millesimes": [
+                {"annee": m["annee"], "montant": round(m["montant"], 2),
+                 "expire_fin": m["expire_fin"]}
+                for m in r["deficit_millesimes"]
+            ],
         }
         prev_deficit = deficit_fin
         prev_amort = amort_fin

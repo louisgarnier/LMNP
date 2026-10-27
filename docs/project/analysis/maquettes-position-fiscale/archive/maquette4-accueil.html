@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette 4 — Page d'accueil refondue</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #f4f5f7; color: #172b4d; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 60px; }
+  .topbar { background: #fff; border-bottom: 1px solid #dfe1e6; padding: 16px 0; margin-bottom: 24px; }
+  .topbar-inner { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+  h2title { display:block; }
+  .sechead { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+  .sectitle { font-size:15px; font-weight:700; color:#172b4d; }
+  .subtitle { font-size:12px; color:#5e6c84; margin-top:2px; }
+  .link { font-size:12px; color:#0052cc; cursor:pointer; }
+  .cards3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:34px; }
+  .card { background:#fff; border:1px solid #dfe1e6; border-radius:8px; padding:14px; cursor:pointer; transition:box-shadow .12s; }
+  .card:hover { box-shadow:0 2px 8px rgba(9,30,66,.12); }
+  .badge { font-size:9px; font-weight:700; text-transform:uppercase; padding:2px 6px; border-radius:3px; }
+  .b-ok { background:#e3fcef; color:#006644; }
+  .b-brouillon { background:#deebff; color:#0747a6; }
+  .b-warn { background:#ffebe6; color:#bf2600; }
+  .b-todo { background:#f4f5f7; color:#5e6c84; }
+  .row-kv { display:flex; justify-content:space-between; font-size:12px; }
+  .divider { border-top:1px solid #f4f5f7; margin:10px 0; }
+  .neg { color:#bf2600; font-weight:600; }
+  .pos { color:#006644; font-weight:600; }
+  /* Section fiscale */
+  .entry3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+  .entry { background:#fff; border:1px solid #dfe1e6; border-radius:8px; padding:14px 16px; cursor:pointer; border-left:3px solid #0052cc; transition:box-shadow .12s; }
+  .entry:hover { box-shadow:0 2px 8px rgba(9,30,66,.12); }
+  .entry-t { font-size:13px; font-weight:700; color:#172b4d; }
+  .entry-d { font-size:11px; color:#5e6c84; margin-top:3px; line-height:1.45; }
+  .yearlist { background:#fff; border:1px solid #dfe1e6; border-radius:8px; overflow:hidden; }
+  .yr { display:flex; align-items:center; padding:11px 14px; border-bottom:1px solid #f4f5f7; cursor:pointer; }
+  .yr:last-child { border-bottom:none; }
+  .yr:hover { background:#f7f9ff; }
+  .yr-num { width:52px; font-size:14px; font-weight:700; }
+  .yr-mid { flex:1; }
+  .yr-res { width:150px; text-align:right; }
+  .yr-badge { width:150px; text-align:right; }
+  .muted { color:#5e6c84; }
+  .note { margin-top:20px; padding:12px 14px; background:#fff; border:1px solid #dfe1e6; border-left:3px solid #00875a; border-radius:4px; font-size:12px; color:#42526e; line-height:1.55; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div style="font-size:17px;font-weight:700;color:#172b4d">LMNP — Gestion comptable</div>
+    <div class="subtitle">Louis Garnier · SIREN 917 800 823 · loueur en meublé · exercice en cours 2026</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ═══════════ SECTION 1 : APPARTEMENTS ═══════════ -->
+  <div class="sechead">
+    <div>
+      <div class="sectitle">Appartements</div>
+      <div class="subtitle">Clique un appartement pour entrer dans son espace (transactions, amortissements…)</div>
+    </div>
+    <div class="link">+ Ajouter un appartement</div>
+  </div>
+
+  <div class="cards3">
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div style="font-size:14px;font-weight:700">Evry</div>
+        <span class="badge b-ok">à jour</span>
+      </div>
+      <div class="subtitle">Crédit Mutuel · depuis août 2021</div>
+      <div class="divider"></div>
+      <div class="row-kv" style="margin-bottom:5px"><span class="muted">Solde en banque</span><span style="font-weight:600">1 074,99 €</span></div>
+      <div class="row-kv"><span class="muted">Résultat 2026</span><span class="neg">−6 729,10 €</span></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div style="font-size:14px;font-weight:700">Marseille abnb</div>
+        <span class="badge b-ok">à jour</span>
+      </div>
+      <div class="subtitle">LCL · depuis janvier 2024</div>
+      <div class="divider"></div>
+      <div class="row-kv" style="margin-bottom:5px"><span class="muted">Solde en banque</span><span style="font-weight:600">2 386,15 €</span></div>
+      <div class="row-kv"><span class="muted">Résultat 2026</span><span class="neg">−4 747,99 €</span></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:start">
+        <div style="font-size:14px;font-weight:700">Marseille colloc</div>
+        <span class="badge b-ok">à jour</span>
+      </div>
+      <div class="subtitle">LCL · depuis mai 2025</div>
+      <div class="divider"></div>
+      <div class="row-kv" style="margin-bottom:5px"><span class="muted">Solde en banque</span><span style="font-weight:600">11 279,40 €</span></div>
+      <div class="row-kv"><span class="muted">Résultat 2026</span><span class="neg">−7 780,31 €</span></div>
+    </div>
+  </div>
+
+  <!-- ═══════════ SECTION 2 : LIASSE FISCALE / DONNÉES GLOBALES ═══════════ -->
+  <div class="sechead">
+    <div>
+      <div class="sectitle">Liasse fiscale · données globales</div>
+      <div class="subtitle">Tous appartements confondus — <b>hors du contexte d'un appartement</b>. C'est ici que vit la fiscalité.</div>
+    </div>
+    <div class="link">Charger une liasse</div>
+  </div>
+
+  <!-- 3 points d'entrée vers les vues qui existent déjà -->
+  <div class="entry3">
+    <div class="entry">
+      <div class="entry-t">Vision globale →</div>
+      <div class="entry-d">Résultat par appartement + entité, les deux tirelires, et le choix d'imputation par année.</div>
+    </div>
+    <div class="entry">
+      <div class="entry-t">Chaîne année par année →</div>
+      <div class="entry-d">Le détail du calcul : résultat comptable → résultat fiscal → déficit &amp; amortissements reportés. App vs Officiel.</div>
+    </div>
+    <div class="entry">
+      <div class="entry-t">Détail par appartement →</div>
+      <div class="entry-d">Compte de résultat groupé par appartement, comparé à la liasse déposée, par exercice.</div>
+    </div>
+  </div>
+
+  <!-- Recap par exercice -->
+  <div class="yearlist">
+    <div class="yr" style="background:#f7f9ff">
+      <div class="yr-num">2026</div>
+      <div class="yr-mid">
+        <div style="font-size:12px">Evry · Marseille abnb · Marseille colloc</div>
+        <div class="subtitle" style="margin-top:2px">Exercice en cours — chiffres à transmettre à l'expert-comptable</div>
+      </div>
+      <div class="yr-res"><span class="neg" style="font-size:13px">−19 257,40 €</span></div>
+      <div class="yr-badge"><span class="badge b-brouillon">brouillon · liasse non reçue</span></div>
+    </div>
+    <div class="yr">
+      <div class="yr-num">2025</div>
+      <div class="yr-mid">
+        <div style="font-size:12px">Evry · Marseille abnb · Marseille colloc</div>
+        <div class="subtitle" style="margin-top:2px;color:#bf2600">Charges financières colloc sous-évaluées de 63,68 € dans la liasse</div>
+      </div>
+      <div class="yr-res"><div class="neg" style="font-size:13px">−31 338,22 €</div><div class="subtitle">liasse : −31 274 €</div></div>
+      <div class="yr-badge"><span class="badge b-warn">1 écart · 64 €</span></div>
+    </div>
+    <div class="yr">
+      <div class="yr-num">2024</div>
+      <div class="yr-mid">
+        <div style="font-size:12px">Evry · Marseille abnb</div>
+        <div class="subtitle" style="margin-top:2px">Conforme — 0,36 € d'arrondi (liasse en euros entiers)</div>
+      </div>
+      <div class="yr-res"><div class="neg" style="font-size:13px">−20 031,64 €</div><div class="subtitle">liasse : −20 032 €</div></div>
+      <div class="yr-badge"><span class="badge b-ok">✓ conforme</span></div>
+    </div>
+    <div class="yr">
+      <div class="yr-num">2023</div>
+      <div class="yr-mid">
+        <div style="font-size:12px">Evry</div>
+        <div class="subtitle" style="margin-top:2px">Année bénéficiaire · choix d'imputation actif (déficit vs amort)</div>
+      </div>
+      <div class="yr-res"><span class="pos" style="font-size:13px">+4 061,59 €</span></div>
+      <div class="yr-badge"><span class="badge b-todo">à vérifier</span></div>
+    </div>
+    <div class="yr">
+      <div class="yr-num">2022</div>
+      <div class="yr-mid">
+        <div style="font-size:12px">Evry</div>
+        <div class="subtitle" style="margin-top:2px">Liasse non encore saisie dans le fichier de référence</div>
+      </div>
+      <div class="yr-res"><span class="neg" style="font-size:13px">−4 410,58 €</span></div>
+      <div class="yr-badge"><span class="badge b-todo">à vérifier</span></div>
+    </div>
+    <div class="yr">
+      <div class="yr-num">2021</div>
+      <div class="yr-mid">
+        <div style="font-size:12px">Evry</div>
+        <div class="subtitle" style="margin-top:2px">Premier exercice · liasse non encore saisie</div>
+      </div>
+      <div class="yr-res"><span class="neg" style="font-size:13px">−24 729,17 €</span></div>
+      <div class="yr-badge"><span class="badge b-todo">à vérifier</span></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>Ce que ça change.</b> Aujourd'hui « Liasse fiscale » est un onglet qui apparaît quand tu es entré dans un appartement — comme si la fiscalité appartenait à un appart. Ici elle remonte à l'accueil, dans son propre bloc « données globales », et l'onglet disparaît du menu par-appartement. Les 3 boutons ouvrent les vues que tu as déjà validées.
+  </div>
+
+</div>
+</body>
+</html>

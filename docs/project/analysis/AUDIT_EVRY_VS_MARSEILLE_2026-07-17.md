@@ -291,7 +291,7 @@ Elle est cassée. Référence : le test du plan
 |---|---|---|
 | Réel N-1 | 2 540,72 | 2 540,72 ✅ |
 | CR prévisionnel | 10 217,50 | 9 149,50 ❌ |
-| Crédit annuel | 13 798,44 | **0,00** ❌ |
+| Crédit annuel | 13 798,44 ⚠️ | **0,00** ❌ |
 | Variation CCA | 2 323,00 | **0,00** ❌ |
 
 - **Crédit annuel = 0** : `/api/loan-payments` pagine à 100 lignes sur 234, triées
@@ -302,6 +302,20 @@ Elle est cassée. Référence : le test du plan
 - Le test `__tests__/bilanProjection.test.ts` ne pouvait rien voir : **les quatre
   chiffres y sont tapés à la main**. Il teste l'addition, jamais le câblage.
   Même piège que les loyers Matera (cf. ERROR_INVESTIGATION.md).
+
+> ✅ **CORRIGÉ le 2026-07-28.** `fetchCreditAnnuel()` demande désormais la plage de
+> l'année **au serveur** (`start_date`/`end_date`, `limit=1000`) au lieu de rapatrier
+> la page 1 et de filtrer côté client. Vérifié en réel : Evry 0 → 14 068 €,
+> Marseille abnb 0 → 10 749 €, Marseille colloc 0 → 8 372 €. Le bug touchait les
+> **trois** biens, pas seulement Evry. Régression couverte par
+> `__tests__/creditAnnuel.test.ts` (6 tests, le faux serveur reproduit tri desc +
+> pagination). Règles de prévention dans `workflow/ERROR_INVESTIGATION.md`.
+>
+> ⚠️ **Le 13 798,44 attendu par le plan était incomplet** : c'est capital + intérêts
+> **sans l'assurance**. Le montant exact est **14 068,02** (capital 11 716,65 +
+> intérêts 2 081,79 + assurance 269,58). L'assurance étant prélevée sur le compte,
+> elle doit compter dans une projection de trésorerie — **décision de Louis du
+> 2026-07-28**, verrouillée par un test dédié.
 
 **Défaut de conception à trancher** : même en corrigeant ces entrées, le bilan
 projeté ne s'équilibre pas (écart résiduel calculé : **−3 452,79 €**, soit

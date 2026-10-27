@@ -3,7 +3,9 @@
   "source": "BILAN 2023 LOUIS GARNIER.PDF",
   "cabinet": "BUDIZ",
   "unite": "euros entiers",
-  "biens_inclus": [25],
+  "biens_inclus": [
+    25
+  ],
   "compte_resultat": {
     "produits": 27870,
     "autres_charges_externes": 8581,
@@ -28,5 +30,51 @@
     "resultat_fiscal_imposable": 0,
     "stock_amort_reporte_reconstitue": 473,
     "note": "Bénéfice 4077 neutralisé (imposable 0). Anomalie 2033-D: stock déficit non réduit malgré le bénéfice — devrait descendre à ~19420. Voir ECARTS_LIASSES_FISCALES.md."
+  },
+  "ecarts_expliques": {
+    "cr": {
+      "Déficit reportable (cumulé)": {
+        "statut": "difference_presentation",
+        "cause": "En 2023, le bénéfice fiscal de 4 077 € a été neutralisé en imputant l'amortissement reporté plutôt que le déficit antérieur. Le stock de déficit reste donc légitimement inchangé côté cabinet, alors que l'application impute le déficit d'abord. Ce n'est pas une faute : c'est un choix d'ordre d'imputation. L'application recommande l'inverse, le déficit expirant à 10 ans."
+      },
+      "Charges externes": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet excluait l'assurance emprunteur des charges financières en 2021-2023 (liasse = intérêts seuls), l'application l'y inclut. L'assurance reclassée (303,02) moins un résidu de ~15 EUR — dernière année de divergence, tout converge ensuite."
+      },
+      "Intérêts d'emprunt": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet excluait l'assurance emprunteur des charges financières en 2021-2023 (liasse = intérêts seuls), l'application l'y inclut. Au centime : liasse 2 462 = intérêts seuls 2 461,98 ; assurance 303,02 = l'écart."
+      },
+      "Résultat comptable": {
+        "statut": "difference_presentation",
+        "cause": "Résidu de ~15 EUR des reclassements d'assurance (288,32 − 303,00). Dernière année de divergence entre les deux comptabilités."
+      },
+      "Amortissements reportés (cumulé)": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      }
+    },
+    "bilan": {
+      "030": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      },
+      "110": {
+        "statut": "difference_presentation",
+        "cause": "L'application fait figurer les disponibilités et les cautions reçues que la liasse ne détaille pas. Différence de périmètre, pas de calcul : l'actif et le passif de l'application s'équilibrent au centime."
+      },
+      "120": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet regroupe dans cette seule case les apports personnels, le report à nouveau et le résultat, que l'application détaille en trois lignes. Différence de présentation — comparer les sous-totaux pour voir où l'argent est rangé."
+      },
+      "136": {
+        "statut": "difference_presentation",
+        "cause": "Même résidu de ~15 EUR que le résultat du compte de résultat : reliquat des reclassements d'assurance, dernière année de divergence."
+      },
+      "180": {
+        "statut": "difference_presentation",
+        "cause": "L'application fait figurer les disponibilités et les cautions reçues que la liasse ne détaille pas. Différence de périmètre, pas de calcul : l'actif et le passif de l'application s'équilibrent au centime."
+      }
+    }
   }
 }

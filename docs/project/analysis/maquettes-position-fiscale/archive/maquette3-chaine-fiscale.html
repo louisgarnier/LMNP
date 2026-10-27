@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Maquette 3 — La chaîne fiscale année par année</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 0; background: #f4f5f7; color: #172b4d; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 24px 20px 60px; }
+  h1 { font-size: 22px; margin: 0; }
+  h2 { font-size: 15px; margin: 0 0 4px; }
+  .sub { font-size: 13px; color: #5e6c84; line-height: 1.5; }
+  .card { background: #fff; border: 1px solid #dfe1e6; border-radius: 8px; overflow-x: auto; margin-top: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 11.5px; min-width: 760px; }
+  th { font-size: 9px; text-transform: uppercase; letter-spacing: .02em; color: #5e6c84; padding: 7px 7px; }
+  td { padding: 7px 7px; }
+  thead tr { background: #eceef1; }
+  tbody tr { border-top: 1px solid #f1f2f4; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; }
+  .yr { font-weight: 700; white-space: nowrap; }
+  .neg { color: #172b4d; }
+  .pos { color: #006644; font-weight: 600; }
+  .muted { color: #97a0af; }
+  .off { background: #f6f7f9; color: #5e6c84; }
+  .offhead { background: #eceef0; border-left: 2px solid #97a0af; }
+  .defcol { background: #fff6f5; }
+  .defhead { background: #ffeceb; border-left: 2px solid #bf2600; }
+  .amocol { background: #f4f8ff; }
+  .amohead { background: #e9f1ff; border-left: 2px solid #0052cc; }
+  .calc { background: #fbfbfc; }
+  .sep { border-left: 2px solid #172b4d; }
+  .step-badge { display:inline-block; font-size:11px; font-weight:700; color:#fff; background:#0052cc; border-radius:5px; padding:2px 9px; margin-right:8px; }
+  .legend { display:flex; gap:18px; flex-wrap:wrap; font-size:11px; color:#5e6c84; margin-top:10px; }
+  .legend span { display:inline-block; width:12px; height:12px; vertical-align:middle; margin-right:5px; border-radius:2px; }
+  .banner { border-radius:8px; padding:14px 16px; font-size:13px; line-height:1.55; margin-top:14px; }
+  .banner-reprise { background:#e3fcef; border:1px solid #57d9a3; border-left:4px solid #00875a; }
+  .banner-info { background:#fff; border:1px solid #dfe1e6; border-left:4px solid #0052cc; color:#42526e; }
+  .reprise-row td { background:#e3fcef; font-weight:600; color:#006644; border-top:2px solid #00875a; border-bottom:2px solid #00875a; }
+  .brouillon-row td { background:#eef3ff; }
+  .chip { font-size:8px; font-weight:700; text-transform:uppercase; padding:1px 5px; border-radius:3px; background:#deebff; color:#0747a6; margin-left:6px; }
+  .chip-warn { background:#fffae6; color:#974f0c; }
+  select { font-size:11px; padding:4px 7px; border:1.5px solid #0052cc; border-radius:5px; background:#fff; color:#172b4d; font-weight:600; cursor:pointer; }
+  .toggle-note { font-size:9px; color:#0052cc; display:block; margin-top:2px; }
+  .foot { font-size:11px; color:#97a0af; margin-top:8px; }
+  .ecart-bad { color:#bf2600; font-weight:600; }
+  .ecart-conv { color:#00875a; font-weight:600; }
+  .flash { animation: flash .6s ease; }
+  @keyframes flash { 0%{background:#fff7d6} 100%{} }
+  .controlbar { background:#fff; border:1px solid #dfe1e6; border-left:4px solid #0052cc; border-radius:8px; padding:12px 16px; margin-top:14px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
+  .controlbar b { font-size:13px; }
+  .statepill { font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
+  .state-conv { background:#e3fcef; color:#006644; }
+  .state-div { background:#ffebe6; color:#bf2600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Position fiscale — la chaîne année par année</h1>
+  <p class="sub" style="margin-top:6px">
+    Comment le résultat comptable devient le « résultat fiscal », puis remplit les deux tirelires
+    (déficit reportable · amortissements reportés). Colonne <b>App</b> = ce que l'appli calcule ·
+    colonne <b>Officiel</b> = ce qui a été déposé en liasse.
+  </p>
+
+  <!-- ===================== TABLE A ===================== -->
+  <div style="margin-top:24px">
+    <h2><span class="step-badge">Étape 1</span>Du résultat comptable au « résultat fiscal »</h2>
+    <p class="sub">L'amortissement n'a pas le droit de faire passer sous 0. On regarde d'abord le résultat <i>avant</i> amort ;
+      ce qu'on ne peut pas déduire est mis de côté (→ tirelire n°2). <b>Cette étape ne dépend pas du toggle.</b></p>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th class="yr">Année</th>
+          <th class="num">Résultat<br>comptable</th>
+          <th class="num calc">+ Amort.<br>de l'année</th>
+          <th class="num calc">= Avant<br>amort.</th>
+          <th class="num calc">Amort.<br>déduit</th>
+          <th class="num calc">Amort. mis<br>de côté →</th>
+          <th class="num sep">= Résultat<br>fiscal (App)</th>
+          <th class="num offhead">Rappel officiel<br>rés. fiscal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="yr">2021</td><td class="num neg">−24 729</td><td class="num calc">+632</td><td class="num calc">−24 097</td><td class="num calc muted">0</td><td class="num calc">632</td><td class="num sep neg"><b>−24 097</b></td><td class="num off">−23 497</td></tr>
+        <tr><td class="yr">2022</td><td class="num neg">−4 411</td><td class="num calc">+10 351</td><td class="num calc pos">+5 940</td><td class="num calc">5 940</td><td class="num calc">4 411</td><td class="num sep"><b>0</b></td><td class="num off">0</td></tr>
+        <tr><td class="yr">2023</td><td class="num pos">+4 062</td><td class="num calc">+11 119</td><td class="num calc pos">+15 181</td><td class="num calc">11 119</td><td class="num calc muted">0</td><td class="num sep pos"><b>+4 062</b></td><td class="num off">+4 077</td></tr>
+        <tr><td class="yr">2024</td><td class="num neg">−20 032</td><td class="num calc">+14 553</td><td class="num calc neg">−5 479</td><td class="num calc muted">0</td><td class="num calc">14 553</td><td class="num sep neg"><b>−5 479</b></td><td class="num off">−5 479</td></tr>
+        <tr><td class="yr">2025</td><td class="num neg">−31 338</td><td class="num calc">+20 338</td><td class="num calc neg">−11 000</td><td class="num calc muted">0</td><td class="num calc">20 338</td><td class="num sep neg"><b>−11 000</b></td><td class="num off">−10 937</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="foot">Lecture 2022 : −4 411 <b>+</b> 10 351 d'amort = <b>+5 940</b> avant amort → on déduit 5 940 (juste de quoi tomber à 0), reste <b>4 411</b> mis de côté → résultat fiscal <b>0</b>.</p>
+
+  <!-- ===================== TABLE B ===================== -->
+  <div style="margin-top:30px">
+    <h2><span class="step-badge">Étape 2</span>Tirelire n°1 — déficit reportable
+      <span id="statepill" class="statepill state-conv" style="margin-left:10px;vertical-align:middle"></span>
+    </h2>
+    <p class="sub">Une perte <b>ajoute</b> à la tirelire ; un bénéfice <b>retire</b> — mais seulement si le toggle dit « déficit d'abord ».
+      Le menu <b>« Imputer en priorité »</b> n'apparaît que sur les années bénéficiaires (résultat fiscal positif).</p>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th class="yr">Année</th>
+          <th class="amohead" style="text-align:center">Imputer<br>en priorité</th>
+          <th class="num defhead">Déficit<br>au départ</th>
+          <th class="num defcol">Résultat<br>fiscal</th>
+          <th class="num defcol">Mouvement</th>
+          <th class="num defhead">= Déficit<br>fin (App)</th>
+          <th class="num offhead">Déficit fin<br>(Officiel)</th>
+          <th class="num offhead">Écart</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="yr">2021</td><td class="amocol muted" style="text-align:center;font-size:10px">perte</td><td class="num defcol muted">0</td><td class="num defcol neg">−24 097</td><td class="num defcol">+24 097</td><td class="num defhead" style="border-left:none"><b>24 097</b></td><td class="num off">23 497</td><td class="num off ecart-bad">+600</td></tr>
+        <tr><td class="yr">2022</td><td class="amocol muted" style="text-align:center;font-size:10px">neutre</td><td class="num defcol">24 097</td><td class="num defcol">0</td><td class="num defcol muted">—</td><td class="num defhead" style="border-left:none"><b>24 097</b></td><td class="num off">23 497</td><td class="num off ecart-bad">+600</td></tr>
+        <tr>
+          <td class="yr">2023 <span class="chip chip-warn">choix</span></td>
+          <td class="amocol" style="text-align:center">
+            <select id="toggle2023" onchange="recompute()">
+              <option value="amort" selected>Amort. d'abord (comptable)</option>
+              <option value="deficit">Déficit d'abord (reco)</option>
+            </select>
+          </td>
+          <td class="num defcol">24 097</td>
+          <td class="num defcol pos">+4 062</td>
+          <td class="num defcol" id="mvB2023"></td>
+          <td class="num defhead" style="border-left:none"><b id="finB2023"></b></td>
+          <td class="num off">23 497</td>
+          <td class="num off" id="ecB2023"></td>
+        </tr>
+        <tr>
+          <td class="yr">2024</td>
+          <td class="amocol muted" style="text-align:center;font-size:10px">perte</td>
+          <td class="num defcol" id="depB2024"></td>
+          <td class="num defcol neg">−5 479</td>
+          <td class="num defcol">+5 479</td>
+          <td class="num defhead" style="border-left:none"><b id="finB2024"></b></td>
+          <td class="num off">28 976</td>
+          <td class="num off" id="ecB2024"></td>
+        </tr>
+        <tr>
+          <td class="yr">2025</td>
+          <td class="amocol muted" style="text-align:center;font-size:10px">perte</td>
+          <td class="num defcol" id="depB2025"></td>
+          <td class="num defcol neg">−11 001</td>
+          <td class="num defcol">+11 001</td>
+          <td class="num defhead" style="border-left:none"><b id="finB2025"></b></td>
+          <td class="num off">39 913</td>
+          <td class="num off" id="ecB2025"></td>
+        </tr>
+        <tr class="reprise-row"><td colspan="8">↳ REPRISE fin 2025 — on repart de l'<b>officiel</b> : déficit reportable = <b>39 913 €</b></td></tr>
+        <tr class="brouillon-row"><td class="yr">2026 <span class="chip">brouillon</span></td><td class="amocol muted" style="text-align:center;font-size:10px">perte</td><td class="num defcol">39 913</td><td class="num defcol neg">−19 257</td><td class="num defcol">+19 257</td><td class="num defhead" style="border-left:none"><b>≈ 59 170</b></td><td class="num off muted">pas de liasse</td><td class="num off muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===================== TABLE C ===================== -->
+  <div style="margin-top:30px">
+    <h2><span class="step-badge">Étape 3</span>Tirelire n°2 — amortissements reportés</h2>
+    <p class="sub">Alimentée par « Amort. mis de côté » (étape 1). Un bénéfice y est <b>retiré</b> seulement si le toggle dit « amort d'abord ». Ne s'efface jamais.</p>
+  </div>
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th class="yr">Année</th>
+          <th class="num amohead">Amort. reporté<br>au départ</th>
+          <th class="num amocol">+ Mis de côté<br>(étape 1)</th>
+          <th class="num amocol">− Imputation<br>bénéfice</th>
+          <th class="num amohead">= Amort. reporté<br>fin (App)</th>
+          <th class="num offhead">Amort. fin<br>(Officiel)</th>
+          <th class="num offhead">Écart</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="yr">2021</td><td class="num amocol muted">0</td><td class="num amocol">+632</td><td class="num amocol muted">—</td><td class="num amohead" style="border-left:none"><b>632</b></td><td class="num off">332</td><td class="num off ecart-bad">+300</td></tr>
+        <tr><td class="yr">2022</td><td class="num amocol">632</td><td class="num amocol">+4 411</td><td class="num amocol muted">—</td><td class="num amohead" style="border-left:none"><b>5 043</b></td><td class="num off">4 550</td><td class="num off ecart-bad">+493</td></tr>
+        <tr>
+          <td class="yr">2023 <span class="chip chip-warn">choix</span></td>
+          <td class="num amocol">5 043</td>
+          <td class="num amocol muted">+0</td>
+          <td class="num amocol" id="impC2023"></td>
+          <td class="num amohead" style="border-left:none"><b id="finC2023"></b></td>
+          <td class="num off">473</td>
+          <td class="num off" id="ecC2023"></td>
+        </tr>
+        <tr>
+          <td class="yr">2024</td>
+          <td class="num amocol" id="depC2024"></td>
+          <td class="num amocol">+14 553</td>
+          <td class="num amocol muted">—</td>
+          <td class="num amohead" style="border-left:none"><b id="finC2024"></b></td>
+          <td class="num off">15 026</td>
+          <td class="num off" id="ecC2024"></td>
+        </tr>
+        <tr>
+          <td class="yr">2025</td>
+          <td class="num amocol" id="depC2025"></td>
+          <td class="num amocol">+20 338</td>
+          <td class="num amocol muted">—</td>
+          <td class="num amohead" style="border-left:none"><b id="finC2025"></b></td>
+          <td class="num off">35 364</td>
+          <td class="num off" id="ecC2025"></td>
+        </tr>
+        <tr class="reprise-row"><td colspan="7">↳ REPRISE fin 2025 — on repart de l'<b>officiel</b> : amort. reporté ≈ <b>35 364 €</b></td></tr>
+        <tr class="brouillon-row"><td class="yr">2026 <span class="chip">brouillon</span></td><td class="num amocol">35 364</td><td class="num amocol">+27 068</td><td class="num amocol muted">—</td><td class="num amohead" style="border-left:none"><b>≈ 62 432</b></td><td class="num off muted">pas de liasse</td><td class="num off muted">—</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="banner banner-reprise">
+    <b>Le principe de reprise.</b> Jusqu'à fin 2025 on <b>accepte les chiffres officiels</b> (déposés). Au 1ᵉʳ janvier 2026 l'appli <b>repart de l'officiel</b> :
+    déficit <b>39 913 €</b> + amort. reporté <b>≈ 35 364 €</b> = <b>≈ 75 277 €</b> à déduire. Ensuite c'est l'appli qui calcule, et qui te permet de <b>challenger le comptable</b>.
+  </div>
+
+  <div class="banner banner-info">
+    <b>Le toggle « Imputer en priorité » — même mécanique pour toutes les années.</b> Il apparaît sur chaque année bénéficiaire (ici 2023, demain 2026+…).
+    <b>Déficit d'abord</b> = méthode prudente (le déficit expire à 10 ans, l'amort jamais). <b>Amort d'abord</b> = ce qu'a fait le comptable.
+    Le changer recalcule tout en direct — teste les deux ci-dessus. Toi, tu mettras 2023 sur « amort d'abord » pour t'aligner sur le comptable ; les années suivantes, tu choisiras le moment venu.
+  </div>
+
+  <p class="foot" style="margin-top:16px">Maquette interactive · chiffres App = live <code>/api/reconciliation</code> · Officiel = liasses 2021-2025. Le « ≈ » = base amort reconstituée (non publiée par le comptable).</p>
+
+</div>
+
+<script>
+  var D0 = 24097, A0 = 5043, P = 4062;                 // fin 2022 + bénéfice fiscal 2023
+  var PERTE24 = 5479, AMO24 = 14553, PERTE25 = 11001, AMO25 = 20338;
+  var OFF = { d:{2023:23497,2024:28976,2025:39913}, a:{2023:473,2024:15026,2025:35364} };
+
+  function fmt(n){ return Math.round(n).toLocaleString('fr-FR'); }
+  function signed(n){ n = Math.round(n); if(n===0) return '—'; return (n>0?'+':'−') + Math.abs(n).toLocaleString('fr-FR'); }
+  function ecart(app, off){
+    var e = Math.round(app - off);
+    var el = document.createElement('span');
+    var txt = (e>0?'+':(e<0?'−':'')) + Math.abs(e).toLocaleString('fr-FR');
+    return { txt: txt, cls: Math.abs(e) < 1000 ? 'off ecart-conv' : 'off ecart-bad', mag: Math.abs(e) };
+  }
+  function set(id, txt, cls){ var el = document.getElementById(id); el.innerHTML = txt; if(cls) el.className = cls; el.classList.add('flash'); setTimeout(function(){ el.classList.remove('flash'); }, 600); }
+
+  function recompute(){
+    var mode = document.getElementById('toggle2023').value;
+    var d2023, a2023;
+    if(mode === 'deficit'){ var imp = Math.min(P, D0); d2023 = D0 - imp; a2023 = A0 - Math.max(0, P - D0); }
+    else { var imp2 = Math.min(P, A0); a2023 = A0 - imp2; d2023 = D0 - Math.max(0, P - A0); }
+    var d2024 = d2023 + PERTE24, a2024 = a2023 + AMO24;
+    var d2025 = d2024 + PERTE25, a2025 = a2024 + AMO25;
+
+    // Table B (déficit)
+    set('mvB2023', signed(d2023 - D0));
+    set('finB2023', fmt(d2023)); set('depB2024', fmt(d2023)); set('finB2024', fmt(d2024));
+    set('depB2025', fmt(d2024)); set('finB2025', fmt(d2025));
+    var eb23 = ecart(d2023, OFF.d[2023]), eb24 = ecart(d2024, OFF.d[2024]), eb25 = ecart(d2025, OFF.d[2025]);
+    set('ecB2023', eb23.txt, eb23.cls); set('ecB2024', eb24.txt, eb24.cls); set('ecB2025', eb25.txt, eb25.cls);
+
+    // Table C (amort)
+    set('impC2023', signed(a2023 - A0));
+    set('finC2023', fmt(a2023)); set('depC2024', fmt(a2023)); set('finC2024', fmt(a2024));
+    set('depC2025', fmt(a2024)); set('finC2025', fmt(a2025));
+    var ec23 = ecart(a2023, OFF.a[2023]), ec24 = ecart(a2024, OFF.a[2024]), ec25 = ecart(a2025, OFF.a[2025]);
+    set('ecC2023', ec23.txt, ec23.cls); set('ecC2024', ec24.txt, ec24.cls); set('ecC2025', ec25.txt, ec25.cls);
+
+    // Pastille d'état global
+    var maxEcart = Math.max(eb25.mag, ec25.mag);
+    var pill = document.getElementById('statepill');
+    if(maxEcart < 1000){ pill.className = 'statepill state-conv'; pill.textContent = '✓ aligné sur le comptable (écarts < 700 €)'; }
+    else { pill.className = 'statepill state-div'; pill.textContent = '≠ méthode prudente — s\'écarte du comptable (~3 400 €)'; }
+  }
+  recompute();
+</script>
+</body>
+</html>

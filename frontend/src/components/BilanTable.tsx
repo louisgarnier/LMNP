@@ -9,9 +9,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { bilanAPI, BilanMapping, BilanResponse, transactionsAPI, BilanConfig, prorataAPI, ProRataSettings } from '@/api/client';
+import { bilanAPI, BilanMapping, BilanResponse, transactionsAPI, BilanConfig } from '@/api/client';
 import { useProperty } from '@/contexts/PropertyContext';
-import { computeCompteBancairePrevu, extractCategory } from '@/utils/bilanProjection';
 
 interface BilanTableProps {
   refreshKey?: number; // Pour forcer le rechargement
@@ -85,26 +84,9 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
   const [mappings, setMappings] = useState<BilanMapping[]>([]);
   const [config, setConfig] = useState<BilanConfig | null>(null);
   const [bilanData, setBilanData] = useState<Record<number, BilanResponse>>({});
-  const [prorataSettings, setProrataSettings] = useState<ProRataSettings | null>(null);
-  const [compteBancairePrevu, setCompteBancairePrevu] = useState<number | null>(null);
-  const [projectionError, setProjectionError] = useState<string | null>(null);
-
-  // Année en cours : utilisée pour savoir si une colonne doit afficher la projection
-  const currentYear = new Date().getFullYear();
-  const isProjectionActiveForYear = (year: number): boolean =>
-    year === currentYear && !!prorataSettings?.prorata_enabled && compteBancairePrevu !== null;
-
-  // Ajuste un total ACTIF de l'année en cours en remplaçant le compte bancaire réel par sa valeur projetée
-  const getProjectedActifTotal = (yearData: BilanResponse, rawTotal: number): number => {
-    const compteBancaireReel = extractCategory(yearData, 'actif', 'Compte bancaire');
-    return rawTotal - compteBancaireReel + (compteBancairePrevu as number);
-  };
-
-  // Total ACTIF de l'année, projeté si l'année en cours a une prévision active
-  const getActifTotalForYear = (yearData: BilanResponse, year: number): number => {
-    const rawTotal = yearData.actif_total || 0;
-    return isProjectionActiveForYear(year) ? getProjectedActifTotal(yearData, rawTotal) : rawTotal;
-  };
+  // Le bilan est un état ARRÊTÉ : aucune colonne projetée. Cf. ADR « Pas de
+  // projection sur le bilan » (2026-07-28).
+  const getActifTotalForYear = (yearData: BilanResponse): number => yearData.actif_total || 0;
 
   console.log('[BilanTable] propertyId:', activeProperty?.id);
 
@@ -177,7 +159,6 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     try {
       setLoading(true);
       setError(null);
-      setProjectionError(null);
 
       console.log('[BilanTable] API call: getMappings, propertyId:', activeProperty.id);
       // Charger les mappings
@@ -221,56 +202,6 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
       
       // Construire le map des données
       setBilanData(calculateResponse.results);
-
-      // Charger les données de prévision pour le compte bancaire projeté
-      try {
-        const settings = await prorataAPI.getSettings(activeProperty.id);
-        setProrataSettings(settings);
-
-        if (settings.prorata_enabled) {
-          // Récupérer le total CR prévisionnel
-          const configsResponse = await prorataAPI.getConfigs(activeProperty.id, currentYear, 'compte_resultat');
-          const totalCRPrevisionnel = configsResponse.reduce((sum: number, config: any) => {
-            return sum + (config.base_annual_amount || 0);
-          }, 0);
-
-          // Récupérer le total crédit annuel
-          const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-          const creditResponse = await fetch(
-            `${API_BASE_URL}/api/loan-payments?property_id=${activeProperty.id}`,
-            { headers: { 'Content-Type': 'application/json' } }
-          );
-          let totalCreditAnnuel = 0;
-          if (creditResponse.ok) {
-            const creditData = await creditResponse.json();
-            const items = creditData.items || [];
-            const itemsForYear = items.filter((item: any) => {
-              const itemDate = new Date(item.date);
-              return itemDate.getFullYear() === currentYear;
-            });
-            totalCreditAnnuel = itemsForYear.reduce((sum: number, item: any) => {
-              return sum + (item.capital || 0) + (item.interest || 0) + (item.insurance || 0);
-            }, 0);
-          }
-
-          // Extraire les valeurs du bilan pour le calcul
-          const compteBancaireN1 = extractCategory(calculateResponse.results[currentYear - 1], 'actif', 'Compte bancaire');
-          const ccaN1 = extractCategory(calculateResponse.results[currentYear - 1], 'passif', "Compte courant d'associé");
-          const ccaN = extractCategory(calculateResponse.results[currentYear], 'passif', "Compte courant d'associé");
-          const variationCCA = ccaN - ccaN1;
-
-          const compteBancairePrevuCalc = computeCompteBancairePrevu({
-            reelN1: compteBancaireN1,
-            totalCrPrevisionnel: totalCRPrevisionnel,
-            creditAnnuel: totalCreditAnnuel,
-            variationCca: variationCCA,
-          });
-          setCompteBancairePrevu(compteBancairePrevuCalc);
-        }
-      } catch (prevErr: any) {
-        console.error('[BilanTable] Erreur lors du calcul du compte bancaire prévu:', prevErr);
-        setProjectionError('Projection année en cours indisponible');
-      }
     } catch (err: any) {
       console.error('[BilanTable] Erreur lors du chargement des données:', err);
       setError(err.message || 'Erreur lors du chargement des données');
@@ -408,14 +339,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
         
         const typeData = yearData.types.find(t => t.type === typeItem.type);
         if (typeData) {
-          let total = typeData.total;
-
-          // Pour ACTIF de l'année en cours, ajuster avec la valeur projetée du compte bancaire
-          if (typeItem.type === 'ACTIF' && isProjectionActiveForYear(year)) {
-            total = getProjectedActifTotal(yearData, total || 0);
-          }
-
-          structure[structure.length - 1].amounts[year] = total;
+          structure[structure.length - 1].amounts[year] = typeData.total;
         }
       }
 
@@ -442,14 +366,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
             sc => sc.sub_category === subCategoryItem.sub_category
           );
           if (subCategoryData) {
-            let total = subCategoryData.total;
-
-            // Pour "Actif circulant" de l'année en cours, ajuster avec la valeur projetée du compte bancaire
-            if (subCategoryItem.sub_category === 'Actif circulant' && isProjectionActiveForYear(year)) {
-              total = getProjectedActifTotal(yearData, total || 0);
-            }
-
-            structure[structure.length - 1].amounts[year] = total;
+            structure[structure.length - 1].amounts[year] = subCategoryData.total;
           }
         }
 
@@ -520,7 +437,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
         continue;
       }
 
-      const actifTotal = getActifTotalForYear(yearData, year);
+      const actifTotal = getActifTotalForYear(yearData);
       const passifTotal = yearData.passif_total || 0;
       const difference = actifTotal - passifTotal;
 
@@ -540,7 +457,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     const yearData = bilanData[year];
     if (!yearData) return null;
 
-    const actifTotal = getActifTotalForYear(yearData, year);
+    const actifTotal = getActifTotalForYear(yearData);
     const passifTotal = yearData.passif_total || 0;
     const difference = actifTotal - passifTotal;
 
@@ -553,7 +470,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
     const yearData = bilanData[year];
     if (!yearData) return '-';
 
-    const actifTotal = getActifTotalForYear(yearData, year);
+    const actifTotal = getActifTotalForYear(yearData);
     const passifTotal = yearData.passif_total || 0;
     const difference = actifTotal - passifTotal;
     const tolerance = 0.01; // Tolérance pour les arrondis (0.01%)
@@ -577,7 +494,7 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
       return { backgroundColor: '#f9fafb', color: '#6b7280' };
     }
 
-    const actifTotal = getActifTotalForYear(yearData, year);
+    const actifTotal = getActifTotalForYear(yearData);
     const passifTotal = yearData.passif_total || 0;
     const difference = actifTotal - passifTotal;
     const tolerance = 0.01; // Tolérance pour les arrondis (0.01%)
@@ -598,18 +515,6 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
 
   return (
     <div style={{ overflowX: 'auto' }}>
-      {projectionError && (
-        <div style={{
-          padding: '10px 14px',
-          marginBottom: '12px',
-          borderRadius: '6px',
-          backgroundColor: '#fee2e2',
-          color: '#991b1b',
-          fontSize: '13px',
-        }}>
-          ⚠️ {projectionError}
-        </div>
-      )}
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
         <thead>
           <tr style={{ backgroundColor: '#f9fafb', borderBottom: '2px solid #e5e7eb' }}>
@@ -626,34 +531,17 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
             }}>
               Catégorie
             </th>
-            {years.map(year => {
-              const isCurrentYear = year === currentYear;
-              const headerStyle = isCurrentYear && prorataSettings?.prorata_enabled
-                ? {
-                    borderLeft: '2px solid #3b82f6',
-                    borderRight: '2px solid #3b82f6',
-                    borderTop: '2px solid #3b82f6',
-                    backgroundColor: '#eff6ff',
-                  }
-                : {};
-              return (
-                <th key={year} style={{ 
-                  padding: '12px', 
-                  textAlign: 'right', 
-                  fontWeight: '600', 
-                  color: '#374151',
-                  minWidth: '120px',
-                  ...headerStyle,
-                }}>
-                  {year}
-                  {isCurrentYear && prorataSettings?.prorata_enabled && (
-                    <div style={{ fontSize: '10px', color: '#3b82f6', fontWeight: '400' }}>
-                      (projeté)
-                    </div>
-                  )}
-                </th>
-              );
-            })}
+            {years.map(year => (
+              <th key={year} style={{
+                padding: '12px',
+                textAlign: 'right',
+                fontWeight: '600',
+                color: '#374151',
+                minWidth: '120px',
+              }}>
+                {year}
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody>
@@ -722,62 +610,21 @@ export default function BilanTable({ refreshKey }: BilanTableProps) {
                   {row.level === 'C' && row.categoryName}
                 </td>
                 {years.map(year => {
-                  const isCurrentYear = year === currentYear;
-                  const isCompteBancaire = row.categoryName === 'Compte bancaire';
-                  const isActifCirculant = row.subCategory === 'Actif circulant' && row.level === 'B';
-                  const isActifTotal = row.type === 'ACTIF' && row.level === 'A';
-                  const projectionActive = isProjectionActiveForYear(year);
-                  const showProjected = projectionActive && isCompteBancaire;
-                  const isModifiedByProjection = projectionActive && (isCompteBancaire || isActifCirculant || isActifTotal);
-                  
                   const amount = row.amounts[year];
-                  const displayAmount = row.categoryName && shouldDisplayNegative(row.categoryName) 
+                  const displayAmount = row.categoryName && shouldDisplayNegative(row.categoryName)
                     ? (amount !== null && amount !== undefined ? -amount : null)
                     : amount;
-                  const style = row.categoryName 
+                  const style = row.categoryName
                     ? getAmountStyle(amount, row.categoryName)
                     : { color: textColor, fontWeight: isBold ? '600' : '400' };
 
-                  // Style encadré bleu sur les côtés de la colonne de l'année en cours
-                  const columnBorderStyle = isCurrentYear && prorataSettings?.prorata_enabled
-                    ? { 
-                        borderLeft: '2px solid #3b82f6',
-                        borderRight: '2px solid #3b82f6',
-                        backgroundColor: '#eff6ff',
-                      }
-                    : {};
-
-                  // Fond rouge pour les cellules modifiées par les projections
-                  const projectedCellStyle = isModifiedByProjection
-                    ? {
-                        backgroundColor: '#fee2e2',
-                      }
-                    : {};
-
-                  // Couleur du texte selon le signe pour les cellules projetées
-                  const projectedTextColor = isModifiedByProjection && amount !== null
-                    ? (amount >= 0 ? '#059669' : '#dc2626')
-                    : undefined;
-
                   return (
-                    <td key={year} style={{ 
-                      padding: '12px', 
+                    <td key={year} style={{
+                      padding: '12px',
                       textAlign: 'right',
                       ...style,
-                      ...columnBorderStyle,
-                      ...projectedCellStyle,
                     }}>
-                      {showProjected && compteBancairePrevu !== null ? (
-                        <span style={{ color: compteBancairePrevu >= 0 ? '#059669' : '#dc2626', fontWeight: '600' }}>
-                          {formatAmount(compteBancairePrevu)}
-                        </span>
-                      ) : isModifiedByProjection ? (
-                        <span style={{ color: projectedTextColor, fontWeight: '600' }}>
-                          {formatAmount(displayAmount)}
-                        </span>
-                      ) : (
-                        formatAmount(displayAmount)
-                      )}
+                      {formatAmount(displayAmount)}
                     </td>
                   );
                 })}

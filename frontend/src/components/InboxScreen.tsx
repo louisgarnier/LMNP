@@ -77,8 +77,10 @@ export default function InboxScreen() {
     setEditingId(item.transaction_id);
     setEditState({
       categoryId: item.suggestion.category_id,
-      pattern: item.proposed_rule.pattern,
-      matchType: item.proposed_rule.match_type,
+      // Pas de règle proposée : on ouvre l'éditeur avec un motif vide. Laisser
+      // le motif vide = classer sans créer de règle (cf. handleValidate).
+      pattern: item.proposed_rule?.pattern ?? '',
+      matchType: item.proposed_rule?.match_type ?? 'prefix',
       global: false,
     });
   };
@@ -101,17 +103,26 @@ export default function InboxScreen() {
       return;
     }
 
+    // Une règle n'est créée que s'il y a un motif à enregistrer. Motif vide ou
+    // absent de règle proposée → on classe la seule transaction, sans règle :
+    // le backend accepte `rule: null` (ValidateIn.rule est optionnel). Créer une
+    // règle au motif vide matcherait TOUTES les transactions du bien.
+    const editedPattern = isEditing ? editState!.pattern.trim() : '';
     const rule = isEditing
-      ? {
-          pattern: editState!.pattern,
-          match_type: editState!.matchType,
-          property_id: editState!.global ? null : activeProperty.id,
-        }
-      : {
-          pattern: item.proposed_rule.pattern,
-          match_type: item.proposed_rule.match_type,
-          property_id: activeProperty.id,
-        };
+      ? editedPattern
+        ? {
+            pattern: editedPattern,
+            match_type: editState!.matchType,
+            property_id: editState!.global ? null : activeProperty.id,
+          }
+        : undefined
+      : item.proposed_rule
+        ? {
+            pattern: item.proposed_rule.pattern,
+            match_type: item.proposed_rule.match_type,
+            property_id: activeProperty.id,
+          }
+        : undefined;
 
     setSavingId(item.transaction_id);
     setError(null);
@@ -257,6 +268,8 @@ export default function InboxScreen() {
                       <input
                         type="text"
                         value={editState.pattern}
+                        placeholder="motif (vide = aucune règle)"
+                        title="Laisser vide pour classer cette seule opération sans créer de règle"
                         onChange={(e) => setEditState({ ...editState, pattern: e.target.value })}
                         style={{
                           padding: '6px 8px',

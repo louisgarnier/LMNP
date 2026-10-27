@@ -22,6 +22,7 @@ from sqlalchemy import func
 from backend.database.models import Transaction, Property, Category, CategoryGroup
 from backend.api.services.compte_resultat_service import calculate_compte_resultat
 from backend.api.services.fiscal_service import get_fiscal_timeline, entity_year_range
+from backend.api.services.ecarts_service import explication_cr
 
 LIASSES_DIR = (Path(__file__).resolve().parents[3]
                / "docs" / "project" / "reference" / "liasses")
@@ -159,7 +160,10 @@ def reconcile(db, directory=None, realized=True, imputation_choices=None):
             biens = liasse["biens_inclus"]
             lignes = [
                 _ligne("Produits", produits_bien, cr["produits"]),
-                _ligne("Charges externes", cext_bien, -cr["autres_charges_externes"]),
+                # Périmètre égal : l'app classe en externes ce que le cabinet range parfois
+                # en « charges exceptionnelles » (2033-B bloc VI, ex. 60 EUR en 2024).
+                _ligne("Charges externes", cext_bien,
+                       -(cr["autres_charges_externes"] + cr.get("charges_exceptionnelles", 0))),
                 _ligne("Impôts et taxes", impots_bien, -cr["impots_et_taxes"]),
                 _ligne("Amortissements", amort_bien_neg, -cr["dotations_amortissements"]),
                 _ligne("Intérêts d'emprunt", interets_bien, -cr["charges_financieres"]),
@@ -196,6 +200,10 @@ def reconcile(db, directory=None, realized=True, imputation_choices=None):
                               fisc.get("resultat_fiscal_imposable", 0.0), None),
             ]
             composition = _ligne("Immobilisations brutes", immo_bien, None)
+
+        # Chaque écart porte son explication, quand l'enquête a conclu.
+        for l in lignes:
+            l["explication"] = explication_cr(liasse, l["poste"])
 
         nb_ecarts = sum(1 for l in lignes if l["ok"] is False)
         if composition["ok"] is False:

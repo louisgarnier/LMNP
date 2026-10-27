@@ -10,10 +10,9 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+// Les onglets vivent DANS la page (?onglet=N) : la nav du haut n'a qu'une entrée.
 const fiscalNav = [
-  { name: 'Vision globale', href: '/dashboard/liasse-fiscale' },
-  { name: 'Chaîne année par année', href: '/dashboard/liasse-fiscale/chaine' },
-  { name: 'Détail par appartement', href: '/dashboard/liasse-fiscale/detail' },
+  { name: 'Position fiscale', href: '/dashboard/position-fiscale' },
 ];
 
 export default function GlobalFiscalHeader() {
@@ -25,17 +24,13 @@ export default function GlobalFiscalHeader() {
         {/* Gauche : logo -> accueil */}
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'white' }}>
           <span style={{ fontSize: '14px', fontWeight: 600 }}>LMNP</span>
-          <span style={{ fontSize: '12px', opacity: 0.8 }}>· Liasse fiscale</span>
+          <span style={{ fontSize: '12px', opacity: 0.8 }}>· Position fiscale</span>
         </Link>
 
         {/* Centre : navigation entre les vues fiscales globales */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
           {fiscalNav.map((item) => {
-            // "Vision globale" est un préfixe des deux autres routes : match exact.
-            const isActive =
-              item.href === '/dashboard/liasse-fiscale'
-                ? pathname === item.href
-                : pathname?.startsWith(item.href);
+            const isActive = pathname?.startsWith(item.href);
             return (
               <Link
                 key={item.href}

@@ -1,7 +1,87 @@
 # Écarts constatés entre les liasses fiscales déposées et la comptabilité
 
 Document de travail — base pour un courrier au cabinet comptable.
-Dernière mise à jour : 2026-07-17.
+Dernière mise à jour : **2026-07-30**.
+
+## 🔬 ENQUÊTE 2026-07-30 — les 13 écarts « à investiguer » sont tous élucidés
+
+Décomposition par les tags de transaction de l'application (chaque écart tracé
+poste par poste). Résultat : **4 mécanismes, aucune erreur du cabinet**.
+
+**M1 — Assurance emprunteur reclassée (prouvé au centime).** En 2021-2023 les
+charges financières de la liasse = intérêts SEULS (2022 : 2 451 vs intérêts
+2 451,40 ; 2023 : 2 462 vs 2 461,98). L'assurance (307,58 / 303,02) était rangée
+en charges externes. **Le cabinet a changé de méthode en 2024** : depuis,
+intérêts + assurance collent au centime. Explique les écarts intérêts
+2021/2022/2023 et l'essentiel des charges externes 2022/2023 (signe inverse).
+
+**M2 — Rattachement : engagement (cabinet) vs trésorerie (app).** Charges fin
+2021 (frais bancaires 563 + PNO 38) rattachées à 2022 par le cabinet ; loyers
+2022 : 4 762,99 encaissés (app) vs 4 875 rattachés (cabinet) = 112 € à cheval —
+décomposé au centime, les transferts de charges collant exactement (13 327,92
+vs 13 328).
+
+**M3 — Travaux du 01/12/2021, désormais prouvé au centime sur le bilan.**
+Immobilisations brutes 2021 : app 201 115,83 vs liasse 165 000 = **exactement**
+la transaction « Travaux de rénovation, gros œuvre −36 115,83 € » du 01/12/2021,
+immobilisée en 2022 par le cabinet.
+
+**M4 — Trou de transcription DE NOTRE CÔTÉ (corrigé).** L'écart charges
+externes 2024 (−60,10) : le cabinet a rangé 60 € en « charges exceptionnelles »
+(2033-B bloc VI, lisible dans la colonne N-1 de la liasse 2025), ligne que notre
+JSON ne transcrivait pas. Côté app : frais bancaires 42 + diagnostics 18 = 60.
+Corrigé : `charges_exceptionnelles` ajoutée à liasse-2024.json et la
+réconciliation compare à périmètre égal. **L'écart a disparu (−0,10 €).**
+
+Les écarts « Résultat » (2021 −900,17 ; 2022 −192,58 ; 2023 −15,41) sont des
+**composites** — sommes exactes des écarts composants, pas des écarts propres.
+
+Résidus réellement inexpliqués après enquête : ~29 € (charges 2022), ~15 €
+(2023), 7,55 € (intérêts 2021). Ordre de grandeur des arrondis/coupures de date.
+
+Bilan global : **52 écarts app/liasse sur 2021-2025, 52 expliqués** — dont
+5 seulement « erreur du cabinet » (tous sur 2025 : les 63,68 € de charges
+financières et ses conséquences, et les emprunts Marseille absents du passif).
+Les explications sont encodées dans les `liasse-*.json` (clé `ecarts_expliques`)
+et affichées dans l'onglet « Face à la liasse ».
+
+> 📮 **Le courrier consolidé est dans `MAIL-COMPTABLE-2026-07-28.md`** (non envoyé).
+> Il ne retient que 4 points sur les 8 recensés ici : les emprunts Marseille absents du
+> passif 2025, les 63,68 € de charges financières, le 2033-D déposé néant, et la demande
+> de ventilation du SUIV39C par bien. Les autres écarts sont classés « pas une erreur »
+> et ne doivent pas être envoyés.
+
+## ❗ NOUVEAU 2026-07-28 — Emprunts de Marseille absents du passif 2025
+
+Lecture du PDF `liasse_fiscale_25.pdf` (2033-A) : case 156 « Emprunts et dettes
+assimilées » = **195 000 €**, cases 173 et 175 vides, TOTAL III = 195 000 €.
+
+Capital restant dû réel au 31/12/2025, recalculé depuis les échéanciers en base
+(table `loan_payments`, 906 lignes, **montants stockés en centimes**) :
+
+| Bien | CRD 31/12/2025 | Intérêts 2025 | Taux implicite |
+|---|---:|---:|---:|
+| Evry | 194 614 € | 2 210 € | 1,14 % |
+| Marseille abnb | 106 251 € | 4 770 € | 4,49 % |
+| Marseille colloc (2 prêts) | 184 849 € | 1 423 € | démarré 09/2025 |
+| **Total** | **485 713 €** | **8 403 €** | |
+
+**Dette manquante au bilan : 290 713 €.** L'incohérence est *interne* à la liasse :
+elle déduit 8 878 € d'intérêts (case 294) dont ~6 700 € proviennent de crédits absents
+du passif. Piste : le poste « Capital social ou individuel » (case 120) bondit de 304 €
+(31/12/2023) à 342 724 € (31/12/2024) — financements peut-être passés en apports.
+
+## 📄 NOUVEAU 2026-07-28 — ce que contient VRAIMENT la liasse 2025
+
+Deux croyances du projet étaient fausses, corrigées après lecture du PDF :
+
+| | Réalité vérifiée |
+|---|---|
+| Stock d'amortissements reportés | ✅ **DÉCLARÉ** sur le formulaire **SUIV39C** (art. 39 C, II-1 et 2 CGI), p. 14 : B 15 026 / C 20 338 / D 35 363 / G 0 / **H 35 363**. Ce n'est **pas** une reconstitution des FEC — c'est un chiffre officiel et opposable. Le champ « Dénomination du bien » est **vide** → c'est là qu'est le trou du découpage par bien. |
+| Stock de déficit reportable | ❌ **ABSENT** de la liasse 2025 : formulaire 2033-D déposé **néant**, tout vide. Seul le déficit de l'année (10 937 €) figure, au 2031-SD case 7. Le cumul 39 913 € vient de l'aide au report Teledec, hors CERFA. À noter : le 2033-D **était renseigné en 2023** (case 982 = 23 497 €). |
+
+⇒ Renommer le champ `stock_amort_reporte_reconstitue` des JSON de liasse : il n'est pas
+reconstitué, il est déclaré.
 
 Entité : **Louis Garnier — SIREN 917 800 823** — loueur en meublé, régime réel
 simplifié.
@@ -120,14 +200,16 @@ Lu dans `BILAN 2023 LOUIS GARNIER.PDF` (liasse CERFA 2033, régime réel simplif
 
 → **Confirmé** : résultat fiscal imposable 2023 = 0, comme le calcule le moteur (`resultat_fiscal_imposable` = 0.0). Le moteur impute 4 061,59 € du bénéfice contre le déficit 2021 reporté ; l'écart avec le résultat comptable liasse (4 077 €, soit 15,41 € de plus) reste à expliquer mais ne remet pas en cause l'imposable nul.
 
-⚠️ **Point d'attention relevé sur la liasse elle-même** (non lié au moteur) : sur le
-2033-D, la case 983 « Déficits imputés » est vierge et la case 984 « Déficits
-reportables » reste à 23 497 € — identique à la case 982 (stock de début
-d'exercice) — alors que le bénéfice de 4 077 € a bien annulé le résultat
-imposable. Le cabinet semble ne pas avoir réduit le stock de déficit reportable
-malgré l'imputation. À signaler au cabinet, sans impact sur l'imposable 2023
-(0 confirmé), mais potentiellement sur le stock de déficit reporté aux
-exercices suivants dans leurs déclarations papier.
+⚠️ ~~**Point d'attention relevé sur la liasse elle-même**~~ — **RÉTRACTÉ le 2026-07-28.**
+Sur le 2033-D, la case 983 « Déficits imputés » est vierge et la case 984 « Déficits
+reportables » reste à 23 497 € — identique à la case 982. On en avait conclu que le
+cabinet avait oublié de réduire le stock de déficit. **C'est faux, et contredit par
+l'analyse des FEC plus bas** : le cabinet a neutralisé le bénéfice 2023 en imputant
+l'**amortissement reporté** (ligne « déductions diverses 4 077 » de la liasse), et non
+le déficit. Le stock de déficit reste donc **légitimement** à 23 497 €.
+**Ne pas envoyer ce point au cabinet comme une erreur.** Ce n'est pas une faute mais
+un choix d'ordre d'imputation — reformulé en préférence pour l'avenir dans
+`MAIL-COMPTABLE-2026-07-28.md`, point 3.
 
 ## ⚠️ Exercice 2021 (Evry seul) — écart de données appli/cabinet (~600 €)
 

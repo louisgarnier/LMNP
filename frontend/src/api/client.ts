@@ -2137,7 +2137,10 @@ export interface InboxItem {
   date: string;
   montant: number;
   suggestion: { category_id: number | null };
-  proposed_rule: { pattern: string; match_type: 'exact' | 'prefix' | 'contains' };
+  // null quand le backend refuse de proposer une règle : il préfère ne rien
+  // proposer plutôt que créer une règle jetable qui ne matchera jamais rien
+  // (garde « annuaire », backend/api/routes/inbox.py).
+  proposed_rule: { pattern: string; match_type: 'exact' | 'prefix' | 'contains' } | null;
 }
 
 export const inboxAPI = {

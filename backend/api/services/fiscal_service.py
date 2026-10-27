@@ -45,6 +45,7 @@ def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years
     deficits = []  # [ [year, remaining], ... ] millésimés, FIFO
     amorts = []    # [ [year, remaining], ... ] millésimés, FIFO
     results = {}
+    amort_deduit_cumul = 0.0  # cumul de l'amortissement ayant réellement baissé l'impôt
 
     for row in years_data:
         year = row["year"]
@@ -103,6 +104,10 @@ def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years
         deficits = [d for d in deficits if d[1] > _EPS]
         amorts = [a for a in amorts if a[1] > _EPS]
 
+        # Amortissement RÉELLEMENT déduit sur l'exercice : ce qui est passé
+        # directement (deductible) + ce qui a été puisé dans la tirelire.
+        amort_deduit_cumul += deductible + imputation_amorts
+
         results[year] = {
             "year": year,
             "resultat_comptable": row["resultat_comptable"],
@@ -117,6 +122,20 @@ def compute_fiscal_timeline(years_data, deficit_report_years, amort_report_years
             "imputation_mode": mode,
             "stock_deficit_fin": sum(d[1] for d in deficits),
             "stock_amort_fin": sum(a[1] for a in amorts),
+            # Cumul de ce qui a vraiment baissé l'impôt depuis le premier exercice.
+            # Identité garantie : amort_deduit_cumul + stock_amort_fin = total amorti.
+            "amort_deduit_cumul": amort_deduit_cumul,
+            # Millésimes encore vivants, du plus ancien au plus récent (ordre FIFO
+            # de consommation), avec leur année de péremption.
+            "deficit_millesimes": [
+                {"annee": d[0], "montant": d[1], "expire_fin": d[0] + deficit_report_years}
+                for d in sorted(deficits, key=lambda x: x[0])
+            ],
+            "amort_millesimes": [
+                {"annee": a[0], "montant": a[1],
+                 "expire_fin": (a[0] + amort_report_years) if amort_report_years is not None else None}
+                for a in sorted(amorts, key=lambda x: x[0])
+            ],
         }
 
     return results

@@ -72,7 +72,24 @@ RELEVES = [
     ("2025-07-01", 1911.25, "comptes (30).xlsx — Solde au 01/07/2025"),
     ("2025-09-02", 1956.17, "comptes (31).xlsx — Solde au 03/09/2025"),
     ("2026-07-16", 3126.88, "comptes (39).xlsx — Solde au 16/07/2026"),
-    ("2026-07-17", 2900.21, "solde bancaire live relevé par Louis le 17/07/2026"),
+    # ⚠️ RETIRÉ le 2026-07-29 — ligne ("2026-07-17", 2900.21, "solde bancaire
+    # live relevé par Louis").
+    #
+    # C'était la SEULE référence saisie à l'œil sur l'application bancaire ; les
+    # autres viennent de relevés `comptes (N).xlsx` téléchargés. Elle a figé un
+    # instantané intermédiaire : au moment de la lecture, le virement
+    # « VIR INST VIREMENT LG JUIN » (−514,06 €) du 17/07 n'était pas encore
+    # décompté côté banque, alors que l'API l'avait déjà remonté. D'où un écart
+    # permanent de −514,06 € — exactement le montant de ce virement.
+    #
+    # Ni l'appli ni la banque n'avaient tort : c'est le décalage habituel entre
+    # l'exécution d'une opération et son affichage. Mais un golden calé sur un
+    # solde lu en vol produit une fausse alerte à chaque exécution, et une
+    # fausse alerte permanente finit par masquer les vraies.
+    #
+    # RÈGLE : ne référencer ici QUE des soldes issus d'un relevé officiel
+    # téléchargé, jamais un chiffre lu à l'écran. Le contrôle du 16/07 couvre
+    # déjà la période.
 ]
 
 

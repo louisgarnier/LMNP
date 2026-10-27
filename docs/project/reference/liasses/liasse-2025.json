@@ -3,7 +3,11 @@
   "source": "liasse_fiscale_25.pdf",
   "cabinet": "TELEDEC (CERFA 2031/2033)",
   "unite": "euros entiers",
-  "biens_inclus": [25, 15, 26],
+  "biens_inclus": [
+    25,
+    15,
+    26
+  ],
   "compte_resultat": {
     "produits": 42709,
     "autres_charges_externes": 40278,
@@ -29,5 +33,55 @@
     "stock_amort_reporte_reconstitue": 35364,
     "source_stock": "aide_au_report (2025).pdf : résultat fiscal -10936,85 ; déficit report année précédente (fin 2024) -28976,11 ; cumul fin 2025 = 39912,96",
     "note": "Charges financieres sous-evaluees de 63,68 EUR (erreur cabinet, cf ECARTS). Deficit reel appli = 11001. Stock cabinet surevalue de ~3462 depuis l'anomalie 2023."
+  },
+  "ecarts_expliques": {
+    "cr": {
+      "Intérêts d'emprunt": {
+        "statut": "erreur_cabinet",
+        "cause": "Charges financières sous-évaluées de 63,68 €, portant entièrement sur Marseille colocation : 1 455 € retenus contre 1 518,68 € exacts. Vérifié sur les deux tableaux d'amortissement LCL, qui collent au centime aux sept prélèvements du compte."
+      },
+      "Résultat comptable": {
+        "statut": "erreur_cabinet",
+        "cause": "Conséquence directe des 63,68 € de charges financières omises : le résultat déposé (−31 274 €) est majoré d'autant. Le résultat exact est −31 337,68 €."
+      },
+      "Amortissements reportés (cumulé)": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre donc un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente. Converge en 2023, où l'amortissement est identique au centime."
+      },
+      "Déficit reportable (cumulé)": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre donc un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente. Converge en 2023, où l'amortissement est identique au centime."
+      },
+      "Déficit de l'exercice": {
+        "statut": "erreur_cabinet",
+        "cause": "Conséquence directe des 63,68 € de charges financières omises sur Marseille colocation : le résultat déposé est majoré d'autant, donc le déficit de l'exercice minoré d'autant. Un seul point à régulariser, pas trois."
+      }
+    },
+    "bilan": {
+      "156": {
+        "statut": "erreur_cabinet",
+        "cause": "Seul le crédit d'Evry (194 614 €) figure au passif. Les 290 713 € de crédits Marseille sont absents, alors que la liasse déduit leurs intérêts au compte de résultat — on ne peut pas déduire les intérêts d'une dette non déclarée. Capital restant dû réel au 31/12/2025 : 485 713 €."
+      },
+      "120": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet regroupe dans cette seule case les apports personnels, le report à nouveau et le résultat, que l'application détaille en trois lignes. ⚠️ Mais l'écart de capitaux propres (+286 652 € côté cabinet) compense presque exactement l'écart de dettes : environ 290 000 € de crédits semblent rangés en capitaux propres au lieu de dettes. À rapprocher de la case 156."
+      },
+      "030": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre donc un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente. Converge en 2023, où l'amortissement est identique au centime."
+      },
+      "110": {
+        "statut": "difference_presentation",
+        "cause": "L'application fait figurer les disponibilités (10 556 €) et les cautions reçues (5 959 €) que la liasse ne détaille pas. Différence de périmètre, pas de calcul : l'actif et le passif de l'application s'équilibrent au centime."
+      },
+      "180": {
+        "statut": "difference_presentation",
+        "cause": "Même cause que le total actif : différence de périmètre sur les disponibilités et les cautions reçues."
+      },
+      "136": {
+        "statut": "erreur_cabinet",
+        "cause": "Conséquence directe des 63,68 € de charges financières omises sur Marseille colocation : le résultat déposé est majoré d'autant, donc le déficit de l'exercice minoré d'autant. Un seul point à régulariser, pas trois."
+      }
+    }
   }
 }

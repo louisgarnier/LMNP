@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useProperty } from '@/contexts/PropertyContext';
-import VisionGlobaleTable from '@/components/VisionGlobaleTable';
+import PositionFiscaleCard from '@/components/PositionFiscaleCard';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -443,12 +443,12 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* ═══════════ SECTION 2 : LIASSE FISCALE / DONNÉES GLOBALES ═══════════ */}
+        {/* ═══════════ SECTION 2 : POSITION FISCALE ═══════════ */}
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
           <div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#172b4d' }}>Liasse fiscale · données globales</div>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: '#172b4d' }}>Position fiscale</div>
             <div style={{ fontSize: '12px', color: '#5e6c84', marginTop: '2px' }}>
-              Tous appartements confondus — hors du contexte d'un appartement. C'est ici que vit la fiscalité.
+              Tous appartements confondus — hors du contexte d&apos;un appartement. C&apos;est ici que vit la fiscalité.
             </div>
           </div>
           <span style={{ fontSize: '12px', color: '#0052cc', cursor: 'pointer' }}>
@@ -456,36 +456,7 @@ export default function HomePage() {
           </span>
         </div>
 
-        {/* Deux vues secondaires (détail par appartement / chaîne année par année) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '12px', marginBottom: '12px' }}>
-          {[
-            { title: 'Voir le détail par appartement →', desc: 'Compte de résultat groupé par appartement, comparé à la liasse déposée, par exercice.', href: '/dashboard/liasse-fiscale/detail' },
-            { title: 'Voir la chaîne fiscale année par année →', desc: 'Résultat comptable → résultat fiscal → déficit & amortissements reportés. App vs Officiel.', href: '/dashboard/liasse-fiscale/chaine' },
-          ].map((entry) => (
-            <Link
-              key={entry.href}
-              href={entry.href}
-              style={{
-                display: 'block',
-                backgroundColor: '#fff',
-                border: '1px solid #dfe1e6',
-                borderRadius: '8px',
-                padding: '14px 16px',
-                cursor: 'pointer',
-                textDecoration: 'none',
-                transition: 'box-shadow .12s',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 2px 8px rgba(9,30,66,.12)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
-            >
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#172b4d' }}>{entry.title}</div>
-              <div style={{ fontSize: '11px', color: '#5e6c84', marginTop: '3px', lineHeight: 1.45 }}>{entry.desc}</div>
-            </Link>
-          ))}
-        </div>
-
-        {/* Vision globale : tableau fiscal embarqué directement */}
-        <VisionGlobaleTable />
+        <PositionFiscaleCard />
       </div>
     </div>
   );

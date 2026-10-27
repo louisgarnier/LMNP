@@ -4,7 +4,10 @@
   "cabinet": "TELEDEC (CERFA 2031/2033)",
   "depose_le": "2025-05-06",
   "unite": "euros entiers",
-  "biens_inclus": [25, 15],
+  "biens_inclus": [
+    25,
+    15
+  ],
   "compte_resultat": {
     "produits": 29782,
     "autres_charges_externes": 26371,
@@ -12,7 +15,8 @@
     "dotations_amortissements": 14553,
     "charges_financieres": 6066,
     "charges_exceptionnelles": 60,
-    "resultat_comptable": -20032
+    "resultat_comptable": -20032,
+    "note_charges_exceptionnelles": "Lue dans la colonne N-1 de la liasse 2025 (2033-B, bloc VI). Le cabinet y range 60 EUR que l'application classe en charges externes (frais bancaires 42 + diagnostics 18)."
   },
   "bilan": {
     "immobilisations_brut": 358445,
@@ -29,5 +33,35 @@
     "resultat_fiscal_imposable": 0,
     "stock_amort_reporte_reconstitue": 15026,
     "source_stock": "aide_au_report (2024).pdf : résultat fiscal -5479,11 ; déficit report année précédente (fin 2023) -23497,00 ; cumul fin 2024 = 28976,11"
+  },
+  "ecarts_expliques": {
+    "cr": {
+      "Déficit reportable (cumulé)": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      },
+      "Amortissements reportés (cumulé)": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      }
+    },
+    "bilan": {
+      "030": {
+        "statut": "difference_date",
+        "cause": "L'application immobilise les travaux au 01/12/2021 (date de la transaction), le cabinet en 2022. L'amortissement démarre un an plus tôt côté application. Ni erreur de l'appli ni du cabinet — une date de mise en service différente, qui converge en 2023."
+      },
+      "110": {
+        "statut": "difference_presentation",
+        "cause": "L'application fait figurer les disponibilités et les cautions reçues que la liasse ne détaille pas. Différence de périmètre, pas de calcul : l'actif et le passif de l'application s'équilibrent au centime."
+      },
+      "120": {
+        "statut": "difference_presentation",
+        "cause": "Le cabinet regroupe dans cette seule case les apports personnels, le report à nouveau et le résultat, que l'application détaille en trois lignes. Différence de présentation — comparer les sous-totaux pour voir où l'argent est rangé."
+      },
+      "180": {
+        "statut": "difference_presentation",
+        "cause": "L'application fait figurer les disponibilités et les cautions reçues que la liasse ne détaille pas. Différence de périmètre, pas de calcul : l'actif et le passif de l'application s'équilibrent au centime."
+      }
+    }
   }
 }

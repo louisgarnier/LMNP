@@ -783,6 +783,45 @@ de la contrepartie du 11/07/2024.
 
 ---
 
+## 🧨 Inbox : `Cannot read properties of null (reading 'pattern')` (2026-07-27)
+
+**Symptôme :** sur Evry, après synchronisation bancaire, « Valider » et
+« Modifier » ne font rien — écran d'erreur Next.js
+`TypeError: Cannot read properties of null (reading 'pattern')`
+(`startEdit` / `handleValidate`, InboxScreen).
+
+**Cause racine — un contrat d'API changé d'un seul côté.** `GET /api/inbox`
+renvoie désormais `proposed_rule: null` quand il refuse de proposer une règle
+jetable (garde « annuaire », `backend/api/routes/inbox.py` : mieux vaut ne rien
+proposer que polluer la base d'une 373e règle qui ne matchera plus jamais rien).
+Le backend a été durci, mais le frontend est resté sur l'ancien contrat :
+`InboxItem.proposed_rule` était typé NON nullable dans `client.ts`, et
+`InboxScreen` déréférençait `item.proposed_rule.pattern` sans garde, dans les
+DEUX chemins (édition et validation directe). D'où le blocage total : les deux
+boutons plantaient, sur les deux transactions.
+
+**Piège de typage :** TypeScript n'a rien vu parce que le type mentait. Un type
+déclaré non-nullable sur une réponse d'API est une ASSERTION, pas une garantie —
+`tsc` valide le code contre le type, jamais le type contre le serveur. Quand un
+endpoint gagne un cas `None`, le type TS correspondant doit être élargi **dans le
+même commit**, sinon la vérification de types certifie un mensonge.
+
+**Correctif :** `proposed_rule` typé `| null` ; `startEdit` ouvre l'éditeur avec
+un motif vide ; `handleValidate` ne construit une règle que s'il y a un motif à
+enregistrer (motif vide → `rule` omise, le backend accepte : `ValidateIn.rule`
+est optionnel). **Garde importante :** ne jamais envoyer une règle au motif vide —
+en `prefix`, elle matcherait TOUTES les transactions du bien.
+
+**Régression couverte :** `frontend/__tests__/inboxScreenNoRule.test.tsx`
+(3 cas : valider sans règle, ouvrir l'éditeur sans planter, motif vide → pas de règle).
+
+**Règle de prévention :** quand un endpoint se met à renvoyer `null` sur un champ,
+grepper les usages côté front AVANT de livrer, et élargir le type dans le même
+commit. Un test front rejouant le payload réel de l'API (copié depuis `curl`)
+attrape ce cas ; un test rejouant un payload idéalisé ne l'attrape jamais.
+
+---
+
 ## 🔗 Références
 
 - [BEST_PRACTICES.md](./BEST_PRACTICES.md) - Pratiques générales du projet
@@ -793,3 +832,47 @@ de la contrepartie du 11/07/2024.
 
 **Dernière mise à jour :** 2026-07-17 (solde Marseille réconcilié avec la banque : 2 900,21 €)
 **Cas d'étude :** Quarantaine tests / contamination base de production
+
+---
+
+## 🐛 2026-07-28 — Pagination silencieuse : le crédit annuel tombait à 0
+
+**Symptôme.** Projection du bilan fausse : « Crédit annuel = 0 » pour les trois
+biens, alors que les échéanciers sont complets en base.
+
+**Cause.** `BilanTable.tsx` appelait `/api/loan-payments?property_id=X` **sans
+filtre de date**, puis filtrait l'année côté client. Or l'API pagine à **100
+lignes par défaut**, triées par **date décroissante**. Sur un échéancier courant
+jusqu'en 2041 (234 lignes pour Evry, 492 pour la colloc), la page 1 couvre
+2033→2041 : l'année en cours n'y figure jamais. Le filtre client ne trouvait rien.
+
+Vérifié en réel contre le backend :
+
+| Bien | Ancien appel | Nouvel appel | Lignes reçues |
+|---|---:|---:|---|
+| Evry | 0 € | 14 068 € | 100/234 → 12 |
+| Marseille abnb | 0 € | 10 749 € | 100/180 → 12 |
+| Marseille colloc | 0 € | 8 372 € | 100/492 → 24 |
+
+**Correctif.** `fetchCreditAnnuel()` dans `src/utils/bilanProjection.ts` : la plage
+de dates est demandée **au serveur** (`start_date`/`end_date`) avec `limit=1000`.
+
+**Pourquoi le test existant n'a rien vu.** `bilanProjection.test.ts` teste
+`computeCompteBancairePrevu()` avec ses quatre entrées **tapées à la main**. Il
+teste l'addition, jamais le câblage. Même piège que les loyers Matera.
+
+### 🛡️ Règles de prévention
+
+1. **Ne jamais filtrer côté client ce qu'une API sait filtrer.** Si l'endpoint
+   expose `start_date`/`end_date`/`limit`, les utiliser. Rapatrier « tout » puis
+   filtrer est faux dès que la collection dépasse la page par défaut.
+2. **Une réponse paginée n'est pas un jeu complet.** Devant `data.items`,
+   toujours comparer `items.length` à `data.total`. S'ils diffèrent, on regarde
+   une fenêtre, pas la donnée.
+3. **Un test dont les entrées sont tapées à la main ne teste pas le câblage.**
+   Pour couvrir un appel réseau, simuler le serveur avec son tri ET sa
+   pagination — voir `__tests__/creditAnnuel.test.ts`, où une implémentation
+   naïve retombe mécaniquement à 0.
+4. **Attention au tri par défaut `desc` sur des données futures.** Les
+   échéanciers vont jusqu'en 2046 : le « début » de la liste, c'est la fin du
+   crédit.
